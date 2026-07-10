@@ -11,6 +11,7 @@ import { hospitalRepository } from '../lib/database/repositories/hospitals';
 import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
+import { notifyCaseAssignment } from '../lib/email';
 import { sbActivityRepo, sbNotificationRepo } from '../lib/database/repositories/supabaseRepositories';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -337,6 +338,10 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+
+    if (targetEmp) {
+      void notifyCaseAssignment(caseId, targetEmp.id);
+    }
   },
 
   updateCase: async (id, updates) => {
@@ -539,6 +544,8 @@ export const useStore = create<AppState>((set, get) => ({
       employees: updatedEmployees,
       activityLog: [activity, ...s.activityLog],
     }));
+
+    void notifyCaseAssignment(caseId, employee.id);
   },
 
   submitStage: async (caseId, notes) => {

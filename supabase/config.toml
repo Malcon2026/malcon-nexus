@@ -1,0 +1,4 @@
+# Supabase local/dev config — see https://supabase.com/docs/guides/cli/config
+
+[functions.send-assignment-email]
+verify_jwt = true
