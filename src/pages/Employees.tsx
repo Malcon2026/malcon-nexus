@@ -98,7 +98,7 @@ export const Employees: React.FC = () => {
   const maxCompleted = Math.max(1, ...employees.map(e => e.casesCompleted));
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -138,7 +138,7 @@ export const Employees: React.FC = () => {
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="relative flex-1 min-w-48">
+        <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[12rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"

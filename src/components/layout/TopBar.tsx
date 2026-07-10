@@ -106,7 +106,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.97 }}
                 transition={{ duration: 0.15 }}
-                className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-full sm:mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
               >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <div className="flex items-center gap-2">
@@ -171,7 +171,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                className="fixed sm:absolute right-2 sm:right-0 top-14 sm:top-full sm:mt-2 w-[calc(100vw-1rem)] sm:w-56 max-w-xs bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden py-1"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden py-1"
               >
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-xs font-semibold text-gray-900">{currentUser.name}</p>

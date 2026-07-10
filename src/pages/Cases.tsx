@@ -237,7 +237,7 @@ export const Cases: React.FC = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
       <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
 
       {/* Header */}
@@ -255,7 +255,7 @@ export const Cases: React.FC = () => {
       {/* Filters Bar */}
       <Card className="mb-4">
         <div className="p-4 flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-48">
+          <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[12rem]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"

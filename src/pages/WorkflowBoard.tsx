@@ -28,7 +28,7 @@ export const WorkflowBoard: React.FC = () => {
     cases.filter(c => c.currentStage === stage);
 
   return (
-    <div className="p-4 sm:p-6 h-full flex flex-col max-w-[1800px] mx-auto">
+    <div className="p-4 sm:p-6 h-full flex flex-col max-w-[1800px] mx-auto w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div>
@@ -43,7 +43,7 @@ export const WorkflowBoard: React.FC = () => {
       </div>
 
       {/* Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+      <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-w-full">
         {KANBAN_STAGES.map((stage) => {
           const stageCases = getCasesForStage(stage);
           const sc = stageColors[stage];

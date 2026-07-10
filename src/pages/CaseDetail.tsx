@@ -382,7 +382,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       {approvalModal && (
         <ApprovalModal
           isOpen={true}
@@ -458,8 +458,8 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
       </div>
 
       {/* Progress Bar */}
-      <div className="mb-6 overflow-x-auto pb-1 -mx-1 px-1">
-        <div className="flex items-center gap-0 min-w-[480px] sm:min-w-0">
+      <div className="mb-6 max-w-full overflow-x-auto pb-1">
+        <div className="flex items-center gap-0 w-max min-w-full sm:w-full sm:min-w-0">
           {WORKFLOW_STAGES.map((stage, idx) => {
             const completed = idx < currentStageIdx;
             const current = idx === currentStageIdx;

@@ -87,7 +87,7 @@ export const Reports: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto">
+    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
@@ -220,7 +220,7 @@ export const Reports: React.FC = () => {
 
       {activeTab === 'billing' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: 'Total Pipeline', value: totalRevenue, color: 'text-gray-900' },
               { label: 'Collected', value: collectedRevenue, color: 'text-emerald-600' },

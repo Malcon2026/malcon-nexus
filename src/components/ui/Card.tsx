@@ -27,13 +27,13 @@ export const CardHeader: React.FC<{ children: React.ReactNode; className?: strin
   children,
   className,
 }) => (
-  <div className={cn('px-6 py-4 border-b border-gray-100', className)}>{children}</div>
+  <div className={cn('px-4 sm:px-6 py-4 border-b border-gray-100', className)}>{children}</div>
 );
 
 export const CardBody: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,
   className,
-}) => <div className={cn('px-6 py-4', className)}>{children}</div>;
+}) => <div className={cn('px-4 sm:px-6 py-4 min-w-0', className)}>{children}</div>;
 
 export const CardFooter: React.FC<{ children: React.ReactNode; className?: string }> = ({
   children,

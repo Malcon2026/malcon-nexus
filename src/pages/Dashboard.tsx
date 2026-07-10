@@ -111,13 +111,13 @@ export const Dashboard: React.FC = () => {
   const totalRevenue = cases.filter(c => c.invoiceAmount).reduce((sum, c) => sum + (c.invoiceAmount || 0), 0);
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+            {new Date().toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
           </p>
         </div>
         <Button
@@ -125,6 +125,7 @@ export const Dashboard: React.FC = () => {
           size="sm"
           icon={<FolderOpen className="h-4 w-4" />}
           onClick={() => setActiveTab('cases')}
+          className="w-full sm:w-auto"
         >
           View All Cases
         </Button>
@@ -148,7 +149,7 @@ export const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
         {/* Monthly Cases Chart */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -233,7 +234,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Department Performance & Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
         {/* Department Performance Chart */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -306,7 +307,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
         {/* Recent Activity */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}

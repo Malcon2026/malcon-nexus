@@ -170,13 +170,13 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-[100dvh] w-full max-w-full min-w-0 bg-gray-50 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col bg-gray-50 overflow-hidden">
         <TopBar onLogout={handleLogout} />
 
-        <main className="flex-1 bg-gray-50 overflow-y-auto">
+        <main className="flex-1 min-w-0 bg-gray-50 overflow-y-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeTab}-${viewMode}`}
@@ -185,7 +185,7 @@ function App() {
               animate="animate"
               exit="exit"
               transition={pageTransition}
-              className="min-h-full w-full bg-gray-50"
+              className="min-h-full w-full min-w-0 max-w-full overflow-x-hidden bg-gray-50"
             >
               {renderPage()}
             </motion.div>

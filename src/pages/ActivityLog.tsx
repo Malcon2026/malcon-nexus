@@ -61,7 +61,7 @@ export const ActivityLog: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-[1200px] mx-auto">
+    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Activity Log</h1>
@@ -71,7 +71,7 @@ export const ActivityLog: React.FC = () => {
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="relative flex-1 min-w-48">
+        <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[12rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
