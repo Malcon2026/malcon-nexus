@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Search, ChevronDown, User, Shield, Eye, Menu, LogOut } from 'lucide-react';
+import { Bell, Search, ChevronDown, User, Menu, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -12,11 +12,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     markNotificationRead,
     markAllNotificationsRead,
     currentUser,
-    setCurrentUser,
-    viewMode,
-    setViewMode,
     activeTab,
-    employees,
     setMobileSidebarOpen,
   } = useStore();
   const [showNotifs, setShowNotifs] = useState(false);
@@ -83,49 +79,10 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         />
       </div>
 
-      {/* View Mode Toggle — admins only (preview employee experience) */}
-      {isAdmin && (
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 shrink-0">
-          <button
-            onClick={() => {
-              setViewMode('admin');
-              const admin = employees.find(e => e.role === 'admin');
-              if (admin) setCurrentUser(admin);
-            }}
-            className={cn(
-              'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-              viewMode === 'admin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            )}
-          >
-            <Shield className="h-3 w-3 shrink-0" />
-            <span className="hidden sm:inline">Admin</span>
-          </button>
-          <button
-            onClick={() => {
-              const emp = employees.find(e => e.role === 'employee');
-              if (!emp) {
-                alert('No employees found. Please add at least one employee first.');
-                return;
-              }
-              setViewMode('employee');
-              setCurrentUser(emp);
-            }}
-            className={cn(
-              'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-              viewMode === 'employee' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            )}
-          >
-            <Eye className="h-3 w-3 shrink-0" />
-            <span className="hidden sm:inline">Employee</span>
-          </button>
-        </div>
-      )}
-
-      {!isAdmin && (
-        <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600 shrink-0 capitalize">
-          {currentUser.department}
-        </span>
-      )}
+      {/* Role badge */}
+      <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600 shrink-0 capitalize">
+        {isAdmin ? 'Admin' : currentUser.department}
+      </span>
 
       {/* Notifications */}
       <div className="relative shrink-0">
@@ -221,26 +178,6 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                   <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
                 </div>
                 <div className="py-1">
-                  {isAdmin && (
-                    <>
-                      <p className="px-4 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">Switch User</p>
-                      {employees.filter(e => e.role === 'employee').slice(0, 5).map(emp => (
-                        <button
-                          key={emp.id}
-                          onClick={() => { setCurrentUser(emp); setViewMode('employee'); setShowUserMenu(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
-                        >
-                          <Avatar name={emp.name} size="xs" />
-                          <div className="text-left min-w-0">
-                            <p className="text-xs font-medium text-gray-800 truncate">{emp.name}</p>
-                            <p className="text-[10px] text-gray-500">{emp.department}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
-                <div className="border-t border-gray-100 py-1">
                   <button className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-xs text-gray-600">
                     <User className="h-3.5 w-3.5" />
                     Profile Settings

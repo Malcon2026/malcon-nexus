@@ -40,7 +40,6 @@ interface AppState {
 
   // Actions
   setCurrentUser: (user: Employee) => void;
-  setViewMode: (mode: 'admin' | 'employee') => void;
   setSelectedCase: (id: string | null) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
@@ -208,9 +207,9 @@ const ADMIN_ONLY_TABS = ['approvals', 'employees', 'hospitals', 'reports', 'acti
 
 const applyUserSession = (
   user: Employee,
-  current: { viewMode: 'admin' | 'employee'; activeTab: string },
+  current: { activeTab: string },
 ): { currentUser: Employee; viewMode: 'admin' | 'employee'; activeTab: string } => {
-  const viewMode = user.role === 'admin' ? current.viewMode : 'employee';
+  const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   const activeTab =
     user.role !== 'admin' && ADMIN_ONLY_TABS.includes(current.activeTab)
       ? 'dashboard'
@@ -236,11 +235,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCurrentUser: (user) => {
     const state = get();
-    set(applyUserSession(user, { viewMode: state.viewMode, activeTab: state.activeTab }));
-  },
-  setViewMode: (mode) => {
-    if (mode === 'admin' && get().currentUser.role !== 'admin') return;
-    set({ viewMode: mode });
+    set(applyUserSession(user, { activeTab: state.activeTab }));
   },
   setSelectedCase: (id) => set({ selectedCaseId: id }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
@@ -1020,7 +1015,7 @@ export const useStore = create<AppState>((set, get) => ({
       employees.find(e => e.id === state.currentUser.id) ??
       employees.find(e => state.currentUser.email && e.email === state.currentUser.email);
     const session = matched
-      ? applyUserSession(matched, { viewMode: state.viewMode, activeTab: state.activeTab })
+      ? applyUserSession(matched, { activeTab: state.activeTab })
       : { currentUser: state.currentUser, viewMode: state.viewMode, activeTab: state.activeTab };
 
     set({

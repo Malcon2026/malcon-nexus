@@ -47,7 +47,6 @@ export const Sidebar: React.FC = () => {
     setSidebarCollapsed,
     mobileSidebarOpen,
     setMobileSidebarOpen,
-    viewMode,
     cases,
     currentUser,
   } = useStore();
@@ -103,7 +102,7 @@ export const Sidebar: React.FC = () => {
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
         {navItems
-          .filter(item => !item.adminOnly || (viewMode === 'admin' && currentUser.role === 'admin'))
+          .filter(item => !item.adminOnly || currentUser.role === 'admin')
           .map((item) => {
             const badge = getBadge(item.id);
             const isActive = activeTab === item.id;
