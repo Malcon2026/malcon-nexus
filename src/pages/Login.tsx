@@ -2,23 +2,21 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Lock, Mail, AlertCircle, Loader2,
-  Package, ArrowRight, Shield, Activity,
+  ArrowRight, CheckCircle2,
 } from 'lucide-react';
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
-import { malconLogo } from '../assets/malconLogo';
+import brandImage from '../assets/malcon-nexus-brand.png';
+import logoIcon from '../assets/malcon-nexus-icon.png';
 
 interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
 }
 
-const STAGES = [
-  'Kit Prep',
-  'Surgery',
-  'Cleaning',
-  'Audit',
-  'Billing',
-  'Collection',
+const HIGHLIGHTS = [
+  'Sign in and see your cases right away',
+  'Update status in a few taps — no training needed',
+  'Everyone stays on the same page, every day',
 ];
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
@@ -49,107 +47,81 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen flex bg-white">
-      {/* ── Left brand panel ── */}
-      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative bg-gray-950 flex-col justify-between p-12 overflow-hidden">
-        {/* Grid texture */}
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div className="absolute top-0 right-0 w-[480px] h-[480px] bg-indigo-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[360px] h-[360px] bg-emerald-600/10 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
+      {/* ── Left panel ── */}
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative bg-gray-50 flex-col justify-center p-12 xl:p-16 overflow-hidden border-r border-gray-100">
+        <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-gray-200/40 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4" />
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="relative z-10"
+          className="relative z-10 w-full max-w-lg text-left"
         >
-          <div className="flex items-center gap-3">
-            <img src={malconLogo} alt="Malcon Life Sciences" className="h-12 w-12 rounded-xl object-contain bg-white p-1" />
-            <div>
-              <p className="text-white font-bold text-lg leading-none">Malcon Nexus</p>
-              <p className="text-gray-400 text-xs mt-0.5">by Malcon Life Sciences</p>
-            </div>
-          </div>
-        </motion.div>
+          <img
+            src={brandImage}
+            alt="Malcon Nexus by Malcon Life Sciences"
+            className="w-full max-w-[300px] object-contain"
+          />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="relative z-10 max-w-lg"
-        >
-          <h2 className="text-4xl xl:text-5xl font-bold text-white leading-[1.15] tracking-tight">
-            Implant workflow,
-            <span className="text-gray-500"> from kit to collection.</span>
+          <h2 className="text-3xl xl:text-4xl font-bold text-gray-900 leading-tight tracking-tight mt-10">
+            Simple to use.
+            <span className="text-gray-400"> Easy for everyone.</span>
           </h2>
-          <p className="text-gray-400 text-base mt-5 leading-relaxed">
-            Track surgical cases across departments, manage approvals, and keep every implant case on schedule.
+          <p className="text-gray-500 text-base mt-4 leading-relaxed">
+            Malcon Nexus helps your team track implant cases without complicated steps.
+            Log in, pick up your work, and move cases forward — that&apos;s it.
           </p>
 
-          {/* Mini workflow strip */}
-          <div className="mt-10 flex items-center gap-1">
-            {STAGES.map((stage, i) => (
-              <React.Fragment key={stage}>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3 + i * 0.06 }}
-                  className="flex flex-col items-center gap-1.5"
-                >
-                  <div className={`h-2 w-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-gray-700'}`} />
-                  <span className="text-[10px] text-gray-600 whitespace-nowrap hidden xl:block">{stage}</span>
-                </motion.div>
-                {i < STAGES.length - 1 && (
-                  <div className="flex-1 h-px bg-gray-800 min-w-[12px]" />
-                )}
-              </React.Fragment>
+          <ul className="mt-10 space-y-4 text-left">
+            {HIGHLIGHTS.map((item, i) => (
+              <motion.li
+                key={item}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 + i * 0.08 }}
+                className="flex items-start gap-3"
+              >
+                <CheckCircle2 className="h-5 w-5 text-gray-900 shrink-0 mt-0.5" />
+                <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
+              </motion.li>
             ))}
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="relative z-10 flex items-center gap-6"
-        >
-          <div className="flex items-center gap-2 text-gray-500 text-xs">
-            <Shield className="h-3.5 w-3.5" />
-            <span>Role-based access</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-500 text-xs">
-            <Activity className="h-3.5 w-3.5" />
-            <span>Real-time case tracking</span>
-          </div>
+          </ul>
         </motion.div>
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16 bg-white">
         <motion.div
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
           className="w-full max-w-[420px]"
         >
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <img src={malconLogo} alt="Malcon Life Sciences" className="h-9 w-9 rounded-lg object-contain bg-white p-0.5" />
-            <div>
-              <p className="text-gray-900 font-bold text-sm leading-none">Malcon Nexus</p>
-              <p className="text-gray-400 text-[10px] mt-0.5">by Malcon Life Sciences</p>
-            </div>
+          {/* Mobile brand */}
+          <div className="lg:hidden flex flex-col items-center mb-10">
+            <img
+              src={logoIcon}
+              alt="Malcon Nexus"
+              className="h-14 w-14 object-contain"
+            />
+            <p className="text-gray-900 font-bold text-sm mt-3">Malcon Nexus</p>
+            <p className="text-gray-400 text-xs mt-0.5">by Malcon Life Sciences</p>
           </div>
 
-          <div className="mb-8">
+          {/* Desktop logo icon */}
+          <div className="hidden lg:flex justify-center mb-8">
+            <img
+              src={logoIcon}
+              alt="Malcon Nexus"
+              className="h-16 w-16 object-contain"
+            />
+          </div>
+
+          <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
-            <p className="text-gray-500 text-sm mt-1.5">Sign in to your workspace to continue.</p>
+            <p className="text-gray-500 text-sm mt-1.5">
+              Enter your details below to open your workspace.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -173,11 +145,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-              </div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -233,8 +203,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </form>
 
           <p className="text-center text-xs text-gray-400 mt-8">
-            Need access?{' '}
-            <span className="text-gray-600 font-medium">Contact your administrator.</span>
+            New to the app?{' '}
+            <span className="text-gray-600 font-medium">Ask your admin for login details.</span>
           </p>
         </motion.div>
       </div>

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
-import { malconLogo } from '../../assets/malconLogo';
+import logoIcon from '../../assets/malcon-nexus-icon.png';
 
 interface NavItem {
   id: string;
@@ -76,7 +76,7 @@ export const Sidebar: React.FC = () => {
         !showLabels ? 'justify-center' : 'gap-3 justify-between lg:justify-start'
       )}>
         <div className="flex items-center gap-2.5">
-          <img src={malconLogo} alt="Malcon Life Sciences" className="h-8 w-8 rounded-lg shrink-0 object-contain bg-white p-0.5" />
+          <img src={logoIcon} alt="Malcon Nexus" className="h-8 w-8 shrink-0 object-contain" />
           <AnimatePresence>
             {showLabels && (
               <motion.div
