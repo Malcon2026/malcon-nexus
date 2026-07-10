@@ -5,10 +5,38 @@
 import { supabase } from './supabase';
 import { sbEmployeeRepo } from './database/repositories/supabaseRepositories';
 import type { Employee } from '../types';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export interface AuthResult {
   employee: Employee | null;
   error: string | null;
+}
+
+async function employeeFromSession(session: Session | null): Promise<Employee | null> {
+  if (!session?.user) return null;
+
+  const authUserId = session.user.id;
+  const { data: byAuth } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+
+  if (byAuth) {
+    return sbEmployeeRepo.getById(byAuth.id);
+  }
+
+  const email = session.user.email;
+  if (!email) return null;
+
+  const employee = await sbEmployeeRepo.getByEmail(email);
+  if (!employee) return null;
+
+  await sbEmployeeRepo.linkAuthUser(employee.id, authUserId).catch(() => {
+    // Non-fatal if already linked
+  });
+
+  return employee;
 }
 
 export const authService = {
@@ -46,19 +74,19 @@ export const authService = {
   /** Get the currently logged-in employee (on page refresh) */
   async getCurrentEmployee(): Promise<Employee | null> {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.email) return null;
-    return sbEmployeeRepo.getByEmail(session.user.email);
+    return employeeFromSession(session);
   },
 
   /** Subscribe to auth state changes */
-  onAuthStateChange(callback: (employee: Employee | null) => void) {
-    return supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session?.user?.email) {
-        callback(null);
+  onAuthStateChange(callback: (event: AuthChangeEvent, employee: Employee | null) => void) {
+    return supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        callback(event, null);
         return;
       }
-      const employee = await sbEmployeeRepo.getByEmail(session.user.email);
-      callback(employee);
+
+      const employee = await employeeFromSession(session);
+      callback(event, employee);
     });
   },
 

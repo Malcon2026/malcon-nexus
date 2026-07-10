@@ -47,35 +47,68 @@ function App() {
     if (!SUPABASE_ENABLED) return;
 
     let unsubscribe: (() => void) | undefined;
+    let initialSessionHandled = false;
+
+    async function applySession(employee: Employee | null) {
+      if (employee) {
+        setCurrentUser(employee);
+        setIsAuthenticated(true);
+        return;
+      }
+      setIsAuthenticated(false);
+    }
 
     async function boot() {
       try {
         const { bootstrapSupabaseData } = await import('./lib/database/bootstrap');
         const { authService } = await import('./lib/auth');
 
-        await bootstrapSupabaseData();
-        reloadFromDatabase();
+        const finishBoot = () => {
+          initialSessionHandled = true;
+          setAuthChecked(true);
+          setBootReady(true);
+        };
 
-        const employee = await authService.getCurrentEmployee();
-        if (employee) {
-          setCurrentUser(employee);
-          setIsAuthenticated(true);
-        }
+        const { data: { subscription } } = authService.onAuthStateChange(async (event, employee) => {
+          if (event === 'INITIAL_SESSION') {
+            if (employee) {
+              await bootstrapSupabaseData();
+              reloadFromDatabase();
+            }
+            await applySession(employee);
+            finishBoot();
+            return;
+          }
 
-        const { data: { subscription } } = authService.onAuthStateChange(async (emp) => {
-          if (emp) {
-            await bootstrapSupabaseData();
-            reloadFromDatabase();
-            setCurrentUser(emp);
-            setIsAuthenticated(true);
-          } else {
+          if (event === 'SIGNED_OUT') {
             setIsAuthenticated(false);
+            return;
+          }
+
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            if (employee) {
+              await bootstrapSupabaseData();
+              reloadFromDatabase();
+              await applySession(employee);
+            }
           }
         });
+
         unsubscribe = () => subscription.unsubscribe();
+
+        // Fallback if INITIAL_SESSION was missed (shouldn't happen on current Supabase SDK)
+        window.setTimeout(async () => {
+          if (initialSessionHandled) return;
+          const employee = await authService.getCurrentEmployee();
+          if (employee) {
+            await bootstrapSupabaseData();
+            reloadFromDatabase();
+          }
+          await applySession(employee);
+          finishBoot();
+        }, 250);
       } catch (err) {
         console.error('[App] Supabase bootstrap failed:', err);
-      } finally {
         setAuthChecked(true);
         setBootReady(true);
       }
