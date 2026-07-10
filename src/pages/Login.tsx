@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Lock, Mail, AlertCircle, Loader2,
-  ArrowRight, CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
@@ -12,12 +12,6 @@ import logoIcon from '../assets/malcon-nexus-icon.png';
 interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
 }
-
-const HIGHLIGHTS = [
-  'Sign in and see your cases right away',
-  'Update status in a few taps — no training needed',
-  'Everyone stays on the same page, every day',
-];
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
@@ -64,28 +58,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           />
 
           <h2 className="text-3xl xl:text-4xl font-bold text-gray-900 leading-tight tracking-tight mt-10">
-            Simple to use.
-            <span className="text-gray-400"> Easy for everyone.</span>
+            Simple. Reliable. Secure.
           </h2>
           <p className="text-gray-500 text-base mt-4 leading-relaxed">
-            Malcon Nexus helps your team track implant cases without complicated steps.
-            Log in, pick up your work, and move cases forward — that&apos;s it.
+            Everything you need, nothing you don&apos;t.
           </p>
-
-          <ul className="mt-10 space-y-4 text-left">
-            {HIGHLIGHTS.map((item, i) => (
-              <motion.li
-                key={item}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 + i * 0.08 }}
-                className="flex items-start gap-3"
-              >
-                <CheckCircle2 className="h-5 w-5 text-gray-900 shrink-0 mt-0.5" />
-                <span className="text-sm text-gray-600 leading-relaxed">{item}</span>
-              </motion.li>
-            ))}
-          </ul>
         </motion.div>
       </div>
 
@@ -120,7 +97,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
             <p className="text-gray-500 text-sm mt-1.5">
-              Enter your details below to open your workspace.
+              Sign in to continue to Malcon Nexus.
             </p>
           </div>
 
