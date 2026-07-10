@@ -129,7 +129,11 @@ function App() {
   }
 
   if (SUPABASE_ENABLED && !isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <div className="w-full min-w-0 overflow-x-hidden">
+        <Login onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
   }
 
   return (

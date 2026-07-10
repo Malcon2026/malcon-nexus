@@ -39,9 +39,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col lg:flex-row bg-white">
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] relative bg-gray-50 flex-col justify-center p-12 xl:p-16 overflow-hidden border-r border-gray-100">
+      <div className="hidden lg:flex lg:w-[52%] xl:w-[55%] lg:min-w-0 relative bg-gray-50 flex-col justify-center p-12 xl:p-16 overflow-hidden border-r border-gray-100">
         <div className="absolute top-0 right-0 w-[420px] h-[420px] bg-gray-200/40 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4" />
 
         <motion.div
@@ -66,12 +66,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 lg:p-16 bg-white">
+      <div className="flex-1 min-w-0 w-full flex items-center justify-center px-4 py-6 sm:px-6 sm:py-10 lg:p-16 bg-white overflow-x-hidden">
         <motion.div
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-[420px]"
+          className="w-full min-w-0 max-w-[420px]"
         >
           {/* Mobile brand */}
           <div className="lg:hidden flex flex-col items-center mb-10">
@@ -100,12 +100,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
+          <form onSubmit={handleSubmit} className="space-y-5 w-full min-w-0">
+            <div className="min-w-0">
               <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Email
               </label>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   id="login-email"
@@ -115,16 +115,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   placeholder="you@company.com"
                   autoComplete="email"
                   required
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all shadow-sm"
+                  className="w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all shadow-sm"
                 />
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
               </label>
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   id="login-password"
@@ -134,7 +134,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   placeholder="Enter your password"
                   autoComplete="current-password"
                   required
-                  className="w-full pl-10 pr-11 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all shadow-sm"
+                  className="w-full min-w-0 max-w-full pl-10 pr-11 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all shadow-sm"
                 />
                 <button
                   type="button"
@@ -178,7 +178,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-8">
+          <p className="text-center text-xs text-gray-400 mt-8 px-1 break-words">
             New to the app?{' '}
             <span className="text-gray-600 font-medium">Ask your admin for login details.</span>
           </p>
