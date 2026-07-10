@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
-import brandImage from '../assets/malcon-nexus-brand.png';
-import logoIcon from '../assets/malcon-nexus-icon.png';
+import loginLogo from '../assets/login-logo.png';
 
 interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
@@ -52,7 +51,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           className="relative z-10 w-full max-w-lg text-left"
         >
           <img
-            src={brandImage}
+            src={loginLogo}
             alt="Malcon Nexus by Malcon Life Sciences"
             className="w-full max-w-[300px] object-contain"
           />
@@ -77,7 +76,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           {/* Mobile brand */}
           <div className="lg:hidden flex flex-col items-center mb-10">
             <img
-              src={logoIcon}
+              src={loginLogo}
               alt="Malcon Nexus"
               className="h-14 w-14 object-contain"
             />
@@ -88,7 +87,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           {/* Desktop logo icon */}
           <div className="hidden lg:flex justify-center mb-8">
             <img
-              src={logoIcon}
+              src={loginLogo}
               alt="Malcon Nexus"
               className="h-16 w-16 object-contain"
             />
