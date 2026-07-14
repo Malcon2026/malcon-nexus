@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS employees (
   email        TEXT NOT NULL UNIQUE,
   department   TEXT NOT NULL CHECK (department IN (
     'Stores', 'Scrub Person', 'Cleaning Department',
-    'Stores Audit', 'Accounts', 'Collection Executive', 'Admin'
+    'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
   )),
   role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
   status       TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS departments (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name        TEXT NOT NULL UNIQUE CHECK (name IN (
     'Stores', 'Scrub Person', 'Cleaning Department',
-    'Stores Audit', 'Accounts', 'Collection Executive', 'Admin'
+    'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
   )),
   description TEXT NOT NULL DEFAULT '',
   color       TEXT NOT NULL DEFAULT 'bg-gray-100 text-gray-800'
@@ -119,11 +119,11 @@ CREATE TABLE IF NOT EXISTS cases (
     'Rejected','Changes Requested','Completed','Cancelled'
   )),
   current_stage       TEXT NOT NULL DEFAULT 'Kit Preparation' CHECK (current_stage IN (
-    'Kit Preparation','Surgery','Cleaning','Audit','Billing','Collection','Completed'
+    'Kit Preparation','Surgery','Cleaning','Audit','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
     'Stores','Scrub Person','Cleaning Department','Stores Audit',
-    'Accounts','Collection Executive','Admin'
+    'Accounts','Bill Submission','Admin'
   )),
   assigned_employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
   assigned_employee_snapshot JSONB DEFAULT NULL,
@@ -238,7 +238,7 @@ INSERT INTO departments (id, name, description, color) VALUES
   ('11111111-0001-0001-0001-000000000003', 'Cleaning Department',  'Sterilization and cleaning of surgical kits.',      'bg-cyan-100 text-cyan-800'),
   ('11111111-0001-0001-0001-000000000004', 'Stores Audit',         'Audit of items, materials, and kit completeness.', 'bg-amber-100 text-amber-800'),
   ('11111111-0001-0001-0001-000000000005', 'Accounts',             'Billing and invoicing for surgical procedures.',    'bg-emerald-100 text-emerald-800'),
-  ('11111111-0001-0001-0001-000000000006', 'Collection Executive', 'Collection of invoice amounts from hospitals.',     'bg-orange-100 text-orange-800')
+  ('11111111-0001-0001-0001-000000000006', 'Bill Submission', 'Bill submission to hospitals.',     'bg-orange-100 text-orange-800')
 ON CONFLICT (name) DO NOTHING;
 
 

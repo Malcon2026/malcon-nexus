@@ -16,7 +16,7 @@ export type WorkflowStage =
   | 'Cleaning'
   | 'Audit'
   | 'Billing'
-  | 'Collection'
+  | 'Bill Submission'
   | 'Completed';
 
 export type Department =
@@ -25,7 +25,7 @@ export type Department =
   | 'Cleaning Department'
   | 'Stores Audit'
   | 'Accounts'
-  | 'Collection Executive'
+  | 'Bill Submission'
   | 'Admin';
 
 export interface Employee {

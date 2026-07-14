@@ -19,7 +19,7 @@ const root = resolve(__dirname, '..');
 
 const VALID_DEPARTMENTS = new Set([
   'Stores', 'Scrub Person', 'Cleaning Department',
-  'Stores Audit', 'Accounts', 'Collection Executive', 'Admin',
+  'Stores Audit', 'Accounts', 'Bill Submission', 'Admin',
 ]);
 
 const DEPARTMENT_ALIASES = {
@@ -28,7 +28,9 @@ const DEPARTMENT_ALIASES = {
   cleaning: 'Cleaning Department',
   audit: 'Stores Audit',
   accounts: 'Accounts',
-  collection: 'Collection Executive',
+  collection: 'Bill Submission',
+  'collection executive': 'Bill Submission',
+  'bill submission': 'Bill Submission',
   admin: 'Admin',
   stores: 'Stores',
 };

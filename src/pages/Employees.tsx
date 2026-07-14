@@ -12,7 +12,7 @@ import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 
 const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Collection Executive'
+  'All', 'Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'
 ];
 
 const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';

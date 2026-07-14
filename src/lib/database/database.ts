@@ -71,7 +71,7 @@ export const initDB = () => {
     { id: 'dept-3', name: 'Cleaning Department', description: 'Sterilization and cleaning of surgical kits.', color: 'bg-cyan-100 text-cyan-800' },
     { id: 'dept-4', name: 'Stores Audit', description: 'Audit of items, materials, and kit completeness.', color: 'bg-amber-100 text-amber-800' },
     { id: 'dept-5', name: 'Accounts', description: 'Billing and invoicing for surgical procedures.', color: 'bg-emerald-100 text-emerald-800' },
-    { id: 'dept-6', name: 'Collection Executive', description: 'Collection of invoice amounts from hospitals.', color: 'bg-orange-100 text-orange-800' },
+    { id: 'dept-6', name: 'Bill Submission', description: 'Bill submission to hospitals.', color: 'bg-orange-100 text-orange-800' },
   ];
   storage.setItem<DepartmentInfo[]>('departments', initialDepts);
 

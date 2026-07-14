@@ -31,7 +31,7 @@ export const stageColors: Record<WorkflowStage, { bg: string; text: string; bord
   'Cleaning': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
   'Audit': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' },
   'Billing': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-  'Collection': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
+  'Bill Submission': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
   'Completed': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: 'bg-green-500' },
 };
 
@@ -41,7 +41,7 @@ export const departmentColors: Record<Department, string> = {
   'Cleaning Department': 'bg-cyan-100 text-cyan-800',
   'Stores Audit': 'bg-amber-100 text-amber-800',
   Accounts: 'bg-emerald-100 text-emerald-800',
-  'Collection Executive': 'bg-orange-100 text-orange-800',
+  'Bill Submission': 'bg-orange-100 text-orange-800',
   Admin: 'bg-gray-100 text-gray-800',
 };
 
@@ -105,7 +105,7 @@ export const timeAgo = (dateStr: string) => {
 
 export const getStageIndex = (stage: WorkflowStage): number => {
   const stages: WorkflowStage[] = [
-    'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed'
+    'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
   ];
   return stages.indexOf(stage);
 };

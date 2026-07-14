@@ -66,7 +66,7 @@ export const Reports: React.FC = () => {
     { name: 'Cleaning', value: cases.filter(c => c.currentStage === 'Cleaning').length },
     { name: 'Audit', value: cases.filter(c => c.currentStage === 'Audit').length },
     { name: 'Billing', value: cases.filter(c => c.currentStage === 'Billing').length },
-    { name: 'Collection', value: cases.filter(c => c.currentStage === 'Collection').length },
+    { name: 'Bill Submission', value: cases.filter(c => c.currentStage === 'Bill Submission').length },
     { name: 'Completed', value: cases.filter(c => c.currentStage === 'Completed').length },
   ];
 

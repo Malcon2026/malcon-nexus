@@ -97,7 +97,7 @@ export const Dashboard: React.FC = () => {
   const surgeryCases = cases.filter(c => c.currentStage === 'Surgery');
   const cleaningQueue = cases.filter(c => c.currentStage === 'Cleaning');
   const billingPending = cases.filter(c => c.currentStage === 'Billing');
-  const collectionPending = cases.filter(c => c.currentStage === 'Collection');
+  const billSubmissionPending = cases.filter(c => c.currentStage === 'Bill Submission');
   const completedCases = cases.filter(c => c.status === 'Completed');
   const todayAssignments = cases.filter(c => c.currentDepartment !== null && c.status === 'Active');
 
@@ -143,7 +143,7 @@ export const Dashboard: React.FC = () => {
         <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" subtitle="Active surgeries" />
         <KPICard label="Cleaning Queue" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" subtitle="Pending sterilize" />
         <KPICard label="Billing Pending" value={billingPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" subtitle="Invoice generation" />
-        <KPICard label="Collections" value={collectionPending.length} icon={<Wallet className="h-4 w-4 text-orange-600" />} iconBg="bg-orange-50" subtitle="Pending collection" />
+        <KPICard label="Bill Submission" value={billSubmissionPending.length} icon={<Wallet className="h-4 w-4 text-orange-600" />} iconBg="bg-orange-50" subtitle="Pending bill submission" />
         <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" subtitle={`${employees.filter(e => e.role === 'employee').length} employees`} />
         <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle="Active assignments" />
       </motion.div>
@@ -285,8 +285,8 @@ export const Dashboard: React.FC = () => {
               <div className="text-xs text-gray-500">Total pipeline value</div>
               {[
                 { label: 'Collected', value: cases.filter(c => c.paymentStatus === 'Collected').reduce((s, c) => s + (c.collectedAmount || c.invoiceAmount || 0), 0), color: 'bg-emerald-500' },
-                { label: 'Pending Billing', value: cases.filter(c => c.currentStage === 'Billing' || c.currentStage === 'Collection').reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-amber-500' },
-                { label: 'In Progress', value: cases.filter(c => !['Billing','Collection','Completed'].includes(c.currentStage)).reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-gray-200' },
+                { label: 'Pending Billing', value: cases.filter(c => c.currentStage === 'Billing' || c.currentStage === 'Bill Submission').reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-amber-500' },
+                { label: 'In Progress', value: cases.filter(c => !['Billing','Bill Submission','Completed'].includes(c.currentStage)).reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-gray-200' },
               ].map((item) => (
                 <div key={item.label}>
                   <div className="flex items-center justify-between mb-1">

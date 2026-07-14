@@ -15,7 +15,7 @@ import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed'
+  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const getNextStage = (current: WorkflowStage): WorkflowStage | null => {
@@ -29,7 +29,7 @@ const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
   'Cleaning': 'Cleaning Department',
   'Audit': 'Stores Audit',
   'Billing': 'Accounts',
-  'Collection': 'Collection Executive',
+  'Bill Submission': 'Bill Submission',
   'Completed': 'Admin',
 };
 

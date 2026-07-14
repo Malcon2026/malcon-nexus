@@ -6,7 +6,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Cleaning',
   'Audit',
   'Billing',
-  'Collection',
+  'Bill Submission',
   'Completed',
 ];
 
@@ -16,7 +16,7 @@ export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Cleaning': 'Cleaning Department',
   'Audit': 'Stores Audit',
   'Billing': 'Accounts',
-  'Collection': 'Collection Executive',
+  'Bill Submission': 'Bill Submission',
   'Completed': null,
 };
 

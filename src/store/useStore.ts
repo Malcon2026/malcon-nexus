@@ -18,7 +18,7 @@ import { sbActivityRepo, sbNotificationRepo } from '../lib/database/repositories
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed',
+  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed',
 ];
 
 interface AppState {
@@ -117,7 +117,7 @@ const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
     'Cleaning': 'Cleaning Department',
     'Audit': 'Stores Audit',
     'Billing': 'Accounts',
-    'Collection': 'Collection Executive',
+    'Bill Submission': 'Bill Submission',
     'Completed': null,
   };
   return map[stage];
@@ -272,7 +272,7 @@ export const useStore = create<AppState>((set, get) => ({
       'Cleaning Department': 'Cleaning',
       'Stores Audit': 'Audit',
       'Accounts': 'Billing',
-      'Collection Executive': 'Collection',
+      'Bill Submission': 'Bill Submission',
       'Admin': 'Completed',
     };
 
@@ -1074,7 +1074,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   getDepartmentPerformance: () => {
     const cases = get().cases;
-    const departments: Department[] = ['Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Collection Executive'];
+    const departments: Department[] = ['Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
 
     return departments.map(dept => {
       let casesHandled = 0;
@@ -1109,7 +1109,6 @@ export const useStore = create<AppState>((set, get) => ({
 
       let displayDept = dept as string;
       if (displayDept === 'Cleaning Department') displayDept = 'Cleaning';
-      if (displayDept === 'Collection Executive') displayDept = 'Collection';
 
       return {
         department: displayDept,
@@ -1122,14 +1121,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   getStageDistribution: () => {
     const cases = get().cases;
-    const stages: WorkflowStage[] = ['Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed'];
+    const stages: WorkflowStage[] = ['Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'];
     const colors: Record<WorkflowStage, string> = {
       'Kit Preparation': '#6366f1',
       'Surgery': '#8b5cf6',
       'Cleaning': '#06b6d4',
       'Audit': '#f59e0b',
       'Billing': '#10b981',
-      'Collection': '#f97316',
+      'Bill Submission': '#f97316',
       'Completed': '#22c55e',
     };
 

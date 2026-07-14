@@ -23,7 +23,7 @@ const VALID_DEPARTMENTS = new Set([
   'Cleaning Department',
   'Stores Audit',
   'Accounts',
-  'Collection Executive',
+  'Bill Submission',
   'Admin',
 ]);
 

@@ -7,7 +7,7 @@ const VALID_DEPARTMENTS = new Set<Department>([
   'Cleaning Department',
   'Stores Audit',
   'Accounts',
-  'Collection Executive',
+  'Bill Submission',
   'Admin',
 ]);
 
@@ -19,8 +19,9 @@ const DEPARTMENT_ALIASES: Record<string, Department> = {
   audit: 'Stores Audit',
   'stores audit': 'Stores Audit',
   accounts: 'Accounts',
-  collection: 'Collection Executive',
-  'collection executive': 'Collection Executive',
+  collection: 'Bill Submission',
+  'collection executive': 'Bill Submission',
+  'bill submission': 'Bill Submission',
   admin: 'Admin',
   stores: 'Stores',
 };
