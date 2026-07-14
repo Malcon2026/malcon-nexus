@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "db:health": "node scripts/db-health-check.mjs"
+    "db:health": "node scripts/db-health-check.mjs",
+    "photos:sync": "node scripts/windows-photo-sync.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
