@@ -11,6 +11,11 @@
  *   VITE_SUPABASE_URL=https://your-project.supabase.co
  *   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
  *   PHOTOS_ROOT=D:\MalconNexus\Photos
+ *
+ * Optional limits (reduce Supabase + server load):
+ *   PHOTOS_SYNC_MAX_DOWNLOADS_PER_RUN=20   # new photos per run (default 20)
+ *   PHOTOS_SYNC_MAX_CASES=100              # cases fetched per query (default 100)
+ *   PHOTOS_SYNC_LOOKBACK_DAYS=90           # ignore older cases (default 90)
  */
 
 import {
@@ -100,6 +105,24 @@ async function downloadToFile(url, destPath) {
   await pipeline(Readable.fromWeb(body), createWriteStream(destPath));
 }
 
+function parsePositiveInt(value, fallback) {
+  const n = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function resolveCasesSince(syncLog) {
+  const lookbackDays = parsePositiveInt(process.env.PHOTOS_SYNC_LOOKBACK_DAYS, 90);
+  const lookbackFloor = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+
+  if (syncLog.lastRunAt) {
+    const overlapMs = 15 * 60 * 1000;
+    const incrementalSince = new Date(new Date(syncLog.lastRunAt).getTime() - overlapMs);
+    return incrementalSince > lookbackFloor ? incrementalSince : lookbackFloor;
+  }
+
+  return lookbackFloor;
+}
+
 const envFile = loadEnv();
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -126,6 +149,9 @@ if (existsSync(syncLogPath)) {
   }
 }
 const synced = new Set(syncLog.syncedDocumentIds || []);
+const maxDownloadsPerRun = parsePositiveInt(process.env.PHOTOS_SYNC_MAX_DOWNLOADS_PER_RUN, 20);
+const maxCases = parsePositiveInt(process.env.PHOTOS_SYNC_MAX_CASES, 100);
+const casesSince = resolveCasesSince(syncLog);
 
 const sb = createClient(url, key, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -134,12 +160,16 @@ const sb = createClient(url, key, {
 console.log('=== Malcon Nexus Photo Sync ===');
 console.log(`Env file: ${envFile || '(environment variables)'}`);
 console.log(`Photos root: ${photosRoot}`);
-console.log(`Already synced: ${synced.size} photo(s)\n`);
+console.log(`Already synced: ${synced.size} photo(s)`);
+console.log(`Limits: ${maxDownloadsPerRun} download(s)/run, ${maxCases} case(s)/query`);
+console.log(`Cases updated since: ${casesSince.toISOString()}\n`);
 
 const { data: cases, error } = await sb
   .from('cases')
   .select('id, case_number, assigned_employee_snapshot, stages')
-  .order('updated_at', { ascending: false });
+  .gte('updated_at', casesSince.toISOString())
+  .order('updated_at', { ascending: false })
+  .limit(maxCases);
 
 if (error) {
   console.error('Failed to load cases:', error.message);
@@ -149,8 +179,10 @@ if (error) {
 let downloaded = 0;
 let skipped = 0;
 let failed = 0;
+let downloadCapReached = false;
 
 for (const caseRow of cases ?? []) {
+  if (downloadCapReached) break;
   const stages = Array.isArray(caseRow.stages) ? caseRow.stages : [];
   const caseNumber = sanitizeFilePart(caseRow.case_number || caseRow.id);
 
@@ -159,10 +191,15 @@ for (const caseRow of cases ?? []) {
     const documents = Array.isArray(stageRecord?.documents) ? stageRecord.documents : [];
 
     for (const doc of documents) {
+      if (downloadCapReached) break;
       if (!isImageDocument(doc)) continue;
       if (synced.has(doc.id)) {
         skipped += 1;
         continue;
+      }
+      if (downloaded >= maxDownloadsPerRun) {
+        downloadCapReached = true;
+        break;
       }
 
       const employeeName = sanitizeFolderName(
@@ -202,5 +239,8 @@ console.log('\nDone.');
 console.log(`Downloaded: ${downloaded}`);
 console.log(`Skipped (already synced): ${skipped}`);
 console.log(`Failed: ${failed}`);
+if (downloadCapReached) {
+  console.log(`Download cap reached (${maxDownloadsPerRun}/run). Remaining photos will sync on the next run.`);
+}
 
 if (failed > 0) process.exit(1);
