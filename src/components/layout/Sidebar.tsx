@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Archive,
   Building2,
   X,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'cases', label: 'Cases', icon: <FolderOpen className="h-4 w-4" /> },
+  { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },

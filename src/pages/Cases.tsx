@@ -19,7 +19,7 @@ type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = ['Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed'];
-const STATUSES: CaseStatus[] = ['Active', 'Waiting For Approval', 'Approved', 'Completed', 'Rejected'];
+const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { createCase, hospitals, employees } = useStore();

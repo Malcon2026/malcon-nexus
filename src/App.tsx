@@ -9,6 +9,7 @@ import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
+import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
@@ -151,6 +152,7 @@ function App() {
       case 'employees':  return <Employees />;
       case 'hospitals':  return <Hospitals />;
       case 'reports':    return <Reports />;
+      case 'case-history': return <CaseHistory />;
       case 'activity':   return <ActivityLog />;
       case 'settings':   return <Settings />;
       default:           return <Dashboard />;
