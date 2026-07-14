@@ -9,6 +9,7 @@ import {
   sbActivityRepo,
   sbDepartmentRepo,
   sbKitRepo,
+  sbAttendanceRepo,
 } from './repositories/supabaseRepositories';
 
 /** Load all collections from Supabase into the in-memory cache (Supabase mode only). */
@@ -25,6 +26,7 @@ export async function bootstrapSupabaseData(): Promise<void> {
     sbKitRepo.getAll(),
     sbActivityRepo.getAll(),
     sbApprovalRepo.getAll(),
+    sbAttendanceRepo.getAll(),
   ]);
 
   const [
@@ -37,9 +39,10 @@ export async function bootstrapSupabaseData(): Promise<void> {
     kits,
     activityLog,
     approvals,
+    attendanceRecords,
   ] = results.map((r, i) => {
     if (r.status === 'rejected') {
-      const keys = ['employees', 'hospitals', 'doctors', 'cases', 'notifications', 'departments', 'kits', 'activityLog', 'approvals'];
+      const keys = ['employees', 'hospitals', 'doctors', 'cases', 'notifications', 'departments', 'kits', 'activityLog', 'approvals', 'attendanceRecords'];
       console.warn(`[bootstrap] Failed to load ${keys[i]}:`, r.reason);
       return [];
     }
@@ -55,4 +58,5 @@ export async function bootstrapSupabaseData(): Promise<void> {
   supabaseStorage.seedCache('kits', kits);
   supabaseStorage.seedCache('activityLog', activityLog);
   supabaseStorage.seedCache('approvals', approvals);
+  supabaseStorage.seedCache('attendanceRecords', attendanceRecords);
 }

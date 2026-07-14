@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   ImplantCase, Employee, Notification, WorkflowStage, Department,
-  Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent
+  Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -14,7 +14,9 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
-import { sbActivityRepo, sbNotificationRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo } from '../lib/database/repositories/supabaseRepositories';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance } from '../lib/attendance';
+import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -36,6 +38,7 @@ interface AppState {
   departments: DepartmentInfo[];
   kits: SurgicalKit[];
   activityLog: ActivityEvent[];
+  attendanceRecords: AttendanceRecord[];
 
   // UI State
   sidebarCollapsed: boolean;
@@ -89,6 +92,10 @@ interface AppState {
   // Notification Actions
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
+
+  // Attendance
+  punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
+  getMyTodayAttendance: () => ReturnType<typeof summarizeTodayAttendance>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -182,6 +189,17 @@ const persistNotification = async (notif: Notification): Promise<void> => {
   Database.saveAll('notifications', [notif, ...list]);
 };
 
+const persistAttendance = async (record: AttendanceRecord): Promise<void> => {
+  if (USE_SUPABASE) {
+    await sbAttendanceRepo.insert(record).catch((err) => console.error('[attendance] persist failed:', err));
+    const list = Database.getAll<AttendanceRecord>('attendanceRecords');
+    setCache('attendanceRecords', [record, ...list]);
+    return;
+  }
+  const list = Database.getAll<AttendanceRecord>('attendanceRecords');
+  Database.saveAll('attendanceRecords', [record, ...list]);
+};
+
 const updateCaseApproval = async (
   caseId: string,
   stage: WorkflowStage,
@@ -201,6 +219,7 @@ const initialDoctors = Database.getAll<Doctor>('doctors');
 const initialDepartments = Database.getAll<DepartmentInfo>('departments');
 const initialKits = Database.getAll<SurgicalKit>('kits');
 const initialActivity = Database.getAll<ActivityEvent>('activityLog');
+const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords');
 
 const placeholderAdmin: Employee = {
   id: 'guest',
@@ -244,6 +263,7 @@ export const useStore = create<AppState>((set, get) => ({
   departments: initialDepartments,
   kits: initialKits,
   activityLog: initialActivity,
+  attendanceRecords: initialAttendance,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
@@ -1036,6 +1056,70 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
+  // ========== ATTENDANCE ==========
+
+  getMyTodayAttendance: () => {
+    const { attendanceRecords, currentUser } = get();
+    return summarizeTodayAttendance(attendanceRecords, currentUser.id);
+  },
+
+  punchAttendance: async (punchType, position) => {
+    const { currentUser, attendanceRecords } = get();
+    const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+
+    if (punchType === 'in' && summary.isPunchedIn) {
+      return { error: 'You are already punched in. Punch out first.' };
+    }
+    if (punchType === 'out' && !summary.isPunchedIn) {
+      return { error: 'You are not punched in yet. Punch in first.' };
+    }
+
+    const geofence = checkOfficeGeofence(position.latitude, position.longitude);
+    if (!geofence.withinOffice) {
+      return {
+        error: `You must be at the office (${OFFICE_LOCATION.address}) to punch. You are ${geofence.distanceM}m away (max ${OFFICE_LOCATION.radiusM}m).`,
+      };
+    }
+
+    const punchedAt = new Date().toISOString();
+    const record: AttendanceRecord = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      punchType,
+      punchedAt,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyM: position.accuracyM,
+      distanceM: geofence.distanceM,
+      withinOffice: geofence.withinOffice,
+      officeAddress: OFFICE_LOCATION.address,
+    };
+
+    await persistAttendance(record);
+
+    const label = punchType === 'in' ? 'Punch In' : 'Punch Out';
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: label,
+      entityType: 'attendance',
+      entityId: record.id,
+      entityLabel: currentUser.name,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: punchedAt,
+      details: `${label} at ${OFFICE_LOCATION.address} (${geofence.distanceM}m from office)`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      attendanceRecords: [record, ...s.attendanceRecords],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
   // ========== DYNAMIC METRICS ==========
 
   getMonthlyData: () => {
@@ -1152,6 +1236,7 @@ export const useStore = create<AppState>((set, get) => ({
       cases: [],
       notifications: [],
       activityLog: [],
+      attendanceRecords: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -1176,6 +1261,7 @@ export const useStore = create<AppState>((set, get) => ({
       departments: Database.getAll<DepartmentInfo>('departments'),
       kits: Database.getAll<SurgicalKit>('kits'),
       activityLog: Database.getAll<ActivityEvent>('activityLog'),
+      attendanceRecords: Database.getAll<AttendanceRecord>('attendanceRecords'),
       ...session,
     });
   },

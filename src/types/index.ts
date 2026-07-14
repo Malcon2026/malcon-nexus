@@ -185,7 +185,7 @@ export interface DepartmentInfo {
   color: string;
 }
 
-export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system';
+export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance';
 
 export interface ActivityEvent {
   id: string;
@@ -197,5 +197,21 @@ export interface ActivityEvent {
   performedByRole: 'admin' | 'employee';
   timestamp: string;
   details: string;
+}
+
+export type PunchType = 'in' | 'out';
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  punchType: PunchType;
+  punchedAt: string;
+  latitude: number;
+  longitude: number;
+  accuracyM: number;
+  distanceM: number;
+  withinOffice: boolean;
+  officeAddress: string;
 }
 

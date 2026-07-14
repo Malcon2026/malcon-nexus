@@ -61,6 +61,7 @@ const TABLE_MAP: Record<string, string> = {
   notifications: 'notifications',
   approvals:   'approvals',
   activityLog: 'activity_log',
+  attendanceRecords: 'attendance_records',
 };
 
 // ──────────────────────────────────────────────────────────────

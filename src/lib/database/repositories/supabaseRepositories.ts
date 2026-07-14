@@ -7,7 +7,7 @@
 import { supabase } from '../../supabase';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
-  Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent
+  Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord
 } from '../../../types';
 
 // ─── HELPERS ─────────────────────────────────────────────────
@@ -462,6 +462,49 @@ export const sbActivityRepo = {
       performed_by: e.performedBy,
       performed_by_role: e.performedByRole,
       details: e.details,
+    });
+    if (error) throw error;
+  },
+};
+
+
+// ─── ATTENDANCE ──────────────────────────────────────────────
+
+export const sbAttendanceRepo = {
+  async getAll(): Promise<AttendanceRecord[]> {
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .order('punched_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      punchType: row.punch_type as AttendanceRecord['punchType'],
+      punchedAt: row.punched_at,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      accuracyM: row.accuracy_m,
+      distanceM: row.distance_m,
+      withinOffice: row.within_office,
+      officeAddress: row.office_address,
+    }));
+  },
+
+  async insert(record: AttendanceRecord): Promise<void> {
+    const { error } = await supabase.from('attendance_records').insert({
+      id: record.id,
+      employee_id: record.employeeId,
+      employee_name: record.employeeName,
+      punch_type: record.punchType,
+      punched_at: record.punchedAt,
+      latitude: record.latitude,
+      longitude: record.longitude,
+      accuracy_m: record.accuracyM,
+      distance_m: record.distanceM,
+      within_office: record.withinOffice,
+      office_address: record.officeAddress,
     });
     if (error) throw error;
   },

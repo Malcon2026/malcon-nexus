@@ -3,6 +3,12 @@
 
 BEGIN;
 
+-- Drop check constraints first (old ones only allow "Collection Executive" / "Collection")
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_department_check;
+ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_name_check;
+ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_current_stage_check;
+ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_current_department_check;
+
 -- Update existing rows
 UPDATE employees SET department = 'Bill Submission' WHERE department = 'Collection Executive';
 UPDATE departments SET name = 'Bill Submission', description = 'Bill submission to hospitals.' WHERE name = 'Collection Executive';
@@ -32,28 +38,21 @@ SET stages = (
 )
 WHERE stages::text LIKE '%Collection%';
 
--- employees.department constraint
-ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_department_check;
+-- Re-add constraints with new names
 ALTER TABLE employees ADD CONSTRAINT employees_department_check CHECK (department IN (
   'Stores', 'Scrub Person', 'Cleaning Department',
   'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
 ));
 
--- departments.name constraint
-ALTER TABLE departments DROP CONSTRAINT IF EXISTS departments_name_check;
 ALTER TABLE departments ADD CONSTRAINT departments_name_check CHECK (name IN (
   'Stores', 'Scrub Person', 'Cleaning Department',
   'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
 ));
 
--- cases.current_stage constraint
-ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_current_stage_check;
 ALTER TABLE cases ADD CONSTRAINT cases_current_stage_check CHECK (current_stage IN (
   'Kit Preparation','Surgery','Cleaning','Audit','Billing','Bill Submission','Completed'
 ));
 
--- cases.current_department constraint
-ALTER TABLE cases DROP CONSTRAINT IF EXISTS cases_current_department_check;
 ALTER TABLE cases ADD CONSTRAINT cases_current_department_check CHECK (current_department IN (
   'Stores','Scrub Person','Cleaning Department','Stores Audit',
   'Accounts','Bill Submission','Admin'

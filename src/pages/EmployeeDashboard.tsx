@@ -12,6 +12,7 @@ import type { ImplantCase } from '../types';
 import { priorityColors, stageColors, formatDate, timeAgo } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
+import { AttendanceSection } from '../components/AttendanceSection';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -48,6 +49,8 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <AttendanceSection />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">

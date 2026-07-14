@@ -1,6 +1,6 @@
 import { storage } from './storage';
 import { employees as seedEmployees, hospitals as seedHospitals, doctors as seedDoctors } from './seed';
-import type { Employee, Hospital, Doctor, ImplantCase, Notification, SurgicalKit, Approval, DepartmentInfo, ActivityEvent } from '../../types';
+import type { Employee, Hospital, Doctor, ImplantCase, Notification, SurgicalKit, Approval, DepartmentInfo, ActivityEvent, AttendanceRecord } from '../../types';
 
 const DB_VERSION_KEY = 'db_initialized_v5';
 
@@ -81,6 +81,9 @@ export const initDB = () => {
   // 9. Activity Log — start empty
   storage.setItem<ActivityEvent[]>('activityLog', []);
 
+  // 10. Attendance — start empty
+  storage.setItem<AttendanceRecord[]>('attendanceRecords', []);
+
   markDbInitialized();
 };
 
@@ -101,6 +104,7 @@ export const Database = {
     storage.removeItem('notifications');
     storage.removeItem('approvals');
     storage.removeItem('activityLog');
+    storage.removeItem('attendanceRecords');
 
     // Reset employee counters
     const employees = storage.getItem<Employee[]>('employees') || [];
@@ -116,5 +120,6 @@ export const Database = {
     storage.setItem('notifications', []);
     storage.setItem('approvals', []);
     storage.setItem('activityLog', []);
+    storage.setItem('attendanceRecords', []);
   },
 };
