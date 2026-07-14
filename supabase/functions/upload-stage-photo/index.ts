@@ -50,7 +50,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'caseId, stage, and photo are required' }, 400);
     }
 
-    if (!file.type.startsWith('image/')) {
+    const fileName = file.name || 'stage-photo.jpg';
+    const isImage =
+      file.type.startsWith('image/') ||
+      /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(fileName);
+
+    if (!isImage) {
       return jsonResponse({ error: 'Photo must be an image' }, 400);
     }
 

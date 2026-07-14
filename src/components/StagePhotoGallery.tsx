@@ -11,7 +11,7 @@ interface StagePhotoGalleryProps {
 
 export const StagePhotoGallery: React.FC<StagePhotoGalleryProps> = ({
   documents,
-  title = 'Submission Photo',
+  title = 'Submission Photos',
   compact = false,
 }) => {
   const photos = documents.filter(isImageDocument);

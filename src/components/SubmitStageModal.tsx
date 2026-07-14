@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
-import { StagePhotoCapture } from './StagePhotoCapture';
+import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, WorkflowStage } from '../types';
 
@@ -29,34 +29,31 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 }) => {
   const { submitStage } = useStore();
   const [notes, setNotes] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const title = STAGE_ACTIONS[c.currentStage] || 'Submit Work';
-  const canSubmit = notes.trim().length > 0 && photo && !submitting;
+  const canSubmit = notes.trim().length > 0 && photos.length > 0 && !submitting;
+
+  const resetForm = () => {
+    photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    setNotes('');
+    setPhotos([]);
+    setUploadProgress(null);
+    setError(null);
+  };
 
   const handleClose = () => {
     if (submitting) return;
-    setNotes('');
-    setPhoto(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
-    setError(null);
+    resetForm();
     onClose();
   };
 
-  const handlePhotoChange = (file: File | null, url: string | null) => {
-    if (previewUrl && previewUrl !== url) URL.revokeObjectURL(previewUrl);
-    setPhoto(file);
-    setPreviewUrl(url);
-    setError(null);
-  };
-
   const handleSubmit = async () => {
-    if (!photo) {
-      setError('Please take a photo before submitting.');
+    if (photos.length === 0) {
+      setError('Please add at least one photo before submitting.');
       return;
     }
     if (!notes.trim()) {
@@ -66,23 +63,45 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
     setSubmitting(true);
     setError(null);
-    const result = await submitStage(c.id, notes.trim(), photo);
-    setSubmitting(false);
+    setUploadProgress({ done: 0, total: photos.length });
 
-    if (result.error) {
-      setError(result.error);
-      return;
+    try {
+      const result = await submitStage(
+        c.id,
+        notes.trim(),
+        photos.map((p) => p.file),
+        (done, total) => setUploadProgress({ done, total }),
+      );
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      resetForm();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit. Please try again.');
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(null);
     }
-
-    handleClose();
   };
+
+  const submitLabel = (() => {
+    if (!submitting) return 'Submit to Admin';
+    if (uploadProgress && uploadProgress.total > 0 && uploadProgress.done < uploadProgress.total) {
+      return `Uploading photo ${uploadProgress.done}/${uploadProgress.total}…`;
+    }
+    return 'Saving submission…';
+  })();
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title={title}
-      subtitle="Photo + notes required — admin will review before the next stage"
+      subtitle="Photos + notes required — admin will review before the next stage"
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -96,7 +115,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             disabled={!canSubmit}
             icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           >
-            {submitting ? 'Uploading…' : 'Submit to Admin'}
+            {submitLabel}
           </Button>
         </div>
       }
@@ -118,9 +137,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         </div>
 
         <StagePhotoCapture
-          photo={photo}
-          previewUrl={previewUrl}
-          onPhotoChange={handlePhotoChange}
+          photos={photos}
+          onPhotosChange={(next) => {
+            setPhotos(next);
+            setError(null);
+          }}
           disabled={submitting}
         />
 
@@ -141,7 +162,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         )}
 
         <p className="text-xs text-gray-400">
-          Your photo and notes will be visible to the admin in the Approval Queue.
+          Your photos and notes will be visible to the admin in the Approval Queue.
         </p>
       </div>
     </Modal>
