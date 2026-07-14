@@ -10,6 +10,8 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { SubmitStageModal } from '../components/SubmitStageModal';
+import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import {
@@ -188,43 +190,12 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
 interface SubmitModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseId: string;
-  stage: WorkflowStage;
+  implantCase: ImplantCase;
 }
 
-const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, caseId, stage }) => {
-  const { submitStage } = useStore();
-  const [notes, setNotes] = useState('');
-
-  const handleSubmit = () => {
-    submitStage(caseId, notes);
-    setNotes('');
-    onClose();
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={STAGE_ACTIONS[stage]} subtitle="Submit your work to admin for review" size="md"
-      footer={
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleSubmit} icon={<Send className="h-4 w-4" />}>Submit to Admin</Button>
-        </div>
-      }
-    >
-      <div className="p-6">
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Completion Notes *</label>
-        <textarea
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
-          rows={4}
-          placeholder="Describe what was completed, any issues found, items used, etc..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-        />
-        <p className="text-xs text-gray-400 mt-2">Your submission will be reviewed by the Admin before proceeding to the next stage.</p>
-      </div>
-    </Modal>
-  );
-};
+const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, implantCase }) => (
+  <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={implantCase} />
+);
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -400,7 +371,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
         />
       )}
       {showSubmit && (
-        <SubmitModal isOpen={showSubmit} onClose={() => setShowSubmit(false)} caseId={c.id} stage={c.currentStage} />
+        <SubmitModal isOpen={showSubmit} onClose={() => setShowSubmit(false)} implantCase={c} />
       )}
       {showEdit && (
         <EditCaseModal isOpen={showEdit} onClose={() => setShowEdit(false)} case={c} />
@@ -682,14 +653,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
                           </div>
                         )}
                         {stage.documents.length > 0 && (
-                          <div className="flex items-center gap-2 mt-2">
-                            {stage.documents.map(doc => (
-                              <button key={doc.id} className="flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-md transition-colors">
-                                <FileText className="h-3 w-3 text-gray-500" />
-                                {doc.name}
-                              </button>
-                            ))}
-                          </div>
+                          <StagePhotoGallery documents={stage.documents} title="Stage Photo" compact />
                         )}
                       </div>
                     </div>
@@ -709,25 +673,31 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
               </div>
             </CardHeader>
             <CardBody>
-              <div className="space-y-2">
-                {c.stages.flatMap(s => s.documents).map(doc => (
-                  <div key={doc.id} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
-                    <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                      <FileText className="h-4 w-4 text-red-600" />
+              <div className="space-y-4">
+                {c.stages.flatMap(s => s.documents.map(doc => ({ ...doc, stage: s.stage }))).map(doc => (
+                  <div key={doc.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                    {doc.type.startsWith('image/') || doc.url.startsWith('data:image') || /\.(jpg|jpeg|png|webp)$/i.test(doc.url) ? (
+                      <img src={doc.url} alt={doc.name} className="w-full max-h-72 object-contain bg-gray-50" />
+                    ) : null}
+                    <div className="flex items-center gap-4 p-3">
+                      <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                        <FileText className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-400">{doc.stage} • {doc.size} • {doc.uploadedBy} • {formatDate(doc.uploadedAt)}</p>
+                      </div>
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 transition-colors">
+                        <Download className="h-4 w-4" />
+                      </a>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                      <p className="text-xs text-gray-400">{doc.size} • Uploaded by {doc.uploadedBy} • {formatDate(doc.uploadedAt)}</p>
-                    </div>
-                    <button className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 transition-colors">
-                      <Download className="h-4 w-4" />
-                    </button>
                   </div>
                 ))}
                 {c.stages.flatMap(s => s.documents).length === 0 && (
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No documents uploaded</p>
+                    <p className="text-sm">No stage photos yet</p>
+                    <p className="text-xs mt-1">Photos appear here when employees submit for approval</p>
                   </div>
                 )}
               </div>

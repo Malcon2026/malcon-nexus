@@ -14,12 +14,12 @@ export async function notifyCaseAssignment(
     });
 
     if (error) {
-      console.error('[email] assignment notification failed:', error.message);
+      console.error('[email] assignment notification failed:', error.message, data ?? '');
       return;
     }
 
     if (data && typeof data === 'object' && 'error' in data) {
-      console.error('[email] assignment notification failed:', data);
+      console.error('[email] assignment notification failed:', JSON.stringify(data));
     }
   } catch (err) {
     console.error('[email] assignment notification failed:', err);

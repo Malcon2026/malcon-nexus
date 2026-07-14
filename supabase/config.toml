@@ -2,3 +2,12 @@
 
 [functions.send-assignment-email]
 verify_jwt = true
+
+[functions.update-employee-login-email]
+verify_jwt = true
+
+[functions.create-employee-login]
+verify_jwt = true
+
+[functions.upload-stage-photo]
+verify_jwt = true

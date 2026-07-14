@@ -21,8 +21,8 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev';
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://malcon-nexus.vercel.app';
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@malconnexus.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://malconnexus.com';
 
     if (!resendKey) {
       return jsonResponse({ error: 'RESEND_API_KEY is not configured' }, 500);

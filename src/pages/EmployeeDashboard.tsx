@@ -7,74 +7,15 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
-import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { priorityColors, stageColors, formatDate, timeAgo } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
+import { SubmitStageModal } from '../components/SubmitStageModal';
 
-const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => {
-  const { submitStage } = useStore();
-  const [notes, setNotes] = useState('');
-
-  const stageActions: Record<string, string> = {
-    'Kit Preparation': 'Submit to Admin',
-    'Surgery': 'Mark Surgery Completed',
-    'Cleaning': 'Mark Cleaning Completed',
-    'Audit': 'Mark Audit Completed',
-    'Billing': 'Invoice Generated',
-    'Collection': 'Collection Completed',
-    'Completed': 'Close',
-  };
-
-  const handleSubmit = () => {
-    submitStage(c.id, notes);
-    setNotes('');
-    onClose();
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={stageActions[c.currentStage] || 'Submit Work'}
-      subtitle="This will send your work to the Admin for review"
-      size="md"
-      footer={
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={handleSubmit}>Submit to Admin</Button>
-        </div>
-      }
-    >
-      <div className="p-6">
-        <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg mb-4">
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">Case</span>
-            <span className="font-semibold text-gray-900">{c.caseNumber}</span>
-          </div>
-          <div className="flex justify-between text-xs mt-1">
-            <span className="text-gray-500">Hospital</span>
-            <span className="font-medium text-gray-800">{c.hospital.name}</span>
-          </div>
-          <div className="flex justify-between text-xs mt-1">
-            <span className="text-gray-500">Stage</span>
-            <span className="font-medium text-gray-800">{c.currentStage}</span>
-          </div>
-        </div>
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Completion Notes *</label>
-        <textarea
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
-          rows={4}
-          placeholder="Describe what you completed, any issues found, items used, observations..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-        />
-        <p className="text-xs text-gray-400 mt-2">⚠️ Once submitted, Admin must review and approve before the next stage begins.</p>
-      </div>
-    </Modal>
-  );
-};
+const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
+  <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
+);
 
 export const EmployeeDashboard: React.FC = () => {
   const { cases, currentUser, notifications } = useStore();

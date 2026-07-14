@@ -51,7 +51,7 @@ export const Employees: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.department) {
       alert('Please fill in all required fields marked with an asterisk (*).');
@@ -59,7 +59,7 @@ export const Employees: React.FC = () => {
     }
 
     if (editingEmployee) {
-      updateEmployee(editingEmployee.id, {
+      const { error } = await updateEmployee(editingEmployee.id, {
         name: form.name,
         department: form.department,
         email: form.email,
@@ -67,6 +67,10 @@ export const Employees: React.FC = () => {
         role: form.role,
         avatar: form.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase(),
       });
+      if (error) {
+        alert(error);
+        return;
+      }
     } else {
       createEmployee({
         name: form.name,

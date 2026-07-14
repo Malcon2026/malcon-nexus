@@ -42,14 +42,26 @@ async function employeeFromSession(session: Session | null): Promise<Employee | 
 export const authService = {
   /** Sign in with email + password. Returns the matching Employee record. */
   async signIn(email: string, password: string): Promise<AuthResult> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
     if (error) return { employee: null, error: error.message };
 
     const authUserId = data.user?.id;
     if (!authUserId) return { employee: null, error: 'Authentication failed' };
 
-    // Find matching employee by email
-    const employee = await sbEmployeeRepo.getByEmail(email);
+    const { data: byAuth } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+
+    const employee = byAuth
+      ? await sbEmployeeRepo.getById(byAuth.id)
+      : await sbEmployeeRepo.getByEmail(normalizedEmail);
+
     if (!employee) {
       await supabase.auth.signOut();
       return {

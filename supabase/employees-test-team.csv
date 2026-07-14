@@ -1,14 +1,9 @@
-name,email,password,department,role,phone
-Jeevan Akarsh,jeevanakarsh@gmail.com,Test@0011,Stores,admin,8019971125
-Preetham Tailam,Preethamtailam@gmail.com,Test@0011,Stores,admin,8019971125
-Ramakanth,ramakanth@gmail.com,Test@0011,Stores,admin,8019971125
-Rachitha,rachitha@gmail.com,Test@0011,Accounts,employee,8019971125
-Venkatesh,venkatesh@gmail.com,Test@0011,Accounts,employee,8019971125
-Bindhu,bindhu@gmail.com,Test@0011,Stores,employee,8019971125
-Chandra,Chandra@gmail.com,Test@0011,Stores,employee,8019971125
-Srivani,srivani@gmail.com,Test@0011,Cleaning Department,employee,8019971125
-Vijay,Vijay@gmail.com,Test@0011,Cleaning Department,employee,8019971125
-Vinay,Vinay@gmail.com,Test@0011,Stores Audit,employee,8019971125
-P.Sai,sai@gmail.com,Test@0011,Stores Audit,employee,8019971125
-Govindh,govindh@gmail.com,Test@0011,Scrub Person,employee,8019971125
-Kiran,kiran@gmail.com,Test@0011,Scrub Person,employee,8019971125
+Mail, ,Mail Pwd,App ,
+bindhu@malconnexus.com,,Bindhu@0001,Test@0011,Stores
+chandra@malconnexus.com,,Chandra@0002,Test@0011,Surgery
+ramakanth@malconnexus.com,,Ramakanth@0011,Test@0011,Audit 
+,,,,
+vinay@gmail.com,,,Test@0011,Bill submisions
+,,,,
+,,,,
+jeevanakarsh@malconnexus.com,,,,admin

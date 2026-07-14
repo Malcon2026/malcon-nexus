@@ -12,6 +12,8 @@ import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
+import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
+import { uploadStagePhoto } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo } from '../lib/database/repositories/supabaseRepositories';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -53,13 +55,13 @@ interface AppState {
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
-  submitStage: (caseId: string, notes: string) => void;
+  submitStage: (caseId: string, notes: string, photo: File) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   deleteCase: (id: string) => void;
 
   // Employee Actions
   createEmployee: (employeeData: Partial<Employee>) => void;
-  updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<{ error: string | null }>;
   deleteEmployee: (id: string) => void;
 
   // Hospital Actions
@@ -548,61 +550,76 @@ export const useStore = create<AppState>((set, get) => ({
     void notifyCaseAssignment(caseId, employee.id);
   },
 
-  submitStage: async (caseId, notes) => {
+  submitStage: async (caseId, notes, photo) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
-    if (!c) return;
+    if (!c) return { error: 'Case not found' };
 
     try {
-    const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
-    const updatedStages = c.stages.map((s, i) =>
-      i === stageIdx
-        ? { ...s, status: 'Submitted' as const, submittedAt: new Date().toISOString(), notes }
-        : s
-    );
-    const newLog = {
-      id: `log-${Date.now()}`,
-      caseId,
-      action: `Submitted: ${c.currentStage}`,
-      performedBy: c.assignedEmployee?.name || 'Employee',
-      performedByRole: 'employee' as const,
-      timestamp: new Date().toISOString(),
-      details: `Stage ${c.currentStage} submitted to admin. Notes: ${notes}`,
-    };
+      const stageDocument = await uploadStagePhoto(
+        caseId,
+        c.currentStage,
+        photo,
+        c.assignedEmployee?.name || state.currentUser.name,
+      );
 
-    const updatedCase = await taskRepository.update(caseId, {
-      stages: updatedStages,
-      status: 'Waiting For Approval',
-      activityLogs: [...c.activityLogs, newLog],
-    });
+      const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
+      const updatedStages = c.stages.map((s, i) =>
+        i === stageIdx
+          ? {
+              ...s,
+              status: 'Submitted' as const,
+              submittedAt: new Date().toISOString(),
+              notes,
+              documents: [...s.documents, stageDocument],
+            }
+          : s
+      );
+      const newLog = {
+        id: `log-${Date.now()}`,
+        caseId,
+        action: `Submitted: ${c.currentStage}`,
+        performedBy: c.assignedEmployee?.name || 'Employee',
+        performedByRole: 'employee' as const,
+        timestamp: new Date().toISOString(),
+        details: `Stage ${c.currentStage} submitted with photo. Notes: ${notes}`,
+      };
 
-    // Save to approvals table
-    const newApproval: Approval = {
-      id: newId(),
-      caseId,
-      caseNumber: c.caseNumber,
-      stage: c.currentStage,
-      submittedBy: c.assignedEmployee?.name || 'Employee',
-      submittedAt: new Date().toISOString(),
-      status: 'Pending',
-      notes,
-    };
-    await approvalRepository.create(newApproval);
+      const updatedCase = await taskRepository.update(caseId, {
+        stages: updatedStages,
+        status: 'Waiting For Approval',
+        activityLogs: [...c.activityLogs, newLog],
+      });
 
-    const activity = createActivityEvent(`Submitted: ${c.currentStage}`, 'case', caseId, c.caseNumber, c.assignedEmployee?.name || 'Employee', 'employee', `${c.currentStage} submitted for review.`);
-    persistActivity(activity);
+      const newApproval: Approval = {
+        id: newId(),
+        caseId,
+        caseNumber: c.caseNumber,
+        stage: c.currentStage,
+        submittedBy: c.assignedEmployee?.name || 'Employee',
+        submittedAt: new Date().toISOString(),
+        status: 'Pending',
+        notes,
+      };
+      await approvalRepository.create(newApproval);
 
-    const notif = createNotification('Approval Required', `Case ${c.caseNumber} ${c.currentStage} submitted for review.`, 'warning', caseId);
-    persistNotification(notif);
+      const activity = createActivityEvent(`Submitted: ${c.currentStage}`, 'case', caseId, c.caseNumber, c.assignedEmployee?.name || 'Employee', 'employee', `${c.currentStage} submitted with photo for review.`);
+      persistActivity(activity);
 
-    set((s) => ({
-      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-      notifications: [notif, ...s.notifications],
-      activityLog: [activity, ...s.activityLog],
-    }));
+      const notif = createNotification('Approval Required', `Case ${c.caseNumber} ${c.currentStage} submitted for review.`, 'warning', caseId);
+      persistNotification(notif);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        notifications: [notif, ...s.notifications],
+        activityLog: [activity, ...s.activityLog],
+      }));
+
+      return { error: null };
     } catch (err) {
       console.error('[submitStage] failed:', err);
-      alert(`Failed to submit for approval: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      return { error: `Failed to submit: ${message}` };
     }
   },
 
@@ -704,6 +721,18 @@ export const useStore = create<AppState>((set, get) => ({
 
     await employeeRepository.create(newEmp);
 
+    if (USE_SUPABASE) {
+      const { error: loginError } = await createEmployeeLogin(
+        newEmp.id,
+        newEmp.email,
+        newEmp.name,
+        DEFAULT_EMPLOYEE_PASSWORD,
+      );
+      if (loginError) {
+        console.error('[createEmployee] login creation failed:', loginError);
+      }
+    }
+
     const activity = createActivityEvent('Employee Created', 'employee', newEmp.id, newEmp.name, state.currentUser.name, state.currentUser.role, `New employee ${newEmp.name} added to ${newEmp.department}.`);
     persistActivity(activity);
 
@@ -719,6 +748,21 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateEmployee: async (id, updates) => {
     const state = get();
+    const existing = state.employees.find((e) => e.id === id);
+
+    if (USE_SUPABASE && updates.email && existing) {
+      const nextEmail = updates.email.trim().toLowerCase();
+      const currentEmail = existing.email.trim().toLowerCase();
+
+      if (nextEmail !== currentEmail) {
+        const { error: authError } = await syncEmployeeLoginEmail(id, nextEmail);
+        if (authError) {
+          return { error: `Login email not updated: ${authError}` };
+        }
+        updates = { ...updates, email: nextEmail };
+      }
+    }
+
     const updated = await employeeRepository.update(id, updates);
 
     const activity = createActivityEvent('Employee Updated', 'employee', id, updated.name, state.currentUser.name, state.currentUser.role, `Employee ${updated.name} profile updated.`);
@@ -730,6 +774,8 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser: s.currentUser.id === id ? updated : s.currentUser,
       activityLog: [activity, ...s.activityLog],
     }));
+
+    return { error: null };
   },
 
   deleteEmployee: async (id) => {

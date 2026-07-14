@@ -93,13 +93,17 @@ export const Settings: React.FC = () => {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleProfileSave = () => {
-    updateEmployee(currentUser.id, {
+  const handleProfileSave = async () => {
+    const { error } = await updateEmployee(currentUser.id, {
       name: profileForm.name,
       email: profileForm.email,
       phone: profileForm.phone,
       avatar: profileForm.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase(),
     });
+    if (error) {
+      alert(error);
+      return;
+    }
     showSaved();
   };
 

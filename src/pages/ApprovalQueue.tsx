@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Card, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
@@ -335,16 +336,12 @@ export const ApprovalQueue: React.FC = () => {
                           </div>
                         )}
 
-                        {/* Documents */}
-                        {currentStageRecord?.documents && currentStageRecord.documents.length > 0 && (
-                          <div className="mt-3 flex items-center gap-2">
-                            {currentStageRecord.documents.map(doc => (
-                              <button key={doc.id} className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors">
-                                <FileText className="h-3 w-3" />
-                                {doc.name}
-                              </button>
-                            ))}
-                          </div>
+                        {currentStageRecord?.documents && (
+                          <StagePhotoGallery
+                            documents={currentStageRecord.documents}
+                            title="Employee Submission Photo"
+                            compact
+                          />
                         )}
                       </div>
 
