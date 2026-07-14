@@ -15,6 +15,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo } from '../lib/database/repositories/supabaseRepositories';
+import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Collection', 'Completed',
@@ -65,9 +66,15 @@ interface AppState {
   deleteCase: (id: string) => void;
 
   // Employee Actions
-  createEmployee: (employeeData: Partial<Employee>) => void;
+  createEmployee: (employeeData: Partial<Employee>, options?: { password?: string }) => Promise<void>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<{ error: string | null }>;
   deleteEmployee: (id: string) => void;
+  importEmployeesFromCsv: (rows: EmployeeCsvRow[]) => Promise<{
+    created: number;
+    updated: number;
+    failed: number;
+    errors: string[];
+  }>;
 
   // Hospital Actions
   createHospital: (data: Partial<Hospital>) => void;
@@ -739,7 +746,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ========== EMPLOYEE ACTIONS ==========
 
-  createEmployee: async (employeeData) => {
+  createEmployee: async (employeeData, options) => {
     const state = get();
     const initials = (employeeData.name || '')
       .split(' ')
@@ -752,7 +759,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: newId(),
       name: employeeData.name || '',
       department: employeeData.department || 'Stores',
-      email: employeeData.email || '',
+      email: (employeeData.email || '').trim().toLowerCase(),
       avatar: initials || 'EE',
       role: employeeData.role || 'employee',
       status: 'Active',
@@ -769,10 +776,11 @@ export const useStore = create<AppState>((set, get) => ({
         newEmp.id,
         newEmp.email,
         newEmp.name,
-        DEFAULT_EMPLOYEE_PASSWORD,
+        options?.password ?? DEFAULT_EMPLOYEE_PASSWORD,
       );
       if (loginError) {
         console.error('[createEmployee] login creation failed:', loginError);
+        throw new Error(loginError);
       }
     }
 
@@ -787,6 +795,52 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+  },
+
+  importEmployeesFromCsv: async (rows) => {
+    let created = 0;
+    let updated = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      try {
+        const existing = get().employees.find(
+          (e) => e.email.toLowerCase() === row.email.toLowerCase(),
+        );
+
+        if (existing) {
+          const { error } = await get().updateEmployee(existing.id, {
+            name: row.name,
+            email: row.email,
+            department: row.department,
+            role: row.role,
+            phone: row.phone,
+            avatar: row.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase(),
+          });
+          if (error) throw new Error(error);
+          updated += 1;
+        } else {
+          await get().createEmployee(
+            {
+              name: row.name,
+              email: row.email,
+              department: row.department,
+              role: row.role,
+              phone: row.phone,
+            },
+            { password: row.password },
+          );
+          created += 1;
+        }
+      } catch (err) {
+        failed += 1;
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push(`Row ${row._line} (${row.email}): ${message}`);
+      }
+    }
+
+    return { created, updated, failed, errors };
   },
 
   updateEmployee: async (id, updates) => {

@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseCsvObjects } from './lib/csv.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -29,40 +30,17 @@ const VALID_DEPARTMENTS = new Set([
 const VALID_ROLES = new Set(['admin', 'employee']);
 
 function parseCsv(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'));
-
-  if (lines.length < 2) {
-    throw new Error('CSV needs a header row and at least one employee row.');
-  }
-
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  const required = ['name', 'email', 'password', 'department', 'role', 'phone'];
-  for (const col of required) {
-    if (!headers.includes(col)) {
-      throw new Error(`Missing column "${col}". Expected: ${required.join(', ')}`);
-    }
-  }
-
-  return lines.slice(1).map((line, index) => {
-    const values = line.split(',').map((v) => v.trim());
-    const row = Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
-    row._line = index + 2;
-
-    if (!row.name || !row.email || !row.password || !row.department || !row.role) {
-      throw new Error(`Row ${row._line}: name, email, password, department, and role are required.`);
-    }
+  return parseCsvObjects(text, {
+    requiredColumns: ['name', 'email', 'password', 'department', 'role', 'phone'],
+  }).map((row) => {
     if (!VALID_DEPARTMENTS.has(row.department)) {
       throw new Error(
-        `Row ${row._line}: invalid department "${row.department}". Use one of: ${[...VALID_DEPARTMENTS].join(', ')}`
+        `Row ${row._line}: invalid department "${row.department}". Use one of: ${[...VALID_DEPARTMENTS].join(', ')}`,
       );
     }
     if (!VALID_ROLES.has(row.role)) {
       throw new Error(`Row ${row._line}: role must be "admin" or "employee".`);
     }
-
     return row;
   });
 }

@@ -27,6 +27,7 @@ import {
   statusColors,
 } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
+import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'updatedAt' | 'status' | 'currentStage';
 type SortDir = 'asc' | 'desc';
@@ -65,50 +66,6 @@ function matchesHistoryTab(status: CaseStatus, tab: HistoryTab): boolean {
   return status === tab;
 }
 
-function exportCasesCsv(cases: ImplantCase[]) {
-  if (cases.length === 0) {
-    alert('No cases to export.');
-    return;
-  }
-  const headers = [
-    'Case Number',
-    'Hospital',
-    'Doctor',
-    'Surgery Date',
-    'Stage',
-    'Status',
-    'Priority',
-    'Assigned To',
-    'Created',
-    'Last Updated',
-    'Invoice',
-    'Payment',
-  ];
-  const rows = cases.map((c) => [
-    c.caseNumber,
-    c.hospital.name,
-    c.doctor.name,
-    c.surgeryDate,
-    c.currentStage,
-    c.status,
-    c.priority,
-    c.assignedEmployee?.name ?? '',
-    c.createdAt,
-    c.updatedAt,
-    c.invoiceAmount ?? 0,
-    c.paymentStatus ?? '',
-  ]);
-  const csv = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `malconnexus_case_history_${new Date().toISOString().split('T')[0]}.csv`;
-  link.click();
-  URL.revokeObjectURL(link.href);
-}
-
 export const CaseHistory: React.FC = () => {
   const { cases, selectedCaseId, setSelectedCase, reloadFromDatabase } = useStore();
   const [search, setSearch] = useState('');
@@ -119,6 +76,7 @@ export const CaseHistory: React.FC = () => {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const PAGE_SIZE = 12;
 
   const stats = useMemo(() => ({
@@ -214,6 +172,12 @@ export const CaseHistory: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
+      <CaseCsvExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        cases={filtered}
+        title="Export Case History to CSV"
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -238,9 +202,9 @@ export const CaseHistory: React.FC = () => {
             variant="outline"
             size="sm"
             icon={<Download className="h-4 w-4" />}
-            onClick={() => exportCasesCsv(filtered)}
+            onClick={() => setShowExport(true)}
           >
-            Export
+            Export CSV
           </Button>
         </div>
       </div>

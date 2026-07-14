@@ -5,6 +5,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
+import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
@@ -74,6 +75,7 @@ export const Settings: React.FC = () => {
   const { currentUser, updateEmployee, clearAllData, cases } = useStore();
   const [activeTab, setActiveTab] = useState('profile');
   const [saved, setSaved] = useState(false);
+  const [showCaseExport, setShowCaseExport] = useState(false);
 
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -118,36 +120,14 @@ export const Settings: React.FC = () => {
     showSaved();
   };
 
-  const handleExportCases = () => {
-    if (cases.length === 0) {
-      alert('No cases to export.');
-      return;
-    }
-    const headers = ['Case Number', 'Hospital', 'Doctor', 'Surgery Date', 'Implant', 'Priority', 'Status', 'Stage', 'Invoice Amount'];
-    const rows = cases.map(c => [
-      c.caseNumber,
-      c.hospital.name,
-      c.doctor.name,
-      c.surgeryDate,
-      c.implantRequired,
-      c.priority,
-      c.status,
-      c.currentStage,
-      String(c.invoiceAmount || 0),
-    ]);
-
-    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `malconnexus_cases_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="p-4 sm:p-6 max-w-[1000px] mx-auto w-full min-w-0">
+      <CaseCsvExportModal
+        isOpen={showCaseExport}
+        onClose={() => setShowCaseExport(false)}
+        cases={cases}
+        title="Export All Cases to CSV"
+      />
       <div className="mb-6">
         <h1 className="text-lg sm:text-xl font-bold text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your account and application preferences</p>
@@ -345,9 +325,9 @@ export const Settings: React.FC = () => {
                   <div className="flex items-center justify-between py-3 border-b border-gray-50">
                     <div>
                       <p className="text-sm font-medium text-gray-900">Export All Cases</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Download complete case data as CSV</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Download cases by today, yesterday, last week, last month, or custom range</p>
                     </div>
-                    <Button variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={handleExportCases}>Export CSV</Button>
+                    <Button variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => setShowCaseExport(true)}>Export CSV</Button>
                   </div>
                   <div className="pt-4 border-t border-gray-100">
                     <h4 className="text-sm font-semibold text-gray-900 mb-2">Danger Zone</h4>

@@ -12,6 +12,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import { parseCsvObjects } from './lib/csv.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -33,15 +34,8 @@ function loadEnv() {
 }
 
 function parseCsv(text) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'));
-
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((line) => {
-    const values = line.split(',').map((v) => v.trim());
-    return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
+  return parseCsvObjects(text, {
+    requiredColumns: ['name', 'email', 'password', 'department', 'role'],
   });
 }
 

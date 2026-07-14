@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, TrendingUp, CheckCircle2, Clock, Mail, Phone, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Search, TrendingUp, CheckCircle2, Clock, Mail, Phone, Plus, Trash2, Edit3, Upload } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Card, CardBody } from '../components/ui/Card';
@@ -9,6 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
+import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Collection Executive'
@@ -30,6 +31,7 @@ export const Employees: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [showModal, setShowModal] = useState(false);
+  const [showCsvModal, setShowCsvModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState(emptyForm);
 
@@ -103,6 +105,7 @@ export const Employees: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
+      <EmployeeCsvImportModal isOpen={showCsvModal} onClose={() => setShowCsvModal(false)} />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -110,14 +113,24 @@ export const Employees: React.FC = () => {
           <p className="text-sm text-gray-500 mt-0.5">Manage team members across all departments</p>
         </div>
         {viewMode === 'admin' && (
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus className="h-4 w-4" />}
-            onClick={handleOpenCreate}
-          >
-            Add Employee
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Upload className="h-4 w-4" />}
+              onClick={() => setShowCsvModal(true)}
+            >
+              Import CSV
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={handleOpenCreate}
+            >
+              Add Employee
+            </Button>
+          </div>
         )}
       </div>
 

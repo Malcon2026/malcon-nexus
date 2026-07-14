@@ -13,6 +13,7 @@ import { useStore } from '../store/useStore';
 import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Department } from '../types';
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
+import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -187,6 +188,7 @@ export const Cases: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<CaseStatus | ''>('');
   const [page, setPage] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const PAGE_SIZE = 8;
 
@@ -249,6 +251,12 @@ export const Cases: React.FC = () => {
   return (
     <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
       <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
+      <CaseCsvExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        cases={filtered}
+        title="Export Cases to CSV"
+      />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -257,7 +265,7 @@ export const Cases: React.FC = () => {
           <p className="text-sm text-gray-500 mt-0.5">{filtered.length} cases found</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none">Export</Button>
+          <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
           <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
         </div>
       </div>

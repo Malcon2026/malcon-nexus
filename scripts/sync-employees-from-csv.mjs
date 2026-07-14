@@ -12,6 +12,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import { parseCsvObjects } from './lib/csv.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -51,18 +52,6 @@ function normalizeDepartment(value) {
   throw new Error(`Invalid department "${value}". Use: ${[...VALID_DEPARTMENTS].join(', ')}`);
 }
 
-function parseCsv(text) {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
-  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((line, index) => {
-    const values = line.split(',').map((v) => v.trim());
-    const row = Object.fromEntries(headers.map((h, i) => [h, values[i] ?? '']));
-    row._line = index + 2;
-    row.department = normalizeDepartment(row.department);
-    return row;
-  });
-}
-
 function initials(name) {
   return name.split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 }
@@ -78,7 +67,12 @@ if (!url || !serviceKey) {
   process.exit(1);
 }
 
-const rows = parseCsv(readFileSync(inputPath, 'utf8'));
+const rows = parseCsvObjects(readFileSync(inputPath, 'utf8'), {
+  requiredColumns: ['name', 'email', 'password', 'department', 'role'],
+}).map((row) => ({
+  ...row,
+  department: normalizeDepartment(row.department),
+}));
 const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

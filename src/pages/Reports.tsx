@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/helpers';
+import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#f59e0b', '#10b981', '#f97316', '#22c55e'];
 
@@ -50,6 +51,7 @@ type ReportTab = 'overview' | 'department' | 'billing' | 'employee';
 export const Reports: React.FC = () => {
   const { cases, employees, getMonthlyData, getDepartmentPerformance } = useStore();
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+  const [showExport, setShowExport] = useState(false);
 
   const monthlyData = getMonthlyData();
   const departmentPerformance = getDepartmentPerformance();
@@ -88,12 +90,18 @@ export const Reports: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
+      <CaseCsvExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        cases={cases}
+        title="Export Report Data (Cases CSV)"
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">Analytics and performance insights</p>
         </div>
-        <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export Report</Button>
+        <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} onClick={() => setShowExport(true)}>Export Cases CSV</Button>
       </div>
 
       {/* Tabs */}
