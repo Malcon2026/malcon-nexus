@@ -10,7 +10,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, Priority, WorkflowStage, CaseStatus } from '../types';
+import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Department } from '../types';
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 
@@ -23,6 +23,7 @@ const STATUSES: CaseStatus[] = ['Active', 'Waiting For Approval', 'Approved', 'C
 
 const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { createCase, hospitals, employees } = useStore();
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     hospitalId: '',
     doctorName: '',
@@ -38,7 +39,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
   const DEPARTMENTS: Department[] = ['Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Collection Executive'];
   const filteredEmployees = employees.filter(e => e.department === form.department && e.role === 'employee');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.hospitalId || !form.doctorName || !form.surgeryDate || !form.implantRequired) {
       alert("Please fill in all required fields marked with an asterisk (*).");
@@ -58,30 +59,37 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 
     const assignedEmployee = employees.find(e => e.id === form.employeeId) || null;
 
-    createCase({
-      hospital,
-      doctor,
-      surgeryDate: form.surgeryDate,
-      implantRequired: form.implantRequired,
-      implantType: form.implantType,
-      priority: form.priority,
-      remarks: form.remarks,
-      dueDate: form.surgeryDate,
-      currentDepartment: form.department,
-      assignedEmployee,
-    });
-    onClose();
-    setForm({
-      hospitalId: '',
-      doctorName: '',
-      surgeryDate: '',
-      implantRequired: '',
-      implantType: '',
-      priority: 'Medium',
-      remarks: '',
-      department: 'Stores',
-      employeeId: '',
-    });
+    setSubmitting(true);
+    try {
+      await createCase({
+        hospital,
+        doctor,
+        surgeryDate: form.surgeryDate,
+        implantRequired: form.implantRequired,
+        implantType: form.implantType,
+        priority: form.priority,
+        remarks: form.remarks,
+        dueDate: form.surgeryDate,
+        currentDepartment: form.department,
+        assignedEmployee,
+      });
+      onClose();
+      setForm({
+        hospitalId: '',
+        doctorName: '',
+        surgeryDate: '',
+        implantRequired: '',
+        implantType: '',
+        priority: 'Medium',
+        remarks: '',
+        department: 'Stores',
+        employeeId: '',
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create case. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const inputClass = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400";
@@ -91,8 +99,10 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Implant Case" subtitle="Fill in the case details to begin the workflow" size="lg"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleSubmit}>Create Case</Button>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Creating...' : 'Create Case'}
+          </Button>
         </div>
       }
     >

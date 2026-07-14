@@ -301,6 +301,22 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
 }
 
 export const sbCaseRepo = {
+  async getNextCaseNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `IMP-${year}-`;
+    const { data, error } = await supabase
+      .from('cases')
+      .select('case_number')
+      .like('case_number', `${prefix}%`);
+    if (error) throw error;
+    let max = 0;
+    for (const row of data ?? []) {
+      const num = parseInt(String(row.case_number).slice(prefix.length), 10);
+      if (!isNaN(num)) max = Math.max(max, num);
+    }
+    return `${prefix}${String(max + 1).padStart(3, '0')}`;
+  },
+
   async getAll(): Promise<ImplantCase[]> {
     const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
     if (error) throw error;

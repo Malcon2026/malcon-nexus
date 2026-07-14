@@ -1,9 +1,16 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
 import { sbCaseRepo } from './supabaseRepositories';
+import { nextCaseNumberFromCases } from '../../../utils/helpers';
 import type { ImplantCase } from '../../../types';
 
 export const taskRepository = {
+  async getNextCaseNumber(): Promise<string> {
+    if (USE_SUPABASE) return sbCaseRepo.getNextCaseNumber();
+    const list = await this.getAll();
+    return nextCaseNumberFromCases(list);
+  },
+
   async getAll(): Promise<ImplantCase[]> {
     return Database.getAll<ImplantCase>('cases');
   },

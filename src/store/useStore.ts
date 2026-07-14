@@ -49,7 +49,7 @@ interface AppState {
   setActiveTab: (tab: string) => void;
 
   // Case Actions
-  createCase: (caseData: Partial<ImplantCase>) => void;
+  createCase: (caseData: Partial<ImplantCase>) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
   rejectStage: (caseId: string, adminNotes: string) => void;
@@ -265,10 +265,11 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     const targetStage = DEPT_TO_STAGE[targetDept] || 'Kit Preparation';
+    const caseNumber = await taskRepository.getNextCaseNumber();
 
     const newCase: ImplantCase = {
       id: caseId,
-      caseNumber: `IMP-${new Date().getFullYear()}-${String(state.cases.length + 1).padStart(3, '0')}`,
+      caseNumber,
       hospital: caseData.hospital!,
       doctor: caseData.doctor!,
       surgeryDate: caseData.surgeryDate || '',
@@ -317,7 +318,18 @@ export const useStore = create<AppState>((set, get) => ({
       paymentStatus: 'Pending',
     };
 
-    await taskRepository.create(newCase);
+    try {
+      await taskRepository.create(newCase);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('duplicate key') || message.includes('cases_case_number_key')) {
+        throw new Error('Could not generate a unique case number. Please refresh and try again.');
+      }
+      if (message.includes('Hospital must be saved')) {
+        throw new Error('This hospital is not saved in the database. Re-add it from Settings and try again.');
+      }
+      throw new Error(message || 'Failed to create case.');
+    }
 
     let updatedEmployees = state.employees;
     if (targetEmp) {
