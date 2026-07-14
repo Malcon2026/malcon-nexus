@@ -27,7 +27,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   onClose,
   implantCase: c,
 }) => {
-  const { submitStage } = useStore();
+  const { submitStage, currentUser } = useStore();
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -142,6 +142,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             setPhotos(next);
             setError(null);
           }}
+          employeeName={currentUser.name}
+          employeeId={currentUser.id}
           disabled={submitting}
         />
 

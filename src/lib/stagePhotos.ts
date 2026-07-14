@@ -11,10 +11,29 @@ const MAX_PHOTOS_PER_SUBMISSION = 5;
 
 export { MAX_PHOTOS_PER_SUBMISSION };
 
+export interface PhotoStampInfo {
+  employeeName: string;
+  employeeId: string;
+  capturedAt?: Date;
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatStampDateTime(date: Date): string {
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata',
+  });
 }
 
 async function fetchWithTimeout(
@@ -45,14 +64,51 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-/** Compress large camera photos before upload (mobile-friendly). */
-export async function preparePhotoForUpload(file: File): Promise<File> {
-  if (!file.type.startsWith('image/') || file.type.includes('gif')) {
-    return file;
+function drawPhotoStamp(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  stamp: PhotoStampInfo,
+  capturedAt: Date,
+) {
+  const pad = Math.max(12, Math.round(width * 0.02));
+  const nameSize = Math.max(15, Math.round(width * 0.034));
+  const metaSize = Math.max(12, Math.round(nameSize * 0.78));
+  const lineGap = Math.round(nameSize * 1.3);
+
+  const lines: { text: string; size: number; bold: boolean }[] = [
+    { text: stamp.employeeName, size: nameSize, bold: true },
+    { text: `ID: ${stamp.employeeId}`, size: metaSize, bold: false },
+    { text: formatStampDateTime(capturedAt), size: metaSize, bold: false },
+  ];
+
+  const blockHeight = pad * 2 + lines.length * lineGap;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.58)';
+  ctx.fillRect(0, height - blockHeight, width, blockHeight);
+
+  ctx.textBaseline = 'top';
+  let y = height - blockHeight + pad;
+
+  for (const line of lines) {
+    ctx.font = `${line.bold ? '600' : '500'} ${line.size}px Inter, system-ui, -apple-system, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(line.text, pad, y);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    y += lineGap;
   }
-  if (file.size <= 1.5 * 1024 * 1024) {
-    return file;
-  }
+}
+
+/** Burn employee name, ID, date & time onto the photo before upload. */
+export async function stampPhotoForUpload(
+  file: File,
+  stamp: PhotoStampInfo,
+): Promise<File> {
+  const capturedAt = stamp.capturedAt ?? new Date();
 
   try {
     const bitmap = await createImageBitmap(file);
@@ -69,11 +125,13 @@ export async function preparePhotoForUpload(file: File): Promise<File> {
       bitmap.close();
       return file;
     }
+
     ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
+    drawPhotoStamp(ctx, width, height, stamp, capturedAt);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.85);
+      canvas.toBlob(resolve, 'image/jpeg', 0.88);
     });
     if (!blob) return file;
 
@@ -105,15 +163,13 @@ export async function uploadStagePhoto(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
-  const prepared = await preparePhotoForUpload(file);
-
   if (!USE_SUPABASE) {
-    const dataUrl = await fileToDataUrl(prepared);
+    const dataUrl = await fileToDataUrl(file);
     return {
       id: crypto.randomUUID(),
       name: `${stage} photo`,
-      type: prepared.type || 'image/jpeg',
-      size: formatFileSize(prepared.size),
+      type: file.type || 'image/jpeg',
+      size: formatFileSize(file.size),
       uploadedBy,
       uploadedAt: new Date().toISOString(),
       url: dataUrl,
@@ -126,7 +182,7 @@ export async function uploadStagePhoto(
   form.append('caseId', caseId);
   form.append('stage', stage);
   form.append('uploadedBy', uploadedBy);
-  form.append('photo', prepared, prepared.name || 'stage-photo.jpg');
+  form.append('photo', file, file.name || 'stage-photo.jpg');
 
   const res = await fetchWithTimeout(FUNCTIONS_URL, {
     method: 'POST',
@@ -149,7 +205,7 @@ export async function uploadStagePhoto(
 
   return {
     ...doc,
-    size: formatFileSize(Number(doc.size) || prepared.size),
+    size: formatFileSize(Number(doc.size) || file.size),
   };
 }
 
