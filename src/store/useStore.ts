@@ -189,15 +189,28 @@ const persistNotification = async (notif: Notification): Promise<void> => {
   Database.saveAll('notifications', [notif, ...list]);
 };
 
-const persistAttendance = async (record: AttendanceRecord): Promise<void> => {
+const persistAttendance = async (record: AttendanceRecord): Promise<{ error: string | null }> => {
   if (USE_SUPABASE) {
-    await sbAttendanceRepo.insert(record).catch((err) => console.error('[attendance] persist failed:', err));
+    try {
+      await sbAttendanceRepo.insert(record);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save attendance';
+      console.error('[attendance] persist failed:', err);
+      if (message.includes('row-level security') || message.includes('RLS')) {
+        return { error: 'Attendance could not be saved. Please log out and log in again, then retry.' };
+      }
+      if (message.includes('attendance_records') && message.includes('does not exist')) {
+        return { error: 'Attendance is not set up in the database yet. Please contact your admin.' };
+      }
+      return { error: message };
+    }
     const list = Database.getAll<AttendanceRecord>('attendanceRecords');
     setCache('attendanceRecords', [record, ...list]);
-    return;
+    return { error: null };
   }
   const list = Database.getAll<AttendanceRecord>('attendanceRecords');
   Database.saveAll('attendanceRecords', [record, ...list]);
+  return { error: null };
 };
 
 const updateCaseApproval = async (
@@ -1074,10 +1087,10 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
-    const geofence = checkOfficeGeofence(position.latitude, position.longitude);
+    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
     if (!geofence.withinOffice) {
       return {
-        error: `You must be at the office (${OFFICE_LOCATION.address}) to punch. You are ${geofence.distanceM}m away (max ${OFFICE_LOCATION.radiusM}m).`,
+        error: `You must be at the office (${OFFICE_LOCATION.address}) to punch. You are ${geofence.distanceM}m away (max ${OFFICE_LOCATION.radiusM}m + GPS buffer).`,
       };
     }
 
@@ -1096,7 +1109,10 @@ export const useStore = create<AppState>((set, get) => ({
       officeAddress: OFFICE_LOCATION.address,
     };
 
-    await persistAttendance(record);
+    const persistResult = await persistAttendance(record);
+    if (persistResult.error) {
+      return { error: persistResult.error };
+    }
 
     const label = punchType === 'in' ? 'Punch In' : 'Punch Out';
     const activity: ActivityEvent = {

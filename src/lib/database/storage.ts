@@ -150,7 +150,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     if (!table) return;
 
     // Collections with dedicated Supabase repositories (correct column mapping)
-    if (['cases', 'approvals', 'notifications', 'activityLog', 'employees', 'hospitals', 'doctors'].includes(key)) return;
+    if (['cases', 'approvals', 'notifications', 'activityLog', 'attendanceRecords', 'employees', 'hospitals', 'doctors'].includes(key)) return;
 
     // Convert camelCase app objects → snake_case DB columns
     const rows = data.map((item) => toSnakeCase(item as Record<string, unknown>));

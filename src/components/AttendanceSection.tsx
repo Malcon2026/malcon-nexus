@@ -13,6 +13,7 @@ import {
   formatDuration,
   getCurrentPosition,
   checkOfficeGeofence,
+  summarizeTodayAttendance,
   type GeoPosition,
 } from '../lib/attendance';
 
@@ -23,14 +24,17 @@ type LocationState =
   | { status: 'error'; message: string };
 
 export const AttendanceSection: React.FC = () => {
-  const { getMyTodayAttendance, punchAttendance } = useStore();
+  const attendanceRecords = useStore((s) => s.attendanceRecords);
+  const currentUser = useStore((s) => s.currentUser);
+  const punchAttendance = useStore((s) => s.punchAttendance);
+
+  const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+
   const [now, setNow] = useState(new Date());
   const [confirmType, setConfirmType] = useState<PunchType | null>(null);
   const [locationState, setLocationState] = useState<LocationState>({ status: 'idle' });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const summary = getMyTodayAttendance();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -41,7 +45,7 @@ export const AttendanceSection: React.FC = () => {
     setLocationState({ status: 'loading' });
     try {
       const position = await getCurrentPosition();
-      const geofence = checkOfficeGeofence(position.latitude, position.longitude);
+      const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
       setLocationState({
         status: 'ready',
         position,
@@ -88,7 +92,7 @@ export const AttendanceSection: React.FC = () => {
       return;
     }
 
-    const geofence = checkOfficeGeofence(position.latitude, position.longitude);
+    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
     setLocationState({
       status: 'ready',
       position,
@@ -167,7 +171,7 @@ export const AttendanceSection: React.FC = () => {
             <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
               Office: <span className="font-medium text-gray-700">{OFFICE_LOCATION.address}</span>
-              {' '}· Location required within {OFFICE_LOCATION.radiusM}m
+              {' '}· Must be within ~{OFFICE_LOCATION.radiusM}m (GPS buffer applied)
             </span>
           </div>
 

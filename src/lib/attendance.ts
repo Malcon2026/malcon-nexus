@@ -7,7 +7,7 @@ export const OFFICE_LOCATION = {
   latitude: 17.4470625,
   longitude: 78.4465625,
   /** Allowed radius from office center (meters) */
-  radiusM: 200,
+  radiusM: 350,
 } as const;
 
 export interface GeoPosition {
@@ -67,16 +67,22 @@ export function getDistanceMeters(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function checkOfficeGeofence(latitude: number, longitude: number): GeofenceResult {
+export function checkOfficeGeofence(
+  latitude: number,
+  longitude: number,
+  accuracyM = 0,
+): GeofenceResult {
   const distanceM = getDistanceMeters(
     latitude,
     longitude,
     OFFICE_LOCATION.latitude,
     OFFICE_LOCATION.longitude,
   );
+  // Allow GPS uncertainty — indoor fixes are often 50–150m off
+  const effectiveRadius = OFFICE_LOCATION.radiusM + Math.min(accuracyM, 250);
   return {
     distanceM: Math.round(distanceM),
-    withinOffice: distanceM <= OFFICE_LOCATION.radiusM,
+    withinOffice: distanceM <= effectiveRadius,
   };
 }
 
