@@ -10,6 +10,7 @@ import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
+import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'
@@ -28,6 +29,7 @@ const emptyForm = {
 
 export const Employees: React.FC = () => {
   const { employees, viewMode, createEmployee, updateEmployee, deleteEmployee } = useStore();
+  const [pageTab, setPageTab] = useState<'team' | 'attendance'>('team');
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [showModal, setShowModal] = useState(false);
@@ -110,9 +112,11 @@ export const Employees: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Employees</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage team members across all departments</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {pageTab === 'attendance' ? 'Track daily punch in/out for all staff' : 'Manage team members across all departments'}
+          </p>
         </div>
-        {viewMode === 'admin' && (
+        {viewMode === 'admin' && pageTab === 'team' && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -134,6 +138,30 @@ export const Employees: React.FC = () => {
         )}
       </div>
 
+      {viewMode === 'admin' && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+          {([
+            { id: 'team' as const, label: 'Team Directory' },
+            { id: 'attendance' as const, label: 'Attendance' },
+          ]).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setPageTab(id)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                pageTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {pageTab === 'attendance' && viewMode === 'admin' ? (
+        <EmployeeAttendancePanel />
+      ) : (
+        <>
       {/* Dept Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {deptStats.map(({ dept, employees: emps, active, completed }) => (
@@ -360,6 +388,8 @@ export const Employees: React.FC = () => {
             </div>
           </form>
         </Modal>
+      )}
+        </>
       )}
     </div>
   );

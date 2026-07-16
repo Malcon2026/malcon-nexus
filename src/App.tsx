@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
@@ -14,6 +14,7 @@ import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { Login } from './pages/Login';
+import { AppBootScreen } from './components/AppBootScreen';
 import { useStore } from './store/useStore';
 import type { Employee } from './types';
 
@@ -29,10 +30,11 @@ const pageVariants = {
 
 const pageTransition = { duration: 0.2 };
 
-function LoadingScreen() {
+function DataHydrationBar({ active }: { active: boolean }) {
+  if (!active) return null;
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+    <div className="h-0.5 w-full bg-indigo-100 shrink-0">
+      <div className="h-full w-full bg-indigo-500/80 animate-pulse" />
     </div>
   );
 }
@@ -40,9 +42,38 @@ function LoadingScreen() {
 function App() {
   const { activeTab, viewMode, setCurrentUser, reloadFromDatabase } = useStore();
 
-  const [bootReady, setBootReady] = useState(!SUPABASE_ENABLED);
   const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
   const [isAuthenticated, setIsAuthenticated] = useState(!SUPABASE_ENABLED);
+  const [isHydrating, setIsHydrating] = useState(false);
+
+  const hydrateGeneration = useRef(0);
+
+  const hydrateForUser = useCallback(async (employee: Employee) => {
+    const generation = ++hydrateGeneration.current;
+    setIsHydrating(true);
+    try {
+      const { bootstrapEssential, bootstrapDeferred } = await import('./lib/database/bootstrap');
+      const role = employee.role === 'admin' ? 'admin' : 'employee';
+
+      await bootstrapEssential(role);
+      if (generation !== hydrateGeneration.current) return;
+      reloadFromDatabase();
+
+      if (role === 'admin') {
+        void bootstrapDeferred(role).then(() => {
+          if (generation !== hydrateGeneration.current) return;
+          reloadFromDatabase();
+          setIsHydrating(false);
+        });
+        return;
+      }
+
+      setIsHydrating(false);
+    } catch (err) {
+      console.error('[App] Data hydrate failed:', err);
+      if (generation === hydrateGeneration.current) setIsHydrating(false);
+    }
+  }, [reloadFromDatabase]);
 
   useEffect(() => {
     if (!SUPABASE_ENABLED) return;
@@ -54,42 +85,39 @@ function App() {
       if (employee) {
         setCurrentUser(employee);
         setIsAuthenticated(true);
+        void hydrateForUser(employee);
         return;
       }
+      hydrateGeneration.current += 1;
+      setIsHydrating(false);
       setIsAuthenticated(false);
     }
 
     async function boot() {
       try {
-        const { bootstrapSupabaseData } = await import('./lib/database/bootstrap');
         const { authService } = await import('./lib/auth');
 
-        const finishBoot = () => {
+        const finishAuth = () => {
           initialSessionHandled = true;
           setAuthChecked(true);
-          setBootReady(true);
         };
 
         const { data: { subscription } } = authService.onAuthStateChange(async (event, employee) => {
           if (event === 'INITIAL_SESSION') {
-            if (employee) {
-              await bootstrapSupabaseData();
-              reloadFromDatabase();
-            }
             await applySession(employee);
-            finishBoot();
+            finishAuth();
             return;
           }
 
           if (event === 'SIGNED_OUT') {
+            hydrateGeneration.current += 1;
+            setIsHydrating(false);
             setIsAuthenticated(false);
             return;
           }
 
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (employee) {
-              await bootstrapSupabaseData();
-              reloadFromDatabase();
               await applySession(employee);
             }
           }
@@ -97,40 +125,34 @@ function App() {
 
         unsubscribe = () => subscription.unsubscribe();
 
-        // Fallback if INITIAL_SESSION was missed (shouldn't happen on current Supabase SDK)
         window.setTimeout(async () => {
           if (initialSessionHandled) return;
           const employee = await authService.getCurrentEmployee();
-          if (employee) {
-            await bootstrapSupabaseData();
-            reloadFromDatabase();
-          }
           await applySession(employee);
-          finishBoot();
-        }, 250);
+          finishAuth();
+        }, 100);
       } catch (err) {
-        console.error('[App] Supabase bootstrap failed:', err);
+        console.error('[App] Auth bootstrap failed:', err);
         setAuthChecked(true);
-        setBootReady(true);
       }
     }
 
     boot();
     return () => unsubscribe?.();
-  }, [setCurrentUser, reloadFromDatabase]);
+  }, [setCurrentUser, hydrateForUser]);
 
   const handleLogout = () => {
+    hydrateGeneration.current += 1;
+    setIsHydrating(false);
     setIsAuthenticated(false);
   };
 
-  const handleLoginSuccess = async (employee: Employee) => {
-    if (SUPABASE_ENABLED) {
-      const { bootstrapSupabaseData } = await import('./lib/database/bootstrap');
-      await bootstrapSupabaseData();
-      reloadFromDatabase();
-    }
+  const handleLoginSuccess = (employee: Employee) => {
     setCurrentUser(employee);
     setIsAuthenticated(true);
+    if (SUPABASE_ENABLED) {
+      void hydrateForUser(employee);
+    }
   };
 
   const renderPage = () => {
@@ -159,8 +181,8 @@ function App() {
     }
   };
 
-  if (!bootReady || !authChecked) {
-    return <LoadingScreen />;
+  if (!authChecked) {
+    return <AppBootScreen />;
   }
 
   if (SUPABASE_ENABLED && !isAuthenticated) {
@@ -177,6 +199,7 @@ function App() {
 
       <div className="flex-1 min-w-0 flex flex-col bg-gray-50 overflow-hidden">
         <TopBar onLogout={handleLogout} />
+        <DataHydrationBar active={isHydrating} />
 
         <main className="flex-1 min-w-0 bg-gray-50 overflow-y-auto overflow-x-hidden">
           <AnimatePresence mode="wait">

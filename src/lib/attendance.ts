@@ -160,3 +160,38 @@ export function summarizeTodayAttendance(
 
   return { punchIn, punchOut, isPunchedIn, workedMs };
 }
+
+export type AttendanceDayStatus = 'absent' | 'in' | 'out';
+
+export function getAttendanceDayStatus(summary: TodayAttendanceSummary): AttendanceDayStatus {
+  if (!summary.punchIn) return 'absent';
+  if (summary.isPunchedIn) return 'in';
+  return 'out';
+}
+
+export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  status: AttendanceDayStatus;
+}
+
+export function buildEmployeeAttendanceReport(
+  employees: { id: string; name: string; department: string; role: string; status: string }[],
+  records: AttendanceRecord[],
+  dateKey = getISTDateKey(),
+): EmployeeAttendanceRow[] {
+  return employees
+    .filter((e) => e.role === 'employee' && e.status === 'Active')
+    .map((employee) => {
+      const summary = summarizeTodayAttendance(records, employee.id, dateKey);
+      return {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        department: employee.department,
+        status: getAttendanceDayStatus(summary),
+        ...summary,
+      };
+    })
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}

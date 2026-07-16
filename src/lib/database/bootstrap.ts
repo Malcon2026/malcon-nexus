@@ -12,51 +12,68 @@ import {
   sbAttendanceRepo,
 } from './repositories/supabaseRepositories';
 
-/** Load all collections from Supabase into the in-memory cache (Supabase mode only). */
-export async function bootstrapSupabaseData(): Promise<void> {
+type BootstrapRole = 'admin' | 'employee';
+type BootstrapTier = 'essential' | 'full';
+
+interface BootstrapTask {
+  key: string;
+  run: () => Promise<unknown>;
+}
+
+function tasksFor(role: BootstrapRole, tier: BootstrapTier): BootstrapTask[] {
+  const tasks: BootstrapTask[] = [
+    { key: 'cases', run: () => sbCaseRepo.getAll() },
+    { key: 'notifications', run: () => sbNotificationRepo.getAll() },
+    { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
+    { key: 'departments', run: () => sbDepartmentRepo.getAll() },
+  ];
+
+  if (role === 'admin') {
+    tasks.push(
+      { key: 'employees', run: () => sbEmployeeRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'doctors', run: () => sbDoctorRepo.getAll() },
+      { key: 'approvals', run: () => sbApprovalRepo.getAll() },
+    );
+    if (tier === 'full') {
+      tasks.push(
+        { key: 'kits', run: () => sbKitRepo.getAll() },
+        { key: 'activityLog', run: () => sbActivityRepo.getAll() },
+      );
+    }
+  }
+
+  return tasks;
+}
+
+async function runBootstrapTasks(tasks: BootstrapTask[]): Promise<void> {
   if (!supabaseStorage) return;
 
-  const results = await Promise.allSettled([
-    sbEmployeeRepo.getAll(),
-    sbHospitalRepo.getAll(),
-    sbDoctorRepo.getAll(),
-    sbCaseRepo.getAll(),
-    sbNotificationRepo.getAll(),
-    sbDepartmentRepo.getAll(),
-    sbKitRepo.getAll(),
-    sbActivityRepo.getAll(),
-    sbApprovalRepo.getAll(),
-    sbAttendanceRepo.getAll(),
-  ]);
+  const results = await Promise.allSettled(tasks.map((t) => t.run()));
 
-  const [
-    employees,
-    hospitals,
-    doctors,
-    cases,
-    notifications,
-    departments,
-    kits,
-    activityLog,
-    approvals,
-    attendanceRecords,
-  ] = results.map((r, i) => {
-    if (r.status === 'rejected') {
-      const keys = ['employees', 'hospitals', 'doctors', 'cases', 'notifications', 'departments', 'kits', 'activityLog', 'approvals', 'attendanceRecords'];
-      console.warn(`[bootstrap] Failed to load ${keys[i]}:`, r.reason);
-      return [];
+  results.forEach((result, i) => {
+    const key = tasks[i].key;
+    if (result.status === 'rejected') {
+      console.warn(`[bootstrap] Failed to load ${key}:`, result.reason);
+      return;
     }
-    return r.value;
+    supabaseStorage!.seedCache(key, result.value as unknown[]);
   });
+}
 
-  supabaseStorage.seedCache('employees', employees);
-  supabaseStorage.seedCache('hospitals', hospitals);
-  supabaseStorage.seedCache('doctors', doctors);
-  supabaseStorage.seedCache('cases', cases);
-  supabaseStorage.seedCache('notifications', notifications);
-  supabaseStorage.seedCache('departments', departments);
-  supabaseStorage.seedCache('kits', kits);
-  supabaseStorage.seedCache('activityLog', activityLog);
-  supabaseStorage.seedCache('approvals', approvals);
-  supabaseStorage.seedCache('attendanceRecords', attendanceRecords);
+/** Load data needed to render the app shell and primary views. */
+export async function bootstrapEssential(role: BootstrapRole): Promise<void> {
+  await runBootstrapTasks(tasksFor(role, 'essential'));
+}
+
+/** Load heavier admin collections (activity log, kits) in the background. */
+export async function bootstrapDeferred(role: BootstrapRole): Promise<void> {
+  if (role !== 'admin') return;
+  await runBootstrapTasks(tasksFor(role, 'full').filter((t) => t.key === 'kits' || t.key === 'activityLog'));
+}
+
+/** Full bootstrap — used after login and manual refresh. */
+export async function bootstrapSupabaseData(role: BootstrapRole = 'employee'): Promise<void> {
+  await bootstrapEssential(role);
+  await bootstrapDeferred(role);
 }

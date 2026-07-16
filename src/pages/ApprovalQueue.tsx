@@ -181,7 +181,7 @@ export const ApprovalQueue: React.FC = () => {
     (async () => {
       try {
         const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
-        await bootstrapSupabaseData();
+        await bootstrapSupabaseData('admin');
         if (!cancelled) reloadFromDatabase();
       } catch (err) {
         console.error('[ApprovalQueue] refresh failed:', err);
