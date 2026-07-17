@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type {
   ImplantCase, Employee, Notification, WorkflowStage, Department,
-  Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType
+  Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType,
+  AttendanceApprovalRequest,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -14,8 +15,8 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance } from '../lib/attendance';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo } from '../lib/database/repositories/supabaseRepositories';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance, getPendingOffsitePunchOutRequest } from '../lib/attendance';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
@@ -39,6 +40,7 @@ interface AppState {
   kits: SurgicalKit[];
   activityLog: ActivityEvent[];
   attendanceRecords: AttendanceRecord[];
+  attendanceApprovalRequests: AttendanceApprovalRequest[];
 
   // UI State
   sidebarCollapsed: boolean;
@@ -95,6 +97,9 @@ interface AppState {
 
   // Attendance
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
+  submitOffsitePunchOutRequest: (reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
+  approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeTodayAttendance>;
 
   // Dynamic Metrics
@@ -214,6 +219,59 @@ const persistAttendance = async (record: AttendanceRecord): Promise<{ error: str
   return { error: null };
 };
 
+const persistAttendanceApprovalRequest = async (
+  request: AttendanceApprovalRequest,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbAttendanceApprovalRepo.insert(request);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save attendance request';
+      console.error('[attendance-approval] persist failed:', err);
+      if (message.includes('row-level security') || message.includes('RLS')) {
+        return { error: 'Request could not be saved. Please log out and log in again, then retry.' };
+      }
+      if (message.includes('attendance_approval_requests') && message.includes('does not exist')) {
+        return { error: 'Off-site punch approval is not set up in the database yet. Please contact your admin.' };
+      }
+      return { error: message };
+    }
+    const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+    setCache('attendanceApprovalRequests', [request, ...list]);
+    return { error: null };
+  }
+  const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+  Database.saveAll('attendanceApprovalRequests', [request, ...list]);
+  return { error: null };
+};
+
+const updateAttendanceApprovalRequest = async (
+  id: string,
+  updates: Partial<AttendanceApprovalRequest>,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbAttendanceApprovalRepo.update(id, updates);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update attendance request';
+      console.error('[attendance-approval] update failed:', err);
+      return { error: message };
+    }
+    const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+    setCache(
+      'attendanceApprovalRequests',
+      list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+    );
+    return { error: null };
+  }
+  const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+  Database.saveAll(
+    'attendanceApprovalRequests',
+    list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+  );
+  return { error: null };
+};
+
 const updateCaseApproval = async (
   caseId: string,
   stage: WorkflowStage,
@@ -234,6 +292,7 @@ const initialDepartments = Database.getAll<DepartmentInfo>('departments');
 const initialKits = Database.getAll<SurgicalKit>('kits');
 const initialActivity = Database.getAll<ActivityEvent>('activityLog');
 const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords');
+const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
 
 const placeholderAdmin: Employee = {
   id: 'guest',
@@ -278,6 +337,7 @@ export const useStore = create<AppState>((set, get) => ({
   kits: initialKits,
   activityLog: initialActivity,
   attendanceRecords: initialAttendance,
+  attendanceApprovalRequests: initialAttendanceApprovals,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
@@ -1138,6 +1198,208 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
+  submitOffsitePunchOutRequest: async (reason, position) => {
+    const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
+    const trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      return { error: 'Please provide a reason (at least 10 characters).' };
+    }
+
+    const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+    if (!summary.isPunchedIn) {
+      return { error: 'You are not punched in yet. Punch in first.' };
+    }
+
+    const existingPending = getPendingOffsitePunchOutRequest(attendanceApprovalRequests, currentUser.id);
+    if (existingPending) {
+      return { error: 'You already have a pending off-site punch-out request awaiting admin approval.' };
+    }
+
+    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
+    if (geofence.withinOffice) {
+      return { error: 'You are at the office. Use regular punch out instead.' };
+    }
+
+    const requestedAt = new Date().toISOString();
+    const request: AttendanceApprovalRequest = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      punchType: 'out',
+      requestedAt,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyM: position.accuracyM,
+      distanceM: geofence.distanceM,
+      reason: trimmedReason,
+      status: 'pending',
+      reviewedBy: null,
+      reviewedById: null,
+      reviewedAt: null,
+      adminNotes: '',
+      attendanceRecordId: null,
+    };
+
+    const persistResult = await persistAttendanceApprovalRequest(request);
+    if (persistResult.error) {
+      return { error: persistResult.error };
+    }
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Off-site Punch Out Request',
+      entityType: 'attendance',
+      entityId: request.id,
+      entityLabel: currentUser.name,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: requestedAt,
+      details: `Submitted off-site punch out (${geofence.distanceM}m from office): ${trimmedReason}`,
+    };
+    persistActivity(activity);
+
+    const notif: Notification = {
+      id: newId(),
+      title: 'Off-site Punch Out Request',
+      message: `${currentUser.name} requested off-site punch out approval (${geofence.distanceM}m from office).`,
+      type: 'warning',
+      timestamp: requestedAt,
+      read: false,
+    };
+    persistNotification(notif);
+
+    set((s) => ({
+      attendanceApprovalRequests: [request, ...s.attendanceApprovalRequests],
+      activityLog: [activity, ...s.activityLog],
+      notifications: [notif, ...s.notifications],
+    }));
+
+    return { error: null };
+  },
+
+  approveAttendanceApprovalRequest: async (requestId, adminNotes = '') => {
+    const { currentUser, attendanceApprovalRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can approve attendance requests.' };
+    }
+
+    const request = attendanceApprovalRequests.find((r) => r.id === requestId);
+    if (!request) {
+      return { error: 'Request not found.' };
+    }
+    if (request.status !== 'pending') {
+      return { error: 'This request has already been reviewed.' };
+    }
+
+    const record: AttendanceRecord = {
+      id: newId(),
+      employeeId: request.employeeId,
+      employeeName: request.employeeName,
+      punchType: 'out',
+      punchedAt: request.requestedAt,
+      latitude: request.latitude,
+      longitude: request.longitude,
+      accuracyM: request.accuracyM,
+      distanceM: request.distanceM,
+      withinOffice: false,
+      officeAddress: OFFICE_LOCATION.address,
+    };
+
+    const persistResult = await persistAttendance(record);
+    if (persistResult.error) {
+      return { error: persistResult.error };
+    }
+
+    const reviewedAt = new Date().toISOString();
+    const updates: Partial<AttendanceApprovalRequest> = {
+      status: 'approved',
+      reviewedBy: currentUser.name,
+      reviewedById: currentUser.id,
+      reviewedAt,
+      adminNotes: adminNotes.trim(),
+      attendanceRecordId: record.id,
+    };
+
+    const updateResult = await updateAttendanceApprovalRequest(requestId, updates);
+    if (updateResult.error) {
+      return { error: updateResult.error };
+    }
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Approved Off-site Punch Out',
+      entityType: 'attendance',
+      entityId: request.id,
+      entityLabel: request.employeeName,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: reviewedAt,
+      details: `Approved off-site punch out for ${request.employeeName}. Reason: ${request.reason}`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      attendanceRecords: [record, ...s.attendanceRecords],
+      attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
+        r.id === requestId ? { ...r, ...updates } : r,
+      ),
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  rejectAttendanceApprovalRequest: async (requestId, adminNotes = '') => {
+    const { currentUser, attendanceApprovalRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can reject attendance requests.' };
+    }
+
+    const request = attendanceApprovalRequests.find((r) => r.id === requestId);
+    if (!request) {
+      return { error: 'Request not found.' };
+    }
+    if (request.status !== 'pending') {
+      return { error: 'This request has already been reviewed.' };
+    }
+
+    const reviewedAt = new Date().toISOString();
+    const updates: Partial<AttendanceApprovalRequest> = {
+      status: 'rejected',
+      reviewedBy: currentUser.name,
+      reviewedById: currentUser.id,
+      reviewedAt,
+      adminNotes: adminNotes.trim(),
+    };
+
+    const updateResult = await updateAttendanceApprovalRequest(requestId, updates);
+    if (updateResult.error) {
+      return { error: updateResult.error };
+    }
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Rejected Off-site Punch Out',
+      entityType: 'attendance',
+      entityId: request.id,
+      entityLabel: request.employeeName,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: reviewedAt,
+      details: `Rejected off-site punch out for ${request.employeeName}. Reason given: ${request.reason}`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
+        r.id === requestId ? { ...r, ...updates } : r,
+      ),
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
   // ========== DYNAMIC METRICS ==========
 
   getMonthlyData: () => {
@@ -1256,6 +1518,7 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [],
       activityLog: [],
       attendanceRecords: [],
+      attendanceApprovalRequests: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -1281,6 +1544,7 @@ export const useStore = create<AppState>((set, get) => ({
       kits: Database.getAll<SurgicalKit>('kits'),
       activityLog: Database.getAll<ActivityEvent>('activityLog'),
       attendanceRecords: Database.getAll<AttendanceRecord>('attendanceRecords'),
+      attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
       ...session,
     });
   },

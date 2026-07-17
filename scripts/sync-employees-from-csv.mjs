@@ -34,6 +34,7 @@ const DEPARTMENT_ALIASES = {
   admin: 'Admin',
   stores: 'Stores',
   delivery: 'Delivery',
+  delevery: 'Delivery',
 };
 
 function loadEnv() {
@@ -74,7 +75,9 @@ const rows = parseCsvObjects(readFileSync(inputPath, 'utf8'), {
   requiredColumns: ['name', 'email', 'password', 'department', 'role'],
 }).map((row) => ({
   ...row,
+  email: row.email.trim().toLowerCase(),
   department: normalizeDepartment(row.department),
+  role: row.role.trim().toLowerCase(),
 }));
 const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },

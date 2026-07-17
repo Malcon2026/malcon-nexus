@@ -7,7 +7,8 @@
 import { supabase } from '../../supabase';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
-  Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord
+  Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
+  AttendanceApprovalRequest,
 } from '../../../types';
 
 // ─── HELPERS ─────────────────────────────────────────────────
@@ -506,6 +507,75 @@ export const sbAttendanceRepo = {
       within_office: record.withinOffice,
       office_address: record.officeAddress,
     });
+    if (error) throw error;
+  },
+};
+
+
+// ─── ATTENDANCE APPROVAL REQUESTS ────────────────────────────
+
+export const sbAttendanceApprovalRepo = {
+  async getAll(): Promise<AttendanceApprovalRequest[]> {
+    const { data, error } = await supabase
+      .from('attendance_approval_requests')
+      .select('*')
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      punchType: row.punch_type as AttendanceApprovalRequest['punchType'],
+      requestedAt: row.requested_at,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      accuracyM: row.accuracy_m,
+      distanceM: row.distance_m,
+      reason: row.reason,
+      status: row.status as AttendanceApprovalRequest['status'],
+      reviewedBy: row.reviewed_by,
+      reviewedById: row.reviewed_by_id,
+      reviewedAt: row.reviewed_at,
+      adminNotes: row.admin_notes ?? '',
+      attendanceRecordId: row.attendance_record_id,
+    }));
+  },
+
+  async insert(request: AttendanceApprovalRequest): Promise<void> {
+    const { error } = await supabase.from('attendance_approval_requests').insert({
+      id: request.id,
+      employee_id: request.employeeId,
+      employee_name: request.employeeName,
+      punch_type: request.punchType,
+      requested_at: request.requestedAt,
+      latitude: request.latitude,
+      longitude: request.longitude,
+      accuracy_m: request.accuracyM,
+      distance_m: request.distanceM,
+      reason: request.reason,
+      status: request.status,
+      reviewed_by: request.reviewedBy,
+      reviewed_by_id: request.reviewedById,
+      reviewed_at: request.reviewedAt,
+      admin_notes: request.adminNotes,
+      attendance_record_id: request.attendanceRecordId,
+    });
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<AttendanceApprovalRequest>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
+    if (updates.reviewedById !== undefined) payload.reviewed_by_id = updates.reviewedById;
+    if (updates.reviewedAt !== undefined) payload.reviewed_at = updates.reviewedAt;
+    if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
+    if (updates.attendanceRecordId !== undefined) payload.attendance_record_id = updates.attendanceRecordId;
+
+    const { error } = await supabase
+      .from('attendance_approval_requests')
+      .update(payload)
+      .eq('id', id);
     if (error) throw error;
   },
 };

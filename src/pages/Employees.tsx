@@ -11,6 +11,7 @@ import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
+import { EmployeeAttendanceApprovalsPanel } from '../components/EmployeeAttendanceApprovalsPanel';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'
@@ -29,7 +30,10 @@ const emptyForm = {
 
 export const Employees: React.FC = () => {
   const { employees, viewMode, createEmployee, updateEmployee, deleteEmployee } = useStore();
-  const [pageTab, setPageTab] = useState<'team' | 'attendance'>('team');
+  const pendingApprovalCount = useStore((s) =>
+    s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
+  );
+  const [pageTab, setPageTab] = useState<'team' | 'attendance' | 'attendance-approvals'>('team');
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [showModal, setShowModal] = useState(false);
@@ -113,7 +117,11 @@ export const Employees: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Employees</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {pageTab === 'attendance' ? 'Track daily punch in/out for all staff' : 'Manage team members across all departments'}
+            {pageTab === 'attendance'
+              ? 'Track daily punch in/out for all staff'
+              : pageTab === 'attendance-approvals'
+                ? 'Review off-site punch out requests from employees'
+                : 'Manage team members across all departments'}
           </p>
         </div>
         {viewMode === 'admin' && pageTab === 'team' && (
@@ -143,6 +151,12 @@ export const Employees: React.FC = () => {
           {([
             { id: 'team' as const, label: 'Team Directory' },
             { id: 'attendance' as const, label: 'Attendance' },
+            {
+              id: 'attendance-approvals' as const,
+              label: pendingApprovalCount
+                ? `Off-site Approvals (${pendingApprovalCount})`
+                : 'Off-site Approvals',
+            },
           ]).map(({ id, label }) => (
             <button
               key={id}
@@ -160,6 +174,8 @@ export const Employees: React.FC = () => {
 
       {pageTab === 'attendance' && viewMode === 'admin' ? (
         <EmployeeAttendancePanel />
+      ) : pageTab === 'attendance-approvals' && viewMode === 'admin' ? (
+        <EmployeeAttendanceApprovalsPanel />
       ) : (
         <>
       {/* Dept Summary */}

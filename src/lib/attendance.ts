@@ -1,4 +1,4 @@
-import type { AttendanceRecord } from '../types';
+import type { AttendanceApprovalRequest, AttendanceRecord } from '../types';
 
 /** Malcon Nexus office — CCWW+RJ, Hyderabad, Telangana (7J9WCCWW+RJ) */
 export const OFFICE_LOCATION = {
@@ -174,6 +174,22 @@ export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
   employeeName: string;
   department: string;
   status: AttendanceDayStatus;
+}
+
+export function getPendingOffsitePunchOutRequest(
+  requests: AttendanceApprovalRequest[],
+  employeeId: string,
+  dateKey = getISTDateKey(),
+): AttendanceApprovalRequest | null {
+  return (
+    requests.find(
+      (r) =>
+        r.employeeId === employeeId &&
+        r.punchType === 'out' &&
+        r.status === 'pending' &&
+        getISTDateKey(r.requestedAt) === dateKey,
+    ) ?? null
+  );
 }
 
 export function buildEmployeeAttendanceReport(

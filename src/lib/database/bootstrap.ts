@@ -10,6 +10,7 @@ import {
   sbDepartmentRepo,
   sbKitRepo,
   sbAttendanceRepo,
+  sbAttendanceApprovalRepo,
 } from './repositories/supabaseRepositories';
 
 type BootstrapRole = 'admin' | 'employee';
@@ -25,6 +26,7 @@ function tasksFor(role: BootstrapRole, tier: BootstrapTier): BootstrapTask[] {
     { key: 'cases', run: () => sbCaseRepo.getAll() },
     { key: 'notifications', run: () => sbNotificationRepo.getAll() },
     { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
+    { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
   ];
 

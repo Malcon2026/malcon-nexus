@@ -106,6 +106,7 @@ export const Database = {
     storage.removeItem('approvals');
     storage.removeItem('activityLog');
     storage.removeItem('attendanceRecords');
+    storage.removeItem('attendanceApprovalRequests');
 
     // Reset employee counters
     const employees = storage.getItem<Employee[]>('employees') || [];
@@ -122,5 +123,6 @@ export const Database = {
     storage.setItem('approvals', []);
     storage.setItem('activityLog', []);
     storage.setItem('attendanceRecords', []);
+    storage.setItem('attendanceApprovalRequests', []);
   },
 };

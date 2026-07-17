@@ -14,6 +14,7 @@ import {
   getCurrentPosition,
   checkOfficeGeofence,
   summarizeTodayAttendance,
+  getPendingOffsitePunchOutRequest,
   type GeoPosition,
 } from '../lib/attendance';
 
@@ -25,16 +26,20 @@ type LocationState =
 
 export const AttendanceSection: React.FC = () => {
   const attendanceRecords = useStore((s) => s.attendanceRecords);
+  const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
   const currentUser = useStore((s) => s.currentUser);
   const punchAttendance = useStore((s) => s.punchAttendance);
+  const submitOffsitePunchOutRequest = useStore((s) => s.submitOffsitePunchOutRequest);
 
   const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+  const pendingOffsiteOut = getPendingOffsitePunchOutRequest(attendanceApprovalRequests, currentUser.id);
 
   const [now, setNow] = useState(new Date());
   const [confirmType, setConfirmType] = useState<PunchType | null>(null);
   const [locationState, setLocationState] = useState<LocationState>({ status: 'idle' });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [offsiteReason, setOffsiteReason] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -63,6 +68,7 @@ export const AttendanceSection: React.FC = () => {
   const openConfirm = (type: PunchType) => {
     setConfirmType(type);
     setSubmitError(null);
+    setOffsiteReason('');
     setLocationState({ status: 'idle' });
     void refreshLocation();
   };
@@ -71,8 +77,14 @@ export const AttendanceSection: React.FC = () => {
     if (submitting) return;
     setConfirmType(null);
     setSubmitError(null);
+    setOffsiteReason('');
     setLocationState({ status: 'idle' });
   };
+
+  const isOffsitePunchOut =
+    confirmType === 'out' &&
+    locationState.status === 'ready' &&
+    !locationState.withinOffice;
 
   const handleConfirm = async () => {
     if (!confirmType) return;
@@ -100,11 +112,22 @@ export const AttendanceSection: React.FC = () => {
       withinOffice: geofence.withinOffice,
     });
 
-    if (!geofence.withinOffice) {
+    if (confirmType === 'in' && !geofence.withinOffice) {
       setSubmitError(
         `You must be at the office (${OFFICE_LOCATION.address}). You are ${geofence.distanceM}m away.`,
       );
       setSubmitting(false);
+      return;
+    }
+
+    if (confirmType === 'out' && !geofence.withinOffice) {
+      const result = await submitOffsitePunchOutRequest(offsiteReason, position);
+      setSubmitting(false);
+      if (result.error) {
+        setSubmitError(result.error);
+        return;
+      }
+      closeConfirm();
       return;
     }
 
@@ -120,6 +143,7 @@ export const AttendanceSection: React.FC = () => {
   };
 
   const punchLabel = confirmType === 'in' ? 'Punch In' : 'Punch Out';
+  const canSubmitOffsite = offsiteReason.trim().length >= 10;
 
   return (
     <>
@@ -133,15 +157,22 @@ export const AttendanceSection: React.FC = () => {
               </p>
               <p className="text-indigo-100 text-xs mt-1">{formatDateIST(now)}</p>
             </div>
-            <Badge
-              className={
-                summary.isPunchedIn
-                  ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30 self-start'
-                  : 'bg-white/10 text-white border-white/20 self-start'
-              }
-            >
-              {summary.isPunchedIn ? '● Punched In' : '○ Not Punched In'}
-            </Badge>
+            <div className="flex flex-col gap-1.5 self-start">
+              <Badge
+                className={
+                  summary.isPunchedIn
+                    ? 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30'
+                    : 'bg-white/10 text-white border-white/20'
+                }
+              >
+                {summary.isPunchedIn ? '● Punched In' : '○ Not Punched In'}
+              </Badge>
+              {pendingOffsiteOut && (
+                <Badge className="bg-amber-500/20 text-amber-100 border-amber-400/30 text-[10px]">
+                  Punch out pending approval
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -167,11 +198,21 @@ export const AttendanceSection: React.FC = () => {
             </div>
           </div>
 
+          {pendingOffsiteOut && (
+            <div className="flex items-start gap-2 text-xs text-amber-800 mb-4 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                Your off-site punch out at {formatTimeIST(pendingOffsiteOut.requestedAt)} is awaiting admin approval.
+                Reason: <span className="font-medium">{pendingOffsiteOut.reason}</span>
+              </span>
+            </div>
+          )}
+
           <div className="flex items-start gap-2 text-xs text-gray-500 mb-4 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
             <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
               Office: <span className="font-medium text-gray-700">{OFFICE_LOCATION.address}</span>
-              {' '}· Must be within ~{OFFICE_LOCATION.radiusM}m (GPS buffer applied)
+              {' '}· Punch in at office · Off-site punch out requires admin approval
             </span>
           </div>
 
@@ -192,7 +233,7 @@ export const AttendanceSection: React.FC = () => {
               className="flex-1"
               icon={<LogOut className="h-4 w-4" />}
               onClick={() => openConfirm('out')}
-              disabled={!summary.isPunchedIn}
+              disabled={!summary.isPunchedIn || !!pendingOffsiteOut}
             >
               Punch Out
             </Button>
@@ -203,8 +244,12 @@ export const AttendanceSection: React.FC = () => {
       <Modal
         isOpen={confirmType !== null}
         onClose={closeConfirm}
-        title="Are you sure?"
-        subtitle={`Confirm ${punchLabel} for today`}
+        title={isOffsitePunchOut ? 'Off-site Punch Out' : 'Are you sure?'}
+        subtitle={
+          isOffsitePunchOut
+            ? 'Submit a reason for admin approval'
+            : `Confirm ${punchLabel} for today`
+        }
         size="md"
         footer={
           <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
@@ -214,18 +259,28 @@ export const AttendanceSection: React.FC = () => {
             <Button
               variant="primary"
               onClick={() => void handleConfirm()}
-              disabled={submitting || locationState.status === 'loading'}
+              disabled={
+                submitting ||
+                locationState.status === 'loading' ||
+                (isOffsitePunchOut && !canSubmitOffsite)
+              }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             >
-              {submitting ? 'Processing…' : `Yes, ${punchLabel}`}
+              {submitting
+                ? 'Processing…'
+                : isOffsitePunchOut
+                  ? 'Submit for Approval'
+                  : `Yes, ${punchLabel}`}
             </Button>
           </div>
         }
       >
         <div className="px-4 sm:px-6 py-4 space-y-4">
-          <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+          <div className={`rounded-xl border px-4 py-3 ${isOffsitePunchOut ? 'bg-amber-50 border-amber-100' : 'bg-amber-50 border-amber-100'}`}>
             <p className="text-sm font-semibold text-amber-900">
-              Are you sure you want to {punchLabel.toLowerCase()}?
+              {isOffsitePunchOut
+                ? 'You are outside the office. Admin approval is required to punch out.'
+                : `Are you sure you want to ${punchLabel.toLowerCase()}?`}
             </p>
             <p className="text-xs text-amber-700 mt-1 tabular-nums">
               Current time: {formatTimeIST(now)}
@@ -274,12 +329,12 @@ export const AttendanceSection: React.FC = () => {
                     {locationState.withinOffice ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-red-500" />
+                      <XCircle className="h-4 w-4 text-amber-500" />
                     )}
-                    <span className={`text-sm font-medium ${locationState.withinOffice ? 'text-emerald-700' : 'text-red-600'}`}>
+                    <span className={`text-sm font-medium ${locationState.withinOffice ? 'text-emerald-700' : 'text-amber-700'}`}>
                       {locationState.withinOffice
                         ? `At office (${locationState.distanceM}m away)`
-                        : `${locationState.distanceM}m from office — too far`}
+                        : `${locationState.distanceM}m from office — off-site`}
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-400 tabular-nums">
@@ -289,6 +344,25 @@ export const AttendanceSection: React.FC = () => {
               )}
             </div>
           </div>
+
+          {isOffsitePunchOut && (
+            <div>
+              <label htmlFor="offsite-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
+                Reason for off-site punch out
+              </label>
+              <textarea
+                id="offsite-reason"
+                rows={3}
+                value={offsiteReason}
+                onChange={(e) => setOffsiteReason(e.target.value)}
+                placeholder="e.g. Client visit, field work, medical emergency…"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Minimum 10 characters. Your manager will review this request.
+              </p>
+            </div>
+          )}
 
           {submitError && (
             <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-700">

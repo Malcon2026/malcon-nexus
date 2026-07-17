@@ -217,3 +217,24 @@ export interface AttendanceRecord {
   officeAddress: string;
 }
 
+export type AttendanceApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AttendanceApprovalRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  punchType: 'out';
+  requestedAt: string;
+  latitude: number;
+  longitude: number;
+  accuracyM: number;
+  distanceM: number;
+  reason: string;
+  status: AttendanceApprovalStatus;
+  reviewedBy: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  adminNotes: string;
+  attendanceRecordId: string | null;
+}
+
