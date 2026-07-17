@@ -17,7 +17,7 @@ import {
 } from '../lib/attendance';
 
 const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission',
+  'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission',
 ];
 
 const statusConfig = {

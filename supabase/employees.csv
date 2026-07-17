@@ -1,14 +1,16 @@
 name,email,password,department,role,phone
-Jeevan Akarsh,jeevanakarsh@gmail.com,Test@0011,Stores,admin,8019971125
-Preetham Tailam,Preethamtailam@gmail.com,Test@0011,Stores,admin,8019971125
-Ramakanth,ramakanth@malconnexus.com,Test@0011,Stores Audit,employee,8019971125
-Rachitha,rachitha@gmail.com,Test@0011,Accounts,employee,8019971125
-Venkatesh,venkatesh@gmail.com,Test@0011,Accounts,employee,8019971125
-Bindhu,bindhu@gmail.com,Test@0011,Stores,employee,8019971125
-Chandra,Chandra@gmail.com,Test@0011,Stores,employee,8019971125
-Srivani,srivani@gmail.com,Test@0011,Cleaning Department,employee,8019971125
-Vijay,Vijay@gmail.com,Test@0011,Cleaning Department,employee,8019971125
-Vinay,Vinay@gmail.com,Test@0011,Stores Audit,employee,8019971125
-P.Sai,sai@gmail.com,Test@0011,Stores Audit,employee,8019971125
-Govindh,govindh@gmail.com,Test@0011,Scrub Person,employee,8019971125
-Kiran,kiran@gmail.com,Test@0011,Scrub Person,employee,8019971125
+preetam.tailam,preetam.tailam@malconnexus.com,Test@0011,Admin,Admin,8019971125
+Bindhu Seerla,bindhu.seerla@malconnexus.com,Test@0011,Stores,Employee,8019971125
+Chandra Gajelli,chandra.gajelli@malconnexus.com,Test@0011,Stores Audit,Employee,8019971125
+Jeevan Anishetti,jeevan.anishetti@malconnexus.com,Test@0011,Admin,Admin,8019971125
+Nithin Janoth,nithin.janoth@malconnexus.com,Test@0011,Delevery,Employee,8019971125
+Rachitha Abburi,rachitha.abburi@malconnexus.com,Test@0011,Accounts,Employee,8019971125
+Ramakanth Perumandla,ramakanth.perumandla@malconnexus.com,Test@0011,Admin,Admin,8019971125
+Sai Patakaula,sai.patakaula@malconnexus.com,Test@0011,Stores,Employee,8019971125
+Saikrishna Jeripothula,saikrishna.jeripothula@malconnexus.com,Test@0011,Delevery,Employee,8019971125
+Shivaji Bashaboina,shivaji.bashaboina@malconnexus.com,Test@0011,Delevery,Employee,8019971125
+Srivani Adire,srivani.adire@malconnexus.com,Test@0011,Stores Audit,Employee,8019971125
+Surya Jillala,surya.jillala@malconnexus.com,Test@0011,Delevery,Employee,8019971125
+Sushma Tadisetty,sushma.tadisetty@malconnexus.com,Test@0011,Admin,Employee,8019971125
+Vijaykumar Jeripothula,vijaykumar.jeripothula@malconnexus.com,Test@0011,Delevery,Employee,8019971125
+Vinithgoud Burlawar,vinithgoud.burlawar@malconnexus.com,Test@0011,Delevery,Employee,8019971125

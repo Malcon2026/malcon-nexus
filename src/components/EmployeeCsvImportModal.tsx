@@ -136,7 +136,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
         <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 space-y-1">
           <p className="font-semibold">Required columns</p>
           <p>name, email, password, department, role, phone (optional)</p>
-          <p className="text-blue-700">Departments: Stores, Scrub Person, Cleaning Department, Stores Audit, Accounts, Bill Submission, Admin</p>
+          <p className="text-blue-700">Departments: Stores, Delivery, Scrub Person, Cleaning Department, Stores Audit, Accounts, Bill Submission, Admin</p>
         </div>
 
         <input

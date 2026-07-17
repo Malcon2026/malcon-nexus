@@ -19,6 +19,7 @@ const root = resolve(__dirname, '..');
 
 const VALID_DEPARTMENTS = new Set([
   'Stores',
+  'Delivery',
   'Scrub Person',
   'Cleaning Department',
   'Stores Audit',

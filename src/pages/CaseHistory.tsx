@@ -36,6 +36,7 @@ type HistoryTab = 'all' | 'in-progress' | 'past' | CaseStatus;
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = [
   'Kit Preparation',
+  'Delivery',
   'Surgery',
   'Cleaning',
   'Audit',

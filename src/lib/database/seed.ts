@@ -2,6 +2,7 @@ import type { Employee, Hospital, Doctor, WorkflowStage, Department } from '../.
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation',
+  'Delivery',
   'Surgery',
   'Cleaning',
   'Audit',
@@ -12,6 +13,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
 
 export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Kit Preparation': 'Stores',
+  'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Cleaning': 'Cleaning Department',
   'Audit': 'Stores Audit',

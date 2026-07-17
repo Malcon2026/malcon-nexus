@@ -20,11 +20,12 @@ import {
 } from '../utils/helpers';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
+  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
+  'Delivery': 'Delivery Completed',
   'Surgery': 'Surgery Completed',
   'Cleaning': 'Cleaning Completed',
   'Audit': 'Audit Completed',
@@ -95,6 +96,7 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
 
   const stageToDepart: Record<WorkflowStage, Department> = {
     'Kit Preparation': 'Stores',
+    'Delivery': 'Delivery',
     'Surgery': 'Scrub Person',
     'Cleaning': 'Cleaning Department',
     'Audit': 'Stores Audit',
@@ -105,6 +107,7 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
 
   const DEPT_TO_STAGE: Record<string, WorkflowStage> = {
     'Stores': 'Kit Preparation',
+    'Delivery': 'Delivery',
     'Scrub Person': 'Surgery',
     'Cleaning Department': 'Cleaning',
     'Stores Audit': 'Audit',
@@ -117,7 +120,7 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
   const [selectedDept, setSelectedDept] = useState<Department>(initialDept);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
-  const DEPARTMENTS: Department[] = ['Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
+  const DEPARTMENTS: Department[] = ['Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
   const deptEmployees = employees.filter(e => e.department === selectedDept && e.role === 'employee');
 
   const handleAssign = () => {

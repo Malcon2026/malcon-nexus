@@ -12,6 +12,7 @@ export type CaseStatus =
 
 export type WorkflowStage =
   | 'Kit Preparation'
+  | 'Delivery'
   | 'Surgery'
   | 'Cleaning'
   | 'Audit'
@@ -21,6 +22,7 @@ export type WorkflowStage =
 
 export type Department =
   | 'Stores'
+  | 'Delivery'
   | 'Scrub Person'
   | 'Cleaning Department'
   | 'Stores Audit'

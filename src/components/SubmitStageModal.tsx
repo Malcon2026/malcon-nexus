@@ -8,6 +8,7 @@ import type { ImplantCase, WorkflowStage } from '../types';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
+  'Delivery': 'Mark Delivery Completed',
   'Surgery': 'Mark Surgery Completed',
   'Cleaning': 'Mark Cleaning Completed',
   'Audit': 'Mark Audit Completed',

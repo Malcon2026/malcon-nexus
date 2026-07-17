@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS employees (
   name         TEXT NOT NULL,
   email        TEXT NOT NULL UNIQUE,
   department   TEXT NOT NULL CHECK (department IN (
-    'Stores', 'Scrub Person', 'Cleaning Department',
+    'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department',
     'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
   )),
   role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_doctors_hospital_id ON doctors(hospital_id);
 CREATE TABLE IF NOT EXISTS departments (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name        TEXT NOT NULL UNIQUE CHECK (name IN (
-    'Stores', 'Scrub Person', 'Cleaning Department',
+    'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department',
     'Stores Audit', 'Accounts', 'Bill Submission', 'Admin'
   )),
   description TEXT NOT NULL DEFAULT '',
@@ -119,10 +119,10 @@ CREATE TABLE IF NOT EXISTS cases (
     'Rejected','Changes Requested','Completed','Cancelled'
   )),
   current_stage       TEXT NOT NULL DEFAULT 'Kit Preparation' CHECK (current_stage IN (
-    'Kit Preparation','Surgery','Cleaning','Audit','Billing','Bill Submission','Completed'
+    'Kit Preparation','Delivery','Surgery','Cleaning','Audit','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
-    'Stores','Scrub Person','Cleaning Department','Stores Audit',
+    'Stores','Delivery','Scrub Person','Cleaning Department','Stores Audit',
     'Accounts','Bill Submission','Admin'
   )),
   assigned_employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
@@ -256,6 +256,7 @@ CREATE TRIGGER set_updated_at_kits       BEFORE UPDATE ON surgical_kits  FOR EAC
 -- ============================================================
 INSERT INTO departments (id, name, description, color) VALUES
   ('11111111-0001-0001-0001-000000000001', 'Stores',               'Implant kit storage, inventory and verification.',  'bg-violet-100 text-violet-800'),
+  ('11111111-0001-0001-0001-000000000007', 'Delivery',             'Delivery of implant kits to hospitals.',          'bg-rose-100 text-rose-800'),
   ('11111111-0001-0001-0001-000000000002', 'Scrub Person',         'Assisting surgeons during the implant operation.',  'bg-blue-100 text-blue-800'),
   ('11111111-0001-0001-0001-000000000003', 'Cleaning Department',  'Sterilization and cleaning of surgical kits.',      'bg-cyan-100 text-cyan-800'),
   ('11111111-0001-0001-0001-000000000004', 'Stores Audit',         'Audit of items, materials, and kit completeness.', 'bg-amber-100 text-amber-800'),

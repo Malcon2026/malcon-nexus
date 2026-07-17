@@ -8,11 +8,12 @@ import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate } from '../utils/helpers';
 
 const KANBAN_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
+  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
   'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
+  'Delivery': { title: 'Delivery', desc: 'Delivery dept' },
   'Surgery': { title: 'Surgery', desc: 'Scrub person' },
   'Cleaning': { title: 'Cleaning', desc: 'Clean dept' },
   'Audit': { title: 'Stores Audit', desc: 'Audit dept' },

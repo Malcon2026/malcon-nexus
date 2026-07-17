@@ -19,7 +19,7 @@ type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'pri
 type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
-const STAGES: WorkflowStage[] = ['Kit Preparation', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'];
+const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'];
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -37,7 +37,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     employeeId: '',
   });
 
-  const DEPARTMENTS: Department[] = ['Stores', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
+  const DEPARTMENTS: Department[] = ['Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
   const filteredEmployees = employees.filter(e => e.department === form.department && e.role === 'employee');
 
   const handleSubmit = async (e: React.FormEvent) => {
