@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LineChart,
   FileDown,
+  Activity,
   Archive,
   Building2,
   X,
