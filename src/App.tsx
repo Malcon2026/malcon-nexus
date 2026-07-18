@@ -9,6 +9,7 @@ import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
+import { Analytics } from './pages/Analytics';
 import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
@@ -173,6 +174,8 @@ function App() {
       case 'approvals':  return <ApprovalQueue />;
       case 'employees':  return <Employees />;
       case 'hospitals':  return <Hospitals />;
+      case 'analytics':
+        return viewMode === 'admin' ? <Analytics /> : <EmployeeDashboard />;
       case 'reports':
         return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;
       case 'case-history': return <CaseHistory />;

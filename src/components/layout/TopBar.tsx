@@ -28,7 +28,9 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     approvals: 'Approval Queue',
     employees: 'Employees',
     hospitals: 'Hospitals',
+    analytics: 'Analytics',
     reports: 'Reports',
+    'case-history': 'Case History',
     activity: 'Activity Log',
     settings: 'Settings',
   };
