@@ -16,6 +16,7 @@ import { Settings } from './pages/Settings';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { useStore } from './store/useStore';
 import type { Employee } from './types';
 
@@ -198,6 +199,7 @@ function App() {
   }
 
   return (
+    <AppErrorBoundary>
     <div className="flex h-[100dvh] w-full max-w-full min-w-0 bg-gray-50 overflow-hidden">
       <Sidebar />
 
@@ -222,6 +224,7 @@ function App() {
         </main>
       </div>
     </div>
+    </AppErrorBoundary>
   );
 }
 

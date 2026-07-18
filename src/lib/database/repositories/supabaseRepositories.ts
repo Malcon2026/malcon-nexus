@@ -10,6 +10,7 @@ import type {
   Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
   AttendanceApprovalRequest,
 } from '../../../types';
+import { normalizeWorkflowStage } from '../../../utils/helpers';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -244,18 +245,36 @@ export const sbDoctorRepo = {
 
 // ─── CASES ───────────────────────────────────────────────────
 
+const FALLBACK_HOSPITAL: Hospital = {
+  id: 'unknown',
+  name: 'Unknown Hospital',
+  branch: '',
+  address: '',
+  city: '',
+  contactPerson: '',
+  phone: '',
+  email: '',
+  status: 'Active',
+};
+
 function rowToCase(row: Record<string, unknown>): ImplantCase {
   return {
     id: row.id as string,
     caseNumber: row.case_number as string,
-    hospital: row.hospital_snapshot as ImplantCase['hospital'],
-    doctor: row.doctor_snapshot as ImplantCase['doctor'],
-    surgeryDate: row.surgery_date as string,
-    implantRequired: row.implant_required as string,
-    implantType: row.implant_type as string,
+    hospital: (row.hospital_snapshot as ImplantCase['hospital']) ?? FALLBACK_HOSPITAL,
+    doctor: (row.doctor_snapshot as ImplantCase['doctor']) ?? {
+      id: '',
+      name: 'Unknown Doctor',
+      specialization: '',
+      hospitalId: '',
+      phone: '',
+    },
+    surgeryDate: (row.surgery_date as string) ?? '',
+    implantRequired: (row.implant_required as string) ?? '',
+    implantType: (row.implant_type as string) ?? '',
     priority: row.priority as ImplantCase['priority'],
     status: row.status as ImplantCase['status'],
-    currentStage: row.current_stage as ImplantCase['currentStage'],
+    currentStage: normalizeWorkflowStage(row.current_stage as string),
     currentDepartment: row.current_department as ImplantCase['currentDepartment'],
     assignedEmployee: (row.assigned_employee_snapshot as ImplantCase['assignedEmployee']) ?? null,
     createdBy: row.created_by as string,

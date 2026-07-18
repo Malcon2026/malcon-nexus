@@ -36,6 +36,31 @@ export const stageColors: Record<WorkflowStage, { bg: string; text: string; bord
   'Completed': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: 'bg-green-500' },
 };
 
+const defaultStageStyle = {
+  bg: 'bg-gray-50',
+  text: 'text-gray-700',
+  border: 'border-gray-200',
+  dot: 'bg-gray-400',
+};
+
+/** Safe lookup — legacy DB values like "Collection" won't crash the UI. */
+export function getStageStyle(stage: string | null | undefined) {
+  if (!stage) return defaultStageStyle;
+  const normalized = stage === 'Collection' ? 'Bill Submission' : stage;
+  return stageColors[normalized as WorkflowStage] ?? defaultStageStyle;
+}
+
+export function getPriorityStyle(priority: string | null | undefined) {
+  if (!priority) return priorityColors.Medium;
+  return priorityColors[priority as Priority] ?? priorityColors.Medium;
+}
+
+export function normalizeWorkflowStage(stage: string | null | undefined): WorkflowStage {
+  if (stage === 'Collection') return 'Bill Submission';
+  if (stage && stage in stageColors) return stage as WorkflowStage;
+  return 'Kit Preparation';
+}
+
 export const departmentColors: Record<Department, string> = {
   Stores: 'bg-violet-100 text-violet-800',
   Delivery: 'bg-rose-100 text-rose-800',

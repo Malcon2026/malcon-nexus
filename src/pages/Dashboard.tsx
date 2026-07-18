@@ -14,7 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { priorityColors, stageColors, formatCurrency, formatDate, timeAgo } from '../utils/helpers';
+import { priorityColors, stageColors, formatCurrency, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -383,8 +383,8 @@ export const Dashboard: React.FC = () => {
             <CardBody className="p-0">
               <div className="divide-y divide-gray-50">
                 {upcomingCases.map((c) => {
-                  const sc = stageColors[c.currentStage];
-                  const pc = priorityColors[c.priority];
+                  const sc = getStageStyle(c.currentStage);
+                  const pc = getPriorityStyle(c.priority);
                   return (
                     <div
                       key={c.id}
@@ -394,7 +394,7 @@ export const Dashboard: React.FC = () => {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
                           <p className="text-xs font-semibold text-gray-900">{c.caseNumber}</p>
-                          <p className="text-xs text-gray-500 truncate">{c.hospital.name}</p>
+                          <p className="text-xs text-gray-500 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
                         </div>
                         <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
                       </div>

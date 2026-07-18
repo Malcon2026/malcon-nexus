@@ -177,12 +177,12 @@ export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
 }
 
 export function getPendingOffsitePunchOutRequest(
-  requests: AttendanceApprovalRequest[],
+  requests: AttendanceApprovalRequest[] | null | undefined,
   employeeId: string,
   dateKey = getISTDateKey(),
 ): AttendanceApprovalRequest | null {
   return (
-    requests.find(
+    (requests ?? []).find(
       (r) =>
         r.employeeId === employeeId &&
         r.punchType === 'out' &&

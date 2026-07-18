@@ -9,7 +9,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
-import { priorityColors, stageColors, formatDate, timeAgo } from '../utils/helpers';
+import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { AttendanceSection } from '../components/AttendanceSection';
@@ -83,8 +83,8 @@ export const EmployeeDashboard: React.FC = () => {
             </Card>
           ) : (
             myCases.map((c, idx) => {
-              const sc = stageColors[c.currentStage];
-              const pc = priorityColors[c.priority];
+              const sc = getStageStyle(c.currentStage);
+              const pc = getPriorityStyle(c.priority);
               const isSubmitted = c.status === 'Waiting For Approval';
               const canSubmit = c.status === 'Active';
 
@@ -112,7 +112,7 @@ export const EmployeeDashboard: React.FC = () => {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm font-semibold text-gray-900">{c.hospital.name}</p>
+                          <p className="text-sm font-semibold text-gray-900">{c.hospital?.name ?? 'Unknown Hospital'}</p>
                           <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
                           <p className="text-xs text-gray-400 mt-1">{c.implantRequired}</p>
 
@@ -204,7 +204,7 @@ export const EmployeeDashboard: React.FC = () => {
                   {completedCases.slice(0, 4).map(c => (
                     <div key={c.id} className="px-5 py-3">
                       <p className="text-xs font-bold text-indigo-600">{c.caseNumber}</p>
-                      <p className="text-xs text-gray-700 truncate">{c.hospital.name}</p>
+                      <p className="text-xs text-gray-700 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                         <span className="text-[10px] text-emerald-600">Stage completed</span>

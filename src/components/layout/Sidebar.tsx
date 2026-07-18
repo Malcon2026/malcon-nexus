@@ -11,8 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LineChart,
-  FileDown,
-  Activity,
+  Download,
+  Activity as ActivityIcon,
   Archive,
   Building2,
   X,
@@ -38,7 +38,7 @@ const navItems: NavItem[] = [
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
   { id: 'hospitals', label: 'Hospitals', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
   { id: 'analytics', label: 'Analytics', icon: <LineChart className="h-4 w-4" />, adminOnly: true },
-  { id: 'reports', label: 'Reports', icon: <FileDown className="h-4 w-4" />, adminOnly: true },
+  { id: 'reports', label: 'Reports', icon: <Download className="h-4 w-4" />, adminOnly: true },
   { id: 'activity', label: 'Activity Log', icon: <ScrollText className="h-4 w-4" />, adminOnly: true },
   { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
 ];
@@ -155,7 +155,7 @@ export const Sidebar: React.FC = () => {
       {showLabels && (
         <div className="px-4 py-3 border-t border-gray-100">
           <div className="flex items-center gap-2">
-            <Activity className="h-3.5 w-3.5 text-emerald-500" />
+            <ActivityIcon className="h-3.5 w-3.5 text-emerald-500" />
             <span className="text-xs text-gray-500">All systems operational</span>
           </div>
         </div>
