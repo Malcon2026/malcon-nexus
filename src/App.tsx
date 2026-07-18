@@ -173,7 +173,8 @@ function App() {
       case 'approvals':  return <ApprovalQueue />;
       case 'employees':  return <Employees />;
       case 'hospitals':  return <Hospitals />;
-      case 'reports':    return <Reports />;
+      case 'reports':
+        return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;
       case 'case-history': return <CaseHistory />;
       case 'activity':   return <ActivityLog />;
       case 'settings':   return <Settings />;

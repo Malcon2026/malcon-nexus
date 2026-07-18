@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
+  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
-import { Download, ArrowUpRight } from 'lucide-react';
+import { Download, ArrowUpRight, ShieldAlert } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -11,6 +11,14 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/helpers';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
+import { ReportsOverviewSection } from '../components/reports/ReportsOverviewSection';
+import { ReportsAttendanceSection } from '../components/reports/ReportsAttendanceSection';
+import { ReportsApprovalsSection } from '../components/reports/ReportsApprovalsSection';
+import { ReportsActivitySection } from '../components/reports/ReportsActivitySection';
+import { ReportsHospitalsSection } from '../components/reports/ReportsHospitalsSection';
+import { REPORT_SECTIONS, type ReportSection } from '../components/reports/types';
+import { buildEmployeeAttendanceReport, getISTDateKey } from '../lib/attendance';
+import { exportBillingCsv, exportEmployeesCsv } from '../utils/reportsExport';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#f59e0b', '#10b981', '#f97316', '#22c55e'];
 
@@ -46,15 +54,68 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
   return null;
 };
 
-type ReportTab = 'overview' | 'department' | 'billing' | 'employee';
+export type { ReportSection };
 
 export const Reports: React.FC = () => {
-  const { cases, employees, getMonthlyData, getDepartmentPerformance } = useStore();
-  const [activeTab, setActiveTab] = useState<ReportTab>('overview');
+  const {
+    viewMode,
+    cases,
+    employees,
+    hospitals,
+    activityLog,
+    attendanceRecords,
+    attendanceApprovalRequests,
+    getMonthlyData,
+    getDepartmentPerformance,
+  } = useStore();
+
+  const [activeSection, setActiveSection] = useState<ReportSection>('overview');
   const [showExport, setShowExport] = useState(false);
 
   const monthlyData = getMonthlyData();
   const departmentPerformance = getDepartmentPerformance();
+  const todayKey = getISTDateKey();
+  const todayAttendance = useMemo(
+    () => buildEmployeeAttendanceReport(employees, attendanceRecords, todayKey),
+    [employees, attendanceRecords, todayKey],
+  );
+
+  const overviewStats = useMemo(() => {
+    const staff = employees.filter((e) => e.role === 'employee' && e.status === 'Active');
+    const totalRevenue = cases.reduce((s, c) => s + (c.invoiceAmount || 0), 0);
+    const collectedRevenue = cases
+      .filter((c) => c.paymentStatus === 'Collected')
+      .reduce((s, c) => s + (c.collectedAmount || c.invoiceAmount || 0), 0);
+
+    return {
+      totalCases: cases.length,
+      activeCases: cases.filter((c) => c.status === 'Active').length,
+      completedCases: cases.filter((c) => c.status === 'Completed').length,
+      pendingApprovals: cases.filter((c) => c.status === 'Waiting For Approval').length,
+      totalEmployees: staff.length,
+      punchedInToday: todayAttendance.filter((r) => r.status === 'in').length,
+      absentToday: todayAttendance.filter((r) => r.status === 'absent').length,
+      pendingOffsiteApprovals: attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
+      totalRevenue,
+      collectedRevenue,
+      hospitalCount: hospitals.length,
+      activityCount: activityLog.length,
+    };
+  }, [cases, employees, hospitals, activityLog, attendanceApprovalRequests, todayAttendance]);
+
+  if (viewMode !== 'admin') {
+    return (
+      <div className="p-6 max-w-lg mx-auto mt-20">
+        <Card className="p-8 text-center">
+          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
+          <p className="text-sm text-gray-500 mt-2">
+            Reports are only available to administrators. Contact your admin if you need access.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   const totalRevenue = cases.reduce((s, c) => s + (c.invoiceAmount || 0), 0);
   const collectedRevenue = cases.filter(c => c.paymentStatus === 'Collected').reduce((s, c) => s + (c.collectedAmount || c.invoiceAmount || 0), 0);
@@ -77,17 +138,15 @@ export const Reports: React.FC = () => {
     { name: 'Collected', value: cases.filter(c => c.paymentStatus === 'Collected').length, color: '#10b981' },
   ];
 
-  const revenueMonthly = monthlyData.map(m => ({
-    ...m,
-    Revenue: m.revenue,
-  }));
+  const revenueMonthly = monthlyData.map(m => ({ ...m, Revenue: m.revenue }));
 
-  const tabs: { id: ReportTab; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'department', label: 'Department' },
-    { id: 'billing', label: 'Billing & Revenue' },
-    { id: 'employee', label: 'Employee Performance' },
-  ];
+  const sectionExport = () => {
+    if (activeSection === 'cases') setShowExport(true);
+    else if (activeSection === 'employees') exportEmployeesCsv(employees.filter((e) => e.role === 'employee'));
+    else if (activeSection === 'billing') exportBillingCsv(cases);
+  };
+
+  const showExportButton = ['cases', 'employees', 'billing'].includes(activeSection);
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
@@ -95,32 +154,49 @@ export const Reports: React.FC = () => {
         isOpen={showExport}
         onClose={() => setShowExport(false)}
         cases={cases}
-        title="Export Report Data (Cases CSV)"
+        title="Export Cases CSV"
       />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Analytics and performance insights</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Admin-only hub for cases, attendance, employees, billing, approvals, activity, and hospitals
+          </p>
         </div>
-        <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} onClick={() => setShowExport(true)}>Export Cases CSV</Button>
+        {showExportButton && (
+          <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} onClick={sectionExport}>
+            Export {activeSection === 'cases' ? 'Cases' : activeSection === 'employees' ? 'Employees' : 'Billing'} CSV
+          </Button>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-gray-100 mb-6 overflow-x-auto -mx-1 px-1">
-        {tabs.map(tab => (
+      <div className="flex items-center gap-1 border-b border-gray-100 mb-6 overflow-x-auto -mx-1 px-1 pb-px">
+        {REPORT_SECTIONS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.id ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            type="button"
+            onClick={() => setActiveSection(tab.id)}
+            className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0 ${
+              activeSection === tab.id ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === 'overview' && (
+      {activeSection === 'overview' && (
+        <ReportsOverviewSection stats={overviewStats} onNavigate={setActiveSection} />
+      )}
+
+      {activeSection === 'attendance' && <ReportsAttendanceSection />}
+      {activeSection === 'approvals' && <ReportsApprovalsSection />}
+      {activeSection === 'activity' && <ReportsActivitySection />}
+      {activeSection === 'hospitals' && <ReportsHospitalsSection />}
+
+      {activeSection === 'cases' && (
         <div className="space-y-6">
-          {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               { label: 'Total Cases', value: cases.length, sub: 'All time', color: 'bg-indigo-50', textColor: 'text-indigo-600' },
@@ -137,12 +213,9 @@ export const Reports: React.FC = () => {
             ))}
           </div>
 
-          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader>
-                <h3 className="text-sm font-semibold text-gray-900">Monthly Cases Trend</h3>
-              </CardHeader>
+              <CardHeader><h3 className="text-sm font-semibold text-gray-900">Monthly Cases Trend</h3></CardHeader>
               <CardBody>
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={monthlyData}>
@@ -158,9 +231,7 @@ export const Reports: React.FC = () => {
             </Card>
 
             <Card>
-              <CardHeader>
-                <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
-              </CardHeader>
+              <CardHeader><h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3></CardHeader>
               <CardBody>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={byStage}>
@@ -178,11 +249,7 @@ export const Reports: React.FC = () => {
               </CardBody>
             </Card>
           </div>
-        </div>
-      )}
 
-      {activeTab === 'department' && (
-        <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader><h3 className="text-sm font-semibold text-gray-900">Department On-Time Rate</h3></CardHeader>
@@ -215,7 +282,7 @@ export const Reports: React.FC = () => {
                       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
-                          style={{ width: `${(dept.casesHandled / 45) * 100}%`, background: COLORS[idx % COLORS.length] }}
+                          style={{ width: `${Math.min(100, (dept.casesHandled / 45) * 100)}%`, background: COLORS[idx % COLORS.length] }}
                         />
                       </div>
                     </div>
@@ -227,7 +294,7 @@ export const Reports: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'billing' && (
+      {activeSection === 'billing' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -240,7 +307,7 @@ export const Reports: React.FC = () => {
                 <p className={`text-2xl font-bold ${color} mt-1`}>{formatCurrency(value)}</p>
                 <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1">
                   <ArrowUpRight className="h-3 w-3" />
-                  <span>+12% vs last month</span>
+                  <span>Revenue tracking</span>
                 </div>
               </Card>
             ))}
@@ -284,7 +351,7 @@ export const Reports: React.FC = () => {
                           <span className="text-sm font-bold text-gray-900">{item.value}</span>
                         </div>
                         <div className="h-1.5 bg-gray-100 rounded-full">
-                          <div className="h-full rounded-full" style={{ width: `${(item.value / cases.length) * 100}%`, background: item.color }} />
+                          <div className="h-full rounded-full" style={{ width: `${cases.length ? (item.value / cases.length) * 100 : 0}%`, background: item.color }} />
                         </div>
                       </div>
                     ))}
@@ -294,7 +361,6 @@ export const Reports: React.FC = () => {
             </Card>
           </div>
 
-          {/* Billing Table */}
           <Card>
             <CardHeader><h3 className="text-sm font-semibold text-gray-900">Case-wise Billing</h3></CardHeader>
             <div className="overflow-x-auto">
@@ -328,8 +394,27 @@ export const Reports: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'employee' && (
+      {activeSection === 'employees' && (
         <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="p-4">
+              <p className="text-2xl font-bold text-gray-900">{employees.filter(e => e.role === 'employee').length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Total Staff</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-2xl font-bold text-emerald-600">{employees.filter(e => e.role === 'employee' && e.status === 'Active').length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Active</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-2xl font-bold text-indigo-600">{employees.filter(e => e.role === 'admin').length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Admins</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-2xl font-bold text-amber-600">{employees.filter(e => e.role === 'employee' && e.casesActive > 0).length}</p>
+              <p className="text-xs text-gray-500 mt-0.5">With Active Cases</p>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader><h3 className="text-sm font-semibold text-gray-900">Employee Performance Leaderboard</h3></CardHeader>
             <div className="overflow-x-auto">
