@@ -1,0 +1,17 @@
+---
+description: Commit and push to origin after completing code changes
+alwaysApply: true
+---
+
+# Git push after changes
+
+When the user asks for implementation or fixes and changes are made to the repo:
+
+1. After completing the work, **commit and push** unless the user explicitly says not to.
+2. Follow the repo commit message style (concise, why-focused).
+3. Never update git config, force-push, or skip hooks.
+4. Do not commit secrets (`.env`, credentials).
+5. Run `git status` after push to confirm success.
+6. Tell the user what was committed and that it was pushed to `origin/main`.
+
+If there are no file changes, do not create an empty commit.
