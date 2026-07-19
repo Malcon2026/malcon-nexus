@@ -191,7 +191,21 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
         <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
-          <table className="w-max border-collapse text-xs">
+          <table
+            className="w-full border-collapse text-xs table-fixed"
+            style={{
+              minWidth: employeeId
+                ? `${140 + register.days.length * 28}px`
+                : `${250 + register.days.length * 28}px`,
+            }}
+          >
+            <colgroup>
+              <col style={{ width: 140 }} />
+              {!employeeId && <col style={{ width: 110 }} />}
+              {register.days.map((day) => (
+                <col key={day.dateKey} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th
@@ -222,7 +236,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 {register.days.map((day) => (
                   <th
                     key={day.dateKey}
-                    className={`border-r border-gray-100 px-0.5 py-1 text-center min-w-[26px] sm:min-w-[28px] ${
+                    className={`border-r border-gray-100 px-0.5 py-1 text-center ${
                       day.isToday ? 'bg-indigo-50' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
                     }`}
                     title={`${day.weekday} ${day.dateKey}`}
