@@ -68,7 +68,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const isToday = dateKey === getISTDateKey();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 w-full max-w-full">
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -139,9 +139,9 @@ export const EmployeeAttendancePanel: React.FC = () => {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardBody className="p-0 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+      <Card className="min-w-0 w-full max-w-full overflow-hidden">
+        <CardBody className="p-0 overflow-x-auto overscroll-x-contain max-w-full">
+          <table className="w-max min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/80">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Employee</th>

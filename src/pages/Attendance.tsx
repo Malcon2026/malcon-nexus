@@ -50,7 +50,7 @@ export const Attendance: React.FC = () => {
   const copy = TAB_COPY[pageTab];
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0 overflow-x-hidden">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Attendance</h1>
         <p className="text-sm text-gray-500 mt-0.5">{copy.subtitle}</p>

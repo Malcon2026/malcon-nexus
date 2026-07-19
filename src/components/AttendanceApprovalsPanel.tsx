@@ -21,7 +21,7 @@ export const AttendanceApprovalsPanel: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 w-full max-w-full">
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
         {tabs.map(({ id, label, count }) => (
           <button

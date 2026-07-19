@@ -109,7 +109,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0 w-full max-w-full">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-gray-900">{title}</h2>
@@ -189,9 +189,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         ))}
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-max w-full border-collapse text-xs">
+      <Card className="min-w-0 w-full max-w-full overflow-hidden">
+        <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
+          <table className="w-max border-collapse text-xs">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th
@@ -222,7 +222,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 {register.days.map((day) => (
                   <th
                     key={day.dateKey}
-                    className={`border-r border-gray-100 px-0.5 py-1 text-center min-w-[28px] ${
+                    className={`border-r border-gray-100 px-0.5 py-1 text-center min-w-[26px] sm:min-w-[28px] ${
                       day.isToday ? 'bg-indigo-50' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
                     }`}
                     title={`${day.weekday} ${day.dateKey}`}
@@ -278,7 +278,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                                 cell,
                               })
                             }
-                            className={`inline-flex h-7 w-7 items-center justify-center rounded font-bold text-[10px] ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
+                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
                             title={cell.label}
                           >
                             {displayCode(cell.code)}
