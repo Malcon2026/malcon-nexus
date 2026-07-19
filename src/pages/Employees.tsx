@@ -12,6 +12,8 @@ import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { EmployeeAttendanceApprovalsPanel } from '../components/EmployeeAttendanceApprovalsPanel';
+import { EmployeeLeaveApprovalsPanel } from '../components/EmployeeLeaveApprovalsPanel';
+import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'
@@ -33,7 +35,12 @@ export const Employees: React.FC = () => {
   const pendingApprovalCount = useStore((s) =>
     s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
   );
-  const [pageTab, setPageTab] = useState<'team' | 'attendance' | 'attendance-approvals'>('team');
+  const pendingLeaveCount = useStore((s) =>
+    s.leaveRequests.filter((r) => r.status === 'pending').length,
+  );
+  const [pageTab, setPageTab] = useState<
+    'team' | 'attendance' | 'register' | 'attendance-approvals' | 'leave-approvals'
+  >('team');
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [showModal, setShowModal] = useState(false);
@@ -119,9 +126,13 @@ export const Employees: React.FC = () => {
           <p className="text-sm text-gray-500 mt-0.5">
             {pageTab === 'attendance'
               ? 'Track daily punch in/out for all staff'
-              : pageTab === 'attendance-approvals'
-                ? 'Review off-site punch out requests from employees'
-                : 'Manage team members across all departments'}
+              : pageTab === 'register'
+                ? 'Monthly attendance register for all employees'
+                : pageTab === 'attendance-approvals'
+                  ? 'Review off-site punch out requests from employees'
+                  : pageTab === 'leave-approvals'
+                    ? 'Review and approve employee leave requests'
+                    : 'Manage team members across all departments'}
           </p>
         </div>
         {viewMode === 'admin' && pageTab === 'team' && (
@@ -150,7 +161,14 @@ export const Employees: React.FC = () => {
         <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
           {([
             { id: 'team' as const, label: 'Team Directory' },
-            { id: 'attendance' as const, label: 'Attendance' },
+            { id: 'attendance' as const, label: 'Daily Attendance' },
+            { id: 'register' as const, label: 'Register' },
+            {
+              id: 'leave-approvals' as const,
+              label: pendingLeaveCount
+                ? `Leave Approvals (${pendingLeaveCount})`
+                : 'Leave Approvals',
+            },
             {
               id: 'attendance-approvals' as const,
               label: pendingApprovalCount
@@ -174,6 +192,10 @@ export const Employees: React.FC = () => {
 
       {pageTab === 'attendance' && viewMode === 'admin' ? (
         <EmployeeAttendancePanel />
+      ) : pageTab === 'register' && viewMode === 'admin' ? (
+        <AttendanceRegisterPanel />
+      ) : pageTab === 'leave-approvals' && viewMode === 'admin' ? (
+        <EmployeeLeaveApprovalsPanel />
       ) : pageTab === 'attendance-approvals' && viewMode === 'admin' ? (
         <EmployeeAttendanceApprovalsPanel />
       ) : (

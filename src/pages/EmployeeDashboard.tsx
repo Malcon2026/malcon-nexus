@@ -13,6 +13,8 @@ import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPri
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { AttendanceSection } from '../components/AttendanceSection';
+import { LeaveApplySection } from '../components/LeaveApplySection';
+import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -51,6 +53,16 @@ export const EmployeeDashboard: React.FC = () => {
       </div>
 
       <AttendanceSection />
+
+      <LeaveApplySection />
+
+      <div className="mb-6">
+        <AttendanceRegisterPanel
+          employeeId={currentUser.id}
+          title="My Attendance Register"
+          subtitle="Your monthly attendance — P Present, L Leave, A Absent, WO Weekly off"
+        />
+      </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">

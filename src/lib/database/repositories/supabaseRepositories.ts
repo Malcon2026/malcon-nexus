@@ -9,6 +9,7 @@ import type {
   Employee, Hospital, Doctor, ImplantCase,
   Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
   AttendanceApprovalRequest,
+  LeaveRequest,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 
@@ -595,6 +596,65 @@ export const sbAttendanceApprovalRepo = {
       .from('attendance_approval_requests')
       .update(payload)
       .eq('id', id);
+    if (error) throw error;
+  },
+};
+
+
+// ─── LEAVE REQUESTS ──────────────────────────────────────────
+
+export const sbLeaveRepo = {
+  async getAll(): Promise<LeaveRequest[]> {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      leaveType: row.leave_type as LeaveRequest['leaveType'],
+      fromDate: row.from_date,
+      toDate: row.to_date,
+      reason: row.reason,
+      status: row.status as LeaveRequest['status'],
+      reviewedBy: row.reviewed_by,
+      reviewedById: row.reviewed_by_id,
+      reviewedAt: row.reviewed_at,
+      adminNotes: row.admin_notes ?? '',
+      createdAt: row.created_at,
+    }));
+  },
+
+  async insert(request: LeaveRequest): Promise<void> {
+    const { error } = await supabase.from('leave_requests').insert({
+      id: request.id,
+      employee_id: request.employeeId,
+      employee_name: request.employeeName,
+      leave_type: request.leaveType,
+      from_date: request.fromDate,
+      to_date: request.toDate,
+      reason: request.reason,
+      status: request.status,
+      reviewed_by: request.reviewedBy,
+      reviewed_by_id: request.reviewedById,
+      reviewed_at: request.reviewedAt,
+      admin_notes: request.adminNotes,
+      created_at: request.createdAt,
+    });
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<LeaveRequest>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
+    if (updates.reviewedById !== undefined) payload.reviewed_by_id = updates.reviewedById;
+    if (updates.reviewedAt !== undefined) payload.reviewed_at = updates.reviewedAt;
+    if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
+
+    const { error } = await supabase.from('leave_requests').update(payload).eq('id', id);
     if (error) throw error;
   },
 };

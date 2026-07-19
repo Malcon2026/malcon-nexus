@@ -187,7 +187,7 @@ export interface DepartmentInfo {
   color: string;
 }
 
-export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance';
+export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave';
 
 export interface ActivityEvent {
   id: string;
@@ -236,5 +236,24 @@ export interface AttendanceApprovalRequest {
   reviewedAt: string | null;
   adminNotes: string;
   attendanceRecordId: string | null;
+}
+
+export type LeaveType = 'Casual' | 'Sick' | 'Unpaid';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  leaveType: LeaveType;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  status: LeaveStatus;
+  reviewedBy: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  adminNotes: string;
+  createdAt: string;
 }
 

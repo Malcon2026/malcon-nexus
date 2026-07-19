@@ -3,6 +3,7 @@ import type {
   ImplantCase, Employee, Notification, WorkflowStage, Department,
   Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType,
   AttendanceApprovalRequest,
+  LeaveRequest, LeaveType,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -15,8 +16,9 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance, getPendingOffsitePunchOutRequest } from '../lib/attendance';
+import { validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
@@ -41,6 +43,7 @@ interface AppState {
   activityLog: ActivityEvent[];
   attendanceRecords: AttendanceRecord[];
   attendanceApprovalRequests: AttendanceApprovalRequest[];
+  leaveRequests: LeaveRequest[];
 
   // UI State
   sidebarCollapsed: boolean;
@@ -101,6 +104,12 @@ interface AppState {
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeTodayAttendance>;
+
+  // Leave
+  applyLeave: (leaveType: LeaveType, fromDate: string, toDate: string, reason: string) => Promise<{ error: string | null }>;
+  cancelLeave: (requestId: string) => Promise<{ error: string | null }>;
+  approveLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  rejectLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -272,6 +281,54 @@ const updateAttendanceApprovalRequest = async (
   return { error: null };
 };
 
+const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbLeaveRepo.insert(request);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save leave request';
+      console.error('[leave] persist failed:', err);
+      if (message.includes('leave_requests') && message.includes('does not exist')) {
+        return { error: 'Leave management is not set up in the database yet. Please run the leave migration.' };
+      }
+      return { error: message };
+    }
+    const list = Database.getAll<LeaveRequest>('leaveRequests');
+    setCache('leaveRequests', [request, ...list]);
+    return { error: null };
+  }
+  const list = Database.getAll<LeaveRequest>('leaveRequests');
+  Database.saveAll('leaveRequests', [request, ...list]);
+  return { error: null };
+};
+
+const updateLeaveRequest = async (
+  id: string,
+  updates: Partial<LeaveRequest>,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbLeaveRepo.update(id, updates);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update leave request';
+      console.error('[leave] update failed:', err);
+      return { error: message };
+    }
+    const list = Database.getAll<LeaveRequest>('leaveRequests');
+    setCache(
+      'leaveRequests',
+      list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+    );
+    return { error: null };
+  }
+  const list = Database.getAll<LeaveRequest>('leaveRequests');
+  Database.saveAll(
+    'leaveRequests',
+    list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+  );
+  return { error: null };
+};
+
 const updateCaseApproval = async (
   caseId: string,
   stage: WorkflowStage,
@@ -293,6 +350,7 @@ const initialKits = Database.getAll<SurgicalKit>('kits');
 const initialActivity = Database.getAll<ActivityEvent>('activityLog');
 const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords');
 const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+const initialLeaveRequests = Database.getAll<LeaveRequest>('leaveRequests');
 
 const placeholderAdmin: Employee = {
   id: 'guest',
@@ -338,6 +396,7 @@ export const useStore = create<AppState>((set, get) => ({
   activityLog: initialActivity,
   attendanceRecords: initialAttendance,
   attendanceApprovalRequests: initialAttendanceApprovals,
+  leaveRequests: initialLeaveRequests,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
@@ -1400,6 +1459,173 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
+  applyLeave: async (leaveType, fromDate, toDate, reason) => {
+    const { currentUser, leaveRequests } = get();
+    const validation = validateLeaveApplication(leaveRequests, currentUser.id, fromDate, toDate, reason);
+    if (validation.error) return validation;
+
+    const createdAt = new Date().toISOString();
+    const request: LeaveRequest = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      leaveType,
+      fromDate,
+      toDate,
+      reason: reason.trim(),
+      status: 'pending',
+      reviewedBy: null,
+      reviewedById: null,
+      reviewedAt: null,
+      adminNotes: '',
+      createdAt,
+    };
+
+    const persistResult = await persistLeaveRequest(request);
+    if (persistResult.error) return persistResult;
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Leave Request Submitted',
+      entityType: 'leave',
+      entityId: request.id,
+      entityLabel: currentUser.name,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: createdAt,
+      details: `${leaveType} leave ${fromDate} to ${toDate}: ${reason.trim()}`,
+    };
+    persistActivity(activity);
+
+    const notif: Notification = {
+      id: newId(),
+      title: 'Leave Request',
+      message: `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}).`,
+      type: 'info',
+      timestamp: createdAt,
+      read: false,
+    };
+    persistNotification(notif);
+
+    set((s) => ({
+      leaveRequests: [request, ...s.leaveRequests],
+      activityLog: [activity, ...s.activityLog],
+      notifications: [notif, ...s.notifications],
+    }));
+
+    return { error: null };
+  },
+
+  cancelLeave: async (requestId) => {
+    const { currentUser, leaveRequests } = get();
+    const request = leaveRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Leave request not found.' };
+    if (request.employeeId !== currentUser.id) return { error: 'You can only cancel your own leave requests.' };
+    if (request.status !== 'pending') return { error: 'Only pending leave requests can be cancelled.' };
+
+    const updates: Partial<LeaveRequest> = { status: 'cancelled' };
+    const updateResult = await updateLeaveRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    set((s) => ({
+      leaveRequests: s.leaveRequests.map((r) =>
+        r.id === requestId ? { ...r, ...updates } : r,
+      ),
+    }));
+
+    return { error: null };
+  },
+
+  approveLeave: async (requestId, adminNotes = '') => {
+    const { currentUser, leaveRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can approve leave requests.' };
+    }
+
+    const request = leaveRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Leave request not found.' };
+    if (request.status !== 'pending') return { error: 'This leave request has already been reviewed.' };
+
+    const reviewedAt = new Date().toISOString();
+    const updates: Partial<LeaveRequest> = {
+      status: 'approved',
+      reviewedBy: currentUser.name,
+      reviewedById: currentUser.id,
+      reviewedAt,
+      adminNotes: adminNotes.trim(),
+    };
+
+    const updateResult = await updateLeaveRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Leave Approved',
+      entityType: 'leave',
+      entityId: request.id,
+      entityLabel: request.employeeName,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: reviewedAt,
+      details: `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}).`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      leaveRequests: s.leaveRequests.map((r) =>
+        r.id === requestId ? { ...r, ...updates } : r,
+      ),
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  rejectLeave: async (requestId, adminNotes = '') => {
+    const { currentUser, leaveRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can reject leave requests.' };
+    }
+
+    const request = leaveRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Leave request not found.' };
+    if (request.status !== 'pending') return { error: 'This leave request has already been reviewed.' };
+
+    const reviewedAt = new Date().toISOString();
+    const updates: Partial<LeaveRequest> = {
+      status: 'rejected',
+      reviewedBy: currentUser.name,
+      reviewedById: currentUser.id,
+      reviewedAt,
+      adminNotes: adminNotes.trim(),
+    };
+
+    const updateResult = await updateLeaveRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Leave Rejected',
+      entityType: 'leave',
+      entityId: request.id,
+      entityLabel: request.employeeName,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: reviewedAt,
+      details: `Rejected ${request.leaveType} leave for ${request.employeeName}. Reason: ${request.reason}`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      leaveRequests: s.leaveRequests.map((r) =>
+        r.id === requestId ? { ...r, ...updates } : r,
+      ),
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
   // ========== DYNAMIC METRICS ==========
 
   getMonthlyData: () => {
@@ -1519,6 +1745,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [],
       attendanceRecords: [],
       attendanceApprovalRequests: [],
+      leaveRequests: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -1545,6 +1772,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: Database.getAll<ActivityEvent>('activityLog'),
       attendanceRecords: Database.getAll<AttendanceRecord>('attendanceRecords'),
       attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
+      leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
       ...session,
     });
   },
