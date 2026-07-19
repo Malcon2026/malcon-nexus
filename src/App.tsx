@@ -7,6 +7,7 @@ import { Cases } from './pages/Cases';
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
+import { Attendance } from './pages/Attendance';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
 import { Analytics } from './pages/Analytics';
@@ -174,6 +175,7 @@ function App() {
       case 'workflow':   return <WorkflowBoard />;
       case 'approvals':  return <ApprovalQueue />;
       case 'employees':  return <Employees />;
+      case 'attendance': return <Attendance />;
       case 'hospitals':  return <Hospitals />;
       case 'analytics':
         return viewMode === 'admin' ? <Analytics /> : <EmployeeDashboard />;

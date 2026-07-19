@@ -10,10 +10,6 @@ import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
-import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
-import { EmployeeAttendanceApprovalsPanel } from '../components/EmployeeAttendanceApprovalsPanel';
-import { EmployeeLeaveApprovalsPanel } from '../components/EmployeeLeaveApprovalsPanel';
-import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'
@@ -32,15 +28,6 @@ const emptyForm = {
 
 export const Employees: React.FC = () => {
   const { employees, viewMode, createEmployee, updateEmployee, deleteEmployee } = useStore();
-  const pendingApprovalCount = useStore((s) =>
-    s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
-  );
-  const pendingLeaveCount = useStore((s) =>
-    s.leaveRequests.filter((r) => r.status === 'pending').length,
-  );
-  const [pageTab, setPageTab] = useState<
-    'team' | 'attendance' | 'register' | 'attendance-approvals' | 'leave-approvals'
-  >('team');
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [showModal, setShowModal] = useState(false);
@@ -113,29 +100,18 @@ export const Employees: React.FC = () => {
     completed: employees.filter(e => e.department === dept).reduce((s, e) => s + e.casesCompleted, 0),
   }));
 
-  // Dynamic max for performance bar
   const maxCompleted = Math.max(1, ...employees.map(e => e.casesCompleted));
 
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       <EmployeeCsvImportModal isOpen={showCsvModal} onClose={() => setShowCsvModal(false)} />
-      {/* Header */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Employees</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {pageTab === 'attendance'
-              ? 'Track daily punch in/out for all staff'
-              : pageTab === 'register'
-                ? 'Monthly attendance register for all employees'
-                : pageTab === 'attendance-approvals'
-                  ? 'Review off-site punch out requests from employees'
-                  : pageTab === 'leave-approvals'
-                    ? 'Review and approve employee leave requests'
-                    : 'Manage team members across all departments'}
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage team members across all departments</p>
         </div>
-        {viewMode === 'admin' && pageTab === 'team' && (
+        {viewMode === 'admin' && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -157,50 +133,6 @@ export const Employees: React.FC = () => {
         )}
       </div>
 
-      {viewMode === 'admin' && (
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
-          {([
-            { id: 'team' as const, label: 'Team Directory' },
-            { id: 'attendance' as const, label: 'Daily Attendance' },
-            { id: 'register' as const, label: 'Register' },
-            {
-              id: 'leave-approvals' as const,
-              label: pendingLeaveCount
-                ? `Leave Approvals (${pendingLeaveCount})`
-                : 'Leave Approvals',
-            },
-            {
-              id: 'attendance-approvals' as const,
-              label: pendingApprovalCount
-                ? `Off-site Approvals (${pendingApprovalCount})`
-                : 'Off-site Approvals',
-            },
-          ]).map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setPageTab(id)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                pageTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {pageTab === 'attendance' && viewMode === 'admin' ? (
-        <EmployeeAttendancePanel />
-      ) : pageTab === 'register' && viewMode === 'admin' ? (
-        <AttendanceRegisterPanel />
-      ) : pageTab === 'leave-approvals' && viewMode === 'admin' ? (
-        <EmployeeLeaveApprovalsPanel />
-      ) : pageTab === 'attendance-approvals' && viewMode === 'admin' ? (
-        <EmployeeAttendanceApprovalsPanel />
-      ) : (
-        <>
-      {/* Dept Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {deptStats.map(({ dept, employees: emps, active, completed }) => (
           <Card key={dept as string} className="p-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterDept(dept as Department)}>
@@ -219,7 +151,6 @@ export const Employees: React.FC = () => {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[12rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -244,7 +175,6 @@ export const Employees: React.FC = () => {
         </div>
       </div>
 
-      {/* Employee Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((emp, idx) => (
           <motion.div
@@ -342,6 +272,7 @@ export const Employees: React.FC = () => {
           </motion.div>
         ))}
       </div>
+
       {filtered.length === 0 && (
         <div className="text-center py-16 text-gray-400">
           <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -350,7 +281,6 @@ export const Employees: React.FC = () => {
         </div>
       )}
 
-      {/* Create / Edit Employee Modal */}
       {showModal && (
         <Modal
           isOpen={showModal}
@@ -426,8 +356,6 @@ export const Employees: React.FC = () => {
             </div>
           </form>
         </Modal>
-      )}
-        </>
       )}
     </div>
   );

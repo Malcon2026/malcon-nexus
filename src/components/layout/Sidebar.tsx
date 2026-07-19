@@ -6,6 +6,7 @@ import {
   GitBranch,
   CheckCircle,
   Users,
+  ClipboardList,
   ScrollText,
   Settings,
   ChevronLeft,
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
+  { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
   { id: 'hospitals', label: 'Hospitals', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
   { id: 'analytics', label: 'Analytics', icon: <LineChart className="h-4 w-4" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <Download className="h-4 w-4" />, adminOnly: true },
@@ -53,14 +55,20 @@ export const Sidebar: React.FC = () => {
     setMobileSidebarOpen,
     cases,
     currentUser,
+    leaveRequests,
+    attendanceApprovalRequests,
   } = useStore();
 
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval').length;
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval').length;
+  const pendingAttendanceApprovals =
+    leaveRequests.filter((r) => r.status === 'pending').length +
+    attendanceApprovalRequests.filter((r) => r.status === 'pending').length;
 
   const getBadge = (id: string) => {
     if (id === 'approvals') return pendingApprovals;
     if (id === 'cases') return activeCases;
+    if (id === 'attendance') return pendingAttendanceApprovals;
     return undefined;
   };
 
