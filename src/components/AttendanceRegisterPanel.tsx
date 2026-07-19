@@ -29,12 +29,15 @@ interface AttendanceRegisterPanelProps {
   employeeId?: string;
   title?: string;
   subtitle?: string;
+  /** Hide section title — used on admin Attendance page (TopBar + tabs are enough). */
+  compactHeader?: boolean;
 }
 
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
   subtitle = 'Monthly register — P Present, L Leave, A Absent, WO Sunday off',
+  compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
@@ -111,11 +114,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   return (
     <div className="space-y-4 min-w-0 w-full max-w-full">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold text-gray-900">{title}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {!compactHeader && (
+          <div>
+            <h2 className="text-base font-bold text-gray-900">{title}</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+          </div>
+        )}
+        <div className={`flex flex-wrap items-center gap-2 ${compactHeader ? 'w-full lg:w-auto lg:ml-auto' : ''}`}>
           <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
             <button
               type="button"

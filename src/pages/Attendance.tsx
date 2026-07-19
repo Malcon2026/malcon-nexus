@@ -8,21 +8,6 @@ import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel
 
 type AttendanceTab = 'register' | 'today' | 'approvals';
 
-const TAB_COPY: Record<AttendanceTab, { title: string; subtitle: string }> = {
-  register: {
-    title: 'Monthly Register',
-    subtitle: 'School-style grid — employees as rows, days as columns',
-  },
-  today: {
-    title: 'Today',
-    subtitle: 'Who punched in, out, or is absent today',
-  },
-  approvals: {
-    title: 'Approvals',
-    subtitle: 'Review leave requests and off-site punch-out requests',
-  },
-};
-
 export const Attendance: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
   const pendingLeaveCount = useStore((s) =>
@@ -47,15 +32,8 @@ export const Attendance: React.FC = () => {
     );
   }
 
-  const copy = TAB_COPY[pageTab];
-
   return (
     <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Attendance</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{copy.subtitle}</p>
-      </div>
-
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
         {([
           { id: 'register' as const, label: 'Register' },
@@ -78,12 +56,7 @@ export const Attendance: React.FC = () => {
         ))}
       </div>
 
-      {pageTab === 'register' && (
-        <AttendanceRegisterPanel
-          title={copy.title}
-          subtitle="P Present · L Leave · A Absent · WO Sunday off — filled automatically from punches and leave"
-        />
-      )}
+      {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'today' && <EmployeeAttendancePanel />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
     </div>
