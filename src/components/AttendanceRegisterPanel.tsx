@@ -34,7 +34,7 @@ interface AttendanceRegisterPanelProps {
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
-  subtitle = 'Monthly register — P Present, L Leave, A Absent, WO Weekly off',
+  subtitle = 'Monthly register — P Present, L Leave, A Absent, WO Sunday off',
 }) => {
   const employees = useStore((s) => s.employees);
   const attendanceRecords = useStore((s) => s.attendanceRecords);

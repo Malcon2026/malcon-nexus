@@ -118,7 +118,7 @@ export const LeaveApplySection: React.FC = () => {
               <div className="flex items-end">
                 {workingDays > 0 && (
                   <p className="text-xs text-indigo-700 bg-white border border-indigo-100 rounded-lg px-3 py-2 w-full">
-                    {workingDays} working day{workingDays === 1 ? '' : 's'} (excl. Sat/Sun)
+                    {workingDays} working day{workingDays === 1 ? '' : 's'} (excl. Sundays)
                   </p>
                 )}
               </div>

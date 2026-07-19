@@ -70,7 +70,7 @@ export function dateKeyFromParts(year: number, month: number, day: number): stri
 export function isWeeklyOffDateKey(dateKey: string): boolean {
   const [y, m, d] = dateKey.split('-').map(Number);
   const weekday = new Date(y, m - 1, d).getDay();
-  return weekday === 0 || weekday === 6;
+  return weekday === 0;
 }
 
 export function getWeekNumberInMonth(year: number, month: number, day: number): number {
@@ -113,7 +113,7 @@ export function resolveRegisterCell(
   isFuture: boolean,
 ): RegisterCellDetail {
   if (isWeeklyOffDateKey(dateKey)) {
-    return { code: 'WO', label: 'Weekly off' };
+    return { code: 'WO', label: 'Sunday off' };
   }
 
   const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
@@ -239,7 +239,7 @@ export const REGISTER_CELL_STYLES: Record<
   L: { bg: 'bg-blue-100', text: 'text-blue-800', title: 'Approved leave' },
   PL: { bg: 'bg-amber-100', text: 'text-amber-800', title: 'Pending leave' },
   A: { bg: 'bg-red-50', text: 'text-red-700', title: 'Absent' },
-  WO: { bg: 'bg-gray-100', text: 'text-gray-500', title: 'Weekly off' },
+  WO: { bg: 'bg-gray-100', text: 'text-gray-500', title: 'Sunday off' },
   '—': { bg: 'bg-white', text: 'text-gray-300', title: 'Future' },
 };
 
