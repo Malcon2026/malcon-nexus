@@ -17,7 +17,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance, getPendingOffsitePunchOutRequest } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance, getPendingOffsitePunchRequest } from '../lib/attendance';
 import { validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
@@ -100,7 +100,7 @@ interface AppState {
 
   // Attendance
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
-  submitOffsitePunchOutRequest: (reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
+  submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeTodayAttendance>;
@@ -1257,7 +1257,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  submitOffsitePunchOutRequest: async (reason, position) => {
+  submitOffsitePunchRequest: async (punchType, reason, position) => {
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
     const trimmedReason = reason.trim();
     if (trimmedReason.length < 10) {
@@ -1265,18 +1265,29 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
-    if (!summary.isPunchedIn) {
+    if (punchType === 'in' && summary.isPunchedIn) {
+      return { error: 'You are already punched in. Punch out first.' };
+    }
+    if (punchType === 'out' && !summary.isPunchedIn) {
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
-    const existingPending = getPendingOffsitePunchOutRequest(attendanceApprovalRequests, currentUser.id);
+    const existingPending = getPendingOffsitePunchRequest(
+      attendanceApprovalRequests,
+      currentUser.id,
+      punchType,
+    );
     if (existingPending) {
-      return { error: 'You already have a pending off-site punch-out request awaiting admin approval.' };
+      return {
+        error: `You already have a pending off-site ${punchType === 'in' ? 'punch-in' : 'punch-out'} request awaiting admin approval.`,
+      };
     }
 
     const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
     if (geofence.withinOffice) {
-      return { error: 'You are at the office. Use regular punch out instead.' };
+      return {
+        error: `You are at the office. Use regular ${punchType === 'in' ? 'punch in' : 'punch out'} instead.`,
+      };
     }
 
     const requestedAt = new Date().toISOString();
@@ -1284,7 +1295,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: newId(),
       employeeId: currentUser.id,
       employeeName: currentUser.name,
-      punchType: 'out',
+      punchType,
       requestedAt,
       latitude: position.latitude,
       longitude: position.longitude,
@@ -1304,23 +1315,24 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: persistResult.error };
     }
 
+    const punchLabel = punchType === 'in' ? 'Punch In' : 'Punch Out';
     const activity: ActivityEvent = {
       id: newId(),
-      action: 'Off-site Punch Out Request',
+      action: `Off-site ${punchLabel} Request`,
       entityType: 'attendance',
       entityId: request.id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: requestedAt,
-      details: `Submitted off-site punch out (${geofence.distanceM}m from office): ${trimmedReason}`,
+      details: `Submitted off-site ${punchLabel.toLowerCase()} (${geofence.distanceM}m from office): ${trimmedReason}`,
     };
     persistActivity(activity);
 
     const notif: Notification = {
       id: newId(),
-      title: 'Off-site Punch Out Request',
-      message: `${currentUser.name} requested off-site punch out approval (${geofence.distanceM}m from office).`,
+      title: `Off-site ${punchLabel} Request`,
+      message: `${currentUser.name} requested off-site ${punchLabel.toLowerCase()} approval (${geofence.distanceM}m from office).`,
       type: 'warning',
       timestamp: requestedAt,
       read: false,
@@ -1337,7 +1349,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   approveAttendanceApprovalRequest: async (requestId, adminNotes = '') => {
-    const { currentUser, attendanceApprovalRequests } = get();
+    const { currentUser, attendanceApprovalRequests, attendanceRecords } = get();
     if (currentUser.role !== 'admin') {
       return { error: 'Only admins can approve attendance requests.' };
     }
@@ -1350,11 +1362,19 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'This request has already been reviewed.' };
     }
 
+    const summary = summarizeTodayAttendance(attendanceRecords, request.employeeId);
+    if (request.punchType === 'in' && summary.isPunchedIn) {
+      return { error: 'Employee is already punched in.' };
+    }
+    if (request.punchType === 'out' && !summary.isPunchedIn) {
+      return { error: 'Employee is no longer punched in.' };
+    }
+
     const record: AttendanceRecord = {
       id: newId(),
       employeeId: request.employeeId,
       employeeName: request.employeeName,
-      punchType: 'out',
+      punchType: request.punchType,
       punchedAt: request.requestedAt,
       latitude: request.latitude,
       longitude: request.longitude,
@@ -1384,16 +1404,17 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: updateResult.error };
     }
 
+    const punchLabel = request.punchType === 'in' ? 'Punch In' : 'Punch Out';
     const activity: ActivityEvent = {
       id: newId(),
-      action: 'Approved Off-site Punch Out',
+      action: `Approved Off-site ${punchLabel}`,
       entityType: 'attendance',
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: reviewedAt,
-      details: `Approved off-site punch out for ${request.employeeName}. Reason: ${request.reason}`,
+      details: `Approved off-site ${punchLabel.toLowerCase()} for ${request.employeeName}. Reason: ${request.reason}`,
     };
     persistActivity(activity);
 
@@ -1436,16 +1457,17 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: updateResult.error };
     }
 
+    const punchLabel = request.punchType === 'in' ? 'punch in' : 'punch out';
     const activity: ActivityEvent = {
       id: newId(),
-      action: 'Rejected Off-site Punch Out',
+      action: `Rejected Off-site ${request.punchType === 'in' ? 'Punch In' : 'Punch Out'}`,
       entityType: 'attendance',
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: reviewedAt,
-      details: `Rejected off-site punch out for ${request.employeeName}. Reason given: ${request.reason}`,
+      details: `Rejected off-site ${punchLabel} for ${request.employeeName}. Reason given: ${request.reason}`,
     };
     persistActivity(activity);
 

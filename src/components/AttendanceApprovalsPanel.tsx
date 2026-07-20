@@ -17,7 +17,7 @@ export const AttendanceApprovalsPanel: React.FC = () => {
   const tabs: { id: ApprovalFilter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: pendingLeaveCount + pendingOffsiteCount },
     { id: 'leave', label: 'Leave', count: pendingLeaveCount },
-    { id: 'offsite', label: 'Off-site Punch Out', count: pendingOffsiteCount },
+    { id: 'offsite', label: 'Off-site Punch', count: pendingOffsiteCount },
   ];
 
   return (
@@ -51,7 +51,7 @@ export const AttendanceApprovalsPanel: React.FC = () => {
         <div>
           {filter === 'all' && (
             <h3 className="text-sm font-semibold text-gray-900 mb-3 pt-2 border-t border-gray-100">
-              Off-site Punch Out
+              Off-site Punch
             </h3>
           )}
           <EmployeeAttendanceApprovalsPanel />

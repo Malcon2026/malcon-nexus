@@ -40,8 +40,8 @@ export const EXPORT_REPORT_TYPES: {
   },
   {
     id: 'attendance-approvals',
-    label: 'Off-site Punch Out',
-    description: 'Off-site punch out approval requests and review status.',
+    label: 'Off-site Punch',
+    description: 'Off-site punch in/out approval requests and review status.',
   },
   {
     id: 'stage-approvals',

@@ -223,7 +223,7 @@ export interface AttendanceApprovalRequest {
   id: string;
   employeeId: string;
   employeeName: string;
-  punchType: 'out';
+  punchType: PunchType;
   requestedAt: string;
   latitude: number;
   longitude: number;

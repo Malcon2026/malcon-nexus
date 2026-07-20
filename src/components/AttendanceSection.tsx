@@ -14,7 +14,7 @@ import {
   getCurrentPosition,
   checkOfficeGeofence,
   summarizeTodayAttendance,
-  getPendingOffsitePunchOutRequest,
+  getPendingOffsitePunchRequest,
   type GeoPosition,
 } from '../lib/attendance';
 
@@ -29,10 +29,11 @@ export const AttendanceSection: React.FC = () => {
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
   const currentUser = useStore((s) => s.currentUser);
   const punchAttendance = useStore((s) => s.punchAttendance);
-  const submitOffsitePunchOutRequest = useStore((s) => s.submitOffsitePunchOutRequest);
+  const submitOffsitePunchRequest = useStore((s) => s.submitOffsitePunchRequest);
 
   const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
-  const pendingOffsiteOut = getPendingOffsitePunchOutRequest(attendanceApprovalRequests, currentUser.id);
+  const pendingOffsiteIn = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'in');
+  const pendingOffsiteOut = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'out');
 
   const [now, setNow] = useState(new Date());
   const [confirmType, setConfirmType] = useState<PunchType | null>(null);
@@ -81,8 +82,8 @@ export const AttendanceSection: React.FC = () => {
     setLocationState({ status: 'idle' });
   };
 
-  const isOffsitePunchOut =
-    confirmType === 'out' &&
+  const isOffsitePunch =
+    confirmType !== null &&
     locationState.status === 'ready' &&
     !locationState.withinOffice;
 
@@ -112,16 +113,8 @@ export const AttendanceSection: React.FC = () => {
       withinOffice: geofence.withinOffice,
     });
 
-    if (confirmType === 'in' && !geofence.withinOffice) {
-      setSubmitError(
-        `You must be at the office (${OFFICE_LOCATION.address}). You are ${geofence.distanceM}m away.`,
-      );
-      setSubmitting(false);
-      return;
-    }
-
-    if (confirmType === 'out' && !geofence.withinOffice) {
-      const result = await submitOffsitePunchOutRequest(offsiteReason, position);
+    if (!geofence.withinOffice) {
+      const result = await submitOffsitePunchRequest(confirmType, offsiteReason, position);
       setSubmitting(false);
       if (result.error) {
         setSubmitError(result.error);
@@ -167,9 +160,13 @@ export const AttendanceSection: React.FC = () => {
               >
                 {summary.isPunchedIn ? '● Punched In' : '○ Not Punched In'}
               </Badge>
-              {pendingOffsiteOut && (
+              {(pendingOffsiteIn || pendingOffsiteOut) && (
                 <Badge className="bg-amber-500/20 text-amber-100 border-amber-400/30 text-[10px]">
-                  Punch out pending approval
+                  {pendingOffsiteIn && pendingOffsiteOut
+                    ? 'Punch in/out pending approval'
+                    : pendingOffsiteIn
+                      ? 'Punch in pending approval'
+                      : 'Punch out pending approval'}
                 </Badge>
               )}
             </div>
@@ -198,6 +195,16 @@ export const AttendanceSection: React.FC = () => {
             </div>
           </div>
 
+          {pendingOffsiteIn && (
+            <div className="flex items-start gap-2 text-xs text-amber-800 mb-4 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                Your off-site punch in at {formatTimeIST(pendingOffsiteIn.requestedAt)} is awaiting admin approval.
+                Reason: <span className="font-medium">{pendingOffsiteIn.reason}</span>
+              </span>
+            </div>
+          )}
+
           {pendingOffsiteOut && (
             <div className="flex items-start gap-2 text-xs text-amber-800 mb-4 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
               <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
@@ -212,7 +219,7 @@ export const AttendanceSection: React.FC = () => {
             <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0 mt-0.5" />
             <span>
               Office: <span className="font-medium text-gray-700">{OFFICE_LOCATION.address}</span>
-              {' '}· Punch in at office · Off-site punch out requires admin approval
+              {' '}· At office: punch directly · Off-site: reason + admin approval (same rule for in and out)
             </span>
           </div>
 
@@ -223,7 +230,7 @@ export const AttendanceSection: React.FC = () => {
               className="flex-1"
               icon={<LogIn className="h-4 w-4" />}
               onClick={() => openConfirm('in')}
-              disabled={summary.isPunchedIn}
+              disabled={summary.isPunchedIn || !!pendingOffsiteIn}
             >
               Punch In
             </Button>
@@ -244,9 +251,9 @@ export const AttendanceSection: React.FC = () => {
       <Modal
         isOpen={confirmType !== null}
         onClose={closeConfirm}
-        title={isOffsitePunchOut ? 'Off-site Punch Out' : 'Are you sure?'}
+        title={isOffsitePunch ? `Off-site ${punchLabel}` : 'Are you sure?'}
         subtitle={
-          isOffsitePunchOut
+          isOffsitePunch
             ? 'Submit a reason for admin approval'
             : `Confirm ${punchLabel} for today`
         }
@@ -262,13 +269,13 @@ export const AttendanceSection: React.FC = () => {
               disabled={
                 submitting ||
                 locationState.status === 'loading' ||
-                (isOffsitePunchOut && !canSubmitOffsite)
+                (isOffsitePunch && !canSubmitOffsite)
               }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             >
               {submitting
                 ? 'Processing…'
-                : isOffsitePunchOut
+                : isOffsitePunch
                   ? 'Submit for Approval'
                   : `Yes, ${punchLabel}`}
             </Button>
@@ -276,10 +283,10 @@ export const AttendanceSection: React.FC = () => {
         }
       >
         <div className="px-4 sm:px-6 py-4 space-y-4">
-          <div className={`rounded-xl border px-4 py-3 ${isOffsitePunchOut ? 'bg-amber-50 border-amber-100' : 'bg-amber-50 border-amber-100'}`}>
+          <div className="rounded-xl border px-4 py-3 bg-amber-50 border-amber-100">
             <p className="text-sm font-semibold text-amber-900">
-              {isOffsitePunchOut
-                ? 'You are outside the office. Admin approval is required to punch out.'
+              {isOffsitePunch
+                ? `You are outside the office. Admin approval is required to ${punchLabel.toLowerCase()}.`
                 : `Are you sure you want to ${punchLabel.toLowerCase()}?`}
             </p>
             <p className="text-xs text-amber-700 mt-1 tabular-nums">
@@ -345,10 +352,10 @@ export const AttendanceSection: React.FC = () => {
             </div>
           </div>
 
-          {isOffsitePunchOut && (
+          {isOffsitePunch && (
             <div>
               <label htmlFor="offsite-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
-                Reason for off-site punch out
+                Reason for off-site {punchLabel.toLowerCase()}
               </label>
               <textarea
                 id="offsite-reason"

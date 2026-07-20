@@ -1,4 +1,4 @@
-import type { AttendanceApprovalRequest, AttendanceRecord } from '../types';
+import type { AttendanceApprovalRequest, AttendanceRecord, PunchType } from '../types';
 
 /** Malcon Nexus office — CCWW+RJ, Hyderabad, Telangana (7J9WCCWW+RJ) */
 export const OFFICE_LOCATION = {
@@ -176,20 +176,30 @@ export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
   status: AttendanceDayStatus;
 }
 
-export function getPendingOffsitePunchOutRequest(
+export function getPendingOffsitePunchRequest(
   requests: AttendanceApprovalRequest[] | null | undefined,
   employeeId: string,
+  punchType: PunchType,
   dateKey = getISTDateKey(),
 ): AttendanceApprovalRequest | null {
   return (
     (requests ?? []).find(
       (r) =>
         r.employeeId === employeeId &&
-        r.punchType === 'out' &&
+        r.punchType === punchType &&
         r.status === 'pending' &&
         getISTDateKey(r.requestedAt) === dateKey,
     ) ?? null
   );
+}
+
+/** @deprecated Use getPendingOffsitePunchRequest(..., 'out') */
+export function getPendingOffsitePunchOutRequest(
+  requests: AttendanceApprovalRequest[] | null | undefined,
+  employeeId: string,
+  dateKey = getISTDateKey(),
+): AttendanceApprovalRequest | null {
+  return getPendingOffsitePunchRequest(requests, employeeId, 'out', dateKey);
 }
 
 export function buildEmployeeAttendanceReport(

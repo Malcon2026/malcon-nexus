@@ -100,9 +100,9 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Off-site Punch Out Approvals</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Off-site Punch Approvals</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Review employee requests when they punch out away from the office.
+            Review employee requests when they punch in or out away from the office.
           </p>
         </div>
         <Button
@@ -170,7 +170,7 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
               <p className="text-sm font-medium">
                 {filter === 'pending' ? 'No pending approval requests' : 'No requests yet'}
               </p>
-              <p className="text-xs mt-1">Off-site punch out requests will appear here</p>
+              <p className="text-xs mt-1">Off-site punch in/out requests will appear here</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -192,6 +192,9 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
                               {employee?.department ?? '—'}
                             </Badge>
                             <Badge className={`${sc.className} text-[10px]`}>{sc.label}</Badge>
+                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">
+                              {request.punchType === 'in' ? 'Punch In' : 'Punch Out'}
+                            </Badge>
                             {isToday && (
                               <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">
                                 Today
@@ -263,7 +266,11 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
       <Modal
         isOpen={reviewing !== null && reviewAction !== null}
         onClose={closeReview}
-        title={reviewAction === 'approve' ? 'Approve Punch Out' : 'Reject Request'}
+        title={
+          reviewAction === 'approve'
+            ? `Approve ${reviewing?.punchType === 'in' ? 'Punch In' : 'Punch Out'}`
+            : 'Reject Request'
+        }
         subtitle={
           reviewing
             ? `${reviewing.employeeName} · ${formatTimeIST(reviewing.requestedAt)}`
@@ -298,13 +305,15 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
 
             {reviewAction === 'approve' ? (
               <p className="text-sm text-gray-600">
-                Approving will record punch out at{' '}
+                Approving will record {reviewing.punchType === 'in' ? 'punch in' : 'punch out'} at{' '}
                 <span className="font-medium tabular-nums">{formatTimeIST(reviewing.requestedAt)}</span>{' '}
                 for this employee.
               </p>
             ) : (
               <p className="text-sm text-gray-600">
-                The employee will remain punched in and can punch out again from the office or submit a new request.
+                {reviewing.punchType === 'in'
+                  ? 'The employee will remain not punched in and can punch in again from the office or submit a new request.'
+                  : 'The employee will remain punched in and can punch out again from the office or submit a new request.'}
               </p>
             )}
 
