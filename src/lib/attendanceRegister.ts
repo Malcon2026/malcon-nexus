@@ -29,10 +29,6 @@ export interface RegisterDayColumn {
   isWeeklyOff: boolean;
   isFuture: boolean;
   isToday: boolean;
-  /** Last day(s) of cycle — shown for continuity, not counted for pay. */
-  isBridgeDay: boolean;
-  /** Within the 30-day paid window (27th or 28th prev → 26th salary month). */
-  isPaidDay: boolean;
   /** Short month label when the calendar month changes (e.g. "Jun"). */
   monthShort: string;
 }
@@ -48,9 +44,6 @@ export interface RegisterEmployeeRow {
 export interface SalaryCycleBounds {
   startDateKey: string;
   endDateKey: string;
-  paidStartDateKey: string;
-  paidEndDateKey: string;
-  bridgeDateKeys: Set<string>;
 }
 
 export interface AttendanceRegisterData {
@@ -128,7 +121,7 @@ function formatShortDate(dateKey: string): string {
   });
 }
 
-/** May salary uses 27th→27th; all other months use 28th→27th (27th = bridge, not paid). */
+/** May salary uses 27th→27th; all other months use 28th→27th. */
 export function getSalaryCycleStartDay(salaryMonth: number): number {
   return salaryMonth === 5 ? 27 : 28;
 }
@@ -138,24 +131,15 @@ export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryC
   const prevYear = salaryMonth === 1 ? year - 1 : year;
   const cycleStartDay = getSalaryCycleStartDay(salaryMonth);
 
-  const startDateKey = dateKeyFromParts(prevYear, prevMonth, cycleStartDay);
-  const endDateKey = dateKeyFromParts(year, salaryMonth, 27);
-  const paidStartDateKey = startDateKey;
-  const paidEndDateKey = dateKeyFromParts(year, salaryMonth, 26);
-  const bridgeDateKeys = new Set<string>([dateKeyFromParts(year, salaryMonth, 27)]);
-
   return {
-    startDateKey,
-    endDateKey,
-    paidStartDateKey,
-    paidEndDateKey,
-    bridgeDateKeys,
+    startDateKey: dateKeyFromParts(prevYear, prevMonth, cycleStartDay),
+    endDateKey: dateKeyFromParts(year, salaryMonth, 27),
   };
 }
 
 export function getSalaryCycleDescription(salaryMonth: number): string {
   const startDay = getSalaryCycleStartDay(salaryMonth);
-  return `Paid: ${startDay}th prev month → 26th (${PAYABLE_DAYS_PER_CYCLE} days max) · 27th = bridge`;
+  return `${startDay}th prev month → 27th · max ${PAYABLE_DAYS_PER_CYCLE} pay days`;
 }
 
 export function getSalaryCycleLabel(year: number, salaryMonth: number): string {
@@ -222,10 +206,9 @@ export function resolveRegisterCell(
   records: AttendanceRecord[],
   leaveRequests: LeaveRequest[],
   isFuture: boolean,
-  isBridgeDay: boolean,
 ): RegisterCellDetail {
   if (isWeeklyOffDateKey(dateKey)) {
-    return { code: 'WO', label: isBridgeDay ? 'Sunday off (bridge day)' : 'Sunday off' };
+    return { code: 'WO', label: 'Sunday off' };
   }
 
   const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
@@ -233,7 +216,7 @@ export function resolveRegisterCell(
     if (leave.status === 'approved') {
       return {
         code: 'L',
-        label: isBridgeDay ? `${leave.leaveType} leave (bridge day)` : `${leave.leaveType} leave`,
+        label: `${leave.leaveType} leave`,
         leaveType: leave.leaveType,
         leaveReason: leave.reason,
         leaveStatus: leave.status,
@@ -256,7 +239,7 @@ export function resolveRegisterCell(
   if (summary.punchIn && summary.punchOut) {
     return {
       code: 'P',
-      label: isBridgeDay ? 'Present (bridge day)' : 'Present',
+      label: 'Present',
       punchInTime: formatTimeIST(summary.punchIn.punchedAt),
       punchOutTime: formatTimeIST(summary.punchOut.punchedAt),
       workedDuration: formatWorkedDuration(summary),
@@ -266,7 +249,7 @@ export function resolveRegisterCell(
   if (summary.isPunchedIn && dateKey === todayKey) {
     return {
       code: 'PI',
-      label: isBridgeDay ? 'Present, still in (bridge day)' : 'Present (still in)',
+      label: 'Present (still in)',
       punchInTime: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : undefined,
       workedDuration: formatWorkedDuration(summary),
     };
@@ -275,7 +258,7 @@ export function resolveRegisterCell(
   if (summary.punchIn && !summary.punchOut) {
     return {
       code: 'P',
-      label: isBridgeDay ? 'Present, missing punch out (bridge day)' : 'Present (missing punch out)',
+      label: 'Present (missing punch out)',
       punchInTime: formatTimeIST(summary.punchIn.punchedAt),
       workedDuration: formatWorkedDuration(summary),
     };
@@ -285,7 +268,7 @@ export function resolveRegisterCell(
     return { code: '—', label: 'Future date' };
   }
 
-  return { code: 'A', label: isBridgeDay ? 'Absent (bridge day)' : 'Absent' };
+  return { code: 'A', label: 'Absent' };
 }
 
 export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): RegisterDayColumn[] {
@@ -312,8 +295,6 @@ export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): R
       isWeeklyOff: isWeeklyOffDateKey(dateKey),
       isFuture: dateKey > todayKey,
       isToday: dateKey === todayKey,
-      isBridgeDay: bounds.bridgeDateKeys.has(dateKey),
-      isPaidDay: isDateInRange(dateKey, bounds.paidStartDateKey, bounds.paidEndDateKey),
       monthShort,
     });
   }
@@ -329,7 +310,7 @@ export function buildMonthDayColumns(year: number, month: number): RegisterDayCo
 export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColumn[]): number {
   let count = 0;
   for (let i = 0; i < days.length; i++) {
-    if (!days[i].isPaidDay || days[i].isWeeklyOff) continue;
+    if (days[i].isWeeklyOff) continue;
     const code = cells[i].code;
     if (code === 'P' || code === 'PI' || code === 'L') count++;
   }
@@ -358,7 +339,6 @@ export function buildAttendanceRegister(
         records,
         leaveRequests,
         col.isFuture,
-        col.isBridgeDay,
       ),
     );
     return {

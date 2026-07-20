@@ -204,10 +204,6 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             {style.title}
           </span>
         ))}
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-dashed border-slate-300">
-          <span className="font-bold">B</span>
-          Bridge day (not paid)
-        </span>
       </div>
 
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
@@ -265,32 +261,26 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   <th
                     key={day.dateKey}
                     className={`border-r border-gray-100 px-0.5 py-1 text-center ${
-                      day.isBridgeDay
-                        ? 'bg-slate-50 border-dashed border-slate-200'
-                        : day.isToday
-                          ? 'bg-indigo-50'
-                          : day.isWeeklyOff
-                            ? 'bg-gray-100/60'
-                            : ''
+                      day.isToday
+                        ? 'bg-indigo-50'
+                        : day.isWeeklyOff
+                          ? 'bg-gray-100/60'
+                          : ''
                     }`}
-                    title={`${day.weekday} ${day.dateKey}${day.isBridgeDay ? ' (bridge — not paid)' : day.isPaidDay ? ' (paid)' : ''}`}
+                    title={`${day.weekday} ${day.dateKey}`}
                   >
                     {day.monthShort && (
                       <div className="text-[8px] text-gray-400 font-medium leading-none mb-0.5">{day.monthShort}</div>
                     )}
                     <div
                       className={`font-semibold ${
-                        day.isBridgeDay
-                          ? 'text-slate-400'
-                          : day.isToday
-                            ? 'text-indigo-700'
-                            : 'text-gray-700'
+                        day.isToday ? 'text-indigo-700' : 'text-gray-700'
                       }`}
                     >
                       {day.day}
                     </div>
                     <div className="text-[9px] text-gray-400 font-normal">
-                      {day.isBridgeDay ? 'B' : day.weekday.charAt(0)}
+                      {day.weekday.charAt(0)}
                     </div>
                   </th>
                 ))}
@@ -326,11 +316,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         <td
                           key={`${row.employeeId}-${day.dateKey}`}
                           className={`border-r border-gray-50 px-0.5 py-1 text-center ${
-                            day.isBridgeDay
-                              ? 'bg-slate-50/80'
-                              : day.isToday
-                                ? 'ring-1 ring-inset ring-indigo-200'
-                                : ''
+                            day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''
                           }`}
                         >
                           <button
@@ -343,9 +329,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                                 cell,
                               })
                             }
-                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${
-                              day.isBridgeDay ? 'opacity-60 ring-1 ring-dashed ring-slate-300' : ''
-                            } ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
+                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
                             title={cell.label}
                           >
                             {displayCode(cell.code)}
@@ -367,7 +351,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
       <p className="text-[10px] text-gray-400 flex items-center gap-1">
         <Info className="h-3 w-3" />
-        Salary month = month paid (e.g. June = 28 May – 27 Jun). Day 27 is bridge (not paid). Today: {getISTDateKey()}.
+        Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + L (Sundays excluded, max 30). Today: {getISTDateKey()}.
       </p>
 
       {selectedCell && (
