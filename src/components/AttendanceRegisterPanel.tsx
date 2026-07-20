@@ -36,7 +36,7 @@ interface AttendanceRegisterPanelProps {
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
-  subtitle = 'Salary cycle (26th–26th/27th) — P Present, L Leave, A Absent, WO Sunday off',
+  subtitle = 'Salary cycle (28th–27th) — P Present, L Leave, A Absent, WO Sunday off',
   compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
@@ -194,7 +194,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       <p className="text-xs text-gray-600">
         <span className="font-medium text-gray-800">{register.cycleLabel}</span>
         <span className="text-gray-400 mx-1.5">·</span>
-        Paid window: 26th prev month → 25th ({register.payableDaysCap} days max)
+        Paid window: 28th prev month → 26th ({register.payableDaysCap} days max) · 27th = bridge
       </p>
 
       <div className="flex flex-wrap gap-2 text-[10px]">
@@ -367,7 +367,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
       <p className="text-[10px] text-gray-400 flex items-center gap-1">
         <Info className="h-3 w-3" />
-        Salary month = month paid (e.g. June = 26 May – 26 Jun). Bridge days at cycle end are not paid. Today: {getISTDateKey()}.
+        Salary month = month paid (e.g. June = 28 May – 27 Jun). Day 27 is bridge (not paid). Today: {getISTDateKey()}.
       </p>
 
       {selectedCell && (

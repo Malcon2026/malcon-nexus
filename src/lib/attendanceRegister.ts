@@ -31,7 +31,7 @@ export interface RegisterDayColumn {
   isToday: boolean;
   /** Last day(s) of cycle — shown for continuity, not counted for pay. */
   isBridgeDay: boolean;
-  /** Within the 30-day paid window (26th prev month → 25th salary month). */
+  /** Within the 30-day paid window (28th prev month → 26th salary month). */
   isPaidDay: boolean;
   /** Short month label when the calendar month changes (e.g. "Jun"). */
   monthShort: string;
@@ -127,26 +127,16 @@ function formatShortDate(dateKey: string): string {
   });
 }
 
-/** Salary month M: cycle 26th of prev month → 26th or 27th of M (bridge days, not paid). */
+/** Salary month M: attendance 28th of prev month → 27th of M (27th = bridge, not paid). */
 export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryCycleBounds {
   const prevMonth = salaryMonth === 1 ? 12 : salaryMonth - 1;
   const prevYear = salaryMonth === 1 ? year - 1 : year;
-  const salaryMonthDays = daysInCalendarMonth(year, salaryMonth);
 
-  const cycleEndDay = salaryMonthDays === 31 ? 27 : 26;
-  const startDateKey = dateKeyFromParts(prevYear, prevMonth, 26);
-  const endDateKey = dateKeyFromParts(year, salaryMonth, cycleEndDay);
+  const startDateKey = dateKeyFromParts(prevYear, prevMonth, 28);
+  const endDateKey = dateKeyFromParts(year, salaryMonth, 27);
   const paidStartDateKey = startDateKey;
-  const paidEndDateKey = dateKeyFromParts(year, salaryMonth, 25);
-
-  const bridgeDateKeys = new Set<string>(
-    salaryMonthDays === 31
-      ? [
-          dateKeyFromParts(year, salaryMonth, 26),
-          dateKeyFromParts(year, salaryMonth, 27),
-        ]
-      : [dateKeyFromParts(year, salaryMonth, 26)],
-  );
+  const paidEndDateKey = dateKeyFromParts(year, salaryMonth, 26);
+  const bridgeDateKeys = new Set<string>([dateKeyFromParts(year, salaryMonth, 27)]);
 
   return {
     startDateKey,
