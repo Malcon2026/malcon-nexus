@@ -351,7 +351,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
       <p className="text-[10px] text-gray-400 flex items-center gap-1">
         <Info className="h-3 w-3" />
-        Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + L (Sundays excluded, max 30). Today: {getISTDateKey()}.
+        Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + L + WO (max 30). Today: {getISTDateKey()}.
       </p>
 
       {selectedCell && (

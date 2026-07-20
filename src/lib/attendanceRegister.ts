@@ -310,9 +310,8 @@ export function buildMonthDayColumns(year: number, month: number): RegisterDayCo
 export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColumn[]): number {
   let count = 0;
   for (let i = 0; i < days.length; i++) {
-    if (days[i].isWeeklyOff) continue;
     const code = cells[i].code;
-    if (code === 'P' || code === 'PI' || code === 'L') count++;
+    if (code === 'P' || code === 'PI' || code === 'L' || code === 'WO') count++;
   }
   return Math.min(count, PAYABLE_DAYS_PER_CYCLE);
 }
