@@ -66,10 +66,15 @@ def main() -> None:
             rows.append(cells)
 
     r1, r2 = rows[0], rows[1]
-    day_cols = sorted(
-        [c for c in r2.keys() if c >= "H" and r2.get(c, "").isdigit()],
-        key=col_idx,
-    )
+    all_header_cols = sorted(set(r1.keys()) | set(r2.keys()), key=col_idx)
+    day_cols = []
+    for col in all_header_cols:
+        if col_idx(col) < col_idx("H"):
+            continue
+        day_val = r2.get(col, "")
+        if not day_val.isdigit():
+            break
+        day_cols.append(col)
 
     year = 2026
     month = 5
