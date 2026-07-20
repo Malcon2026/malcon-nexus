@@ -60,7 +60,7 @@ export const EmployeeDashboard: React.FC = () => {
         <AttendanceRegisterPanel
           employeeId={currentUser.id}
           title="My Attendance Register"
-          subtitle="Your monthly attendance — P Present, L Leave, A Absent, WO Sunday off"
+          subtitle="Your salary-cycle attendance — P Present, L Leave, A Absent, WO Sunday off"
         />
       </div>
 

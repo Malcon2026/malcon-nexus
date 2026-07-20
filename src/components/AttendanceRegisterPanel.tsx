@@ -36,7 +36,7 @@ interface AttendanceRegisterPanelProps {
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
-  subtitle = 'Monthly register — P Present, L Leave, A Absent, WO Sunday off',
+  subtitle = 'Salary cycle (26th–26th/27th) — P Present, L Leave, A Absent, WO Sunday off',
   compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
@@ -130,13 +130,19 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <input
-              type="month"
-              value={monthValue}
-              max={formatYearMonth(now.getFullYear(), now.getMonth() + 1)}
-              onChange={(e) => e.target.value && setMonthValue(e.target.value)}
-              className="text-sm border-0 focus:ring-0 bg-transparent px-1"
-            />
+            <div className="flex flex-col items-center px-1 min-w-[7rem]">
+              <input
+                type="month"
+                value={monthValue}
+                max={formatYearMonth(now.getFullYear(), now.getMonth() + 1)}
+                onChange={(e) => e.target.value && setMonthValue(e.target.value)}
+                className="text-sm border-0 focus:ring-0 bg-transparent w-full"
+                aria-label="Salary month"
+              />
+              <span className="text-[9px] text-gray-400 leading-tight text-center whitespace-nowrap">
+                {register.salaryLabel}
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => shiftMonth(1)}
@@ -185,6 +191,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         </div>
       )}
 
+      <p className="text-xs text-gray-600">
+        <span className="font-medium text-gray-800">{register.cycleLabel}</span>
+        <span className="text-gray-400 mx-1.5">·</span>
+        Paid window: 26th prev month → 25th ({register.payableDaysCap} days max)
+      </p>
+
       <div className="flex flex-wrap gap-2 text-[10px]">
         {Object.entries(REGISTER_CELL_STYLES).map(([code, style]) => (
           <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${style.bg} ${style.text}`}>
@@ -192,6 +204,10 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             {style.title}
           </span>
         ))}
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-500 border border-dashed border-slate-300">
+          <span className="font-bold">B</span>
+          Bridge day (not paid)
+        </span>
       </div>
 
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
@@ -200,8 +216,8 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             className="w-full border-collapse text-xs table-fixed"
             style={{
               minWidth: employeeId
-                ? `${140 + register.days.length * 28}px`
-                : `${250 + register.days.length * 28}px`,
+                ? `${140 + register.days.length * 28 + 52}px`
+                : `${250 + register.days.length * 28 + 52}px`,
             }}
           >
             <colgroup>
@@ -210,6 +226,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               {register.days.map((day) => (
                 <col key={day.dateKey} />
               ))}
+              <col style={{ width: 52 }} />
             </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -236,20 +253,45 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     Week {week}
                   </th>
                 ))}
+                <th
+                  rowSpan={2}
+                  className="sticky right-0 z-20 bg-gray-50 border-l border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[52px]"
+                >
+                  Pay
+                </th>
               </tr>
               <tr className="bg-gray-50 border-b border-gray-200">
                 {register.days.map((day) => (
                   <th
                     key={day.dateKey}
                     className={`border-r border-gray-100 px-0.5 py-1 text-center ${
-                      day.isToday ? 'bg-indigo-50' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
+                      day.isBridgeDay
+                        ? 'bg-slate-50 border-dashed border-slate-200'
+                        : day.isToday
+                          ? 'bg-indigo-50'
+                          : day.isWeeklyOff
+                            ? 'bg-gray-100/60'
+                            : ''
                     }`}
-                    title={`${day.weekday} ${day.dateKey}`}
+                    title={`${day.weekday} ${day.dateKey}${day.isBridgeDay ? ' (bridge — not paid)' : day.isPaidDay ? ' (paid)' : ''}`}
                   >
-                    <div className={`font-semibold ${day.isToday ? 'text-indigo-700' : 'text-gray-700'}`}>
+                    {day.monthShort && (
+                      <div className="text-[8px] text-gray-400 font-medium leading-none mb-0.5">{day.monthShort}</div>
+                    )}
+                    <div
+                      className={`font-semibold ${
+                        day.isBridgeDay
+                          ? 'text-slate-400'
+                          : day.isToday
+                            ? 'text-indigo-700'
+                            : 'text-gray-700'
+                      }`}
+                    >
                       {day.day}
                     </div>
-                    <div className="text-[9px] text-gray-400 font-normal">{day.weekday.charAt(0)}</div>
+                    <div className="text-[9px] text-gray-400 font-normal">
+                      {day.isBridgeDay ? 'B' : day.weekday.charAt(0)}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -258,7 +300,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               {register.rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={register.days.length + (employeeId ? 1 : 2)}
+                    colSpan={register.days.length + (employeeId ? 2 : 3)}
                     className="px-4 py-12 text-center text-gray-400"
                   >
                     No employees to display
@@ -284,7 +326,11 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         <td
                           key={`${row.employeeId}-${day.dateKey}`}
                           className={`border-r border-gray-50 px-0.5 py-1 text-center ${
-                            day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''
+                            day.isBridgeDay
+                              ? 'bg-slate-50/80'
+                              : day.isToday
+                                ? 'ring-1 ring-inset ring-indigo-200'
+                                : ''
                           }`}
                         >
                           <button
@@ -297,7 +343,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                                 cell,
                               })
                             }
-                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
+                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${
+                              day.isBridgeDay ? 'opacity-60 ring-1 ring-dashed ring-slate-300' : ''
+                            } ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
                             title={cell.label}
                           >
                             {displayCode(cell.code)}
@@ -305,6 +353,10 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         </td>
                       );
                     })}
+                    <td className="sticky right-0 z-10 bg-white border-l border-gray-200 px-2 py-2 text-center font-semibold text-gray-800">
+                      {row.payDays}
+                      <span className="text-gray-400 font-normal">/{register.payableDaysCap}</span>
+                    </td>
                   </tr>
                 ))
               )}
@@ -315,7 +367,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
       <p className="text-[10px] text-gray-400 flex items-center gap-1">
         <Info className="h-3 w-3" />
-        Cells are filled automatically from punch records and approved leave. Today: {getISTDateKey()}.
+        Salary month = month paid (e.g. June = 26 May – 26 Jun). Bridge days at cycle end are not paid. Today: {getISTDateKey()}.
       </p>
 
       {selectedCell && (

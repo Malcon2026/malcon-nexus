@@ -8,6 +8,8 @@ import {
 
 export type RegisterCellCode = 'P' | 'PI' | 'L' | 'PL' | 'A' | 'WO' | '—';
 
+export const PAYABLE_DAYS_PER_CYCLE = 30;
+
 export interface RegisterCellDetail {
   code: RegisterCellCode;
   label: string;
@@ -27,6 +29,12 @@ export interface RegisterDayColumn {
   isWeeklyOff: boolean;
   isFuture: boolean;
   isToday: boolean;
+  /** Last day(s) of cycle — shown for continuity, not counted for pay. */
+  isBridgeDay: boolean;
+  /** Within the 30-day paid window (26th prev month → 25th salary month). */
+  isPaidDay: boolean;
+  /** Short month label when the calendar month changes (e.g. "Jun"). */
+  monthShort: string;
 }
 
 export interface RegisterEmployeeRow {
@@ -34,14 +42,26 @@ export interface RegisterEmployeeRow {
   employeeName: string;
   department: string;
   cells: RegisterCellDetail[];
+  payDays: number;
+}
+
+export interface SalaryCycleBounds {
+  startDateKey: string;
+  endDateKey: string;
+  paidStartDateKey: string;
+  paidEndDateKey: string;
+  bridgeDateKeys: Set<string>;
 }
 
 export interface AttendanceRegisterData {
   year: number;
   month: number;
   monthLabel: string;
+  salaryLabel: string;
+  cycleLabel: string;
   days: RegisterDayColumn[];
   rows: RegisterEmployeeRow[];
+  payableDaysCap: number;
 }
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -67,14 +87,104 @@ export function dateKeyFromParts(year: number, month: number, day: number): stri
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+export function daysInCalendarMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
 export function isWeeklyOffDateKey(dateKey: string): boolean {
   const [y, m, d] = dateKey.split('-').map(Number);
   const weekday = new Date(y, m - 1, d).getDay();
   return weekday === 0;
 }
 
-export function getWeekNumberInMonth(year: number, month: number, day: number): number {
-  return Math.ceil(day / 7);
+function parseDateKey(dateKey: string): Date {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function addDaysToDateKey(dateKey: string, delta: number): string {
+  const date = parseDateKey(dateKey);
+  date.setDate(date.getDate() + delta);
+  return dateKeyFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
+}
+
+function iterateDateKeys(fromDateKey: string, toDateKey: string): string[] {
+  const keys: string[] = [];
+  let current = fromDateKey;
+  while (current <= toDateKey) {
+    keys.push(current);
+    current = addDaysToDateKey(current, 1);
+  }
+  return keys;
+}
+
+function formatShortDate(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
+}
+
+/** Salary month M: cycle 26th of prev month → 26th or 27th of M (bridge days, not paid). */
+export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryCycleBounds {
+  const prevMonth = salaryMonth === 1 ? 12 : salaryMonth - 1;
+  const prevYear = salaryMonth === 1 ? year - 1 : year;
+  const salaryMonthDays = daysInCalendarMonth(year, salaryMonth);
+
+  const cycleEndDay = salaryMonthDays === 31 ? 27 : 26;
+  const startDateKey = dateKeyFromParts(prevYear, prevMonth, 26);
+  const endDateKey = dateKeyFromParts(year, salaryMonth, cycleEndDay);
+  const paidStartDateKey = startDateKey;
+  const paidEndDateKey = dateKeyFromParts(year, salaryMonth, 25);
+
+  const bridgeDateKeys = new Set<string>(
+    salaryMonthDays === 31
+      ? [
+          dateKeyFromParts(year, salaryMonth, 26),
+          dateKeyFromParts(year, salaryMonth, 27),
+        ]
+      : [dateKeyFromParts(year, salaryMonth, 26)],
+  );
+
+  return {
+    startDateKey,
+    endDateKey,
+    paidStartDateKey,
+    paidEndDateKey,
+    bridgeDateKeys,
+  };
+}
+
+export function getSalaryCycleLabel(year: number, salaryMonth: number): string {
+  const bounds = getSalaryCycleBounds(year, salaryMonth);
+  const endYear = year;
+  const endMonth = salaryMonth;
+  const startParts = bounds.startDateKey.split('-').map(Number);
+  const startLabel = new Date(startParts[0], startParts[1] - 1, startParts[2]).toLocaleDateString(
+    'en-IN',
+    { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' },
+  );
+  const endLabel = new Date(endYear, endMonth - 1, parseInt(bounds.endDateKey.split('-')[2], 10))
+    .toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    });
+  return `${startLabel} – ${endLabel}`;
+}
+
+export function getSalaryLabel(year: number, salaryMonth: number): string {
+  return `${getMonthLabel(year, salaryMonth)} salary`;
+}
+
+function getWeekNumberInCycle(cycleStartDateKey: string, dateKey: string): number {
+  const start = parseDateKey(cycleStartDateKey);
+  const current = parseDateKey(dateKey);
+  const diffDays = Math.round((current.getTime() - start.getTime()) / 86400000);
+  return Math.floor(diffDays / 7) + 1;
 }
 
 function isDateInRange(dateKey: string, fromDate: string, toDate: string): boolean {
@@ -111,9 +221,10 @@ export function resolveRegisterCell(
   records: AttendanceRecord[],
   leaveRequests: LeaveRequest[],
   isFuture: boolean,
+  isBridgeDay: boolean,
 ): RegisterCellDetail {
   if (isWeeklyOffDateKey(dateKey)) {
-    return { code: 'WO', label: 'Sunday off' };
+    return { code: 'WO', label: isBridgeDay ? 'Sunday off (bridge day)' : 'Sunday off' };
   }
 
   const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
@@ -121,7 +232,7 @@ export function resolveRegisterCell(
     if (leave.status === 'approved') {
       return {
         code: 'L',
-        label: `${leave.leaveType} leave`,
+        label: isBridgeDay ? `${leave.leaveType} leave (bridge day)` : `${leave.leaveType} leave`,
         leaveType: leave.leaveType,
         leaveReason: leave.reason,
         leaveStatus: leave.status,
@@ -144,7 +255,7 @@ export function resolveRegisterCell(
   if (summary.punchIn && summary.punchOut) {
     return {
       code: 'P',
-      label: 'Present',
+      label: isBridgeDay ? 'Present (bridge day)' : 'Present',
       punchInTime: formatTimeIST(summary.punchIn.punchedAt),
       punchOutTime: formatTimeIST(summary.punchOut.punchedAt),
       workedDuration: formatWorkedDuration(summary),
@@ -154,7 +265,7 @@ export function resolveRegisterCell(
   if (summary.isPunchedIn && dateKey === todayKey) {
     return {
       code: 'PI',
-      label: 'Present (still in)',
+      label: isBridgeDay ? 'Present, still in (bridge day)' : 'Present (still in)',
       punchInTime: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : undefined,
       workedDuration: formatWorkedDuration(summary),
     };
@@ -163,7 +274,7 @@ export function resolveRegisterCell(
   if (summary.punchIn && !summary.punchOut) {
     return {
       code: 'P',
-      label: 'Present (missing punch out)',
+      label: isBridgeDay ? 'Present, missing punch out (bridge day)' : 'Present (missing punch out)',
       punchInTime: formatTimeIST(summary.punchIn.punchedAt),
       workedDuration: formatWorkedDuration(summary),
     };
@@ -173,29 +284,55 @@ export function resolveRegisterCell(
     return { code: '—', label: 'Future date' };
   }
 
-  return { code: 'A', label: 'Absent' };
+  return { code: 'A', label: isBridgeDay ? 'Absent (bridge day)' : 'Absent' };
 }
 
-export function buildMonthDayColumns(year: number, month: number): RegisterDayColumn[] {
+export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): RegisterDayColumn[] {
   const todayKey = getISTDateKey();
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const bounds = getSalaryCycleBounds(year, salaryMonth);
+  const dateKeys = iterateDateKeys(bounds.startDateKey, bounds.endDateKey);
   const columns: RegisterDayColumn[] = [];
+  let previousMonth = -1;
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateKey = dateKeyFromParts(year, month, day);
-    const date = new Date(year, month - 1, day);
+  for (const dateKey of dateKeys) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const monthShort =
+      m !== previousMonth
+        ? date.toLocaleDateString('en-IN', { month: 'short', timeZone: 'Asia/Kolkata' })
+        : '';
+    previousMonth = m;
+
     columns.push({
-      day,
+      day: d,
       dateKey,
       weekday: WEEKDAY_SHORT[date.getDay()],
-      weekNumber: getWeekNumberInMonth(year, month, day),
+      weekNumber: getWeekNumberInCycle(bounds.startDateKey, dateKey),
       isWeeklyOff: isWeeklyOffDateKey(dateKey),
       isFuture: dateKey > todayKey,
       isToday: dateKey === todayKey,
+      isBridgeDay: bounds.bridgeDateKeys.has(dateKey),
+      isPaidDay: isDateInRange(dateKey, bounds.paidStartDateKey, bounds.paidEndDateKey),
+      monthShort,
     });
   }
 
   return columns;
+}
+
+/** @deprecated Use buildSalaryCycleDayColumns — kept for any external callers. */
+export function buildMonthDayColumns(year: number, month: number): RegisterDayColumn[] {
+  return buildSalaryCycleDayColumns(year, month);
+}
+
+export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColumn[]): number {
+  let count = 0;
+  for (let i = 0; i < days.length; i++) {
+    if (!days[i].isPaidDay || days[i].isWeeklyOff) continue;
+    const code = cells[i].code;
+    if (code === 'P' || code === 'PI' || code === 'L') count++;
+  }
+  return Math.min(count, PAYABLE_DAYS_PER_CYCLE);
 }
 
 export function buildAttendanceRegister(
@@ -206,27 +343,41 @@ export function buildAttendanceRegister(
   month: number,
   options?: { employeeId?: string },
 ): AttendanceRegisterData {
-  const days = buildMonthDayColumns(year, month);
+  const days = buildSalaryCycleDayColumns(year, month);
   const staff = employees
     .filter((e) => e.role === 'employee' && e.status === 'Active')
     .filter((e) => !options?.employeeId || e.id === options.employeeId)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const rows: RegisterEmployeeRow[] = staff.map((employee) => ({
-    employeeId: employee.id,
-    employeeName: employee.name,
-    department: employee.department,
-    cells: days.map((col) =>
-      resolveRegisterCell(col.dateKey, employee.id, records, leaveRequests, col.isFuture),
-    ),
-  }));
+  const rows: RegisterEmployeeRow[] = staff.map((employee) => {
+    const cells = days.map((col) =>
+      resolveRegisterCell(
+        col.dateKey,
+        employee.id,
+        records,
+        leaveRequests,
+        col.isFuture,
+        col.isBridgeDay,
+      ),
+    );
+    return {
+      employeeId: employee.id,
+      employeeName: employee.name,
+      department: employee.department,
+      cells,
+      payDays: countPayDays(cells, days),
+    };
+  });
 
   return {
     year,
     month,
     monthLabel: getMonthLabel(year, month),
+    salaryLabel: getSalaryLabel(year, month),
+    cycleLabel: getSalaryCycleLabel(year, month),
     days,
     rows,
+    payableDaysCap: PAYABLE_DAYS_PER_CYCLE,
   };
 }
 
@@ -255,7 +406,12 @@ export function countLeaveDays(fromDate: string, toDate: string): number {
 }
 
 export function exportRegisterCsv(data: AttendanceRegisterData): string {
-  const header = ['Employee', 'Department', ...data.days.map((d) => String(d.day))];
+  const header = [
+    'Employee',
+    'Department',
+    ...data.days.map((d) => formatShortDate(d.dateKey)),
+    `Pay days (max ${data.payableDaysCap})`,
+  ];
   const lines = [header.join(',')];
 
   for (const row of data.rows) {
@@ -264,6 +420,7 @@ export function exportRegisterCsv(data: AttendanceRegisterData): string {
         `"${row.employeeName.replace(/"/g, '""')}"`,
         `"${row.department.replace(/"/g, '""')}"`,
         ...row.cells.map((c) => c.code),
+        String(row.payDays),
       ].join(','),
     );
   }
@@ -277,7 +434,7 @@ export function downloadRegisterCsv(data: AttendanceRegisterData): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `attendance-register-${data.year}-${String(data.month).padStart(2, '0')}.csv`;
+  link.download = `attendance-register-${data.year}-${String(data.month).padStart(2, '0')}-salary.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
