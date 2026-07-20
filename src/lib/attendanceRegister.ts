@@ -31,7 +31,7 @@ export interface RegisterDayColumn {
   isToday: boolean;
   /** Last day(s) of cycle — shown for continuity, not counted for pay. */
   isBridgeDay: boolean;
-  /** Within the 30-day paid window (28th prev month → 26th salary month). */
+  /** Within the 30-day paid window (27th or 28th prev → 26th salary month). */
   isPaidDay: boolean;
   /** Short month label when the calendar month changes (e.g. "Jun"). */
   monthShort: string;
@@ -59,6 +59,7 @@ export interface AttendanceRegisterData {
   monthLabel: string;
   salaryLabel: string;
   cycleLabel: string;
+  cycleDescription: string;
   days: RegisterDayColumn[];
   rows: RegisterEmployeeRow[];
   payableDaysCap: number;
@@ -127,12 +128,17 @@ function formatShortDate(dateKey: string): string {
   });
 }
 
-/** Salary month M: attendance 28th of prev month → 27th of M (27th = bridge, not paid). */
+/** May salary uses 27th→27th; all other months use 28th→27th (27th = bridge, not paid). */
+export function getSalaryCycleStartDay(salaryMonth: number): number {
+  return salaryMonth === 5 ? 27 : 28;
+}
+
 export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryCycleBounds {
   const prevMonth = salaryMonth === 1 ? 12 : salaryMonth - 1;
   const prevYear = salaryMonth === 1 ? year - 1 : year;
+  const cycleStartDay = getSalaryCycleStartDay(salaryMonth);
 
-  const startDateKey = dateKeyFromParts(prevYear, prevMonth, 28);
+  const startDateKey = dateKeyFromParts(prevYear, prevMonth, cycleStartDay);
   const endDateKey = dateKeyFromParts(year, salaryMonth, 27);
   const paidStartDateKey = startDateKey;
   const paidEndDateKey = dateKeyFromParts(year, salaryMonth, 26);
@@ -145,6 +151,11 @@ export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryC
     paidEndDateKey,
     bridgeDateKeys,
   };
+}
+
+export function getSalaryCycleDescription(salaryMonth: number): string {
+  const startDay = getSalaryCycleStartDay(salaryMonth);
+  return `Paid: ${startDay}th prev month → 26th (${PAYABLE_DAYS_PER_CYCLE} days max) · 27th = bridge`;
 }
 
 export function getSalaryCycleLabel(year: number, salaryMonth: number): string {
@@ -365,6 +376,7 @@ export function buildAttendanceRegister(
     monthLabel: getMonthLabel(year, month),
     salaryLabel: getSalaryLabel(year, month),
     cycleLabel: getSalaryCycleLabel(year, month),
+    cycleDescription: getSalaryCycleDescription(month),
     days,
     rows,
     payableDaysCap: PAYABLE_DAYS_PER_CYCLE,

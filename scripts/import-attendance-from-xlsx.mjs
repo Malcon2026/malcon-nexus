@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * One-time import: matched rows from EMP ATTENDANCE JUNE-2026.xlsx → Supabase.
+ * Import matched rows from a Malcon attendance xlsx → Supabase.
  *
  * Usage:
- *   node scripts/import-june-2026-attendance.mjs
- *   node scripts/import-june-2026-attendance.mjs --dry-run
+ *   node scripts/import-attendance-from-xlsx.mjs "EMP ATTENDANCE MAY-2026.xlsx" 2026 5
+ *   node scripts/import-attendance-from-xlsx.mjs "EMP ATTENDANCE JUNE-2026.xlsx" 2026 6 --dry-run
  */
 
 import { execFileSync } from 'node:child_process';
@@ -17,6 +17,18 @@ import { createClient } from '@supabase/supabase-js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
+const args = process.argv.filter((a) => !a.startsWith('--'));
+
+const xlsxArg = args[2];
+const salaryYear = args[3];
+const salaryMonth = args[4];
+
+if (!xlsxArg || !salaryYear || !salaryMonth) {
+  console.error('Usage: node scripts/import-attendance-from-xlsx.mjs <xlsx> <year> <salaryMonth> [--dry-run]');
+  process.exit(1);
+}
+
+const xlsxPath = resolve(root, xlsxArg);
 
 const OFFICE = {
   address: 'CCWW+RJ, Hyderabad, Telangana',
@@ -44,9 +56,9 @@ function parseSheet() {
     'python3',
     [
       resolve(__dirname, 'lib/parse-attendance-xlsx.py'),
-      resolve(root, 'EMP ATTENDANCE JUNE-2026.xlsx'),
-      '2026',
-      '6',
+      xlsxPath,
+      salaryYear,
+      salaryMonth,
     ],
     { encoding: 'utf8', cwd: resolve(__dirname, 'lib') },
   );
@@ -66,12 +78,19 @@ if (!url || !serviceKey) {
 const supabase = createClient(url, serviceKey);
 const data = parseSheet();
 
+if (data.error) {
+  console.error(data.error);
+  process.exit(1);
+}
+
 const { error: leaveProbeErr } = await supabase.from('leave_requests').select('id').limit(1);
 const leaveTableAvailable = !leaveProbeErr?.message?.includes('Could not find the table');
 if (!leaveTableAvailable) {
   console.warn('leave_requests table not found — importing Present days only. Run add-leave-management.sql for Leave days.');
 }
 
+const sheetLabel = xlsxArg.split('/').pop();
+console.log(`File: ${sheetLabel}`);
 console.log(`Salary month: ${data.salaryMonth}`);
 console.log(`Date columns: ${data.columns.length} (${data.columns[0]?.dateKey} → ${data.columns.at(-1)?.dateKey})`);
 console.log(`Matched employees to import: ${data.entries.length}`);
@@ -187,12 +206,12 @@ for (const entry of importEntries) {
         leave_type: 'Casual',
         from_date: day.dateKey,
         to_date: day.dateKey,
-        reason: 'Imported from June 2026 attendance sheet',
+        reason: `Imported from ${sheetLabel}`,
         status: 'approved',
         reviewed_by: 'System Import',
         reviewed_by_id: null,
         reviewed_at: new Date().toISOString(),
-        admin_notes: 'Historical backfill from EMP ATTENDANCE JUNE-2026.xlsx',
+        admin_notes: `Historical backfill from ${sheetLabel}`,
       };
       if (dryRun) {
         leaves++;

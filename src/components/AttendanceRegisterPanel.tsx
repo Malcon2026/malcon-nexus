@@ -36,7 +36,7 @@ interface AttendanceRegisterPanelProps {
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
-  subtitle = 'Salary cycle (28th–27th) — P Present, L Leave, A Absent, WO Sunday off',
+  subtitle = 'Salary cycle register — P Present, L Leave, A Absent, WO Sunday off',
   compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
@@ -194,7 +194,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       <p className="text-xs text-gray-600">
         <span className="font-medium text-gray-800">{register.cycleLabel}</span>
         <span className="text-gray-400 mx-1.5">·</span>
-        Paid window: 28th prev month → 26th ({register.payableDaysCap} days max) · 27th = bridge
+        {register.cycleDescription}
       </p>
 
       <div className="flex flex-wrap gap-2 text-[10px]">
