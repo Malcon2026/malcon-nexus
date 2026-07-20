@@ -329,7 +329,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                                 cell,
                               })
                             }
-                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
+                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] border border-gray-400/60 ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
                             title={cell.label}
                           >
                             {displayCode(cell.code)}
@@ -370,7 +370,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           <div className="p-6 space-y-3 text-sm">
             <div className="flex items-center gap-2">
               <span
-                className={`inline-flex h-8 w-8 items-center justify-center rounded font-bold ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
               >
                 {displayCode(selectedCell.cell.code)}
               </span>
