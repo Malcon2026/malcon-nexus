@@ -14,3 +14,6 @@ dist/
 .vscode/
 *.swp
 .vercel
+
+# Local attendance imports (not for repo)
+EMP ATTENDANCE*.xlsx
