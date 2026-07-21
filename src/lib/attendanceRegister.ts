@@ -1,7 +1,7 @@
 import type { AttendanceRecord, LeaveRequest } from '../types';
 import {
   getISTDateKey,
-  summarizeTodayAttendance,
+  summarizeDayAttendance,
   formatTimeIST,
   type TodayAttendanceSummary,
 } from './attendance';
@@ -233,8 +233,7 @@ export function resolveRegisterCell(
     }
   }
 
-  const summary = summarizeTodayAttendance(records, employeeId, dateKey);
-  const todayKey = getISTDateKey();
+  const summary = summarizeDayAttendance(records, employeeId, dateKey);
 
   if (summary.punchIn && summary.punchOut) {
     return {
@@ -246,11 +245,11 @@ export function resolveRegisterCell(
     };
   }
 
-  if (summary.isPunchedIn && dateKey === todayKey) {
+  if (summary.isPunchedIn) {
     return {
       code: 'PI',
       label: 'Present (still in)',
-      punchInTime: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : undefined,
+      punchInTime: formatTimeIST(summary.punchIn!.punchedAt),
       workedDuration: formatWorkedDuration(summary),
     };
   }

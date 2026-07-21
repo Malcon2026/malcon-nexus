@@ -13,8 +13,9 @@ import {
   formatDuration,
   getCurrentPosition,
   checkOfficeGeofence,
-  summarizeTodayAttendance,
+  summarizeLiveAttendance,
   getPendingOffsitePunchRequest,
+  getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
 
@@ -31,7 +32,9 @@ export const AttendanceSection: React.FC = () => {
   const punchAttendance = useStore((s) => s.punchAttendance);
   const submitOffsitePunchRequest = useStore((s) => s.submitOffsitePunchRequest);
 
-  const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+  const summary = summarizeLiveAttendance(attendanceRecords, currentUser.id);
+  const punchInFromPriorDay =
+    summary.punchIn !== null && getISTDateKey(summary.punchIn.punchedAt) !== getISTDateKey();
   const pendingOffsiteIn = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'in');
   const pendingOffsiteOut = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'out');
 
@@ -211,6 +214,15 @@ export const AttendanceSection: React.FC = () => {
               <span>
                 Your off-site punch out at {formatTimeIST(pendingOffsiteOut.requestedAt)} is awaiting admin approval.
                 Reason: <span className="font-medium">{pendingOffsiteOut.reason}</span>
+              </span>
+            </div>
+          )}
+
+          {punchInFromPriorDay && summary.isPunchedIn && (
+            <div className="flex items-start gap-2 text-xs text-indigo-800 mb-4 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+              <Clock className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
+              <span>
+                Still punched in from {formatDateIST(summary.punchIn!.punchedAt)}. You can punch out now — it will close that shift.
               </span>
             </div>
           )}

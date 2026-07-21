@@ -132,33 +132,125 @@ export interface TodayAttendanceSummary {
   workedMs: number;
 }
 
+export function getSortedEmployeeRecords(
+  records: AttendanceRecord[],
+  employeeId: string,
+): AttendanceRecord[] {
+  return records
+    .filter((r) => r.employeeId === employeeId)
+    .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime());
+}
 
+export function pairAttendanceShifts(
+  records: AttendanceRecord[],
+  employeeId: string,
+): { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] {
+  const sorted = getSortedEmployeeRecords(records, employeeId);
+  const pairs: { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i].punchType !== 'in') continue;
+    const punchOut = sorted.slice(i + 1).find((r) => r.punchType === 'out') ?? null;
+    pairs.push({ punchIn: sorted[i], punchOut });
+  }
+
+  return pairs;
+}
+
+/** Latest punch is in with no matching out — includes shifts that cross midnight. */
+export function getOpenShift(
+  records: AttendanceRecord[],
+  employeeId: string,
+): { punchIn: AttendanceRecord } | null {
+  const sorted = getSortedEmployeeRecords(records, employeeId);
+  const last = sorted[sorted.length - 1];
+  if (!last || last.punchType !== 'in') return null;
+  return { punchIn: last };
+}
+
+export function hasOpenShift(records: AttendanceRecord[], employeeId: string): boolean {
+  return getOpenShift(records, employeeId) !== null;
+}
+
+function addDaysToDateKey(dateKey: string, delta: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + delta);
+  return getISTDateKey(date);
+}
+
+/** Attendance for one calendar day — shift day follows punch-in date (out after midnight counts on in-day). */
+export function summarizeDayAttendance(
+  records: AttendanceRecord[],
+  employeeId: string,
+  dateKey: string,
+): TodayAttendanceSummary {
+  const pairs = pairAttendanceShifts(records, employeeId);
+  const match = pairs.find((p) => getISTDateKey(p.punchIn.punchedAt) === dateKey);
+
+  if (!match) {
+    return { punchIn: null, punchOut: null, isPunchedIn: false, workedMs: 0 };
+  }
+
+  const { punchIn, punchOut } = match;
+  const open = getOpenShift(records, employeeId);
+  const isPunchedIn = !punchOut && open?.punchIn.id === punchIn.id;
+
+  let workedMs = 0;
+  if (punchOut) {
+    workedMs = new Date(punchOut.punchedAt).getTime() - new Date(punchIn.punchedAt).getTime();
+  } else if (isPunchedIn) {
+    workedMs = Date.now() - new Date(punchIn.punchedAt).getTime();
+  }
+
+  return { punchIn, punchOut, isPunchedIn, workedMs };
+}
+
+/** Live punch UI — keeps an open shift from yesterday punchable after midnight. */
+export function summarizeLiveAttendance(
+  records: AttendanceRecord[],
+  employeeId: string,
+): TodayAttendanceSummary {
+  const open = getOpenShift(records, employeeId);
+  if (open) {
+    return {
+      punchIn: open.punchIn,
+      punchOut: null,
+      isPunchedIn: true,
+      workedMs: Date.now() - new Date(open.punchIn.punchedAt).getTime(),
+    };
+  }
+
+  const todayKey = getISTDateKey();
+  const pairs = pairAttendanceShifts(records, employeeId);
+  const closedToday = [...pairs]
+    .reverse()
+    .find((p) => p.punchOut && getISTDateKey(p.punchOut.punchedAt) === todayKey);
+
+  if (closedToday?.punchOut) {
+    return {
+      punchIn: closedToday.punchIn,
+      punchOut: closedToday.punchOut,
+      isPunchedIn: false,
+      workedMs:
+        new Date(closedToday.punchOut.punchedAt).getTime() -
+        new Date(closedToday.punchIn.punchedAt).getTime(),
+    };
+  }
+
+  return summarizeDayAttendance(records, employeeId, todayKey);
+}
+
+/** @deprecated Use summarizeDayAttendance or summarizeLiveAttendance. */
 export function summarizeTodayAttendance(
   records: AttendanceRecord[],
   employeeId: string,
   dateKey = getISTDateKey(),
 ): TodayAttendanceSummary {
-  const today = records
-    .filter((r) => r.employeeId === employeeId && getISTDateKey(r.punchedAt) === dateKey)
-    .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime());
-
-  const punchIn = today.find((r) => r.punchType === 'in') ?? null;
-  const punchOut = [...today].reverse().find((r) => r.punchType === 'out') ?? null;
-
-  const last = today[today.length - 1] ?? null;
-  const isPunchedIn = last?.punchType === 'in';
-
-  let workedMs = 0;
-  for (let i = 0; i < today.length; i++) {
-    const rec = today[i];
-    if (rec.punchType === 'in') {
-      const nextOut = today.slice(i + 1).find((r) => r.punchType === 'out');
-      const end = nextOut ? new Date(nextOut.punchedAt).getTime() : isPunchedIn ? Date.now() : new Date(rec.punchedAt).getTime();
-      workedMs += end - new Date(rec.punchedAt).getTime();
-    }
+  if (dateKey === getISTDateKey()) {
+    return summarizeLiveAttendance(records, employeeId);
   }
-
-  return { punchIn, punchOut, isPunchedIn, workedMs };
+  return summarizeDayAttendance(records, employeeId, dateKey);
 }
 
 export type AttendanceDayStatus = 'absent' | 'in' | 'out';
@@ -182,15 +274,23 @@ export function getPendingOffsitePunchRequest(
   punchType: PunchType,
   dateKey = getISTDateKey(),
 ): AttendanceApprovalRequest | null {
-  return (
-    (requests ?? []).find(
-      (r) =>
-        r.employeeId === employeeId &&
-        r.punchType === punchType &&
-        r.status === 'pending' &&
-        getISTDateKey(r.requestedAt) === dateKey,
-    ) ?? null
+  const pending = (requests ?? []).filter(
+    (r) =>
+      r.employeeId === employeeId &&
+      r.punchType === punchType &&
+      r.status === 'pending',
   );
+
+  const sameDay =
+    pending.find((r) => getISTDateKey(r.requestedAt) === dateKey) ?? null;
+  if (sameDay) return sameDay;
+
+  if (punchType === 'out') {
+    const previousDay = addDaysToDateKey(dateKey, -1);
+    return pending.find((r) => getISTDateKey(r.requestedAt) === previousDay) ?? null;
+  }
+
+  return null;
 }
 
 /** @deprecated Use getPendingOffsitePunchRequest(..., 'out') */
@@ -210,7 +310,7 @@ export function buildEmployeeAttendanceReport(
   return employees
     .filter((e) => e.role === 'employee' && e.status === 'Active')
     .map((employee) => {
-      const summary = summarizeTodayAttendance(records, employee.id, dateKey);
+      const summary = summarizeDayAttendance(records, employee.id, dateKey);
       return {
         employeeId: employee.id,
         employeeName: employee.name,

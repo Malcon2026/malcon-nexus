@@ -17,7 +17,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeTodayAttendance, getPendingOffsitePunchRequest } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest } from '../lib/attendance';
 import { validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
@@ -103,7 +103,7 @@ interface AppState {
   submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
-  getMyTodayAttendance: () => ReturnType<typeof summarizeTodayAttendance>;
+  getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
 
   // Leave
   applyLeave: (leaveType: LeaveType, fromDate: string, toDate: string, reason: string) => Promise<{ error: string | null }>;
@@ -1194,17 +1194,17 @@ export const useStore = create<AppState>((set, get) => ({
 
   getMyTodayAttendance: () => {
     const { attendanceRecords, currentUser } = get();
-    return summarizeTodayAttendance(attendanceRecords, currentUser.id);
+    return summarizeLiveAttendance(attendanceRecords, currentUser.id);
   },
 
   punchAttendance: async (punchType, position) => {
     const { currentUser, attendanceRecords } = get();
-    const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
+    const openShift = hasOpenShift(attendanceRecords, currentUser.id);
 
-    if (punchType === 'in' && summary.isPunchedIn) {
+    if (punchType === 'in' && openShift) {
       return { error: 'You are already punched in. Punch out first.' };
     }
-    if (punchType === 'out' && !summary.isPunchedIn) {
+    if (punchType === 'out' && !openShift) {
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
@@ -1264,11 +1264,11 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'Please provide a reason (at least 10 characters).' };
     }
 
-    const summary = summarizeTodayAttendance(attendanceRecords, currentUser.id);
-    if (punchType === 'in' && summary.isPunchedIn) {
+    const openShift = hasOpenShift(attendanceRecords, currentUser.id);
+    if (punchType === 'in' && openShift) {
       return { error: 'You are already punched in. Punch out first.' };
     }
-    if (punchType === 'out' && !summary.isPunchedIn) {
+    if (punchType === 'out' && !openShift) {
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
@@ -1362,11 +1362,11 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'This request has already been reviewed.' };
     }
 
-    const summary = summarizeTodayAttendance(attendanceRecords, request.employeeId);
-    if (request.punchType === 'in' && summary.isPunchedIn) {
+    const openShift = hasOpenShift(attendanceRecords, request.employeeId);
+    if (request.punchType === 'in' && openShift) {
       return { error: 'Employee is already punched in.' };
     }
-    if (request.punchType === 'out' && !summary.isPunchedIn) {
+    if (request.punchType === 'out' && !openShift) {
       return { error: 'Employee is no longer punched in.' };
     }
 
