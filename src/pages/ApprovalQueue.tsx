@@ -45,17 +45,23 @@ interface ActionModalProps {
 const ActionModal: React.FC<ActionModalProps> = ({
   isOpen, onClose, type, case: c,
 }) => {
-  const { employees, approveStage, approveStageAndAssign, rejectStage, requestChanges } = useStore();
+  const { employees, approveStage, approveStageAndAssign, closeCase, rejectStage, requestChanges } = useStore();
   const [notes, setNotes] = useState('');
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [step, setStep] = useState<'action' | 'assign'>('action');
   const [submitting, setSubmitting] = useState(false);
 
   const nextStage = getNextStage(c.currentStage);
+  const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
 
   const config = {
-    approve: { title: 'Approve Stage', btnLabel: 'Approve & Continue', btnVariant: 'success' as const, icon: <CheckCircle className="h-4 w-4" /> },
+    approve: {
+      title: 'Approve Stage',
+      btnLabel: isFinalStage ? 'Approve & Close Case' : 'Approve & Continue',
+      btnVariant: 'success' as const,
+      icon: <CheckCircle className="h-4 w-4" />,
+    },
     reject: { title: 'Reject Stage', btnLabel: 'Reject', btnVariant: 'danger' as const, icon: <XCircle className="h-4 w-4" /> },
     changes: { title: 'Request Changes', btnLabel: 'Send Back', btnVariant: 'warning' as const, icon: <AlertTriangle className="h-4 w-4" /> },
   };
@@ -71,14 +77,21 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   const handleAction = async () => {
     if (type === 'approve') {
-      if (nextStage && step === 'action') {
+      // Only detour through the "assign next stage" step when there is a real
+      // next stage to staff. 'Completed' is terminal -- approving the final
+      // stage (Bill Submission) should close the case, not ask to "assign"
+      // an employee to a stage that doesn't exist.
+      if (nextStage && !isFinalStage && step === 'action') {
         setStep('assign');
         return;
       }
       setSubmitting(true);
       try {
-        if (selectedEmp && nextStage) {
+        if (selectedEmp && nextStage && !isFinalStage) {
           await approveStageAndAssign(c.id, notes, selectedEmp, nextStage);
+        } else if (isFinalStage) {
+          await approveStage(c.id, notes);
+          await closeCase(c.id);
         } else {
           await approveStage(c.id, notes);
         }
@@ -148,7 +161,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
             {type === 'approve' && nextStage && (
               <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
                 <p className="text-xs text-blue-700 font-medium">
-                  Next step: You'll be asked to assign an employee for <strong>{nextStage}</strong>
+                  {isFinalStage
+                    ? 'This is the final stage — approving will mark the case as Completed and close it.'
+                    : <>Next step: You'll be asked to assign an employee for <strong>{nextStage}</strong></>}
                 </p>
               </div>
             )}
