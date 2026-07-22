@@ -219,11 +219,16 @@ export const AttendanceSection: React.FC = () => {
           )}
 
           {punchInFromPriorDay && summary.isPunchedIn && (
-            <div className="flex items-start gap-2 text-xs text-indigo-800 mb-4 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-              <Clock className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
-              <span>
-                Still punched in from {formatDateIST(summary.punchIn!.punchedAt)}. You can punch out now — it will close that shift.
-              </span>
+            <div className="flex items-start gap-2 text-xs text-amber-800 mb-4 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium text-amber-900">
+                  You forgot to punch out yesterday. Use Punch Out now.
+                </p>
+                <p className="text-amber-800">
+                  మీరు నిన్న punch out చేయడం మర్చిపోయారు. ఇప్పుడు Punch Out ఉపయోగించండి.
+                </p>
+              </div>
             </div>
           )}
 
