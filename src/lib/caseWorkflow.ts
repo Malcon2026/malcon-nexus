@@ -28,7 +28,16 @@ export function isCaseAssignedToEmployee(
   return false;
 }
 
-/** Case stuck after approve+assign race: assignee set but case still Approved. */
+/**
+ * Detects the narrow approve+assign race: the CURRENT stage record was already
+ * re-assigned to someone (status 'Assigned'), but the case's top-level status
+ * field is stale at 'Approved' because a parallel write lost the race.
+ *
+ * IMPORTANT: This must NOT match a normal "admin approved this stage and hasn't
+ * assigned the next stage yet" state — that is status 'Approved' with the
+ * CURRENT stage record ALSO 'Approved'. Treating that as "stuck" would silently
+ * revert legitimate approvals and hide the admin's "Assign Next Stage" button.
+ */
 export function needsAssignmentReactivation(
   implantCase: ImplantCase,
   employee?: Pick<Employee, 'id' | 'email'>,
@@ -41,24 +50,11 @@ export function needsAssignmentReactivation(
   if (stageIdx < 0) return false;
 
   const currentStageRecord = implantCase.stages[stageIdx];
-  if (!currentStageRecord || currentStageRecord.status === 'Submitted') return false;
+  if (!currentStageRecord) return false;
 
-  // Admin approved previous stage but assignee is waiting on the next one.
-  if (currentStageRecord.status === 'Assigned') return true;
-
-  if (
-    currentStageRecord.status === 'Approved' &&
-    stageIdx > 0 &&
-    implantCase.stages[stageIdx - 1]?.status === 'Approved'
-  ) {
-    return true;
-  }
-
-  if (currentStageRecord.status === 'Pending' && stageIdx > 0) {
-    return true;
-  }
-
-  return false;
+  // Only the genuine race: current stage already re-assigned, but case status
+  // field is stuck at 'Approved' instead of 'Active'.
+  return currentStageRecord.status === 'Assigned';
 }
 
 export function canEmployeeSubmitCase(
