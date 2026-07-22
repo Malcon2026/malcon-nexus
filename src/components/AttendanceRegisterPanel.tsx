@@ -98,8 +98,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const { bootstrapEssential } = await import('../lib/database/bootstrap');
-      await bootstrapEssential(employeeId ? 'employee' : 'admin');
+      const { bootstrapEssential, bootstrapDeferred } = await import('../lib/database/bootstrap');
+      if (employeeId) {
+        await bootstrapEssential('employee', { employeeId });
+        await bootstrapDeferred('employee', { employeeId });
+      } else {
+        await bootstrapEssential('admin');
+      }
       reloadFromDatabase();
     } finally {
       setRefreshing(false);

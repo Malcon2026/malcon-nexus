@@ -55,23 +55,36 @@ function App() {
     const generation = ++hydrateGeneration.current;
     setIsHydrating(true);
     try {
-      const { bootstrapEssential, bootstrapDeferred } = await import('./lib/database/bootstrap');
+      const {
+        bootstrapEssential,
+        bootstrapDeferred,
+        restoreBootstrapCache,
+        persistBootstrapCache,
+      } = await import('./lib/database/bootstrap');
       const role = employee.role === 'admin' ? 'admin' : 'employee';
+      const options = { employeeId: employee.id };
 
-      await bootstrapEssential(role);
-      if (generation !== hydrateGeneration.current) return;
-      reloadFromDatabase();
-
-      if (role === 'admin') {
-        void bootstrapDeferred(role).then(() => {
-          if (generation !== hydrateGeneration.current) return;
-          reloadFromDatabase();
-          setIsHydrating(false);
-        });
-        return;
+      const hadCache = restoreBootstrapCache(employee.id);
+      if (hadCache && generation === hydrateGeneration.current) {
+        reloadFromDatabase();
+        setIsHydrating(false);
       }
 
-      setIsHydrating(false);
+      await bootstrapEssential(role, options);
+      if (generation !== hydrateGeneration.current) return;
+      reloadFromDatabase();
+      persistBootstrapCache(employee.id, role);
+
+      if (!hadCache && role === 'employee') {
+        setIsHydrating(false);
+      }
+
+      void bootstrapDeferred(role, options).then(() => {
+        if (generation !== hydrateGeneration.current) return;
+        reloadFromDatabase();
+        persistBootstrapCache(employee.id, role);
+        setIsHydrating(false);
+      });
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);
       if (generation === hydrateGeneration.current) setIsHydrating(false);
@@ -82,35 +95,24 @@ function App() {
     if (!SUPABASE_ENABLED) return;
 
     let unsubscribe: (() => void) | undefined;
-    let initialSessionHandled = false;
-
-    async function applySession(employee: Employee | null) {
-      if (employee) {
-        setCurrentUser(employee);
-        setIsAuthenticated(true);
-        void hydrateForUser(employee);
-        return;
-      }
-      hydrateGeneration.current += 1;
-      setIsHydrating(false);
-      setIsAuthenticated(false);
-    }
+    let cancelled = false;
 
     async function boot() {
       try {
         const { authService } = await import('./lib/auth');
 
-        const finishAuth = () => {
-          initialSessionHandled = true;
-          setAuthChecked(true);
-        };
+        const employee = await authService.getCurrentEmployee();
+        if (cancelled) return;
 
-        const { data: { subscription } } = authService.onAuthStateChange(async (event, employee) => {
-          if (event === 'INITIAL_SESSION') {
-            await applySession(employee);
-            finishAuth();
-            return;
-          }
+        if (employee) {
+          setCurrentUser(employee);
+          setIsAuthenticated(true);
+          void hydrateForUser(employee);
+        }
+        setAuthChecked(true);
+
+        const { data: { subscription } } = authService.onAuthStateChange(async (event, emp) => {
+          if (event === 'INITIAL_SESSION') return;
 
           if (event === 'SIGNED_OUT') {
             hydrateGeneration.current += 1;
@@ -119,29 +121,25 @@ function App() {
             return;
           }
 
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            if (employee) {
-              await applySession(employee);
-            }
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && emp) {
+            setCurrentUser(emp);
+            setIsAuthenticated(true);
+            void hydrateForUser(emp);
           }
         });
 
         unsubscribe = () => subscription.unsubscribe();
-
-        window.setTimeout(async () => {
-          if (initialSessionHandled) return;
-          const employee = await authService.getCurrentEmployee();
-          await applySession(employee);
-          finishAuth();
-        }, 100);
       } catch (err) {
         console.error('[App] Auth bootstrap failed:', err);
-        setAuthChecked(true);
+        if (!cancelled) setAuthChecked(true);
       }
     }
 
-    boot();
-    return () => unsubscribe?.();
+    void boot();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [setCurrentUser, hydrateForUser]);
 
   const handleLogout = () => {

@@ -513,6 +513,29 @@ export const sbAttendanceRepo = {
     }));
   },
 
+  async getRecentForEmployee(employeeId: string, sinceIso: string): Promise<AttendanceRecord[]> {
+    const { data, error } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .gte('punched_at', sinceIso)
+      .order('punched_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      punchType: row.punch_type as AttendanceRecord['punchType'],
+      punchedAt: row.punched_at,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      accuracyM: row.accuracy_m,
+      distanceM: row.distance_m,
+      withinOffice: row.within_office,
+      officeAddress: row.office_address,
+    }));
+  },
+
   async insert(record: AttendanceRecord): Promise<void> {
     const { error } = await supabase.from('attendance_records').insert({
       id: record.id,
@@ -539,6 +562,33 @@ export const sbAttendanceApprovalRepo = {
     const { data, error } = await supabase
       .from('attendance_approval_requests')
       .select('*')
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      punchType: row.punch_type as AttendanceApprovalRequest['punchType'],
+      requestedAt: row.requested_at,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      accuracyM: row.accuracy_m,
+      distanceM: row.distance_m,
+      reason: row.reason,
+      status: row.status as AttendanceApprovalRequest['status'],
+      reviewedBy: row.reviewed_by,
+      reviewedById: row.reviewed_by_id,
+      reviewedAt: row.reviewed_at,
+      adminNotes: row.admin_notes ?? '',
+      attendanceRecordId: row.attendance_record_id,
+    }));
+  },
+
+  async getForEmployee(employeeId: string): Promise<AttendanceApprovalRequest[]> {
+    const { data, error } = await supabase
+      .from('attendance_approval_requests')
+      .select('*')
+      .eq('employee_id', employeeId)
       .order('requested_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -608,6 +658,30 @@ export const sbLeaveRepo = {
     const { data, error } = await supabase
       .from('leave_requests')
       .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
+      leaveType: row.leave_type as LeaveRequest['leaveType'],
+      fromDate: row.from_date,
+      toDate: row.to_date,
+      reason: row.reason,
+      status: row.status as LeaveRequest['status'],
+      reviewedBy: row.reviewed_by,
+      reviewedById: row.reviewed_by_id,
+      reviewedAt: row.reviewed_at,
+      adminNotes: row.admin_notes ?? '',
+      createdAt: row.created_at,
+    }));
+  },
+
+  async getForEmployee(employeeId: string): Promise<LeaveRequest[]> {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map((row) => ({
