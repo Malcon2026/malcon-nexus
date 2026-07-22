@@ -5,8 +5,9 @@ import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
+import { AttendanceChangesDemo } from '../components/AttendanceChangesDemo';
 
-type AttendanceTab = 'register' | 'today' | 'approvals';
+type AttendanceTab = 'register' | 'today' | 'approvals' | 'demo';
 
 export const Attendance: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
@@ -42,6 +43,7 @@ export const Attendance: React.FC = () => {
             id: 'approvals' as const,
             label: pendingTotal > 0 ? `Approvals (${pendingTotal})` : 'Approvals',
           },
+          { id: 'demo' as const, label: 'Demo' },
         ]).map(({ id, label }) => (
           <button
             key={id}
@@ -59,6 +61,7 @@ export const Attendance: React.FC = () => {
       {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'today' && <EmployeeAttendancePanel />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
+      {pageTab === 'demo' && <AttendanceChangesDemo />}
     </div>
   );
 };
