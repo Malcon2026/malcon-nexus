@@ -70,10 +70,12 @@ function App() {
         setIsHydrating(false);
       }
 
-      await bootstrapEssential(role, options);
+      const essentialFetched = await bootstrapEssential(role, options);
       if (generation !== hydrateGeneration.current) return;
-      reloadFromDatabase();
-      persistBootstrapCache(employee.id, role);
+      if (essentialFetched) {
+        reloadFromDatabase();
+        persistBootstrapCache(employee.id, role);
+      }
 
       if (!hadCache && role === 'employee') {
         setIsHydrating(false);

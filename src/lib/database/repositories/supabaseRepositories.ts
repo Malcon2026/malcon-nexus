@@ -344,6 +344,16 @@ export const sbCaseRepo = {
     return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
   },
 
+  async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*')
+      .eq('assigned_employee_id', employeeId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
+  },
+
   async getById(id: string): Promise<ImplantCase | null> {
     const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
     if (error || !data) return null;
