@@ -10,6 +10,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
+import { canEmployeeSubmitCase } from '../lib/caseWorkflow';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { AttendanceSection } from '../components/AttendanceSection';
@@ -99,6 +100,7 @@ const EmployeeCasesPanel: React.FC<{
   onViewCase: (c: ImplantCase) => void;
   onSubmitCase: (c: ImplantCase) => void;
 }> = ({ employeeId, onViewCase, onSubmitCase }) => {
+  const currentUser = useStore((s) => s.currentUser);
   const myCases = useMyCases(employeeId);
   const completedCases = myCases.filter((c) =>
     c.stages.some((stage) => stage.assignedEmployee?.id === employeeId && stage.status === 'Approved'),
@@ -122,13 +124,7 @@ const EmployeeCasesPanel: React.FC<{
             const sc = getStageStyle(c.currentStage);
             const pc = getPriorityStyle(c.priority);
             const isSubmitted = c.status === 'Waiting For Approval';
-            const stageRecord = c.stages.find((s) => s.stage === c.currentStage);
-            const canSubmit =
-              c.assignedEmployee?.id === employeeId &&
-              (c.status === 'Active' ||
-                stageRecord?.status === 'Assigned' ||
-                stageRecord?.status === 'In Progress' ||
-                stageRecord?.status === 'Changes Requested');
+            const canSubmit = canEmployeeSubmitCase(c, currentUser);
 
             return (
               <motion.div

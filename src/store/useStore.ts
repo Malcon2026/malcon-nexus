@@ -18,6 +18,7 @@ import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD 
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest } from '../lib/attendance';
+import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
@@ -70,6 +71,7 @@ interface AppState {
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
+  reactivateAssignedCase: (caseId: string) => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -850,6 +852,40 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     void notifyCaseAssignment(caseId, employee.id);
+  },
+
+  reactivateAssignedCase: async (caseId) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c || !needsAssignmentReactivation(c, state.currentUser)) return;
+
+    const employee = c.assignedEmployee!;
+    const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
+    if (stageIdx < 0) return;
+
+    const updatedStages = c.stages.map((s, i) =>
+      i === stageIdx
+        ? {
+            ...s,
+            status: 'Assigned' as const,
+            assignedEmployee: employee,
+            assignedAt: s.assignedAt ?? new Date().toISOString(),
+            approvedAt: null,
+            adminNotes: '',
+          }
+        : s,
+    );
+
+    const updatedCase = await taskRepository.update(caseId, {
+      status: 'Active',
+      assignedEmployee: employee,
+      currentDepartment: employee.department,
+      stages: updatedStages,
+    });
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+    }));
   },
 
   submitStage: async (caseId, notes, photos, onUploadProgress) => {

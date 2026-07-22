@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
@@ -19,6 +19,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
+import { canEmployeeSubmitCase, needsAssignmentReactivation } from '../lib/caseWorkflow';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
@@ -279,8 +280,9 @@ interface CaseDetailProps {
   onBack: () => void;
 }
 
-export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
-  const { viewMode, currentUser, updateCase, hospitals, doctors, closeCase } = useStore();
+export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
+  const { viewMode, currentUser, updateCase, hospitals, doctors, closeCase, reactivateAssignedCase } = useStore();
+  const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
@@ -293,17 +295,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
   const stc = statusColors[c.status];
 
   const nextStage = WORKFLOW_STAGES[currentStageIdx + 1] as WorkflowStage | undefined;
-  const isAssignedToCurrentUser = c.assignedEmployee?.id === currentUser.id;
   const isWaitingApproval = c.status === 'Waiting For Approval';
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
-  const currentStageRecord = c.stages.find((s) => s.stage === c.currentStage);
-  const canEmployeeSubmit =
-    isAssignedToCurrentUser &&
-    (isActive ||
-      currentStageRecord?.status === 'Assigned' ||
-      currentStageRecord?.status === 'In Progress' ||
-      currentStageRecord?.status === 'Changes Requested');
+  const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
+
+  useEffect(() => {
+    if (viewMode !== 'employee') return;
+    if (!needsAssignmentReactivation(c, currentUser)) return;
+    void reactivateAssignedCase(c.id);
+  }, [c.id, c.status, c.currentStage, viewMode, currentUser, reactivateAssignedCase, c.assignedEmployee?.id]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <Clipboard className="h-3.5 w-3.5" /> },
