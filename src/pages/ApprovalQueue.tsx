@@ -45,7 +45,7 @@ interface ActionModalProps {
 const ActionModal: React.FC<ActionModalProps> = ({
   isOpen, onClose, type, case: c,
 }) => {
-  const { employees, approveStage, approveStageAndAssign, closeCase, rejectStage, requestChanges } = useStore();
+  const { employees, approveStage, approveStageAndAssign, rejectStage, requestChanges } = useStore();
   const [notes, setNotes] = useState('');
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [step, setStep] = useState<'action' | 'assign'>('action');
@@ -89,10 +89,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
       try {
         if (selectedEmp && nextStage && !isFinalStage) {
           await approveStageAndAssign(c.id, notes, selectedEmp, nextStage);
-        } else if (isFinalStage) {
-          await approveStage(c.id, notes);
-          await closeCase(c.id);
         } else {
+          // approveStage auto-closes the case internally when there's no
+          // next stage to assign (i.e. this was Bill Submission).
           await approveStage(c.id, notes);
         }
         resetAndClose();

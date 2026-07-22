@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, User, AlertTriangle, ArrowRight, Eye } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
@@ -23,7 +23,27 @@ const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
 };
 
 export const WorkflowBoard: React.FC = () => {
-  const { cases, setSelectedCase, setActiveTab } = useStore();
+  const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
+
+  // The board reads cases straight from Zustand state, which only reflects
+  // whatever this browser tab has fetched. Refresh from the DB whenever the
+  // board is opened so stage moves made elsewhere (another admin, another
+  // device, or an earlier session) actually show up here.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
+        const role = viewMode === 'admin' ? 'admin' : 'employee';
+        await bootstrapSupabaseData(role, role === 'employee' ? { employeeId: currentUser.id } : undefined, { force: true });
+        if (!cancelled) reloadFromDatabase();
+      } catch (err) {
+        console.error('[WorkflowBoard] refresh failed:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getCasesForStage = (stage: WorkflowStage) =>
     cases.filter(c => c.currentStage === stage);

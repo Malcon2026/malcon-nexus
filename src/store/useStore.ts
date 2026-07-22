@@ -586,6 +586,13 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+
+    // 'Bill Submission' is the last real stage -- there is no next stage to
+    // assign, so approving it means the case is done. Auto-close instead of
+    // leaving it stuck at status 'Approved' with nowhere to go.
+    if (getNextStage(c.currentStage) === 'Completed') {
+      await get().closeCase(caseId);
+    }
   },
 
   approveStageAndAssign: async (caseId, adminNotes, employee, nextStage) => {
