@@ -122,7 +122,13 @@ const EmployeeCasesPanel: React.FC<{
             const sc = getStageStyle(c.currentStage);
             const pc = getPriorityStyle(c.priority);
             const isSubmitted = c.status === 'Waiting For Approval';
-            const canSubmit = c.status === 'Active';
+            const stageRecord = c.stages.find((s) => s.stage === c.currentStage);
+            const canSubmit =
+              c.assignedEmployee?.id === employeeId &&
+              (c.status === 'Active' ||
+                stageRecord?.status === 'Assigned' ||
+                stageRecord?.status === 'In Progress' ||
+                stageRecord?.status === 'Changes Requested');
 
             return (
               <motion.div

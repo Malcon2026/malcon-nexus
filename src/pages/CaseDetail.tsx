@@ -297,6 +297,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
   const isWaitingApproval = c.status === 'Waiting For Approval';
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
+  const currentStageRecord = c.stages.find((s) => s.stage === c.currentStage);
+  const canEmployeeSubmit =
+    isAssignedToCurrentUser &&
+    (isActive ||
+      currentStageRecord?.status === 'Assigned' ||
+      currentStageRecord?.status === 'In Progress' ||
+      currentStageRecord?.status === 'Changes Requested');
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <Clipboard className="h-3.5 w-3.5" /> },
@@ -370,7 +377,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: c, onBack }) => {
               )}
             </>
           )}
-          {viewMode === 'employee' && isAssignedToCurrentUser && isActive && (
+          {viewMode === 'employee' && canEmployeeSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
               {STAGE_ACTIONS[c.currentStage]}
             </Button>

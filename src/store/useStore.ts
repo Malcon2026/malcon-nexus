@@ -61,6 +61,12 @@ interface AppState {
   createCase: (caseData: Partial<ImplantCase>) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
+  approveStageAndAssign: (
+    caseId: string,
+    adminNotes: string,
+    employee: Employee,
+    nextStage: WorkflowStage,
+  ) => void;
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
@@ -577,6 +583,124 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+  },
+
+  approveStageAndAssign: async (caseId, adminNotes, employee, nextStage) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return;
+
+    const approvedStageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
+    const assignStageIdx = WORKFLOW_STAGES.indexOf(nextStage);
+    const approvedAt = new Date().toISOString();
+    const assignedAt = approvedAt;
+
+    const updatedStages = c.stages.map((s, i) => {
+      if (i === approvedStageIdx) {
+        return { ...s, status: 'Approved' as const, approvedAt, adminNotes };
+      }
+      if (i === assignStageIdx) {
+        return {
+          ...s,
+          assignedEmployee: employee,
+          assignedAt,
+          status: 'Assigned' as const,
+        };
+      }
+      return s;
+    });
+
+    const approveLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: `Stage Approved: ${c.currentStage}`,
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: approvedAt,
+      details: `Admin approved ${c.currentStage} stage. ${adminNotes}`,
+    };
+    const assignLog = {
+      id: `log-${Date.now() + 1}`,
+      caseId,
+      action: `Assigned to ${employee.department}`,
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      department: employee.department,
+      timestamp: assignedAt,
+      details: `${employee.name} assigned to ${nextStage} stage.`,
+    };
+
+    await updateCaseApproval(caseId, c.currentStage, {
+      status: 'Approved',
+      approvedAt,
+      adminNotes,
+    });
+
+    const updatedCase = await taskRepository.update(caseId, {
+      stages: updatedStages,
+      currentStage: nextStage,
+      currentDepartment: employee.department,
+      assignedEmployee: employee,
+      status: 'Active',
+      activityLogs: [...c.activityLogs, approveLog, assignLog],
+    });
+
+    let updatedEmployees = state.employees;
+    const employeeList = Database.getAll<Employee>('employees');
+    const target = employeeList.find((e) => e.id === employee.id);
+    if (target) {
+      const updated = await employeeRepository.update(employee.id, {
+        casesActive: target.casesActive + 1,
+      });
+      updatedEmployees = state.employees.map((e) => (e.id === employee.id ? updated : e));
+    }
+
+    const approveActivity = createActivityEvent(
+      `Stage Approved: ${c.currentStage}`,
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `${c.currentStage} stage approved. ${adminNotes}`,
+    );
+    persistActivity(approveActivity);
+
+    const assignActivity = createActivityEvent(
+      `Assigned to ${employee.department}`,
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `${employee.name} assigned to ${nextStage}.`,
+    );
+    persistActivity(assignActivity);
+
+    const approveNotif = createNotification(
+      'Stage Approved',
+      `${c.caseNumber} ${c.currentStage} approved by admin.`,
+      'success',
+      caseId,
+    );
+    persistNotification(approveNotif);
+
+    const assignNotif = createNotification(
+      'New Assignment',
+      `${employee.name} assigned to case ${c.caseNumber} — ${nextStage}.`,
+      'info',
+      caseId,
+    );
+    persistNotification(assignNotif);
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      activityLog: [assignActivity, approveActivity, ...s.activityLog],
+      notifications: [assignNotif, approveNotif, ...s.notifications],
+      employees: updatedEmployees,
+    }));
+
+    void notifyCaseAssignment(caseId, employee.id);
   },
 
   rejectStage: async (caseId, adminNotes) => {

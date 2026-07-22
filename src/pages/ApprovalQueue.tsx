@@ -40,20 +40,16 @@ interface ActionModalProps {
   onClose: () => void;
   type: 'approve' | 'reject' | 'changes';
   case: ImplantCase;
-  onApprove: (notes: string) => void;
-  onReject: (notes: string) => void;
-  onChanges: (notes: string) => void;
-  onAssign: (employee: Employee, nextStage: WorkflowStage) => void;
 }
 
 const ActionModal: React.FC<ActionModalProps> = ({
   isOpen, onClose, type, case: c,
-  onApprove, onReject, onChanges, onAssign
 }) => {
-  const { employees } = useStore();
+  const { employees, approveStage, approveStageAndAssign, rejectStage, requestChanges } = useStore();
   const [notes, setNotes] = useState('');
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [step, setStep] = useState<'action' | 'assign'>('action');
+  const [submitting, setSubmitting] = useState(false);
 
   const nextStage = getNextStage(c.currentStage);
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
@@ -66,27 +62,41 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   const cfg = config[type];
 
-  const handleAction = () => {
+  const resetAndClose = () => {
+    setNotes('');
+    setSelectedEmp(null);
+    setStep('action');
+    onClose();
+  };
+
+  const handleAction = async () => {
     if (type === 'approve') {
       if (nextStage && step === 'action') {
         setStep('assign');
         return;
       }
-      if (selectedEmp && nextStage) {
-        onApprove(notes);
-        onAssign(selectedEmp, nextStage);
-      } else {
-        onApprove(notes);
+      setSubmitting(true);
+      try {
+        if (selectedEmp && nextStage) {
+          await approveStageAndAssign(c.id, notes, selectedEmp, nextStage);
+        } else {
+          await approveStage(c.id, notes);
+        }
+        resetAndClose();
+      } finally {
+        setSubmitting(false);
       }
-    } else if (type === 'reject') {
-      onReject(notes);
-    } else {
-      onChanges(notes);
+      return;
     }
-    setNotes('');
-    setSelectedEmp(null);
-    setStep('action');
-    onClose();
+
+    setSubmitting(true);
+    try {
+      if (type === 'reject') await rejectStage(c.id, notes);
+      else await requestChanges(c.id, notes);
+      resetAndClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -107,8 +117,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
               variant={step === 'assign' ? 'primary' : cfg.btnVariant}
               size="sm"
               icon={step === 'assign' ? <Send className="h-4 w-4" /> : cfg.icon}
-              onClick={handleAction}
-              disabled={step === 'assign' && !selectedEmp}
+              onClick={() => void handleAction()}
+              disabled={(step === 'assign' && !selectedEmp) || submitting}
             >
               {step === 'assign' ? 'Approve & Assign' : cfg.btnLabel}
             </Button>
@@ -157,7 +167,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
 };
 
 export const ApprovalQueue: React.FC = () => {
-  const { cases, approveStage, rejectStage, requestChanges, assignEmployee, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
+  const { cases, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
   const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject' | 'changes'; caseId: string } | null>(null);
 
   useEffect(() => {
@@ -177,19 +187,6 @@ export const ApprovalQueue: React.FC = () => {
   const pendingCases = cases.filter(c => c.status === 'Waiting For Approval');
   const actionCase = actionModal ? cases.find(c => c.id === actionModal.caseId) : null;
 
-  const handleApprove = (notes: string) => {
-    if (actionModal) approveStage(actionModal.caseId, notes);
-  };
-  const handleReject = (notes: string) => {
-    if (actionModal) rejectStage(actionModal.caseId, notes);
-  };
-  const handleChanges = (notes: string) => {
-    if (actionModal) requestChanges(actionModal.caseId, notes);
-  };
-  const handleAssign = (employee: Employee, nextStage: WorkflowStage) => {
-    if (actionModal) assignEmployee(actionModal.caseId, employee, nextStage);
-  };
-
   return (
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       {actionModal && actionCase && (
@@ -198,10 +195,6 @@ export const ApprovalQueue: React.FC = () => {
           onClose={() => setActionModal(null)}
           type={actionModal.type}
           case={actionCase}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onChanges={handleChanges}
-          onAssign={handleAssign}
         />
       )}
 
