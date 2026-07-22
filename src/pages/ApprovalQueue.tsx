@@ -10,6 +10,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
+import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
@@ -56,7 +57,6 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   const nextStage = getNextStage(c.currentStage);
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
-  const nextEmployees = employees.filter(e => e.department === nextDept);
 
   const config = {
     approve: { title: 'Approve Stage', btnLabel: 'Approve & Continue', btnVariant: 'success' as const, icon: <CheckCircle className="h-4 w-4" /> },
@@ -94,7 +94,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
       isOpen={isOpen}
       onClose={() => { onClose(); setStep('action'); setSelectedEmp(null); setNotes(''); }}
       title={step === 'assign' ? `Assign to ${nextStage}` : cfg.title}
-      subtitle={step === 'assign' ? `Select employee for ${nextDept}` : `Case ${c.caseNumber}`}
+      subtitle={step === 'assign' ? `Assign ${nextStage} to any employee` : `Case ${c.caseNumber}`}
       size="md"
       footer={
         <div className="flex items-center justify-between">
@@ -144,29 +144,12 @@ const ActionModal: React.FC<ActionModalProps> = ({
             )}
           </>
         ) : (
-          <div className="space-y-3">
-            {nextEmployees.map(emp => (
-              <div
-                key={emp.id}
-                onClick={() => setSelectedEmp(emp)}
-                className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedEmp?.id === emp.id ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}
-              >
-                <Avatar name={emp.name} size="md" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{emp.name}</p>
-                  <p className="text-xs text-gray-500">{emp.email}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                    <span>{emp.casesCompleted} completed</span>
-                    <span>•</span>
-                    <span>{emp.casesActive} active</span>
-                  </div>
-                </div>
-                <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex items-center justify-center">
-                  {selectedEmp?.id === emp.id && <div className="h-2 w-2 bg-gray-900 rounded-full" />}
-                </div>
-              </div>
-            ))}
-          </div>
+          <EmployeeAssignPicker
+            employees={employees}
+            selected={selectedEmp}
+            onSelect={setSelectedEmp}
+            suggestedDepartment={nextDept}
+          />
         )}
       </div>
     </Modal>

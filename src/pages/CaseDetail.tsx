@@ -12,6 +12,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
+import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import {
@@ -84,6 +85,17 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
   );
 };
 
+const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
+  'Kit Preparation': 'Stores',
+  'Delivery': 'Delivery',
+  'Surgery': 'Scrub Person',
+  'Cleaning': 'Cleaning Department',
+  'Audit': 'Stores Audit',
+  'Billing': 'Accounts',
+  'Bill Submission': 'Bill Submission',
+  'Completed': 'Admin',
+};
+
 interface AssignModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,98 +105,37 @@ interface AssignModalProps {
 
 const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage }) => {
   const { assignEmployee, employees } = useStore();
-
-  const stageToDepart: Record<WorkflowStage, Department> = {
-    'Kit Preparation': 'Stores',
-    'Delivery': 'Delivery',
-    'Surgery': 'Scrub Person',
-    'Cleaning': 'Cleaning Department',
-    'Audit': 'Stores Audit',
-    'Billing': 'Accounts',
-    'Bill Submission': 'Bill Submission',
-    'Completed': 'Admin',
-  };
-
-  const DEPT_TO_STAGE: Record<string, WorkflowStage> = {
-    'Stores': 'Kit Preparation',
-    'Delivery': 'Delivery',
-    'Scrub Person': 'Surgery',
-    'Cleaning Department': 'Cleaning',
-    'Stores Audit': 'Audit',
-    'Accounts': 'Billing',
-    'Bill Submission': 'Bill Submission',
-    'Admin': 'Completed',
-  };
-
-  const initialDept = stageToDepart[nextStage] || 'Stores';
-  const [selectedDept, setSelectedDept] = useState<Department>(initialDept);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
-
-  const DEPARTMENTS: Department[] = ['Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
-  const deptEmployees = employees.filter(e => e.department === selectedDept && e.role === 'employee');
+  const suggestedDept = STAGE_TO_DEPT[nextStage] ?? null;
 
   const handleAssign = () => {
     if (!selectedEmp) return;
-    const targetStage = DEPT_TO_STAGE[selectedDept] || nextStage;
-    assignEmployee(caseId, selectedEmp, targetStage);
+    assignEmployee(caseId, selectedEmp, nextStage);
     setSelectedEmp(null);
     onClose();
   };
 
-  const inputClass = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400 mb-4";
-  const labelClass = "block text-xs font-medium text-gray-700 mb-1.5";
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Assign Workflow Stage" subtitle="Select a department and an employee to assign this case" size="md"
+    <Modal
+      isOpen={isOpen}
+      onClose={() => { onClose(); setSelectedEmp(null); }}
+      title="Assign Workflow Stage"
+      subtitle={`Assign ${nextStage} to any employee`}
+      size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" size="sm" onClick={() => { onClose(); setSelectedEmp(null); }}>Cancel</Button>
           <Button variant="primary" size="sm" onClick={handleAssign} disabled={!selectedEmp}>Assign Employee</Button>
         </div>
       }
     >
       <div className="p-6">
-        <div>
-          <label className={labelClass}>Department</label>
-          <select
-            className={inputClass}
-            value={selectedDept}
-            onChange={e => {
-              setSelectedDept(e.target.value as Department);
-              setSelectedEmp(null);
-            }}
-          >
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        <label className={labelClass}>Select Employee from {selectedDept}</label>
-        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-          {deptEmployees.map(emp => (
-            <div
-              key={emp.id}
-              onClick={() => setSelectedEmp(emp)}
-              className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-all ${selectedEmp?.id === emp.id ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'}`}
-            >
-              <Avatar name={emp.name} size="md" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-900">{emp.name}</p>
-                <p className="text-xs text-gray-500">{emp.email}</p>
-                <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                  <span>{emp.casesCompleted} completed</span>
-                  <span>•</span>
-                  <span>{emp.casesActive} active</span>
-                </div>
-              </div>
-              <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 border-gray-300">
-                {selectedEmp?.id === emp.id && <div className="h-2 w-2 bg-gray-900 rounded-full" />}
-              </div>
-            </div>
-          ))}
-          {deptEmployees.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">No employees registered in this department.</p>
-          )}
-        </div>
+        <EmployeeAssignPicker
+          employees={employees}
+          selected={selectedEmp}
+          onSelect={setSelectedEmp}
+          suggestedDepartment={suggestedDept}
+        />
       </div>
     </Modal>
   );

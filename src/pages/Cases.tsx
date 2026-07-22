@@ -14,6 +14,7 @@ import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Department } fro
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
+import { ASSIGN_DEPARTMENTS } from '../components/EmployeeAssignPicker';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -35,10 +36,14 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     remarks: '',
     department: 'Stores' as Department,
     employeeId: '',
+    employeeDeptFilter: 'All' as Department | 'All',
   });
 
-  const DEPARTMENTS: Department[] = ['Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
-  const filteredEmployees = employees.filter(e => e.department === form.department && e.role === 'employee');
+  const assignableEmployees = useMemo(() => {
+    const active = employees.filter((e) => e.role === 'employee' && e.status === 'Active');
+    if (form.employeeDeptFilter === 'All') return active;
+    return active.filter((e) => e.department === form.employeeDeptFilter);
+  }, [employees, form.employeeDeptFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +90,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         remarks: '',
         department: 'Stores',
         employeeId: '',
+        employeeDeptFilter: 'All',
       });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to create case. Please try again.');
@@ -147,19 +153,32 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Initial Department</label>
-            <select className={inputClass} value={form.department} onChange={e => setForm({...form, department: e.target.value as Department, employeeId: ''})}>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            <select className={inputClass} value={form.department} onChange={e => setForm({...form, department: e.target.value as Department})}>
+              {ASSIGN_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelClass}>Assign Employee</label>
-            <select className={inputClass} value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})}>
-              <option value="">Do not assign yet (Draft)</option>
-              {filteredEmployees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
+            <label className={labelClass}>Filter assignee by department</label>
+            <select
+              className={inputClass}
+              value={form.employeeDeptFilter}
+              onChange={(e) => setForm({ ...form, employeeDeptFilter: e.target.value as Department | 'All', employeeId: '' })}
+            >
+              <option value="All">All departments</option>
+              {ASSIGN_DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
               ))}
             </select>
           </div>
+        </div>
+        <div>
+          <label className={labelClass}>Assign Employee</label>
+          <select className={inputClass} value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})}>
+            <option value="">Do not assign yet (Draft)</option>
+            {assignableEmployees.map(emp => (
+              <option key={emp.id} value={emp.id}>{emp.name} — {emp.department}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className={labelClass}>Implant Required *</label>
