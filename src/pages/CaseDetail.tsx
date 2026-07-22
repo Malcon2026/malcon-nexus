@@ -46,6 +46,7 @@ interface ApprovalModalProps {
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
   const { approveStage, rejectStage, requestChanges } = useStore();
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const config = {
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
@@ -53,12 +54,19 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     changes: { title: 'Request Changes', subtitle: 'Describe the changes needed', color: 'warning' as const, label: 'Request Changes' },
   };
 
-  const handleSubmit = () => {
-    if (type === 'approve') approveStage(caseId, notes);
-    else if (type === 'reject') rejectStage(caseId, notes);
-    else requestChanges(caseId, notes);
-    setNotes('');
-    onClose();
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      if (type === 'approve') await approveStage(caseId, notes);
+      else if (type === 'reject') await rejectStage(caseId, notes);
+      else await requestChanges(caseId, notes);
+      setNotes('');
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const c = config[type];
@@ -67,8 +75,10 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     <Modal isOpen={isOpen} onClose={onClose} title={c.title} subtitle={c.subtitle} size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant={c.color} size="sm" onClick={handleSubmit}>{c.label}</Button>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant={c.color} size="sm" onClick={() => void handleSubmit()} disabled={submitting}>
+            {submitting ? 'Saving...' : c.label}
+          </Button>
         </div>
       }
     >
@@ -107,13 +117,21 @@ interface AssignModalProps {
 const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage }) => {
   const { assignEmployee, employees } = useStore();
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const suggestedDept = STAGE_TO_DEPT[nextStage] ?? null;
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedEmp) return;
-    assignEmployee(caseId, selectedEmp, nextStage);
-    setSelectedEmp(null);
-    onClose();
+    setSubmitting(true);
+    try {
+      await assignEmployee(caseId, selectedEmp, nextStage);
+      setSelectedEmp(null);
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? `Failed to assign: ${err.message}` : 'Failed to assign employee. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -125,8 +143,10 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={() => { onClose(); setSelectedEmp(null); }}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleAssign} disabled={!selectedEmp}>Assign Employee</Button>
+          <Button variant="outline" size="sm" onClick={() => { onClose(); setSelectedEmp(null); }} disabled={submitting}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={() => void handleAssign()} disabled={!selectedEmp || submitting}>
+            {submitting ? 'Assigning...' : 'Assign Employee'}
+          </Button>
         </div>
       }
     >
