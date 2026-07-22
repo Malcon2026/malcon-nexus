@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Clock, Stethoscope, Sparkles, Receipt, Wallet,
-  CheckCircle2, Calendar, TrendingUp, ArrowUpRight, ArrowRight,
+  CheckCircle2, Calendar, ArrowUpRight, ArrowRight,
   AlertTriangle, Activity
 } from 'lucide-react';
 import {
@@ -14,7 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { priorityColors, stageColors, formatCurrency, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
+import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -74,9 +74,7 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
           <div key={p.name} className="flex items-center gap-2 text-xs">
             <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
             <span className="text-gray-500">{p.name}:</span>
-            <span className="font-semibold text-gray-800">
-              {p.name === 'revenue' ? formatCurrency(p.value) : p.value}
-            </span>
+            <span className="font-semibold text-gray-800">{p.value}</span>
           </div>
         ))}
       </div>
@@ -86,7 +84,7 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 };
 
 export const Dashboard: React.FC = () => {
-  const { cases, employees, hospitals, activityLog, setActiveTab, setSelectedCase, getMonthlyData, getDepartmentPerformance, getStageDistribution } = useStore();
+  const { cases, employees, activityLog, setActiveTab, setSelectedCase, getMonthlyData, getDepartmentPerformance, getStageDistribution } = useStore();
 
   const monthlyData = getMonthlyData();
   const departmentPerformance = getDepartmentPerformance();
@@ -107,8 +105,6 @@ export const Dashboard: React.FC = () => {
     .filter(c => c.status !== 'Completed' && c.status !== 'Cancelled')
     .sort((a, b) => new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime())
     .slice(0, 4);
-
-  const totalRevenue = cases.filter(c => c.invoiceAmount).reduce((sum, c) => sum + (c.invoiceAmount || 0), 0);
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
@@ -162,7 +158,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Monthly Performance</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Cases and revenue over the last 6 months</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Cases over the last 6 months</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
@@ -233,78 +229,38 @@ export const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Department Performance & Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
-        {/* Department Performance Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="lg:col-span-2"
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Department Performance</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">On-time completion rate by department</p>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                  Avg 93.3%
-                </div>
+      {/* Department Performance */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Department Performance</h3>
+                <p className="text-xs text-gray-500 mt-0.5">On-time completion rate by department</p>
               </div>
-            </CardHeader>
-            <CardBody>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={departmentPerformance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                  <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} domain={[80, 100]} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="onTime" name="On Time %" fill="#111827" radius={[4, 4, 0, 0]} maxBarSize={36} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardBody>
-          </Card>
-        </motion.div>
-
-        {/* Revenue Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-        >
-          <Card className="h-full">
-            <CardHeader>
-              <h3 className="text-sm font-semibold text-gray-900">Revenue Summary</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Billing & collection status</p>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <div className="text-3xl font-bold text-gray-900">{formatCurrency(totalRevenue)}</div>
-              <div className="text-xs text-gray-500">Total pipeline value</div>
-              {[
-                { label: 'Collected', value: cases.filter(c => c.paymentStatus === 'Collected').reduce((s, c) => s + (c.collectedAmount || c.invoiceAmount || 0), 0), color: 'bg-emerald-500' },
-                { label: 'Pending Billing', value: cases.filter(c => c.currentStage === 'Billing' || c.currentStage === 'Bill Submission').reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-amber-500' },
-                { label: 'In Progress', value: cases.filter(c => !['Billing','Bill Submission','Completed'].includes(c.currentStage)).reduce((s, c) => s + (c.invoiceAmount || 0), 0), color: 'bg-gray-200' },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-600">{item.label}</span>
-                    <span className="text-xs font-semibold text-gray-900">{formatCurrency(item.value)}</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${item.color}`}
-                      style={{ width: `${Math.min(100, (item.value / totalRevenue) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-        </motion.div>
-      </div>
+              <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                <ArrowUpRight className="h-3.5 w-3.5" />
+                Avg 93.3%
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={departmentPerformance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} domain={[80, 100]} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="onTime" name="On Time %" fill="#111827" radius={[4, 4, 0, 0]} maxBarSize={36} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardBody>
+        </Card>
+      </motion.div>
 
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">

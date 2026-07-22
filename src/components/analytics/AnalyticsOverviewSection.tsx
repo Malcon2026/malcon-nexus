@@ -1,9 +1,8 @@
 import React from 'react';
 import {
-  FolderOpen, Users, LogIn, CheckCircle2, Receipt, LineChart,
+  FolderOpen, Users, LogIn, CheckCircle2, LineChart,
 } from 'lucide-react';
 import { Card } from '../ui/Card';
-import { formatCurrency } from '../../utils/helpers';
 import type { AnalyticsSection } from './types';
 
 interface OverviewStats {
@@ -13,8 +12,6 @@ interface OverviewStats {
   pendingApprovals: number;
   totalEmployees: number;
   punchedInToday: number;
-  totalRevenue: number;
-  collectedRevenue: number;
 }
 
 interface Props {
@@ -31,15 +28,6 @@ export const AnalyticsOverviewSection: React.FC<Props> = ({ stats, onNavigate })
       sub: `${stats.activeCases} active · ${stats.completedCases} completed`,
       icon: <FolderOpen className="h-5 w-5 text-indigo-600" />,
       bg: 'bg-indigo-50',
-    },
-    {
-      section: 'billing' as const,
-      label: 'Revenue',
-      value: formatCurrency(stats.totalRevenue),
-      sub: `${formatCurrency(stats.collectedRevenue)} collected`,
-      icon: <Receipt className="h-5 w-5 text-blue-600" />,
-      bg: 'bg-blue-50',
-      isText: true,
     },
     {
       section: 'employees' as const,
@@ -69,14 +57,14 @@ export const AnalyticsOverviewSection: React.FC<Props> = ({ stats, onNavigate })
           <div>
             <h2 className="text-base font-semibold">Analytics Dashboard</h2>
             <p className="text-sm text-indigo-100 mt-1">
-              Charts and KPIs for cases, billing, and team performance. Use Reports to download filtered data.
+              Charts and KPIs for cases and team performance. Use Reports to download filtered data.
             </p>
           </div>
         </div>
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map(({ section, label, value, sub, icon, bg, isText }, idx) => (
+        {cards.map(({ section, label, value, sub, icon, bg }, idx) => (
           <button
             key={`${section}-${label}-${idx}`}
             type="button"
@@ -84,7 +72,7 @@ export const AnalyticsOverviewSection: React.FC<Props> = ({ stats, onNavigate })
             className="text-left rounded-xl border border-gray-100 bg-white p-5 hover:shadow-md hover:border-gray-200 transition-all"
           >
             <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center mb-3`}>{icon}</div>
-            <p className={`font-bold text-gray-900 ${isText ? 'text-xl' : 'text-3xl'}`}>{value}</p>
+            <p className="font-bold text-gray-900 text-3xl">{value}</p>
             <p className="text-sm font-medium text-gray-900 mt-1">{label}</p>
             <p className="text-xs text-gray-500 mt-0.5">{sub}</p>
           </button>

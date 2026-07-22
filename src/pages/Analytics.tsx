@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
+  ResponsiveContainer, LineChart, Line,
 } from 'recharts';
-import { ArrowUpRight, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
-import { formatCurrency } from '../utils/helpers';
 import { AnalyticsOverviewSection } from '../components/analytics/AnalyticsOverviewSection';
 import { ANALYTICS_SECTIONS, type AnalyticsSection } from '../components/analytics/types';
 import { buildEmployeeAttendanceReport, getISTDateKey } from '../lib/attendance';
@@ -34,9 +33,7 @@ const CustomTooltip: React.FC<{
           <div key={p.name} className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
             <span className="text-gray-500">{p.name}:</span>
-            <span className="font-semibold text-gray-800">
-              {p.name === 'Revenue' ? formatCurrency(p.value) : p.value}
-            </span>
+            <span className="font-semibold text-gray-800">{p.value}</span>
           </div>
         ))}
       </div>
@@ -80,10 +77,6 @@ export const Analytics: React.FC = () => {
 
   const overviewStats = useMemo(() => {
     const staff = employees.filter((e) => e.role === 'employee' && e.status === 'Active');
-    const totalRevenue = cases.reduce((s, c) => s + (c.invoiceAmount || 0), 0);
-    const collectedRevenue = cases
-      .filter((c) => c.paymentStatus === 'Collected')
-      .reduce((s, c) => s + (c.collectedAmount || c.invoiceAmount || 0), 0);
 
     return {
       totalCases: cases.length,
@@ -92,14 +85,8 @@ export const Analytics: React.FC = () => {
       pendingApprovals: cases.filter((c) => c.status === 'Waiting For Approval').length,
       totalEmployees: staff.length,
       punchedInToday: todayAttendance.filter((r) => r.status === 'in').length,
-      totalRevenue,
-      collectedRevenue,
     };
   }, [cases, employees, todayAttendance]);
-
-  const totalRevenue = overviewStats.totalRevenue;
-  const collectedRevenue = overviewStats.collectedRevenue;
-  const pendingRevenue = totalRevenue - collectedRevenue;
 
   const byStage = [
     { name: 'Kit Preparation', value: cases.filter(c => c.currentStage === 'Kit Preparation').length },
@@ -110,12 +97,6 @@ export const Analytics: React.FC = () => {
     { name: 'Billing', value: cases.filter(c => c.currentStage === 'Billing').length },
     { name: 'Bill Submission', value: cases.filter(c => c.currentStage === 'Bill Submission').length },
     { name: 'Completed', value: cases.filter(c => c.currentStage === 'Completed').length },
-  ];
-
-  const billingData = [
-    { name: 'Pending', value: cases.filter(c => c.paymentStatus === 'Pending').length, color: '#f59e0b' },
-    { name: 'Partial', value: cases.filter(c => c.paymentStatus === 'Partial').length, color: '#6366f1' },
-    { name: 'Collected', value: cases.filter(c => c.paymentStatus === 'Collected').length, color: '#10b981' },
   ];
 
   return (
@@ -233,70 +214,6 @@ export const Analytics: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'billing' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'Total Pipeline', value: totalRevenue, color: 'text-gray-900' },
-                { label: 'Collected', value: collectedRevenue, color: 'text-emerald-600' },
-                { label: 'Pending', value: pendingRevenue, color: 'text-amber-600' },
-              ].map(({ label, value, color }) => (
-                <Card key={label} className="p-5">
-                  <p className="text-xs text-gray-500">{label}</p>
-                  <p className={`text-2xl font-bold ${color} mt-1`}>{formatCurrency(value)}</p>
-                  <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1">
-                    <ArrowUpRight className="h-3 w-3" />
-                    <span>Revenue tracking</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader><h3 className="text-sm font-semibold text-gray-900">Monthly Revenue</h3></CardHeader>
-                <CardBody>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={monthlyData.map(m => ({ ...m, Revenue: m.revenue }))}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/100000).toFixed(1)}L`} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="Revenue" fill="#111827" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardBody>
-              </Card>
-
-              <Card>
-                <CardHeader><h3 className="text-sm font-semibold text-gray-900">Payment Status</h3></CardHeader>
-                <CardBody>
-                  <div className="flex items-center gap-6">
-                    <ResponsiveContainer width={160} height={160}>
-                      <PieChart>
-                        <Pie data={billingData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>
-                          {billingData.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex-1 space-y-3">
-                      {billingData.map(item => (
-                        <div key={item.name} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-                            <span className="text-sm text-gray-600">{item.name}</span>
-                          </div>
-                          <span className="text-sm font-bold text-gray-900">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </CardBody>
               </Card>
