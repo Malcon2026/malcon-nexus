@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Clock, CheckCircle2, AlertCircle, Send, FileText, Bell
@@ -197,7 +197,11 @@ const EmployeeCasesPanel: React.FC<{
 const EmployeeSidebar: React.FC<{
   completedCases: ImplantCase[];
 }> = ({ completedCases }) => {
-  const myNotifs = useStore((s) => s.notifications.filter((n) => !n.read).slice(0, 5));
+  const notifications = useStore((s) => s.notifications);
+  const myNotifs = useMemo(
+    () => notifications.filter((n) => !n.read).slice(0, 5),
+    [notifications],
+  );
 
   return (
     <div className="space-y-4">
