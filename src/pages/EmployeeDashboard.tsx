@@ -10,7 +10,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
-import { canEmployeeSubmitCase } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWorkflow';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { AttendanceSection } from '../components/AttendanceSection';
@@ -21,9 +21,9 @@ const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: Implan
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
 );
 
-function useMyCases(employeeId: string) {
+function useMyCases(employee: Pick<import('../types').Employee, 'id' | 'email'>) {
   const cases = useStore((s) => s.cases);
-  return cases.filter((c) => c.assignedEmployee?.id === employeeId);
+  return cases.filter((c) => isCaseAssignedToEmployee(c, employee));
 }
 
 const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) => {
@@ -65,8 +65,8 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
   );
 };
 
-const EmployeeQuickStats: React.FC<{ employeeId: string }> = ({ employeeId }) => {
-  const myCases = useMyCases(employeeId);
+const EmployeeQuickStats: React.FC<{ employee: Pick<import('../types').Employee, 'id' | 'email'> }> = ({ employee }) => {
+  const myCases = useMyCases(employee);
   const unreadNotifCount = useStore(
     (s) => s.notifications.filter((n) => !n.read).length,
   );
@@ -74,7 +74,7 @@ const EmployeeQuickStats: React.FC<{ employeeId: string }> = ({ employeeId }) =>
   const activeCases = myCases.filter((c) => c.status === 'Active').length;
   const submittedCases = myCases.filter((c) => c.status === 'Waiting For Approval').length;
   const completedCases = myCases.filter((c) =>
-    c.stages.some((stage) => stage.assignedEmployee?.id === employeeId && stage.status === 'Approved'),
+    c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
   ).length;
 
   return (
@@ -96,14 +96,14 @@ const EmployeeQuickStats: React.FC<{ employeeId: string }> = ({ employeeId }) =>
 };
 
 const EmployeeCasesPanel: React.FC<{
-  employeeId: string;
+  employee: Pick<import('../types').Employee, 'id' | 'email'>;
   onViewCase: (c: ImplantCase) => void;
   onSubmitCase: (c: ImplantCase) => void;
-}> = ({ employeeId, onViewCase, onSubmitCase }) => {
+}> = ({ employee, onViewCase, onSubmitCase }) => {
   const currentUser = useStore((s) => s.currentUser);
-  const myCases = useMyCases(employeeId);
+  const myCases = useMyCases(employee);
   const completedCases = myCases.filter((c) =>
-    c.stages.some((stage) => stage.assignedEmployee?.id === employeeId && stage.status === 'Approved'),
+    c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
   );
 
   return (
@@ -297,9 +297,9 @@ export const EmployeeDashboard: React.FC = () => {
       <AttendanceSection />
       <LeaveApplySection />
       <LazyEmployeeRegister employeeId={currentUser.id} />
-      <EmployeeQuickStats employeeId={currentUser.id} />
+      <EmployeeQuickStats employee={currentUser} />
       <EmployeeCasesPanel
-        employeeId={currentUser.id}
+        employee={currentUser}
         onViewCase={setViewCase}
         onSubmitCase={setSubmitCase}
       />

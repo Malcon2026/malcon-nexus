@@ -258,6 +258,16 @@ const FALLBACK_HOSPITAL: Hospital = {
   status: 'Active',
 };
 
+function parseAssignedEmployee(row: Record<string, unknown>): ImplantCase['assignedEmployee'] {
+  const snapshot = row.assigned_employee_snapshot as ImplantCase['assignedEmployee'] | null | undefined;
+  const assignedId = row.assigned_employee_id as string | null | undefined;
+  if (!snapshot && !assignedId) return null;
+  if (snapshot && assignedId) {
+    return { ...snapshot, id: assignedId };
+  }
+  return snapshot ?? null;
+}
+
 function rowToCase(row: Record<string, unknown>): ImplantCase {
   return {
     id: row.id as string,
@@ -277,7 +287,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     status: row.status as ImplantCase['status'],
     currentStage: normalizeWorkflowStage(row.current_stage as string),
     currentDepartment: row.current_department as ImplantCase['currentDepartment'],
-    assignedEmployee: (row.assigned_employee_snapshot as ImplantCase['assignedEmployee']) ?? null,
+    assignedEmployee: parseAssignedEmployee(row),
     createdBy: row.created_by as string,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

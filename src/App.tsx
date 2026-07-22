@@ -81,9 +81,13 @@ function App() {
         setIsHydrating(false);
       }
 
-      void bootstrapDeferred(role, options).then(() => {
+      void bootstrapDeferred(role, options).then(async () => {
         if (generation !== hydrateGeneration.current) return;
         reloadFromDatabase();
+        if (role === 'employee') {
+          await useStore.getState().repairStuckAssignmentsForCurrentUser();
+          reloadFromDatabase();
+        }
         persistBootstrapCache(employee.id, role);
         setIsHydrating(false);
       });

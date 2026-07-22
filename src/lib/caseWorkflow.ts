@@ -21,14 +21,14 @@ export function isCaseAssignedToEmployee(
 ): boolean {
   const assignee = implantCase.assignedEmployee;
   if (!assignee) return false;
-  if (assignee.id === employee.id) return true;
+  if (assignee.id && assignee.id === employee.id) return true;
   if (assignee.email && employee.email) {
     return assignee.email.trim().toLowerCase() === employee.email.trim().toLowerCase();
   }
   return false;
 }
 
-/** Case stuck after approve+assign race: advanced stage + assignee but case still Approved. */
+/** Case stuck after approve+assign race: assignee set but case still Approved. */
 export function needsAssignmentReactivation(
   implantCase: ImplantCase,
   employee?: Pick<Employee, 'id' | 'email'>,
@@ -43,6 +43,7 @@ export function needsAssignmentReactivation(
   const currentStageRecord = implantCase.stages[stageIdx];
   if (!currentStageRecord || currentStageRecord.status === 'Submitted') return false;
 
+  // Admin approved previous stage but assignee is waiting on the next one.
   if (currentStageRecord.status === 'Assigned') return true;
 
   if (
@@ -50,6 +51,10 @@ export function needsAssignmentReactivation(
     stageIdx > 0 &&
     implantCase.stages[stageIdx - 1]?.status === 'Approved'
   ) {
+    return true;
+  }
+
+  if (currentStageRecord.status === 'Pending' && stageIdx > 0) {
     return true;
   }
 
@@ -68,16 +73,9 @@ export function canEmployeeSubmitCase(
   const currentStageRecord = stageIdx >= 0 ? implantCase.stages[stageIdx] : undefined;
   if (currentStageRecord?.status === 'Submitted') return false;
 
-  if (implantCase.status === 'Active') return true;
-  if (implantCase.status === 'Changes Requested') return true;
+  if (currentStageRecord?.status === 'Approved') {
+    return needsAssignmentReactivation(implantCase, employee);
+  }
 
-  if (needsAssignmentReactivation(implantCase, employee)) return true;
-
-  if (!currentStageRecord) return false;
-
-  return (
-    currentStageRecord.status === 'Assigned' ||
-    currentStageRecord.status === 'In Progress' ||
-    currentStageRecord.status === 'Changes Requested'
-  );
+  return true;
 }

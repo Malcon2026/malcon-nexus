@@ -72,6 +72,7 @@ interface AppState {
   requestChanges: (caseId: string, adminNotes: string) => void;
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
   reactivateAssignedCase: (caseId: string) => Promise<void>;
+  repairStuckAssignmentsForCurrentUser: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -859,7 +860,13 @@ export const useStore = create<AppState>((set, get) => ({
     const c = state.cases.find((x) => x.id === caseId);
     if (!c || !needsAssignmentReactivation(c, state.currentUser)) return;
 
-    const employee = c.assignedEmployee!;
+    const employee = {
+      ...(c.assignedEmployee ?? state.currentUser),
+      id: state.currentUser.id,
+      email: state.currentUser.email,
+      name: c.assignedEmployee?.name ?? state.currentUser.name,
+      department: c.assignedEmployee?.department ?? state.currentUser.department,
+    };
     const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
     if (stageIdx < 0) return;
 
@@ -876,16 +883,31 @@ export const useStore = create<AppState>((set, get) => ({
         : s,
     );
 
-    const updatedCase = await taskRepository.update(caseId, {
-      status: 'Active',
-      assignedEmployee: employee,
-      currentDepartment: employee.department,
-      stages: updatedStages,
-    });
+    try {
+      const updatedCase = await taskRepository.update(caseId, {
+        status: 'Active',
+        assignedEmployee: employee,
+        currentDepartment: employee.department,
+        stages: updatedStages,
+      });
 
-    set((s) => ({
-      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-    }));
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      }));
+    } catch (err) {
+      console.error('[reactivateAssignedCase] failed:', err);
+    }
+  },
+
+  repairStuckAssignmentsForCurrentUser: async () => {
+    const state = get();
+    if (state.viewMode !== 'employee') return;
+
+    for (const c of state.cases) {
+      if (needsAssignmentReactivation(c, state.currentUser)) {
+        await get().reactivateAssignedCase(c.id);
+      }
+    }
   },
 
   submitStage: async (caseId, notes, photos, onUploadProgress) => {
