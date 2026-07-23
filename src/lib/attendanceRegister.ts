@@ -6,7 +6,7 @@ import {
   type TodayAttendanceSummary,
 } from './attendance';
 
-export type RegisterCellCode = 'P' | 'PI' | 'L' | 'PL' | 'A' | 'WO' | '—';
+export type RegisterCellCode = 'P' | 'PI' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
 
 export const PAYABLE_DAYS_PER_CYCLE = 30;
 
@@ -215,8 +215,8 @@ export function resolveRegisterCell(
   if (leave) {
     if (leave.status === 'approved') {
       return {
-        code: 'L',
-        label: `${leave.leaveType} leave`,
+        code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
+        label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
         leaveType: leave.leaveType,
         leaveReason: leave.reason,
         leaveStatus: leave.status,
@@ -310,7 +310,7 @@ export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColum
   let count = 0;
   for (let i = 0; i < days.length; i++) {
     const code = cells[i].code;
-    if (code === 'P' || code === 'PI' || code === 'L' || code === 'WO') count++;
+    if (code === 'P' || code === 'PI' || code === 'L' || code === 'CO' || code === 'WO') count++;
   }
   return Math.min(count, PAYABLE_DAYS_PER_CYCLE);
 }
@@ -370,6 +370,7 @@ export const REGISTER_CELL_STYLES: Record<
   P: { bg: 'bg-emerald-100', text: 'text-emerald-800', title: 'Present' },
   PI: { bg: 'bg-emerald-50', text: 'text-emerald-700', title: 'Present (in)' },
   L: { bg: 'bg-blue-100', text: 'text-blue-800', title: 'Approved leave' },
+  CO: { bg: 'bg-purple-100', text: 'text-purple-800', title: 'Comp off' },
   PL: { bg: 'bg-amber-100', text: 'text-amber-800', title: 'Pending leave' },
   A: { bg: 'bg-red-50', text: 'text-red-700', title: 'Absent' },
   WO: { bg: 'bg-gray-100', text: 'text-gray-500', title: 'Sunday off' },
