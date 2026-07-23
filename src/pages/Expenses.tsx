@@ -3,11 +3,21 @@ import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Check, Downloa
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import type { Department, DailyExpense } from '../types';
 import { formatCurrency, departmentColors } from '../utils/helpers';
 import { getISTDateKey } from '../lib/attendance';
 import { exportExpenseDetailCsv } from '../utils/reportsExport';
+import {
+  buildExpenseRegister,
+  exportExpenseRegisterCsv,
+  metricValueForEntry,
+  EXPENSE_METRICS,
+  type ExpenseMetric,
+  type ExpenseRegisterDayColumn,
+  type ExpenseRegisterEmployeeRow,
+} from '../lib/expenseRegister';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -99,6 +109,12 @@ export const Expenses: React.FC = () => {
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [registerMetric, setRegisterMetric] = useState<ExpenseMetric>('expense');
+  const [registerDetail, setRegisterDetail] = useState<{
+    row: ExpenseRegisterEmployeeRow;
+    day: ExpenseRegisterDayColumn;
+    entry: DailyExpense | null;
+  } | null>(null);
 
   useEffect(() => {
     if (isAdmin && !dailyExpensesLoaded) {
@@ -182,6 +198,40 @@ export const Expenses: React.FC = () => {
   const grandTotal = totals.petrol + totals.food + totals.other;
   const incentiveTotal = totals.kms * incentiveRatePerKm;
 
+  // Month register: one row per employee, one column per day of the picked month.
+  const register = useMemo(() => {
+    const [regYear, regMonth] = monthValue.split('-').map(Number);
+    return buildExpenseRegister(
+      activeEmployees,
+      dailyExpenses,
+      regYear,
+      regMonth,
+      incentiveRatePerKm,
+      filterEmployeeId !== 'all' ? { employeeId: filterEmployeeId } : undefined,
+    );
+  }, [activeEmployees, dailyExpenses, monthValue, incentiveRatePerKm, filterEmployeeId]);
+
+  const registerWeekBands = useMemo(() => {
+    const bands: { week: number; span: number }[] = [];
+    let currentWeek = register.days[0]?.weekNumber ?? 1;
+    let span = 0;
+    for (const day of register.days) {
+      if (day.weekNumber === currentWeek) {
+        span++;
+      } else {
+        bands.push({ week: currentWeek, span });
+        currentWeek = day.weekNumber;
+        span = 1;
+      }
+    }
+    if (span > 0) bands.push({ week: currentWeek, span });
+    return bands;
+  }, [register.days]);
+
+  const handleExportRegisterCsv = () => {
+    exportExpenseRegisterCsv(register, registerMetric);
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -191,10 +241,14 @@ export const Expenses: React.FC = () => {
     }
   };
 
-  const openNewForm = () => {
-    setForm(emptyForm(entriesView === 'day' ? selectedDate : `${monthValue}-01`));
+  const openNewForm = (prefill?: { employeeId?: string; date?: string }) => {
+    setForm({
+      ...emptyForm(prefill?.date ?? (entriesView === 'day' ? selectedDate : `${monthValue}-01`)),
+      employeeId: prefill?.employeeId ?? '',
+    });
     setFormError(null);
     setShowForm(true);
+    setRegisterDetail(null);
   };
 
   const openEditForm = (row: DailyExpense) => {
@@ -211,6 +265,7 @@ export const Expenses: React.FC = () => {
     });
     setFormError(null);
     setShowForm(true);
+    setRegisterDetail(null);
   };
 
   const handleSave = async () => {
@@ -254,6 +309,7 @@ export const Expenses: React.FC = () => {
     setDeletingId(id);
     try {
       await deleteDailyExpense(id);
+      setRegisterDetail((d) => (d?.entry?.id === id ? null : d));
     } finally {
       setDeletingId(null);
     }
@@ -303,7 +359,7 @@ export const Expenses: React.FC = () => {
           <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh'}
           </Button>
-          <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={openNewForm}>
+          <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openNewForm()}>
             Add expense
           </Button>
         </div>
@@ -531,7 +587,7 @@ export const Expenses: React.FC = () => {
                   entriesView === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <CalendarRange className="h-3.5 w-3.5" /> Whole month
+                <CalendarRange className="h-3.5 w-3.5" /> Month register
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -589,93 +645,247 @@ export const Expenses: React.FC = () => {
                   <option key={emp.id} value={emp.id}>{emp.name}</option>
                 ))}
               </select>
+              {entriesView === 'month' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Download className="h-3.5 w-3.5" />}
+                  onClick={handleExportRegisterCsv}
+                >
+                  Export CSV
+                </Button>
+              )}
             </div>
           </div>
+          {entriesView === 'month' && (
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mt-3">
+              {EXPENSE_METRICS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRegisterMetric(id)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    registerMetric === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardBody className="p-0">
-          {scopeRows.length === 0 ? (
+          {entriesView === 'day' ? (
+            dayRows.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-12">
+                No expense entries for {scopeLabel}
+                {filterEmployeeId !== 'all' ? ' for this employee' : ''}.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                      <th className="px-4 py-2.5 font-medium">Employee</th>
+                      <th className="px-4 py-2.5 font-medium">Dept</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Kms</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Incentive</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Petrol</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Food</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Other</th>
+                      <th className="px-4 py-2.5 font-medium">Notes</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayRows.map((row) => {
+                      const employee = employees.find((e) => e.id === row.employeeId);
+                      return (
+                        <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                          <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{row.employeeName}</td>
+                          <td className="px-4 py-2.5">
+                            {employee && (
+                              <Badge className={`${departmentColors[employee.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
+                                {employee.department}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">{row.kmsDriven || ''}</td>
+                          <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">
+                            {row.kmsDriven ? formatCurrency(row.kmsDriven * incentiveRatePerKm) : ''}
+                          </td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">{row.petrolAmount ? formatCurrency(row.petrolAmount) : ''}</td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">{row.foodAmount ? formatCurrency(row.foodAmount) : ''}</td>
+                          <td className="px-4 py-2.5 text-right tabular-nums">
+                            {row.otherAmount ? formatCurrency(row.otherAmount) : ''}
+                            {row.otherDescription && (
+                              <span className="text-gray-400 ml-1">({row.otherDescription})</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-500 max-w-[160px] truncate">{row.notes}</td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(row)}
+                              className="text-gray-400 hover:text-indigo-600 p-1"
+                              aria-label="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(row.id)}
+                              disabled={deletingId === row.id}
+                              className="text-gray-400 hover:text-red-600 p-1 disabled:opacity-50"
+                              aria-label="Delete"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50/70 font-semibold text-gray-800">
+                      <td className="px-4 py-2.5" colSpan={2}>Total</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{totals.kms.toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">{formatCurrency(incentiveTotal)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.petrol)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.food)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.other)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )
+          ) : register.rows.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-12">
-              No expense entries for {scopeLabel}
-              {filterEmployeeId !== 'all' ? ' for this employee' : ''}.
+              No active employees to display{filterEmployeeId !== 'all' ? ' for this employee' : ''}.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
+              <table
+                className="border-collapse text-xs table-fixed"
+                style={{ minWidth: `${140 + 110 + register.days.length * 34 + 3 * 74}px`, width: '100%' }}
+              >
+                <colgroup>
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 110 }} />
+                  {register.days.map((day) => (
+                    <col key={day.dateKey} />
+                  ))}
+                  <col style={{ width: 74 }} />
+                  <col style={{ width: 74 }} />
+                  <col style={{ width: 74 }} />
+                </colgroup>
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                    {entriesView === 'month' && <th className="px-4 py-2.5 font-medium">Date</th>}
-                    <th className="px-4 py-2.5 font-medium">Employee</th>
-                    <th className="px-4 py-2.5 font-medium">Dept</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Kms</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Incentive</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Petrol</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Food</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Other</th>
-                    <th className="px-4 py-2.5 font-medium">Notes</th>
-                    <th className="px-4 py-2.5 font-medium text-right">Actions</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th rowSpan={2} className="sticky left-0 z-20 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700">
+                      Employee
+                    </th>
+                    <th rowSpan={2} className="sticky left-[140px] z-20 bg-gray-50 border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600">
+                      Dept
+                    </th>
+                    {registerWeekBands.map(({ week, span }) => (
+                      <th key={`w${week}`} colSpan={span} className="border-r border-gray-200 px-1 py-1 text-center font-medium text-gray-500 bg-gray-100/80">
+                        Week {week}
+                      </th>
+                    ))}
+                    <th colSpan={3} className="border-l border-gray-200 px-1 py-1 text-center font-medium text-gray-500 bg-gray-100/80">
+                      Totals
+                    </th>
+                  </tr>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {register.days.map((day) => (
+                      <th
+                        key={day.dateKey}
+                        className={`border-r border-gray-100 px-0.5 py-1 text-center ${
+                          day.isToday ? 'bg-indigo-50' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
+                        }`}
+                        title={`${day.weekday} ${day.dateKey}`}
+                      >
+                        <div className={`font-semibold ${day.isToday ? 'text-indigo-700' : 'text-gray-700'}`}>{day.day}</div>
+                        <div className="text-[9px] text-gray-400 font-normal">{day.weekday.charAt(0)}</div>
+                      </th>
+                    ))}
+                    <th className="border-l border-gray-100 px-1 py-1 text-center font-semibold text-sky-700 bg-sky-50">Total Kms</th>
+                    <th className="px-1 py-1 text-center font-semibold text-rose-700 bg-rose-50">Incentive Total</th>
+                    <th className="px-1 py-1 text-center font-semibold text-gray-800 bg-gray-50">Total Expense</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {scopeRows.map((row) => {
-                    const employee = employees.find((e) => e.id === row.employeeId);
-                    return (
-                      <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        {entriesView === 'month' && (
-                          <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{row.expenseDate}</td>
-                        )}
-                        <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{row.employeeName}</td>
-                        <td className="px-4 py-2.5">
-                          {employee && (
-                            <Badge className={`${departmentColors[employee.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
-                              {employee.department}
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{row.kmsDriven || ''}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">
-                          {row.kmsDriven ? formatCurrency(row.kmsDriven * incentiveRatePerKm) : ''}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{row.petrolAmount ? formatCurrency(row.petrolAmount) : ''}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{row.foodAmount ? formatCurrency(row.foodAmount) : ''}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
-                          {row.otherAmount ? formatCurrency(row.otherAmount) : ''}
-                          {row.otherDescription && (
-                            <span className="text-gray-400 ml-1">({row.otherDescription})</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-gray-500 max-w-[160px] truncate">{row.notes}</td>
-                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(row)}
-                            className="text-gray-400 hover:text-indigo-600 p-1"
-                            aria-label="Edit"
+                  {register.rows.map((row) => (
+                    <tr key={row.employeeId} className="border-b border-gray-100 hover:bg-gray-50/50">
+                      <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
+                        {row.employeeName}
+                      </td>
+                      <td className="sticky left-[140px] z-10 bg-white border-r border-gray-200 px-2 py-2">
+                        <Badge className={`${departmentColors[row.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
+                          {row.department}
+                        </Badge>
+                      </td>
+                      {row.entries.map((entry, idx) => {
+                        const day = register.days[idx];
+                        const value = metricValueForEntry(entry, registerMetric);
+                        return (
+                          <td
+                            key={day.dateKey}
+                            className={`border-r border-gray-50 px-0.5 py-1 text-center ${day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''}`}
                           >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(row.id)}
-                            disabled={deletingId === row.id}
-                            className="text-gray-400 hover:text-red-600 p-1 disabled:opacity-50"
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <button
+                              type="button"
+                              onClick={() => setRegisterDetail({ row, day, entry })}
+                              className={`inline-flex h-6 w-full max-w-[42px] items-center justify-center rounded font-semibold text-[10px] border ${
+                                entry
+                                  ? 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'
+                                  : 'bg-gray-50 text-gray-300 border-transparent hover:bg-gray-100'
+                              }`}
+                              title={day.dateKey}
+                            >
+                              {value == null ? '—' : registerMetric === 'kms' ? value : `₹${value.toLocaleString('en-IN')}`}
+                            </button>
+                          </td>
+                        );
+                      })}
+                      <td className="border-l border-gray-100 px-1 py-2 text-center font-semibold text-sky-700 bg-sky-50/60">
+                        {row.totalKms.toLocaleString('en-IN')}
+                      </td>
+                      <td className="px-1 py-2 text-center font-semibold text-rose-700 bg-rose-50/60">
+                        {formatCurrency(row.incentiveTotal)}
+                      </td>
+                      <td className="px-1 py-2 text-center font-semibold text-gray-800 bg-gray-50">
+                        {formatCurrency(row.totalExpense)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50/70 font-semibold text-gray-800">
-                    <td className="px-4 py-2.5" colSpan={entriesView === 'month' ? 3 : 2}>Total</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{totals.kms.toLocaleString('en-IN')}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">{formatCurrency(incentiveTotal)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.petrol)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.food)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.other)}</td>
-                    <td colSpan={2} />
+                    <td className="sticky left-0 z-10 bg-gray-50/70 border-r border-gray-200 px-3 py-2" colSpan={2}>
+                      Column total
+                    </td>
+                    {register.days.map((day, idx) => {
+                      const sum = register.rows.reduce(
+                        (acc, row) => acc + (metricValueForEntry(row.entries[idx], registerMetric) ?? 0),
+                        0,
+                      );
+                      return (
+                        <td key={day.dateKey} className="border-r border-gray-50 px-0.5 py-2 text-center">
+                          {sum ? (registerMetric === 'kms' ? sum : `₹${sum.toLocaleString('en-IN')}`) : '—'}
+                        </td>
+                      );
+                    })}
+                    <td className="border-l border-gray-100 px-1 py-2 text-center text-sky-700 bg-sky-50/60">
+                      {register.grandKms.toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-1 py-2 text-center text-rose-700 bg-rose-50/60">
+                      {formatCurrency(register.grandIncentive)}
+                    </td>
+                    <td className="px-1 py-2 text-center bg-gray-50">
+                      {formatCurrency(register.grandExpense)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -722,6 +932,102 @@ export const Expenses: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {registerDetail && (
+        <Modal
+          isOpen
+          onClose={() => setRegisterDetail(null)}
+          title={registerDetail.row.employeeName}
+          subtitle={`${registerDetail.day.weekday}, ${registerDetail.day.dateKey}`}
+          size="sm"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setRegisterDetail(null)}>Close</Button>
+              {registerDetail.entry ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
+                    onClick={() => void handleDelete(registerDetail.entry!.id)}
+                    disabled={deletingId === registerDetail.entry.id}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Pencil className="h-3.5 w-3.5" />}
+                    onClick={() => openEditForm(registerDetail.entry!)}
+                  >
+                    Edit
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                  onClick={() =>
+                    openNewForm({ employeeId: registerDetail.row.employeeId, date: registerDetail.day.dateKey })
+                  }
+                  disabled={registerDetail.day.isFuture}
+                >
+                  Add expense
+                </Button>
+              )}
+            </div>
+          }
+        >
+          <div className="p-6 space-y-1 text-sm">
+            {registerDetail.entry ? (
+              <>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">Kms driven</span>
+                  <span className="font-medium text-gray-900">{registerDetail.entry.kmsDriven || 0}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">Km incentive (₹{incentiveRatePerKm}/km)</span>
+                  <span className="font-medium text-rose-700">
+                    {formatCurrency((registerDetail.entry.kmsDriven || 0) * incentiveRatePerKm)}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">Petrol</span>
+                  <span className="font-medium text-gray-900">{formatCurrency(registerDetail.entry.petrolAmount)}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">Food</span>
+                  <span className="font-medium text-gray-900">{formatCurrency(registerDetail.entry.foodAmount)}</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-gray-100">
+                  <span className="text-gray-500">
+                    Other{registerDetail.entry.otherDescription ? ` (${registerDetail.entry.otherDescription})` : ''}
+                  </span>
+                  <span className="font-medium text-gray-900">{formatCurrency(registerDetail.entry.otherAmount)}</span>
+                </div>
+                <div className="flex justify-between py-1.5 font-semibold">
+                  <span className="text-gray-800">Day expense (petrol + food + other)</span>
+                  <span className="text-gray-900">
+                    {formatCurrency(
+                      registerDetail.entry.petrolAmount + registerDetail.entry.foodAmount + registerDetail.entry.otherAmount,
+                    )}
+                  </span>
+                </div>
+                {registerDetail.entry.notes && (
+                  <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg p-3 mt-2">
+                    {registerDetail.entry.notes}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-400 py-4">
+                {registerDetail.day.isFuture ? 'This date is in the future.' : 'No entry for this day.'}
+              </p>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
