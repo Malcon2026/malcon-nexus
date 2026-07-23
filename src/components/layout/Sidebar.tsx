@@ -16,6 +16,7 @@ import {
   Activity as ActivityIcon,
   Archive,
   Building2,
+  Fuel,
   X,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
+  { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
   { id: 'hospitals', label: 'Hospitals', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
   { id: 'analytics', label: 'Analytics', icon: <LineChart className="h-4 w-4" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <Download className="h-4 w-4" />, adminOnly: true },

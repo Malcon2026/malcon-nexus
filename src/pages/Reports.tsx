@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Download, ShieldAlert, FolderOpen, LogIn, Users, Receipt, ScrollText,
-  CheckCircle2, Building2, MapPin,
+  CheckCircle2, Building2, MapPin, Fuel, List,
 } from 'lucide-react';
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -18,16 +18,20 @@ import {
 } from '../utils/caseExport';
 import {
   buildAttendanceSummaryRows,
+  buildExpenseSummaryRows,
   exportActivityCsv,
   exportAttendanceApprovalsCsv,
   exportAttendanceSummaryCsv,
   exportBillingCsv,
   exportEmployeesCsv,
+  exportExpenseDetailCsv,
+  exportExpenseSummaryCsv,
   exportHospitalsCsv,
   exportStageApprovalsCsv,
   filterActivityForExport,
   filterAttendanceApprovalsForExport,
   filterEmployeesForExport,
+  filterExpensesForExport,
 } from '../utils/reportsExport';
 
 const REPORT_ICONS: Record<ExportReportType, React.ReactNode> = {
@@ -39,6 +43,8 @@ const REPORT_ICONS: Record<ExportReportType, React.ReactNode> = {
   'attendance-approvals': <MapPin className="h-5 w-5 text-amber-600" />,
   'stage-approvals': <CheckCircle2 className="h-5 w-5 text-orange-600" />,
   hospitals: <Building2 className="h-5 w-5 text-cyan-600" />,
+  'expenses-summary': <Fuel className="h-5 w-5 text-orange-600" />,
+  'expenses-detail': <List className="h-5 w-5 text-orange-500" />,
 };
 
 const defaultFilter: ReportDateFilter = { range: 'this_month' };
@@ -51,6 +57,15 @@ export const Reports: React.FC = () => {
   const activityLog = useStore((s) => s.activityLog);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
+  const dailyExpenses = useStore((s) => s.dailyExpenses);
+  const dailyExpensesLoaded = useStore((s) => s.dailyExpensesLoaded);
+  const loadDailyExpenses = useStore((s) => s.loadDailyExpenses);
+
+  useEffect(() => {
+    if (!dailyExpensesLoaded) {
+      void loadDailyExpenses();
+    }
+  }, [dailyExpensesLoaded, loadDailyExpenses]);
 
   const [selectedReport, setSelectedReport] = useState<ExportReportType>('cases');
   const [dateFilter, setDateFilter] = useState<ReportDateFilter>(defaultFilter);
@@ -80,6 +95,10 @@ export const Reports: React.FC = () => {
           ).length;
         case 'hospitals':
           return hospitals.length;
+        case 'expenses-summary':
+          return buildExpenseSummaryRows(employees, dailyExpenses, dateFilter).length;
+        case 'expenses-detail':
+          return filterExpensesForExport(dailyExpenses, dateFilter).length;
         default:
           return 0;
       }
@@ -96,6 +115,7 @@ export const Reports: React.FC = () => {
     activityLog,
     attendanceRecords,
     attendanceApprovalRequests,
+    dailyExpenses,
   ]);
 
   const activeMeta = EXPORT_REPORT_TYPES.find((r) => r.id === selectedReport)!;
@@ -130,6 +150,12 @@ export const Reports: React.FC = () => {
           break;
         case 'hospitals':
           result = exportHospitalsCsv(hospitals, cases, dateFilter, { ...dateFilter, dateField: caseDateField });
+          break;
+        case 'expenses-summary':
+          result = exportExpenseSummaryCsv(employees, dailyExpenses, dateFilter);
+          break;
+        case 'expenses-detail':
+          result = exportExpenseDetailCsv(dailyExpenses, dateFilter);
           break;
         default:
           throw new Error('Unknown report type.');

@@ -6,7 +6,9 @@ export type ExportReportType =
   | 'activity'
   | 'attendance-approvals'
   | 'stage-approvals'
-  | 'hospitals';
+  | 'hospitals'
+  | 'expenses-summary'
+  | 'expenses-detail';
 
 export const EXPORT_REPORT_TYPES: {
   id: ExportReportType;
@@ -52,5 +54,15 @@ export const EXPORT_REPORT_TYPES: {
     id: 'hospitals',
     label: 'Hospitals',
     description: 'Hospital directory with case volume (filtered by case dates in range).',
+  },
+  {
+    id: 'expenses-summary',
+    label: 'Expenses — Summary',
+    description: 'Total kms driven, petrol, food, and other expenses per employee for the date range.',
+  },
+  {
+    id: 'expenses-detail',
+    label: 'Expenses — Detail',
+    description: 'Every daily expense entry (kms, petrol, food, other) in the date range.',
   },
 ];

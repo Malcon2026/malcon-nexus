@@ -2,6 +2,7 @@ import type {
   ActivityEvent,
   AttendanceApprovalRequest,
   AttendanceRecord,
+  DailyExpense,
   Employee,
   Hospital,
   ImplantCase,
@@ -15,6 +16,7 @@ import { downloadCsv } from './csv';
 import { formatCurrency, formatDateTime } from './helpers';
 import {
   getReportDateBounds,
+  isDateKeyInRange,
   isTimestampInRange,
   listDateKeys,
   reportRangeSlug,
@@ -271,6 +273,119 @@ export function exportHospitalsCsv(
     ]),
   );
   return { count: hospitals.length, filename };
+}
+
+export function filterExpensesForExport(
+  expenses: DailyExpense[],
+  filter: ReportDateFilter,
+): DailyExpense[] {
+  return expenses.filter((e) => isDateKeyInRange(e.expenseDate, filter));
+}
+
+export interface ExpenseSummaryRow {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  days: number;
+  totalKms: number;
+  totalPetrol: number;
+  totalFood: number;
+  totalOther: number;
+  grandTotal: number;
+}
+
+export function buildExpenseSummaryRows(
+  employees: Employee[],
+  expenses: DailyExpense[],
+  filter: ReportDateFilter,
+): ExpenseSummaryRow[] {
+  const filtered = filterExpensesForExport(expenses, filter);
+  const byEmployee = new Map<string, ExpenseSummaryRow>();
+
+  for (const entry of filtered) {
+    const employee = employees.find((e) => e.id === entry.employeeId);
+    const existing = byEmployee.get(entry.employeeId);
+    const row: ExpenseSummaryRow = existing ?? {
+      employeeId: entry.employeeId,
+      employeeName: entry.employeeName,
+      department: employee?.department ?? '',
+      days: 0,
+      totalKms: 0,
+      totalPetrol: 0,
+      totalFood: 0,
+      totalOther: 0,
+      grandTotal: 0,
+    };
+    row.days += 1;
+    row.totalKms += entry.kmsDriven;
+    row.totalPetrol += entry.petrolAmount;
+    row.totalFood += entry.foodAmount;
+    row.totalOther += entry.otherAmount;
+    row.grandTotal += entry.petrolAmount + entry.foodAmount + entry.otherAmount;
+    byEmployee.set(entry.employeeId, row);
+  }
+
+  return Array.from(byEmployee.values()).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}
+
+export function exportExpenseSummaryCsv(
+  employees: Employee[],
+  expenses: DailyExpense[],
+  filter: ReportDateFilter,
+): { count: number; filename: string } {
+  const rows = buildExpenseSummaryRows(employees, expenses, filter);
+  if (rows.length === 0) {
+    throw new Error('No expense entries match the selected date range.');
+  }
+
+  const filename = exportFilename('expenses_summary', filter);
+  downloadCsv(
+    filename,
+    ['Employee', 'Department', 'Days Entered', 'Total Kms', 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Grand Total (₹)'],
+    rows.map((r) => [
+      r.employeeName,
+      r.department,
+      r.days,
+      r.totalKms,
+      r.totalPetrol,
+      r.totalFood,
+      r.totalOther,
+      r.grandTotal,
+    ]),
+  );
+  return { count: rows.length, filename };
+}
+
+export function exportExpenseDetailCsv(
+  expenses: DailyExpense[],
+  filter: ReportDateFilter,
+): { count: number; filename: string } {
+  const filtered = filterExpensesForExport(expenses, filter).sort((a, b) =>
+    a.expenseDate === b.expenseDate
+      ? a.employeeName.localeCompare(b.employeeName)
+      : a.expenseDate < b.expenseDate ? 1 : -1,
+  );
+  if (filtered.length === 0) {
+    throw new Error('No expense entries match the selected date range.');
+  }
+
+  const filename = exportFilename('expenses_detail', filter);
+  downloadCsv(
+    filename,
+    ['Date', 'Employee', 'Kms', 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Other For', 'Notes', 'Entered By'],
+    filtered.map((e) => [
+      e.expenseDate,
+      e.employeeName,
+      e.kmsDriven,
+      e.petrolAmount,
+      e.foodAmount,
+      e.otherAmount,
+      e.otherDescription,
+      e.notes,
+      e.enteredBy,
+    ]),
+  );
+  return { count: filtered.length, filename };
 }
 
 export function exportBillingCsv(

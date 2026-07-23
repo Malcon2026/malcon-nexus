@@ -10,6 +10,7 @@ import type {
   Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
   AttendanceApprovalRequest,
   LeaveRequest,
+  DailyExpense,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 
@@ -749,6 +750,65 @@ export const sbLeaveRepo = {
     if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
 
     const { error } = await supabase.from('leave_requests').update(payload).eq('id', id);
+    if (error) throw error;
+  },
+};
+
+
+// ─── DAILY EXPENSES (admin-only manual log: kms, petrol, food, other) ──
+
+function rowToExpense(row: Record<string, unknown>): DailyExpense {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    expenseDate: row.expense_date as string,
+    kmsDriven: Number(row.kms_driven ?? 0),
+    petrolAmount: Number(row.petrol_amount ?? 0),
+    foodAmount: Number(row.food_amount ?? 0),
+    otherAmount: Number(row.other_amount ?? 0),
+    otherDescription: (row.other_description as string) ?? '',
+    notes: (row.notes as string) ?? '',
+    enteredBy: (row.entered_by as string) ?? '',
+    enteredById: (row.entered_by_id as string) ?? '',
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export const sbExpenseRepo = {
+  async getAll(): Promise<DailyExpense[]> {
+    const { data, error } = await supabase
+      .from('employee_daily_expenses')
+      .select('*')
+      .order('expense_date', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToExpense);
+  },
+
+  /** Insert or update by primary key `id` (the store resolves the existing id for the employee+date first). */
+  async upsert(expense: DailyExpense): Promise<void> {
+    const { error } = await supabase.from('employee_daily_expenses').upsert({
+      id: expense.id,
+      employee_id: expense.employeeId,
+      employee_name: expense.employeeName,
+      expense_date: expense.expenseDate,
+      kms_driven: expense.kmsDriven,
+      petrol_amount: expense.petrolAmount,
+      food_amount: expense.foodAmount,
+      other_amount: expense.otherAmount,
+      other_description: expense.otherDescription,
+      notes: expense.notes,
+      entered_by: expense.enteredBy,
+      entered_by_id: expense.enteredById,
+      created_at: expense.createdAt,
+      updated_at: expense.updatedAt,
+    });
+    if (error) throw error;
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from('employee_daily_expenses').delete().eq('id', id);
     if (error) throw error;
   },
 };

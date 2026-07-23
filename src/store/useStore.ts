@@ -4,6 +4,7 @@ import type {
   Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType,
   AttendanceApprovalRequest,
   LeaveRequest, LeaveType,
+  DailyExpense,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -16,7 +17,7 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateLeaveApplication } from '../lib/leave';
@@ -45,6 +46,8 @@ interface AppState {
   attendanceRecords: AttendanceRecord[];
   attendanceApprovalRequests: AttendanceApprovalRequest[];
   leaveRequests: LeaveRequest[];
+  dailyExpenses: DailyExpense[];
+  dailyExpensesLoaded: boolean;
 
   // UI State
   sidebarCollapsed: boolean;
@@ -133,6 +136,21 @@ interface AppState {
     leaveType: LeaveType,
     notes?: string,
   ) => Promise<{ error: string | null }>;
+
+  // Daily expenses (admin-only manual log: kms, petrol, food, other)
+  loadDailyExpenses: () => Promise<{ error: string | null }>;
+  saveDailyExpense: (input: {
+    id?: string;
+    employeeId: string;
+    expenseDate: string;
+    kmsDriven?: number;
+    petrolAmount?: number;
+    foodAmount?: number;
+    otherAmount?: number;
+    otherDescription?: string;
+    notes?: string;
+  }) => Promise<{ error: string | null }>;
+  deleteDailyExpense: (id: string) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -420,6 +438,8 @@ export const useStore = create<AppState>((set, get) => ({
   attendanceRecords: initialAttendance,
   attendanceApprovalRequests: initialAttendanceApprovals,
   leaveRequests: initialLeaveRequests,
+  dailyExpenses: [],
+  dailyExpensesLoaded: false,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
@@ -1590,6 +1610,102 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
 
+    return { error: null };
+  },
+
+  loadDailyExpenses: async () => {
+    try {
+      const rows = await sbExpenseRepo.getAll();
+      set({ dailyExpenses: rows, dailyExpensesLoaded: true });
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load expenses.';
+      console.error('[expenses] load failed:', err);
+      return { error: message };
+    }
+  },
+
+  saveDailyExpense: async (input) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can enter expenses.' };
+    }
+    const employee = state.employees.find((e) => e.id === input.employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expenseDate)) return { error: 'Invalid date.' };
+
+    const existing = input.id
+      ? state.dailyExpenses.find((e) => e.id === input.id)
+      : state.dailyExpenses.find(
+          (e) => e.employeeId === input.employeeId && e.expenseDate === input.expenseDate,
+        );
+
+    const now = new Date().toISOString();
+    const record: DailyExpense = {
+      id: existing?.id ?? newId(),
+      employeeId: input.employeeId,
+      employeeName: employee.name,
+      expenseDate: input.expenseDate,
+      kmsDriven: input.kmsDriven ?? 0,
+      petrolAmount: input.petrolAmount ?? 0,
+      foodAmount: input.foodAmount ?? 0,
+      otherAmount: input.otherAmount ?? 0,
+      otherDescription: (input.otherDescription ?? '').trim(),
+      notes: (input.notes ?? '').trim(),
+      enteredBy: state.currentUser.name,
+      enteredById: state.currentUser.id,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    try {
+      await sbExpenseRepo.upsert(record);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save expense.';
+      console.error('[expenses] save failed:', err);
+      if (message.includes('employee_daily_expenses') && message.includes('does not exist')) {
+        return { error: 'Expenses are not set up in the database yet. Please run the migration.' };
+      }
+      if (message.includes('one_per_day') || message.includes('duplicate key')) {
+        return { error: 'An entry for this employee on this date already exists.' };
+      }
+      return { error: message };
+    }
+
+    const activity = createActivityEvent(
+      existing ? 'Expense Updated' : 'Expense Entry',
+      'expense',
+      record.id,
+      employee.name,
+      state.currentUser.name,
+      'admin',
+      `${existing ? 'Updated' : 'Recorded'} expenses for ${employee.name} on ${record.expenseDate}: ${record.kmsDriven} km, petrol ₹${record.petrolAmount}, food ₹${record.foodAmount}, other ₹${record.otherAmount}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      dailyExpenses: existing
+        ? s.dailyExpenses.map((e) => (e.id === record.id ? record : e))
+        : [record, ...s.dailyExpenses],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  deleteDailyExpense: async (id) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can delete expenses.' };
+    }
+    try {
+      await sbExpenseRepo.delete(id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete expense.';
+      console.error('[expenses] delete failed:', err);
+      return { error: message };
+    }
+    set((s) => ({ dailyExpenses: s.dailyExpenses.filter((e) => e.id !== id) }));
     return { error: null };
   },
 

@@ -187,7 +187,7 @@ export interface DepartmentInfo {
   color: string;
 }
 
-export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave';
+export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave' | 'expense';
 
 export interface ActivityEvent {
   id: string;
@@ -255,5 +255,24 @@ export interface LeaveRequest {
   reviewedAt: string | null;
   adminNotes: string;
   createdAt: string;
+}
+
+/** Admin-only manual daily log of travel/food/other spend per employee per day. */
+export interface DailyExpense {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  /** YYYY-MM-DD, one entry per employee per date. */
+  expenseDate: string;
+  kmsDriven: number;
+  petrolAmount: number;
+  foodAmount: number;
+  otherAmount: number;
+  otherDescription: string;
+  notes: string;
+  enteredBy: string;
+  enteredById: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
