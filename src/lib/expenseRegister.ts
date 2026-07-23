@@ -1,5 +1,11 @@
 import type { DailyExpense } from '../types';
-import { getISTDateKey } from './attendance';
+import {
+  buildSalaryCycleDayColumns,
+  getSalaryCycleLabel,
+  getSalaryCycleDescription,
+  getSalaryLabel,
+  type RegisterDayColumn,
+} from './attendanceRegister';
 
 /** Which figure a register cell/column is currently showing. */
 export type ExpenseMetric = 'expense' | 'kms' | 'petrol' | 'food' | 'other';
@@ -12,17 +18,8 @@ export const EXPENSE_METRICS: { id: ExpenseMetric; label: string }[] = [
   { id: 'other', label: 'Other ₹' },
 ];
 
-export interface ExpenseRegisterDayColumn {
-  day: number;
-  dateKey: string;
-  weekday: string;
-  weekNumber: number;
-  isWeeklyOff: boolean;
-  isFuture: boolean;
-  isToday: boolean;
-  /** Short month label when the calendar month changes (always day 1 here). */
-  monthShort: string;
-}
+/** Same day-column shape used by the Attendance register — same salary-cycle date rule. */
+export type ExpenseRegisterDayColumn = RegisterDayColumn;
 
 export interface ExpenseRegisterEmployeeRow {
   employeeId: string;
@@ -42,22 +39,15 @@ export interface ExpenseRegisterData {
   year: number;
   month: number;
   monthLabel: string;
+  /** e.g. "28 Jun – 27 Jul 2026" — same salary-cycle window as Attendance. */
+  cycleLabel: string;
+  cycleDescription: string;
   incentiveRatePerKm: number;
   days: ExpenseRegisterDayColumn[];
   rows: ExpenseRegisterEmployeeRow[];
   grandKms: number;
   grandIncentive: number;
   grandExpense: number;
-}
-
-const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function dateKeyFromParts(year: number, month: number, day: number): string {
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function daysInCalendarMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
 }
 
 /** Reads the raw amount for one metric off a single entry — null when there's nothing to show. */
@@ -81,31 +71,6 @@ export function metricValueForEntry(entry: DailyExpense | null, metric: ExpenseM
   }
 }
 
-export function buildExpenseMonthDayColumns(year: number, month: number): ExpenseRegisterDayColumn[] {
-  const todayKey = getISTDateKey();
-  const totalDays = daysInCalendarMonth(year, month);
-  const monthStartWeekday = new Date(year, month - 1, 1).getDay();
-  const columns: ExpenseRegisterDayColumn[] = [];
-
-  for (let d = 1; d <= totalDays; d++) {
-    const dateKey = dateKeyFromParts(year, month, d);
-    const weekdayIdx = new Date(year, month - 1, d).getDay();
-    columns.push({
-      day: d,
-      dateKey,
-      weekday: WEEKDAY_SHORT[weekdayIdx],
-      // Week 1 starts on the 1st, regardless of what weekday it falls on.
-      weekNumber: Math.floor((d - 1 + monthStartWeekday) / 7) + 1,
-      isWeeklyOff: weekdayIdx === 0,
-      isFuture: dateKey > todayKey,
-      isToday: dateKey === todayKey,
-      monthShort: d === 1 ? new Date(year, month - 1, d).toLocaleDateString('en-IN', { month: 'short' }) : '',
-    });
-  }
-
-  return columns;
-}
-
 export function buildExpenseRegister(
   employees: { id: string; name: string; department: string; status: string }[],
   expenses: DailyExpense[],
@@ -114,7 +79,9 @@ export function buildExpenseRegister(
   incentiveRatePerKm: number,
   options?: { employeeId?: string },
 ): ExpenseRegisterData {
-  const days = buildExpenseMonthDayColumns(year, month);
+  // Same 28th(prev month)→27th salary-cycle window and week numbering as the
+  // Attendance register, so the two grids line up date-for-date.
+  const days = buildSalaryCycleDayColumns(year, month);
   const staff = employees
     .filter((e) => e.status === 'Active')
     .filter((e) => !options?.employeeId || e.id === options.employeeId)
@@ -159,7 +126,9 @@ export function buildExpenseRegister(
   return {
     year,
     month,
-    monthLabel: new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+    monthLabel: getSalaryLabel(year, month),
+    cycleLabel: getSalaryCycleLabel(year, month),
+    cycleDescription: getSalaryCycleDescription(month),
     incentiveRatePerKm,
     days,
     rows,

@@ -347,7 +347,7 @@ export const Expenses: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 w-full min-w-0 max-w-[1200px] mx-auto">
+    <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol, Food &amp; Other Expenses</h1>
@@ -658,7 +658,14 @@ export const Expenses: React.FC = () => {
             </div>
           </div>
           {entriesView === 'month' && (
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mt-3">
+            <p className="text-xs text-gray-600 mt-3">
+              <span className="font-medium text-gray-800">{register.cycleLabel}</span>
+              <span className="text-gray-400 mx-1.5">·</span>
+              {register.cycleDescription}
+            </p>
+          )}
+          {entriesView === 'month' && (
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mt-2">
               {EXPENSE_METRICS.map(({ id, label }) => (
                 <button
                   key={id}
@@ -806,6 +813,9 @@ export const Expenses: React.FC = () => {
                         }`}
                         title={`${day.weekday} ${day.dateKey}`}
                       >
+                        {day.monthShort && (
+                          <div className="text-[8px] text-gray-400 font-medium leading-none mb-0.5">{day.monthShort}</div>
+                        )}
                         <div className={`font-semibold ${day.isToday ? 'text-indigo-700' : 'text-gray-700'}`}>{day.day}</div>
                         <div className="text-[9px] text-gray-400 font-normal">{day.weekday.charAt(0)}</div>
                       </th>
