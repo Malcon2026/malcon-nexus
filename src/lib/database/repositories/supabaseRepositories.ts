@@ -814,6 +814,31 @@ export const sbExpenseRepo = {
 };
 
 
+// ─── APP SETTINGS (generic admin-only key/value config) ────────
+
+function settingsRowToEntry(row: Record<string, unknown>): [string, string] {
+  return [row.key as string, row.value as string];
+}
+
+export const sbSettingsRepo = {
+  async getAll(): Promise<Record<string, string>> {
+    const { data, error } = await supabase.from('app_settings').select('key, value');
+    if (error) throw error;
+    return Object.fromEntries((data ?? []).map(settingsRowToEntry));
+  },
+
+  async set(key: string, value: string, updatedBy: string): Promise<void> {
+    const { error } = await supabase.from('app_settings').upsert({
+      key,
+      value,
+      updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+  },
+};
+
+
 // ─── DEPARTMENTS ─────────────────────────────────────────────
 
 export const sbDepartmentRepo = {

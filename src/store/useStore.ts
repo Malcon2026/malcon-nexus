@@ -17,7 +17,7 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateLeaveApplication } from '../lib/leave';
@@ -27,6 +27,9 @@ import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed',
 ];
+
+/** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
+const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
 
 interface AppState {
   // Auth / View Mode
@@ -48,6 +51,8 @@ interface AppState {
   leaveRequests: LeaveRequest[];
   dailyExpenses: DailyExpense[];
   dailyExpensesLoaded: boolean;
+  appSettings: Record<string, string>;
+  appSettingsLoaded: boolean;
 
   // UI State
   sidebarCollapsed: boolean;
@@ -151,6 +156,11 @@ interface AppState {
     notes?: string;
   }) => Promise<{ error: string | null }>;
   deleteDailyExpense: (id: string) => Promise<{ error: string | null }>;
+
+  // App settings (generic admin-only key/value config, e.g. incentive rate)
+  loadAppSettings: () => Promise<{ error: string | null }>;
+  getIncentiveRatePerKm: () => number;
+  setIncentiveRatePerKm: (rate: number) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -440,6 +450,8 @@ export const useStore = create<AppState>((set, get) => ({
   leaveRequests: initialLeaveRequests,
   dailyExpenses: [],
   dailyExpensesLoaded: false,
+  appSettings: {},
+  appSettingsLoaded: false,
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
@@ -1706,6 +1718,43 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: message };
     }
     set((s) => ({ dailyExpenses: s.dailyExpenses.filter((e) => e.id !== id) }));
+    return { error: null };
+  },
+
+  loadAppSettings: async () => {
+    try {
+      const settings = await sbSettingsRepo.getAll();
+      set({ appSettings: settings, appSettingsLoaded: true });
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load settings.';
+      console.error('[settings] load failed:', err);
+      return { error: message };
+    }
+  },
+
+  getIncentiveRatePerKm: () => {
+    const raw = get().appSettings.incentive_rate_per_km;
+    const parsed = raw !== undefined ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_INCENTIVE_RATE_PER_KM;
+  },
+
+  setIncentiveRatePerKm: async (rate) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can change the incentive rate.' };
+    }
+    if (!Number.isFinite(rate) || rate < 0) {
+      return { error: 'Enter a valid rate (₹ per km, 0 or more).' };
+    }
+    try {
+      await sbSettingsRepo.set('incentive_rate_per_km', String(rate), state.currentUser.name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save the incentive rate.';
+      console.error('[settings] save failed:', err);
+      return { error: message };
+    }
+    set((s) => ({ appSettings: { ...s.appSettings, incentive_rate_per_km: String(rate) } }));
     return { error: null };
   },
 
