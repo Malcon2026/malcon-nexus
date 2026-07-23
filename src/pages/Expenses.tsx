@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Check } from 'lucide-react';
+import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Check, Download, CalendarDays, CalendarRange } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -7,10 +7,13 @@ import { useStore } from '../store/useStore';
 import type { Department, DailyExpense } from '../types';
 import { formatCurrency, departmentColors } from '../utils/helpers';
 import { getISTDateKey } from '../lib/attendance';
+import { exportExpenseDetailCsv } from '../utils/reportsExport';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
+
+type EntriesView = 'day' | 'month';
 
 interface FormState {
   id?: string;
@@ -24,10 +27,10 @@ interface FormState {
   notes: string;
 }
 
-function emptyForm(): FormState {
+function emptyForm(defaultDate: string): FormState {
   return {
     employeeId: '',
-    expenseDate: getISTDateKey(),
+    expenseDate: defaultDate,
     kmsDriven: '',
     petrolAmount: '',
     foodAmount: '',
@@ -40,6 +43,24 @@ function emptyForm(): FormState {
 function formatMonthLabel(monthValue: string): string {
   const [y, m] = monthValue.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+
+function formatDayLabel(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function monthBoundsFor(monthValue: string): { from: string; to: string } {
+  const [y, m] = monthValue.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return { from: `${monthValue}-01`, to: `${monthValue}-${String(lastDay).padStart(2, '0')}` };
+}
+
+/** Pure UTC-based date-key arithmetic — avoids local-timezone off-by-one bugs. */
+function shiftDateKey(dateKey: string, deltaDays: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const shifted = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
 }
 
 export const Expenses: React.FC = () => {
@@ -57,13 +78,16 @@ export const Expenses: React.FC = () => {
 
   const isAdmin = viewMode === 'admin';
 
+  const today = getISTDateKey();
   const now = new Date();
+  const [entriesView, setEntriesView] = useState<EntriesView>('day');
+  const [selectedDate, setSelectedDate] = useState(today);
   const [monthValue, setMonthValue] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
   );
   const [filterEmployeeId, setFilterEmployeeId] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm());
+  const [form, setForm] = useState<FormState>(emptyForm(today));
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +96,9 @@ export const Expenses: React.FC = () => {
   const [rateInput, setRateInput] = useState('');
   const [rateSaving, setRateSaving] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (isAdmin && !dailyExpensesLoaded) {
@@ -116,6 +143,17 @@ export const Expenses: React.FC = () => {
     [employees],
   );
 
+  // Daily tracker: every expense entered for one specific date, across employees.
+  const dayRows = useMemo(
+    () =>
+      dailyExpenses
+        .filter((e) => e.expenseDate === selectedDate)
+        .filter((e) => filterEmployeeId === 'all' || e.employeeId === filterEmployeeId)
+        .sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
+    [dailyExpenses, selectedDate, filterEmployeeId],
+  );
+
+  // Whole-month view, for anyone who wants to eyeball everything at once.
   const monthRows = useMemo(
     () =>
       dailyExpenses
@@ -125,9 +163,12 @@ export const Expenses: React.FC = () => {
     [dailyExpenses, monthValue, filterEmployeeId],
   );
 
+  const scopeRows = entriesView === 'day' ? dayRows : monthRows;
+  const scopeLabel = entriesView === 'day' ? formatDayLabel(selectedDate) : formatMonthLabel(monthValue);
+
   const totals = useMemo(
     () =>
-      monthRows.reduce(
+      scopeRows.reduce(
         (acc, r) => ({
           kms: acc.kms + r.kmsDriven,
           petrol: acc.petrol + r.petrolAmount,
@@ -136,7 +177,7 @@ export const Expenses: React.FC = () => {
         }),
         { kms: 0, petrol: 0, food: 0, other: 0 },
       ),
-    [monthRows],
+    [scopeRows],
   );
   const grandTotal = totals.petrol + totals.food + totals.other;
   const incentiveTotal = totals.kms * incentiveRatePerKm;
@@ -151,7 +192,7 @@ export const Expenses: React.FC = () => {
   };
 
   const openNewForm = () => {
-    setForm(emptyForm());
+    setForm(emptyForm(entriesView === 'day' ? selectedDate : `${monthValue}-01`));
     setFormError(null);
     setShowForm(true);
   };
@@ -199,8 +240,10 @@ export const Expenses: React.FC = () => {
         setFormError(result.error);
         return;
       }
+      // Jump the daily tracker to whatever date was just saved, so it's visible immediately.
+      if (entriesView === 'day') setSelectedDate(form.expenseDate);
       setShowForm(false);
-      setForm(emptyForm());
+      setForm(emptyForm(entriesView === 'day' ? selectedDate : today));
     } finally {
       setSaving(false);
     }
@@ -213,6 +256,25 @@ export const Expenses: React.FC = () => {
       await deleteDailyExpense(id);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleExportMonthCsv = () => {
+    setExportError(null);
+    setExportSuccess(null);
+    setExporting(true);
+    try {
+      const bounds = monthBoundsFor(monthValue);
+      const result = exportExpenseDetailCsv(
+        dailyExpenses,
+        { range: 'custom', customFrom: bounds.from, customTo: bounds.to },
+        incentiveRatePerKm,
+      );
+      setExportSuccess(`Downloaded ${result.count} row(s) → ${result.filename}`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -247,14 +309,14 @@ export const Expenses: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — scoped to whichever day/month is currently selected below */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-3">
         {[
-          { label: 'Total kms driven', value: totals.kms.toLocaleString('en-IN'), bg: 'bg-indigo-50', text: 'text-indigo-700', icon: <Fuel className="h-4 w-4 text-indigo-700" /> },
-          { label: 'Petrol', value: formatCurrency(totals.petrol), bg: 'bg-orange-50', text: 'text-orange-700', icon: <Fuel className="h-4 w-4 text-orange-700" /> },
-          { label: 'Food', value: formatCurrency(totals.food), bg: 'bg-emerald-50', text: 'text-emerald-700', icon: <Fuel className="h-4 w-4 text-emerald-700" /> },
-          { label: 'Other', value: formatCurrency(totals.other), bg: 'bg-purple-50', text: 'text-purple-700', icon: <Fuel className="h-4 w-4 text-purple-700" /> },
-          { label: `Km incentive (₹${incentiveRatePerKm}/km)`, value: formatCurrency(incentiveTotal), bg: 'bg-rose-50', text: 'text-rose-700', icon: <IndianRupee className="h-4 w-4 text-rose-700" /> },
+          { label: 'Total kms driven', value: totals.kms.toLocaleString('en-IN'), bg: 'bg-indigo-50', icon: <Fuel className="h-4 w-4 text-indigo-700" /> },
+          { label: 'Petrol', value: formatCurrency(totals.petrol), bg: 'bg-orange-50', icon: <Fuel className="h-4 w-4 text-orange-700" /> },
+          { label: 'Food', value: formatCurrency(totals.food), bg: 'bg-emerald-50', icon: <Fuel className="h-4 w-4 text-emerald-700" /> },
+          { label: 'Other', value: formatCurrency(totals.other), bg: 'bg-purple-50', icon: <Fuel className="h-4 w-4 text-purple-700" /> },
+          { label: `Km incentive (₹${incentiveRatePerKm}/km)`, value: formatCurrency(incentiveTotal), bg: 'bg-rose-50', icon: <IndianRupee className="h-4 w-4 text-rose-700" /> },
         ].map(({ label, value, bg, icon }) => (
           <Card key={label} className="p-4">
             <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${bg} mb-2`}>
@@ -267,7 +329,8 @@ export const Expenses: React.FC = () => {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <p className="text-xs text-gray-400">
-          Grand total for {formatMonthLabel(monthValue)}: <span className="font-semibold text-gray-600">{formatCurrency(grandTotal)}</span> (petrol + food + other) · Incentive uses total kms across all employees shown — check the per-employee breakdown in Reports for individual payouts.
+          Totals for <span className="font-semibold text-gray-600">{scopeLabel}</span>: {formatCurrency(grandTotal)} (petrol + food + other)
+          {filterEmployeeId !== 'all' ? ' · filtered to one employee' : ''}
         </p>
         {!editingRate ? (
           <button
@@ -351,7 +414,7 @@ export const Expenses: React.FC = () => {
                   type="date"
                   className={inputClass}
                   value={form.expenseDate}
-                  max={getISTDateKey()}
+                  max={today}
                   onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))}
                   disabled={!!form.id}
                 />
@@ -451,14 +514,71 @@ export const Expenses: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-900">Daily entries</h3>
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setEntriesView('day')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  entriesView === 'day' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" /> Daily tracker
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntriesView('month')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  entriesView === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <CalendarRange className="h-3.5 w-3.5" /> Whole month
+              </button>
+            </div>
             <div className="flex items-center gap-2">
-              <input
-                type="month"
-                className={`${inputClass} w-auto`}
-                value={monthValue}
-                onChange={(e) => setMonthValue(e.target.value)}
-              />
+              {entriesView === 'day' ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate((d) => shiftDateKey(d, -1))}
+                    className="px-2 py-2 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500"
+                    aria-label="Previous day"
+                  >
+                    ‹
+                  </button>
+                  <input
+                    type="date"
+                    className={`${inputClass} w-auto`}
+                    value={selectedDate}
+                    max={today}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate((d) => shiftDateKey(d, 1))}
+                    disabled={selectedDate >= today}
+                    className="px-2 py-2 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-500 disabled:opacity-40"
+                    aria-label="Next day"
+                  >
+                    ›
+                  </button>
+                  {selectedDate !== today && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(today)}
+                      className="text-xs text-gray-500 hover:text-gray-800 underline"
+                    >
+                      Today
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <input
+                  type="month"
+                  className={`${inputClass} w-auto`}
+                  value={monthValue}
+                  onChange={(e) => setMonthValue(e.target.value)}
+                />
+              )}
               <select
                 className={`${inputClass} w-auto`}
                 value={filterEmployeeId}
@@ -473,9 +593,9 @@ export const Expenses: React.FC = () => {
           </div>
         </CardHeader>
         <CardBody className="p-0">
-          {monthRows.length === 0 ? (
+          {scopeRows.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-12">
-              No expense entries for {formatMonthLabel(monthValue)}
+              No expense entries for {scopeLabel}
               {filterEmployeeId !== 'all' ? ' for this employee' : ''}.
             </p>
           ) : (
@@ -483,7 +603,7 @@ export const Expenses: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
-                    <th className="px-4 py-2.5 font-medium">Date</th>
+                    {entriesView === 'month' && <th className="px-4 py-2.5 font-medium">Date</th>}
                     <th className="px-4 py-2.5 font-medium">Employee</th>
                     <th className="px-4 py-2.5 font-medium">Dept</th>
                     <th className="px-4 py-2.5 font-medium text-right">Kms</th>
@@ -496,11 +616,13 @@ export const Expenses: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {monthRows.map((row) => {
+                  {scopeRows.map((row) => {
                     const employee = employees.find((e) => e.id === row.employeeId);
                     return (
                       <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                        <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{row.expenseDate}</td>
+                        {entriesView === 'month' && (
+                          <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{row.expenseDate}</td>
+                        )}
                         <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{row.employeeName}</td>
                         <td className="px-4 py-2.5">
                           {employee && (
@@ -547,7 +669,7 @@ export const Expenses: React.FC = () => {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50/70 font-semibold text-gray-800">
-                    <td className="px-4 py-2.5" colSpan={3}>Total</td>
+                    <td className="px-4 py-2.5" colSpan={entriesView === 'month' ? 3 : 2}>Total</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{totals.kms.toLocaleString('en-IN')}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">{formatCurrency(incentiveTotal)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.petrol)}</td>
@@ -560,6 +682,45 @@ export const Expenses: React.FC = () => {
             </div>
           )}
         </CardBody>
+      </Card>
+
+      {/* Month-end mega export — every entry + incentive, for whichever month is picked here. */}
+      <Card className="mt-6">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Month-end export</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              One CSV with every entry (date, employee, kms, incentive, petrol, food, other, notes) for the chosen month.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              type="month"
+              className={`${inputClass} w-auto`}
+              value={monthValue}
+              onChange={(e) => setMonthValue(e.target.value)}
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Download className="h-4 w-4" />}
+              onClick={handleExportMonthCsv}
+              disabled={exporting}
+            >
+              {exporting ? 'Exporting…' : `Download ${formatMonthLabel(monthValue)} CSV`}
+            </Button>
+          </div>
+        </CardBody>
+        {(exportError || exportSuccess) && (
+          <div className="px-5 pb-4 -mt-2">
+            {exportError && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{exportError}</p>
+            )}
+            {exportSuccess && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">{exportSuccess}</p>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );
