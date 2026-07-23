@@ -54,6 +54,7 @@ function App() {
 
   const hydrateForUser = useCallback(async (employee: Employee) => {
     const generation = ++hydrateGeneration.current;
+    const startedAt = performance.now();
     setIsHydrating(true);
     try {
       const {
@@ -80,6 +81,7 @@ function App() {
 
       if (!hadCache && role === 'employee') {
         setIsHydrating(false);
+        console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
       }
 
       void bootstrapDeferred(role, options).then(async () => {
@@ -91,6 +93,7 @@ function App() {
         }
         persistBootstrapCache(employee.id, role);
         setIsHydrating(false);
+        console.info(`[perf] full hydration (incl. deferred) done in ${Math.round(performance.now() - startedAt)}ms`);
       });
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);

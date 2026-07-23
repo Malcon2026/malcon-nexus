@@ -64,25 +64,31 @@ function readBootstrapCache(employeeId: string): BootstrapCachePayload | null {
   }
 }
 
+// Only what the employee dashboard needs painted immediately: today's
+// punch status (derived from recent records the store already has after
+// first deferred load) needs pending-approval + leave state, not months of
+// attendance history. Keeping this tier small is what actually makes the
+// login screen feel fast.
 function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
-  const sinceIso = getAttendanceBootstrapSinceIso();
   return [
-    {
-      key: 'attendanceRecords',
-      run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, sinceIso),
-    },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',
       run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
     },
-    { key: 'departments', run: () => sbDepartmentRepo.getAll() },
   ];
 }
 
 function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
   if (employeeId) {
+    const sinceIso = getAttendanceBootstrapSinceIso();
     return [
+      // 150-day attendance history is only needed by the (lazy-loaded)
+      // Attendance Register further down the dashboard — never blocks login.
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, sinceIso) },
+      // Not read by any employee-facing screen today; still loaded in the
+      // background in case something needs it, just never blocking.
+      { key: 'departments', run: () => sbDepartmentRepo.getAll() },
       { key: 'cases', run: () => sbCaseRepo.getForEmployee(employeeId) },
       { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
     ];
@@ -138,19 +144,37 @@ function shouldSkipEssentialFetch(
   return isBootstrapCacheFresh(options.employeeId);
 }
 
-async function runBootstrapTasks(tasks: BootstrapTask[]): Promise<void> {
+async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<void> {
   if (!supabaseStorage || tasks.length === 0) return;
 
-  const results = await Promise.allSettled(tasks.map((t) => t.run()));
+  const startedAt = performance.now();
+  const timedTasks = tasks.map((t) => {
+    const taskStart = performance.now();
+    return t.run().then(
+      (value) => ({ value, ms: performance.now() - taskStart }),
+      (reason) => Promise.reject({ reason, ms: performance.now() - taskStart }),
+    );
+  });
+  const results = await Promise.allSettled(timedTasks);
 
+  let slowestKey = '';
+  let slowestMs = 0;
   results.forEach((result, i) => {
     const key = tasks[i].key;
     if (result.status === 'rejected') {
-      console.warn(`[bootstrap] Failed to load ${key}:`, result.reason);
+      const { reason, ms } = result.reason as { reason: unknown; ms: number };
+      console.warn(`[bootstrap] Failed to load ${key} (${Math.round(ms)}ms):`, reason);
       return;
     }
-    supabaseStorage!.seedCache(key, result.value as unknown[]);
+    const { value, ms } = result.value;
+    if (ms > slowestMs) { slowestMs = ms; slowestKey = key; }
+    supabaseStorage!.seedCache(key, value as unknown[]);
   });
+
+  console.info(
+    `[perf] bootstrap ${tier} finished in ${Math.round(performance.now() - startedAt)}ms` +
+      (slowestKey ? ` (slowest: ${slowestKey} ${Math.round(slowestMs)}ms)` : ''),
+  );
 }
 
 /** True when session cache exists and is within TTL. */
@@ -225,7 +249,7 @@ export async function bootstrapEssential(
     return false;
   }
 
-  await runBootstrapTasks(tasksFor(role, 'essential', options));
+  await runBootstrapTasks(tasksFor(role, 'essential', options), 'essential');
   return true;
 }
 
@@ -235,7 +259,7 @@ export async function bootstrapDeferred(
   options?: BootstrapOptions,
   _runOptions?: BootstrapRunOptions,
 ): Promise<void> {
-  await runBootstrapTasks(tasksFor(role, 'deferred', options));
+  await runBootstrapTasks(tasksFor(role, 'deferred', options), 'deferred');
 }
 
 /** Full bootstrap — used after login and manual refresh. */

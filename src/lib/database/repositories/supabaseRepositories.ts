@@ -40,47 +40,53 @@ function camelToSnake(obj: Record<string, unknown>): Record<string, unknown> {
 
 // ─── EMPLOYEES ───────────────────────────────────────────────
 
+function rowToEmployee(row: Record<string, unknown>): Employee {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: row.email as string,
+    department: row.department as Employee['department'],
+    role: row.role as Employee['role'],
+    status: row.status as Employee['status'],
+    avatar: row.avatar as string,
+    phone: row.phone as string,
+    casesCompleted: row.cases_completed as number,
+    casesActive: row.cases_active as number,
+    joinDate: row.join_date as string,
+  };
+}
+
 export const sbEmployeeRepo = {
   async getAll(): Promise<Employee[]> {
     const { data, error } = await supabase.from('employees').select('*').order('name');
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      name: row.name,
-      email: row.email,
-      department: row.department as Employee['department'],
-      role: row.role as Employee['role'],
-      status: row.status as Employee['status'],
-      avatar: row.avatar,
-      phone: row.phone,
-      casesCompleted: row.cases_completed,
-      casesActive: row.cases_active,
-      joinDate: row.join_date,
-    }));
+    return (data ?? []).map((row) => rowToEmployee(row as Record<string, unknown>));
   },
 
   async getById(id: string): Promise<Employee | null> {
     const { data, error } = await supabase.from('employees').select('*').eq('id', id).single();
     if (error || !data) return null;
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      department: data.department as Employee['department'],
-      role: data.role as Employee['role'],
-      status: data.status as Employee['status'],
-      avatar: data.avatar,
-      phone: data.phone,
-      casesCompleted: data.cases_completed,
-      casesActive: data.cases_active,
-      joinDate: data.join_date,
-    };
+    return rowToEmployee(data as Record<string, unknown>);
   },
 
   async getByEmail(email: string): Promise<Employee | null> {
     const { data, error } = await supabase.from('employees').select('*').eq('email', email).single();
     if (error || !data) return null;
-    return this.getById(data.id);
+    // Build the employee straight from this row — no need for a second
+    // round-trip to re-fetch the same row by id.
+    return rowToEmployee(data as Record<string, unknown>);
+  },
+
+  /** Single round-trip lookup used on login/session-restore — avoids a
+   *  separate "find id" query followed by a "fetch full row" query. */
+  async getByAuthUserId(authUserId: string): Promise<Employee | null> {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return rowToEmployee(data as Record<string, unknown>);
   },
 
   async create(e: Employee): Promise<Employee> {
@@ -409,7 +415,11 @@ export const sbCaseRepo = {
 export const sbNotificationRepo = {
   async getAll(recipientId?: string): Promise<Notification[]> {
     let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
-    if (recipientId) query = query.eq('recipient_id', recipientId);
+    if (recipientId) {
+      // A single employee never needs their entire lifetime history on
+      // login — cap it so this stays a cheap, bounded query.
+      query = query.eq('recipient_id', recipientId).limit(300);
+    }
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map((row) => ({

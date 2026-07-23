@@ -12,36 +12,41 @@ export interface AuthResult {
   error: string | null;
 }
 
+/**
+ * Supabase fires a SIGNED_IN auth-state event as part of signInWithPassword
+ * resolving. `signIn()` below already resolves + returns the employee (and
+ * the caller hydrates immediately from that), so when this flag is set the
+ * listener skips re-fetching the employee and re-triggering hydration a
+ * second time for the exact same login.
+ */
+let pendingManualSignIn = false;
+
 async function employeeFromSession(session: Session | null): Promise<Employee | null> {
   if (!session?.user) return null;
 
   const authUserId = session.user.id;
-  const { data: byAuth } = await supabase
-    .from('employees')
-    .select('*')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle();
-
-  if (byAuth) {
-    return sbEmployeeRepo.getById(byAuth.id);
-  }
+  const employee = await sbEmployeeRepo.getByAuthUserId(authUserId);
+  if (employee) return employee;
 
   const email = session.user.email;
   if (!email) return null;
 
-  const employee = await sbEmployeeRepo.getByEmail(email);
-  if (!employee) return null;
+  const found = await sbEmployeeRepo.getByEmail(email);
+  if (!found) return null;
 
-  await sbEmployeeRepo.linkAuthUser(employee.id, authUserId).catch(() => {
+  // Self-heal the link in the background — don't block resolving the
+  // employee on it.
+  void sbEmployeeRepo.linkAuthUser(found.id, authUserId).catch(() => {
     // Non-fatal if already linked
   });
 
-  return employee;
+  return found;
 }
 
 export const authService = {
   /** Sign in with email + password. Returns the matching Employee record. */
   async signIn(email: string, password: string): Promise<AuthResult> {
+    const startedAt = performance.now();
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -52,17 +57,28 @@ export const authService = {
     const authUserId = data.user?.id;
     if (!authUserId) return { employee: null, error: 'Authentication failed' };
 
-    const { data: byAuth } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('auth_user_id', authUserId)
-      .maybeSingle();
+    // Set this *before* the further awaits below — the SIGNED_IN event can
+    // fire concurrently with them, and the listener needs to see the flag
+    // in time to skip its own redundant employee lookup + hydration.
+    pendingManualSignIn = true;
 
-    const employee = byAuth
-      ? await sbEmployeeRepo.getById(byAuth.id)
-      : await sbEmployeeRepo.getByEmail(normalizedEmail);
+    // Single round-trip when the auth user is already linked (the common
+    // case) instead of a "find id" query followed by a "fetch full row" one.
+    let employee = await sbEmployeeRepo.getByAuthUserId(authUserId);
 
     if (!employee) {
+      // First login before auth_user_id has been linked yet — fall back to
+      // email lookup and link in the background.
+      employee = await sbEmployeeRepo.getByEmail(normalizedEmail);
+      if (employee) {
+        void sbEmployeeRepo.linkAuthUser(employee.id, authUserId).catch(() => {
+          // Non-fatal if already linked
+        });
+      }
+    }
+
+    if (!employee) {
+      pendingManualSignIn = false;
       await supabase.auth.signOut();
       return {
         employee: null,
@@ -70,11 +86,7 @@ export const authService = {
       };
     }
 
-    // Link auth user ID to employee record (idempotent)
-    await sbEmployeeRepo.linkAuthUser(employee.id, authUserId).catch(() => {
-      // Non-fatal if already linked
-    });
-
+    console.info(`[perf] auth.signIn resolved in ${Math.round(performance.now() - startedAt)}ms`);
     return { employee, error: null };
   },
 
@@ -94,6 +106,19 @@ export const authService = {
     return supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         callback(event, null);
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION') {
+        // Already resolved once via getCurrentEmployee() on boot — the
+        // caller ignores this event anyway, so skip the redundant fetch.
+        return;
+      }
+
+      if (event === 'SIGNED_IN' && pendingManualSignIn) {
+        // Already handled directly by signIn()'s return value — skip the
+        // duplicate employee fetch + hydration for this login.
+        pendingManualSignIn = false;
         return;
       }
 
