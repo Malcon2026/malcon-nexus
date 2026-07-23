@@ -208,6 +208,35 @@ export function resolveRegisterCell(
   isFuture: boolean,
 ): RegisterCellDetail {
   if (isWeeklyOffDateKey(dateKey)) {
+    // Some staff still come in on their weekly off. If they actually
+    // punched that day, credit it as Present instead of hiding it behind
+    // the generic "Sunday off" cell.
+    const woSummary = summarizeDayAttendance(records, employeeId, dateKey);
+    if (woSummary.punchIn && woSummary.punchOut) {
+      return {
+        code: 'P',
+        label: 'Present (worked week off)',
+        punchInTime: formatTimeIST(woSummary.punchIn.punchedAt),
+        punchOutTime: formatTimeIST(woSummary.punchOut.punchedAt),
+        workedDuration: formatWorkedDuration(woSummary),
+      };
+    }
+    if (woSummary.isPunchedIn) {
+      return {
+        code: 'PI',
+        label: 'Present, still in (worked week off)',
+        punchInTime: formatTimeIST(woSummary.punchIn!.punchedAt),
+        workedDuration: formatWorkedDuration(woSummary),
+      };
+    }
+    if (woSummary.punchIn && !woSummary.punchOut) {
+      return {
+        code: 'P',
+        label: 'Present, missing punch out (worked week off)',
+        punchInTime: formatTimeIST(woSummary.punchIn.punchedAt),
+        workedDuration: formatWorkedDuration(woSummary),
+      };
+    }
     return { code: 'WO', label: 'Sunday off' };
   }
 
