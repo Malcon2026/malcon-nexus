@@ -126,6 +126,13 @@ interface AppState {
   cancelLeave: (requestId: string) => Promise<{ error: string | null }>;
   approveLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  /** Admin-only: directly mark a single day as an already-approved leave for any employee. */
+  addManualLeave: (
+    employeeId: string,
+    dateKey: string,
+    leaveType: LeaveType,
+    notes?: string,
+  ) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -1535,6 +1542,51 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((s) => ({
       attendanceRecords: [...newRecords, ...s.attendanceRecords],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  addManualLeave: async (employeeId, dateKey, leaveType, notes = '') => {
+    const state = get();
+    const employee = state.employees.find((e) => e.id === employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return { error: 'Invalid date.' };
+
+    const reviewedAt = new Date().toISOString();
+    const request: LeaveRequest = {
+      id: newId(),
+      employeeId,
+      employeeName: employee.name,
+      leaveType,
+      fromDate: dateKey,
+      toDate: dateKey,
+      reason: notes.trim() || `Marked by ${state.currentUser.name}`,
+      status: 'approved',
+      reviewedBy: state.currentUser.name,
+      reviewedById: state.currentUser.id,
+      reviewedAt,
+      adminNotes: `Manually marked ${leaveType} leave from the attendance register.`,
+      createdAt: reviewedAt,
+    };
+
+    const persistResult = await persistLeaveRequest(request);
+    if (persistResult.error) return persistResult;
+
+    const activity = createActivityEvent(
+      'Manual Leave Entry',
+      'leave',
+      request.id,
+      employee.name,
+      state.currentUser.name,
+      'admin',
+      `Marked ${leaveType} leave for ${employee.name} on ${dateKey}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      leaveRequests: [request, ...s.leaveRequests],
       activityLog: [activity, ...s.activityLog],
     }));
 

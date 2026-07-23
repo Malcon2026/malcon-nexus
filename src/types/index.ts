@@ -238,7 +238,7 @@ export interface AttendanceApprovalRequest {
   attendanceRecordId: string | null;
 }
 
-export type LeaveType = 'Casual' | 'Sick' | 'Unpaid';
+export type LeaveType = 'Casual' | 'Sick' | 'Unpaid' | 'Comp Off';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export interface LeaveRequest {

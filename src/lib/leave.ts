@@ -5,6 +5,7 @@ import { isWeeklyOffDateKey } from './attendanceRegister';
 export const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
   { value: 'Casual', label: 'Casual Leave (CL)' },
   { value: 'Sick', label: 'Sick Leave (SL)' },
+  { value: 'Comp Off', label: 'Comp Off (CO)' },
   { value: 'Unpaid', label: 'Unpaid Leave' },
 ];
 

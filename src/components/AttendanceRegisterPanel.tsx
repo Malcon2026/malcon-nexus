@@ -18,6 +18,8 @@ import {
   type RegisterDayColumn,
 } from '../lib/attendanceRegister';
 import { getISTDateKey, summarizeDayAttendance } from '../lib/attendance';
+import { LEAVE_TYPES } from '../lib/leave';
+import type { LeaveType } from '../types';
 import { departmentColors } from '../utils/helpers';
 
 const DEPARTMENTS: (Department | 'All')[] = [
@@ -55,6 +57,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const viewMode = useStore((s) => s.viewMode);
   const addManualAttendance = useStore((s) => s.addManualAttendance);
+  const addManualLeave = useStore((s) => s.addManualLeave);
   const isAdmin = viewMode === 'admin' && !employeeId;
 
   const now = new Date();
@@ -69,8 +72,11 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     cell: RegisterCellDetail;
   } | null>(null);
   const [manualMode, setManualMode] = useState(false);
+  const [manualEntryKind, setManualEntryKind] = useState<'punch' | 'leave'>('punch');
   const [manualIn, setManualIn] = useState('');
   const [manualOut, setManualOut] = useState('');
+  const [manualLeaveType, setManualLeaveType] = useState<LeaveType>('Casual');
+  const [manualLeaveNotes, setManualLeaveNotes] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSaving, setManualSaving] = useState(false);
 
@@ -86,6 +92,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     const summary = summarizeDayAttendance(attendanceRecords, selectedCell.employeeId, selectedCell.day.dateKey);
     setManualIn(summary.punchIn ? toHHMM(summary.punchIn.punchedAt) : '');
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
+    setManualEntryKind(selectedCell.cell.leaveType ? 'leave' : 'punch');
+    setManualLeaveType((selectedCell.cell.leaveType as LeaveType) || 'Casual');
+    setManualLeaveNotes('');
     setManualMode(false);
     setManualError(null);
   }, [selectedCell, attendanceRecords]);
@@ -95,12 +104,20 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualSaving(true);
     setManualError(null);
     try {
-      const result = await addManualAttendance(
-        selectedCell.employeeId,
-        selectedCell.day.dateKey,
-        manualIn || undefined,
-        manualOut || undefined,
-      );
+      const result =
+        manualEntryKind === 'leave'
+          ? await addManualLeave(
+              selectedCell.employeeId,
+              selectedCell.day.dateKey,
+              manualLeaveType,
+              manualLeaveNotes,
+            )
+          : await addManualAttendance(
+              selectedCell.employeeId,
+              selectedCell.day.dateKey,
+              manualIn || undefined,
+              manualOut || undefined,
+            );
       if (result.error) {
         setManualError(result.error);
         return;
@@ -466,30 +483,81 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
             {isAdmin && !selectedCell.day.isFuture && manualMode ? (
               <div className="space-y-3 pt-1">
-                <p className="text-xs text-gray-500">
-                  Set punch-in / punch-out for this date. Leave a field blank to clear it. This overrides the
-                  device punch shown above and is saved directly to attendance records.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Punch in</label>
-                    <input
-                      type="time"
-                      value={manualIn}
-                      onChange={(e) => setManualIn(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Punch out</label>
-                    <input
-                      type="time"
-                      value={manualOut}
-                      onChange={(e) => setManualOut(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
-                    />
-                  </div>
+                <div className="flex gap-1.5 p-1 bg-gray-100 rounded-lg w-fit">
+                  {([
+                    { id: 'punch' as const, label: 'Present / punch times' },
+                    { id: 'leave' as const, label: 'Leave' },
+                  ]).map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setManualEntryKind(id)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        manualEntryKind === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
+
+                {manualEntryKind === 'punch' ? (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Set punch-in / punch-out for this date. Leave a field blank to clear it. This overrides the
+                      device punch shown above and is saved directly to attendance records.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Punch in</label>
+                        <input
+                          type="time"
+                          value={manualIn}
+                          onChange={(e) => setManualIn(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Punch out</label>
+                        <input
+                          type="time"
+                          value={manualOut}
+                          onChange={(e) => setManualOut(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-500">
+                      Marks this single date as an already-approved leave for {selectedCell.employeeName}.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Leave type</label>
+                      <select
+                        value={manualLeaveType}
+                        onChange={(e) => setManualLeaveType(e.target.value as LeaveType)}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                      >
+                        {LEAVE_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                      <input
+                        type="text"
+                        value={manualLeaveNotes}
+                        onChange={(e) => setManualLeaveNotes(e.target.value)}
+                        placeholder="e.g. Approved verbally, backdated entry..."
+                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                      />
+                    </div>
+                  </>
+                )}
+
                 {manualError && (
                   <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{manualError}</p>
                 )}
