@@ -308,7 +308,7 @@ export function buildEmployeeAttendanceReport(
   dateKey = getISTDateKey(),
 ): EmployeeAttendanceRow[] {
   return employees
-    .filter((e) => e.role === 'employee' && e.status === 'Active')
+    .filter((e) => (e.role === 'employee' || e.role === 'admin') && e.status === 'Active')
     .map((employee) => {
       const summary = summarizeDayAttendance(records, employee.id, dateKey);
       return {

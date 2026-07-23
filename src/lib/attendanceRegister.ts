@@ -324,8 +324,10 @@ export function buildAttendanceRegister(
   options?: { employeeId?: string },
 ): AttendanceRegisterData {
   const days = buildSalaryCycleDayColumns(year, month);
+  // Admins are staff too — they just don't punch via geofence by default.
+  // Include them so manually-entered attendance shows up in the register.
   const staff = employees
-    .filter((e) => e.role === 'employee' && e.status === 'Active')
+    .filter((e) => (e.role === 'employee' || e.role === 'admin') && e.status === 'Active')
     .filter((e) => !options?.employeeId || e.id === options.employeeId)
     .sort((a, b) => a.name.localeCompare(b.name));
 

@@ -110,6 +110,13 @@ interface AppState {
   // Attendance
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
   submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
+  /** Admin-only: manually record punch in/out for any employee on a given date (YYYY-MM-DD, IST). */
+  addManualAttendance: (
+    employeeId: string,
+    dateKey: string,
+    punchInTime?: string,
+    punchOutTime?: string,
+  ) => Promise<{ error: string | null }>;
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
@@ -1440,6 +1447,94 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((s) => ({
       attendanceRecords: [record, ...s.attendanceRecords],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  addManualAttendance: async (employeeId, dateKey, punchInTime, punchOutTime) => {
+    const state = get();
+    const employee = state.employees.find((e) => e.id === employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!punchInTime && !punchOutTime) {
+      return { error: 'Enter at least a punch-in or punch-out time.' };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+      return { error: 'Invalid date.' };
+    }
+
+    const toTimestamp = (time: string): string | null => {
+      if (!/^\d{2}:\d{2}$/.test(time)) return null;
+      // Build the wall-clock time as IST (+05:30) explicitly so the stored
+      // UTC instant matches the intended local time regardless of the
+      // admin's own browser timezone.
+      return new Date(`${dateKey}T${time}:00+05:30`).toISOString();
+    };
+
+    const newRecords: AttendanceRecord[] = [];
+    if (punchInTime) {
+      const punchedAt = toTimestamp(punchInTime);
+      if (!punchedAt) return { error: 'Invalid punch-in time.' };
+      newRecords.push({
+        id: newId(),
+        employeeId,
+        employeeName: employee.name,
+        punchType: 'in',
+        punchedAt,
+        latitude: OFFICE_LOCATION.latitude,
+        longitude: OFFICE_LOCATION.longitude,
+        accuracyM: 0,
+        distanceM: 0,
+        withinOffice: true,
+        officeAddress: `Manual entry by ${state.currentUser.name}`,
+      });
+    }
+    if (punchOutTime) {
+      const punchedAt = toTimestamp(punchOutTime);
+      if (!punchedAt) return { error: 'Invalid punch-out time.' };
+      newRecords.push({
+        id: newId(),
+        employeeId,
+        employeeName: employee.name,
+        punchType: 'out',
+        punchedAt,
+        latitude: OFFICE_LOCATION.latitude,
+        longitude: OFFICE_LOCATION.longitude,
+        accuracyM: 0,
+        distanceM: 0,
+        withinOffice: true,
+        officeAddress: `Manual entry by ${state.currentUser.name}`,
+      });
+    }
+
+    if (punchInTime && punchOutTime && newRecords[0].punchedAt >= newRecords[1].punchedAt) {
+      return { error: 'Punch-out time must be after punch-in time.' };
+    }
+
+    for (const record of newRecords) {
+      const persistResult = await persistAttendance(record);
+      if (persistResult.error) return { error: persistResult.error };
+    }
+
+    const timesLabel = [
+      punchInTime ? `in ${punchInTime}` : null,
+      punchOutTime ? `out ${punchOutTime}` : null,
+    ].filter(Boolean).join(', ');
+
+    const activity = createActivityEvent(
+      'Manual Attendance Entry',
+      'attendance',
+      employeeId,
+      employee.name,
+      state.currentUser.name,
+      'admin',
+      `Marked attendance for ${employee.name} on ${dateKey} (${timesLabel}).`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      attendanceRecords: [...newRecords, ...s.attendanceRecords],
       activityLog: [activity, ...s.activityLog],
     }));
 

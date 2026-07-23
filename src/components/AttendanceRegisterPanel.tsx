@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, Download, RefreshCw, Info,
+  ChevronLeft, ChevronRight, Download, RefreshCw, Info, Pencil,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -17,12 +17,22 @@ import {
   type RegisterCellDetail,
   type RegisterDayColumn,
 } from '../lib/attendanceRegister';
-import { getISTDateKey } from '../lib/attendance';
+import { getISTDateKey, summarizeDayAttendance } from '../lib/attendance';
 import { departmentColors } from '../utils/helpers';
 
 const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission',
+  'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Admin',
 ];
+
+/** ISO punchedAt -> "HH:mm" 24h string in IST, for prefilling <input type="time">. */
+function toHHMM(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
 
 interface AttendanceRegisterPanelProps {
   /** When set, show only this employee's row (employee dashboard). */
@@ -43,17 +53,63 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const leaveRequests = useStore((s) => s.leaveRequests);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
+  const viewMode = useStore((s) => s.viewMode);
+  const addManualAttendance = useStore((s) => s.addManualAttendance);
+  const isAdmin = viewMode === 'admin' && !employeeId;
 
   const now = new Date();
   const [monthValue, setMonthValue] = useState(formatYearMonth(now.getFullYear(), now.getMonth() + 1));
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
+    employeeId: string;
     employeeName: string;
     department: string;
     day: RegisterDayColumn;
     cell: RegisterCellDetail;
   } | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualIn, setManualIn] = useState('');
+  const [manualOut, setManualOut] = useState('');
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualSaving, setManualSaving] = useState(false);
+
+  // Whenever a new cell is opened, prefill the manual-entry form from the
+  // employee's actual raw punch records for that day (not the formatted
+  // display strings, which are locale text like "09:30:15 am").
+  useEffect(() => {
+    if (!selectedCell) {
+      setManualMode(false);
+      setManualError(null);
+      return;
+    }
+    const summary = summarizeDayAttendance(attendanceRecords, selectedCell.employeeId, selectedCell.day.dateKey);
+    setManualIn(summary.punchIn ? toHHMM(summary.punchIn.punchedAt) : '');
+    setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
+    setManualMode(false);
+    setManualError(null);
+  }, [selectedCell, attendanceRecords]);
+
+  const handleSaveManual = async () => {
+    if (!selectedCell) return;
+    setManualSaving(true);
+    setManualError(null);
+    try {
+      const result = await addManualAttendance(
+        selectedCell.employeeId,
+        selectedCell.day.dateKey,
+        manualIn || undefined,
+        manualOut || undefined,
+      );
+      if (result.error) {
+        setManualError(result.error);
+        return;
+      }
+      setManualMode(false);
+    } finally {
+      setManualSaving(false);
+    }
+  };
 
   const { year, month } = parseYearMonth(monthValue);
 
@@ -330,6 +386,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                             type="button"
                             onClick={() =>
                               setSelectedCell({
+                                employeeId: row.employeeId,
                                 employeeName: row.employeeName,
                                 department: row.department,
                                 day,
@@ -369,20 +426,76 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           subtitle={`${selectedCell.day.weekday}, ${selectedCell.day.dateKey}`}
           size="sm"
           footer={
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)}>Close</Button>
+            <div className="flex justify-end gap-2">
+              {isAdmin && !selectedCell.day.isFuture && manualMode && (
+                <Button variant="outline" size="sm" onClick={() => setManualMode(false)} disabled={manualSaving}>
+                  Cancel
+                </Button>
+              )}
+              {isAdmin && !selectedCell.day.isFuture && manualMode ? (
+                <Button variant="primary" size="sm" onClick={() => void handleSaveManual()} disabled={manualSaving}>
+                  {manualSaving ? 'Saving...' : 'Save'}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)}>Close</Button>
+              )}
             </div>
           }
         >
           <div className="p-6 space-y-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex h-8 w-8 items-center justify-center rounded font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
-              >
-                {displayCode(selectedCell.cell.code)}
-              </span>
-              <span className="font-medium text-gray-900">{selectedCell.cell.label}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+                >
+                  {displayCode(selectedCell.cell.code)}
+                </span>
+                <span className="font-medium text-gray-900">{selectedCell.cell.label}</span>
+              </div>
+              {isAdmin && !selectedCell.day.isFuture && !manualMode && (
+                <button
+                  type="button"
+                  onClick={() => setManualMode(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Mark manually
+                </button>
+              )}
             </div>
+
+            {isAdmin && !selectedCell.day.isFuture && manualMode ? (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-gray-500">
+                  Set punch-in / punch-out for this date. Leave a field blank to clear it. This overrides the
+                  device punch shown above and is saved directly to attendance records.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Punch in</label>
+                    <input
+                      type="time"
+                      value={manualIn}
+                      onChange={(e) => setManualIn(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Punch out</label>
+                    <input
+                      type="time"
+                      value={manualOut}
+                      onChange={(e) => setManualOut(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                    />
+                  </div>
+                </div>
+                {manualError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{manualError}</p>
+                )}
+              </div>
+            ) : (
+              <>
             {selectedCell.cell.punchInTime && (
               <p className="text-xs text-gray-600">Punch in: <span className="font-medium">{selectedCell.cell.punchInTime}</span></p>
             )}
@@ -400,6 +513,8 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             )}
             {selectedCell.cell.leaveReason && (
               <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg p-3">{selectedCell.cell.leaveReason}</p>
+            )}
+              </>
             )}
           </div>
         </Modal>
