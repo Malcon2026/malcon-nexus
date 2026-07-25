@@ -93,6 +93,11 @@ export const Employees: React.FC = () => {
     .filter(e => filterDept === 'All' || e.department === filterDept)
     .filter(e => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()));
 
+  const teamEmployees = employees.filter((e) => e.role === 'employee');
+  const totalEmployees = teamEmployees.length;
+  const totalActive = teamEmployees.filter((e) => e.casesActive > 0).length;
+  const totalCompleted = teamEmployees.reduce((s, e) => s + e.casesCompleted, 0);
+
   const deptStats = DEPARTMENTS.slice(1).map(dept => ({
     dept,
     employees: employees.filter(e => e.department === dept),
@@ -134,6 +139,25 @@ export const Employees: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <Card
+          className="p-3 cursor-pointer hover:shadow-md transition-shadow border-gray-900/10 bg-gray-50"
+          onClick={() => setFilterDept('All')}
+        >
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-gray-700" />
+            <p className="text-xs font-semibold text-gray-900 truncate">Total</p>
+          </div>
+          <div className="mt-2 flex items-end justify-between">
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
+              <p className="text-[10px] text-gray-400">employees</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-semibold text-indigo-600">{totalActive} active</p>
+              <p className="text-[10px] text-gray-400">{totalCompleted} done</p>
+            </div>
+          </div>
+        </Card>
         {deptStats.map(({ dept, employees: emps, active, completed }) => (
           <Card key={dept as string} className="p-3 cursor-pointer hover:shadow-md transition-shadow" onClick={() => setFilterDept(dept as Department)}>
             <p className="text-xs font-semibold text-gray-900 truncate">{dept}</p>
