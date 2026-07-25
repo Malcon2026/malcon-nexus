@@ -1919,7 +1919,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (state.currentUser.role !== 'admin') {
       return { error: 'Only admins can update the notice board.' };
     }
-    const value = notice.trim().slice(0, 500);
+    // Allow rich HTML; length is enforced in the editor by plain-text count.
+    const value = notice.trim().slice(0, 8000);
     try {
       await sbSettingsRepo.set('employee_notice', value, state.currentUser.name);
     } catch (err) {

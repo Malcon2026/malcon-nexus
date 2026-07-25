@@ -70,6 +70,52 @@ svg {
   }
 }
 
+/* Rich text notice content */
+.notice-html p {
+  margin: 0 0 0.35em;
+}
+.notice-html p:last-child {
+  margin-bottom: 0;
+}
+.notice-html ul,
+.notice-html ol {
+  margin: 0.25em 0 0.35em;
+  padding-left: 1.25rem;
+}
+.notice-html li {
+  margin: 0.1em 0;
+}
+.notice-html a {
+  color: #b45309;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.notice-html strong,
+.notice-html b {
+  font-weight: 700;
+}
+.notice-html em,
+.notice-html i {
+  font-style: italic;
+}
+.notice-html u {
+  text-decoration: underline;
+}
+.notice-html s,
+.notice-html strike {
+  text-decoration: line-through;
+}
+
+.notice-rich-editor ul,
+.notice-rich-editor ol {
+  margin: 0.25em 0;
+  padding-left: 1.25rem;
+}
+.notice-rich-editor a {
+  color: #b45309;
+  text-decoration: underline;
+}
+
 /* Employee notice board — marching dashes only (no filled box) */
 .notice-board {
   position: relative;

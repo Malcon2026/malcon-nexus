@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Megaphone } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { isNoticeEmpty, sanitizeNoticeHtml } from '../lib/noticeHtml';
 
 /**
  * Compact notice strip for the employee dashboard.
@@ -23,7 +24,9 @@ export const NoticeBoard: React.FC = () => {
     };
   }, [loadAppSettings]);
 
-  if (!ready || !notice) return null;
+  if (!ready || isNoticeEmpty(notice)) return null;
+
+  const safeHtml = sanitizeNoticeHtml(notice);
 
   return (
     <motion.aside
@@ -43,9 +46,10 @@ export const NoticeBoard: React.FC = () => {
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">
             Notice Board
           </p>
-          <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words">
-            {notice}
-          </p>
+          <div
+            className="notice-html text-sm text-stone-800 leading-snug break-words"
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />
         </div>
       </div>
     </motion.aside>

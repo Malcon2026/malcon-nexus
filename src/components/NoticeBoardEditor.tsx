@@ -2,9 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Megaphone, Save, Loader2, Trash2 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
+import { RichTextEditor } from './RichTextEditor';
 import { useStore } from '../store/useStore';
+import {
+  isNoticeEmpty,
+  normalizeNoticeHtml,
+  noticeTextLength,
+  sanitizeNoticeHtml,
+} from '../lib/noticeHtml';
 
-const MAX_LEN = 500;
+const MAX_TEXT = 800;
 
 /** Admin editor for the employee dashboard notice board. */
 export const NoticeBoardEditor: React.FC = () => {
@@ -23,7 +30,7 @@ export const NoticeBoardEditor: React.FC = () => {
     void (async () => {
       await loadAppSettings();
       if (!cancelled) {
-        setDraft(getEmployeeNotice());
+        setDraft(normalizeNoticeHtml(getEmployeeNotice()));
         setLoading(false);
       }
     })();
@@ -32,17 +39,25 @@ export const NoticeBoardEditor: React.FC = () => {
     };
   }, [loadAppSettings, getEmployeeNotice]);
 
+  const textLen = noticeTextLength(draft);
+  const hasContent = !isNoticeEmpty(draft);
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     setSaved(false);
     try {
-      const result = await setEmployeeNotice(draft);
+      if (textLen > MAX_TEXT) {
+        setError(`Notice is too long (${textLen}/${MAX_TEXT} characters).`);
+        return;
+      }
+      const clean = hasContent ? sanitizeNoticeHtml(draft) : '';
+      const result = await setEmployeeNotice(clean);
       if (result.error) {
         setError(result.error);
         return;
       }
-      setDraft(getEmployeeNotice());
+      setDraft(normalizeNoticeHtml(getEmployeeNotice()));
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2000);
     } finally {
@@ -67,8 +82,6 @@ export const NoticeBoardEditor: React.FC = () => {
     }
   };
 
-  const preview = draft.trim();
-
   return (
     <Card>
       <CardHeader>
@@ -79,7 +92,8 @@ export const NoticeBoardEditor: React.FC = () => {
       </CardHeader>
       <CardBody className="space-y-4">
         <p className="text-xs text-gray-500">
-          Shown at the top of every employee dashboard. Leave empty to hide the notice.
+          Shown at the top of every employee dashboard. Use the toolbar for bold, italic, lists, and more.
+          Leave empty to hide the notice.
         </p>
 
         {loading ? (
@@ -91,16 +105,16 @@ export const NoticeBoardEditor: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-gray-700">Notice message</label>
-                <span className={`text-[10px] ${draft.length > MAX_LEN ? 'text-red-600' : 'text-gray-400'}`}>
-                  {draft.length}/{MAX_LEN}
+                <span className={`text-[10px] ${textLen > MAX_TEXT ? 'text-red-600' : 'text-gray-400'}`}>
+                  {textLen}/{MAX_TEXT}
                 </span>
               </div>
-              <textarea
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-100 bg-white min-h-[100px] resize-y"
-                placeholder="e.g. Office closed Friday for inventory. Report Monday 9 AM."
+              <RichTextEditor
                 value={draft}
-                maxLength={MAX_LEN}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={setDraft}
+                placeholder="e.g. Office closed Friday for inventory. Report Monday 9 AM."
+                minHeight="140px"
+                disabled={saving}
               />
             </div>
 
@@ -108,7 +122,7 @@ export const NoticeBoardEditor: React.FC = () => {
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400 mb-2">
                 Preview
               </p>
-              {preview ? (
+              {hasContent ? (
                 <aside className="notice-board">
                   <div className="notice-board-dashes" aria-hidden />
                   <div className="relative flex gap-3 items-start px-3.5 py-3">
@@ -119,14 +133,15 @@ export const NoticeBoardEditor: React.FC = () => {
                       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">
                         Notice Board
                       </p>
-                      <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words">
-                        {preview}
-                      </p>
+                      <div
+                        className="notice-html text-sm text-stone-800 leading-snug break-words"
+                        dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(draft) }}
+                      />
                     </div>
                   </div>
                 </aside>
               ) : (
-                <p className="text-xs text-gray-400 italic py-3 px-3 rounded-xl border border-dashed border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-400 italic py-3 px-3 border border-dashed border-gray-200 bg-gray-50">
                   No notice — employees will not see the notice board.
                 </p>
               )}
@@ -147,7 +162,7 @@ export const NoticeBoardEditor: React.FC = () => {
                 size="sm"
                 icon={<Trash2 className="h-3.5 w-3.5" />}
                 onClick={() => void handleClear()}
-                disabled={saving || (!draft && !getEmployeeNotice())}
+                disabled={saving || (!hasContent && isNoticeEmpty(getEmployeeNotice()))}
               >
                 Clear
               </Button>
@@ -156,7 +171,7 @@ export const NoticeBoardEditor: React.FC = () => {
                 size="sm"
                 icon={saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 onClick={() => void handleSave()}
-                disabled={saving}
+                disabled={saving || textLen > MAX_TEXT}
               >
                 Save Notice
               </Button>
