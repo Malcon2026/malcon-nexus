@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, TrendingUp, CheckCircle2, Clock, Mail, Phone, Plus, Trash2, Edit3, Upload } from 'lucide-react';
+import { Search, TrendingUp, CheckCircle2, Clock, Mail, Phone, Plus, Trash2, Edit3, Upload, Users } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Card, CardBody } from '../components/ui/Card';
