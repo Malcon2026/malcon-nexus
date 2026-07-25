@@ -77,11 +77,15 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const [manualOut, setManualOut] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSaving, setManualSaving] = useState(false);
+  const [showCompOffWorkDay, setShowCompOffWorkDay] = useState(false);
+  const [compOffWorkDate, setCompOffWorkDate] = useState('');
 
   useEffect(() => {
     if (!selectedCell) {
       setShowTimes(false);
       setManualError(null);
+      setShowCompOffWorkDay(false);
+      setCompOffWorkDate('');
       return;
     }
     const summary = summarizeDayAttendance(attendanceRecords, selectedCell.employeeId, selectedCell.day.dateKey);
@@ -89,6 +93,8 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
     setShowTimes(false);
     setManualError(null);
+    setShowCompOffWorkDay(false);
+    setCompOffWorkDate('');
   }, [selectedCell, attendanceRecords]);
 
   const applyMark = async (
@@ -108,6 +114,19 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         );
       } else if (kind === 'absent') {
         result = await markManualAbsent(selectedCell.employeeId, selectedCell.day.dateKey);
+      } else if (kind === 'Comp Off') {
+        if (!compOffWorkDate) {
+          setManualError('Select the day they will work for this Comp Off.');
+          setShowCompOffWorkDay(true);
+          return;
+        }
+        result = await addManualLeave(
+          selectedCell.employeeId,
+          selectedCell.day.dateKey,
+          kind,
+          '',
+          compOffWorkDate,
+        );
       } else {
         result = await addManualLeave(selectedCell.employeeId, selectedCell.day.dateKey, kind);
       }
@@ -453,11 +472,14 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               <span className="text-xs font-medium text-gray-700">{selectedCell.cell.label}</span>
             </div>
 
-            {(selectedCell.cell.punchInTime || selectedCell.cell.punchOutTime || selectedCell.cell.leaveType) && (
+            {(selectedCell.cell.punchInTime || selectedCell.cell.punchOutTime || selectedCell.cell.leaveType || selectedCell.cell.compOffWorkDate) && (
               <div className="text-[11px] text-gray-500 space-y-0.5">
                 {selectedCell.cell.punchInTime && <p>In: {selectedCell.cell.punchInTime}</p>}
                 {selectedCell.cell.punchOutTime && <p>Out: {selectedCell.cell.punchOutTime}</p>}
                 {selectedCell.cell.leaveType && <p>Leave: {selectedCell.cell.leaveType}</p>}
+                {selectedCell.cell.compOffWorkDate && (
+                  <p>Work day: {selectedCell.cell.compOffWorkDate}</p>
+                )}
               </div>
             )}
 
@@ -504,7 +526,15 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       key={t.value}
                       type="button"
                       disabled={manualSaving}
-                      onClick={() => void applyMark(t.value)}
+                      onClick={() => {
+                        if (t.value === 'Comp Off') {
+                          setCompOffWorkDate('');
+                          setShowCompOffWorkDay(true);
+                          setManualError(null);
+                          return;
+                        }
+                        void applyMark(t.value);
+                      }}
                       className={`px-2.5 py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 ${
                         t.value === 'Comp Off'
                           ? 'bg-violet-50 text-violet-800 border-violet-200 hover:bg-violet-100'
@@ -515,6 +545,44 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     </button>
                   ))}
                 </div>
+
+                {showCompOffWorkDay && (
+                  <div className="space-y-2 p-2.5 rounded-lg bg-violet-50/70 border border-violet-100">
+                    <p className="text-[11px] font-medium text-violet-900">
+                      Comp Off — select the day they work
+                    </p>
+                    <input
+                      type="date"
+                      value={compOffWorkDate}
+                      onChange={(e) => setCompOffWorkDate(e.target.value)}
+                      className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md bg-white"
+                    />
+                    <p className="text-[10px] text-violet-700/80">
+                      Usually a Sunday (or other day) worked in lieu of this leave day.
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        disabled={manualSaving || !compOffWorkDate}
+                        onClick={() => void applyMark('Comp Off')}
+                        className="flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                      >
+                        Confirm Comp Off
+                      </button>
+                      <button
+                        type="button"
+                        disabled={manualSaving}
+                        onClick={() => {
+                          setShowCompOffWorkDay(false);
+                          setCompOffWorkDate('');
+                        }}
+                        className="px-2.5 py-2 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-white disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="button"

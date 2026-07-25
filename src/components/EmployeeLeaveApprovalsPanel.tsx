@@ -10,7 +10,7 @@ import { Modal } from './ui/Modal';
 import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { LeaveRequest } from '../types';
-import { countWorkingLeaveDays, formatLeaveDateRange } from '../lib/leave';
+import { countWorkingLeaveDays, formatCompOffWorkDate, formatLeaveDateRange } from '../lib/leave';
 
 const statusConfig = {
   pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -160,6 +160,11 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
                           {' · '}
                           <span className="text-gray-500">{days} working day{days === 1 ? '' : 's'}</span>
                         </p>
+                        {request.leaveType === 'Comp Off' && request.compOffWorkDate && (
+                          <p className="text-xs text-violet-700 mt-1">
+                            Work day: {formatCompOffWorkDate(request.compOffWorkDate)}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-600 mt-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                           {request.reason}
                         </p>
@@ -205,7 +210,11 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
           isOpen
           onClose={closeReview}
           title={reviewAction === 'approve' ? 'Approve Leave' : 'Reject Leave'}
-          subtitle={`${reviewing.employeeName} — ${reviewing.leaveType} (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)})`}
+          subtitle={
+            reviewing.leaveType === 'Comp Off' && reviewing.compOffWorkDate
+              ? `${reviewing.employeeName} — Comp Off (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)}), work day ${formatCompOffWorkDate(reviewing.compOffWorkDate)}`
+              : `${reviewing.employeeName} — ${reviewing.leaveType} (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)})`
+          }
           size="sm"
           footer={
             <div className="flex justify-end gap-2">

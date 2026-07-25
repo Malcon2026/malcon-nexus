@@ -257,6 +257,11 @@ export interface LeaveRequest {
   reviewedAt: string | null;
   adminNotes: string;
   createdAt: string;
+  /**
+   * Comp Off only: the day the employee works / worked in lieu of the leave.
+   * Null for other leave types.
+   */
+  compOffWorkDate: string | null;
 }
 
 /** Admin-only manual daily log of travel/food/other spend per employee per day. */

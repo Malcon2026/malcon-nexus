@@ -36,12 +36,28 @@ export function findOverlappingLeave(
   );
 }
 
+export function validateCompOffWorkDate(
+  fromDate: string,
+  toDate: string,
+  workDate: string | null | undefined,
+): { error: string | null } {
+  if (!workDate || !/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
+    return { error: 'Please select the day you will work for this Comp Off.' };
+  }
+  if (workDate >= fromDate && workDate <= toDate) {
+    return { error: 'Work day cannot fall inside the Comp Off leave dates.' };
+  }
+  return { error: null };
+}
+
 export function validateLeaveApplication(
   requests: LeaveRequest[],
   employeeId: string,
   fromDate: string,
   toDate: string,
   reason: string,
+  leaveType?: LeaveType,
+  compOffWorkDate?: string | null,
 ): { error: string | null } {
   if (!fromDate || !toDate) {
     return { error: 'Please select from and to dates.' };
@@ -60,6 +76,11 @@ export function validateLeaveApplication(
     return { error: 'Please provide a reason (at least 10 characters).' };
   }
 
+  if (leaveType === 'Comp Off') {
+    const workCheck = validateCompOffWorkDate(fromDate, toDate, compOffWorkDate);
+    if (workCheck.error) return workCheck;
+  }
+
   const overlap = findOverlappingLeave(requests, employeeId, fromDate, toDate);
   if (overlap) {
     return {
@@ -68,6 +89,16 @@ export function validateLeaveApplication(
   }
 
   return { error: null };
+}
+
+export function formatCompOffWorkDate(workDate: string | null | undefined): string | null {
+  if (!workDate) return null;
+  return new Date(`${workDate}T12:00:00`).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    weekday: 'short',
+  });
 }
 
 export function countWorkingLeaveDays(fromDate: string, toDate: string): number {

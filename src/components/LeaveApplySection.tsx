@@ -7,7 +7,12 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { useStore } from '../store/useStore';
 import type { LeaveRequest, LeaveType } from '../types';
-import { LEAVE_TYPES, countWorkingLeaveDays, formatLeaveDateRange } from '../lib/leave';
+import {
+  LEAVE_TYPES,
+  countWorkingLeaveDays,
+  formatCompOffWorkDate,
+  formatLeaveDateRange,
+} from '../lib/leave';
 import { getISTDateKey } from '../lib/attendance';
 
 const inputClass =
@@ -30,6 +35,7 @@ export const LeaveApplySection: React.FC = () => {
   const [leaveType, setLeaveType] = useState<LeaveType>('Casual');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [compOffWorkDate, setCompOffWorkDate] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,14 +63,25 @@ export const LeaveApplySection: React.FC = () => {
     setSuccess(null);
     setSubmitting(true);
     try {
-      const result = await applyLeave(leaveType, fromDate, toDate || fromDate, reason);
+      const result = await applyLeave(
+        leaveType,
+        fromDate,
+        toDate || fromDate,
+        reason,
+        leaveType === 'Comp Off' ? compOffWorkDate : null,
+      );
       if (result.error) {
         setError(result.error);
         return;
       }
-      setSuccess('Leave request submitted. Awaiting admin approval.');
+      setSuccess(
+        leaveType === 'Comp Off'
+          ? 'Comp Off submitted with work day. Awaiting admin approval.'
+          : 'Leave request submitted. Awaiting admin approval.',
+      );
       setFromDate('');
       setToDate('');
+      setCompOffWorkDate('');
       setReason('');
       setShowForm(false);
     } finally {
@@ -108,7 +125,11 @@ export const LeaveApplySection: React.FC = () => {
                 <select
                   className={inputClass}
                   value={leaveType}
-                  onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                  onChange={(e) => {
+                    const next = e.target.value as LeaveType;
+                    setLeaveType(next);
+                    if (next !== 'Comp Off') setCompOffWorkDate('');
+                  }}
                 >
                   {LEAVE_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -147,6 +168,21 @@ export const LeaveApplySection: React.FC = () => {
                   required
                 />
               </div>
+              {leaveType === 'Comp Off' && (
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>Work day (day you will work) *</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={compOffWorkDate}
+                    onChange={(e) => setCompOffWorkDate(e.target.value)}
+                    required
+                  />
+                  <p className="text-[11px] text-indigo-700/80 mt-1.5">
+                    Select the Sunday (or other day) you work in lieu of this Comp Off leave.
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <label className={labelClass}>Reason *</label>
@@ -190,6 +226,11 @@ export const LeaveApplySection: React.FC = () => {
                       <Badge className={`${statusBadge[lr.status]} text-xs capitalize`}>{lr.status}</Badge>
                     </div>
                     <p className="text-xs text-gray-600 mt-0.5">{formatLeaveDateRange(lr.fromDate, lr.toDate)}</p>
+                    {lr.leaveType === 'Comp Off' && lr.compOffWorkDate && (
+                      <p className="text-xs text-violet-700 mt-0.5">
+                        Work day: {formatCompOffWorkDate(lr.compOffWorkDate)}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-400 truncate mt-0.5">{lr.reason}</p>
                   </div>
                   {lr.status === 'pending' && (

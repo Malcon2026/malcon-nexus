@@ -20,7 +20,7 @@ import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getISTDateKey } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
-import { validateLeaveApplication } from '../lib/leave';
+import { validateCompOffWorkDate, validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
@@ -131,7 +131,13 @@ interface AppState {
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
 
   // Leave
-  applyLeave: (leaveType: LeaveType, fromDate: string, toDate: string, reason: string) => Promise<{ error: string | null }>;
+  applyLeave: (
+    leaveType: LeaveType,
+    fromDate: string,
+    toDate: string,
+    reason: string,
+    compOffWorkDate?: string | null,
+  ) => Promise<{ error: string | null }>;
   cancelLeave: (requestId: string) => Promise<{ error: string | null }>;
   approveLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
@@ -141,6 +147,7 @@ interface AppState {
     dateKey: string,
     leaveType: LeaveType,
     notes?: string,
+    compOffWorkDate?: string | null,
   ) => Promise<{ error: string | null }>;
   /** Admin-only: clear punches + single-day leave so the register shows Absent (or WO on Sunday). */
   markManualAbsent: (
@@ -1636,11 +1643,18 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  addManualLeave: async (employeeId, dateKey, leaveType, notes = '') => {
+  addManualLeave: async (employeeId, dateKey, leaveType, notes = '', compOffWorkDate = null) => {
     const state = get();
     const employee = state.employees.find((e) => e.id === employeeId);
     if (!employee) return { error: 'Employee not found.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return { error: 'Invalid date.' };
+
+    let workDate: string | null = null;
+    if (leaveType === 'Comp Off') {
+      const workCheck = validateCompOffWorkDate(dateKey, dateKey, compOffWorkDate);
+      if (workCheck.error) return workCheck;
+      workDate = compOffWorkDate!.trim();
+    }
 
     const clearResult = await clearManualDayEntries(
       employeeId,
@@ -1673,12 +1687,30 @@ export const useStore = create<AppState>((set, get) => ({
       reviewedBy: state.currentUser.name,
       reviewedById: state.currentUser.id,
       reviewedAt,
-      adminNotes: `Manually marked ${leaveType} leave from the attendance register.`,
+      adminNotes: leaveType === 'Comp Off' && workDate
+        ? `Manually marked Comp Off from the attendance register (work day: ${workDate}).`
+        : `Manually marked ${leaveType} leave from the attendance register.`,
       createdAt: reviewedAt,
+      compOffWorkDate: workDate,
     };
 
     const persistResult = await persistLeaveRequest(request);
     if (persistResult.error) return persistResult;
+
+    // For Comp Off, also credit Present on the chosen work day if it has no punches yet.
+    if (workDate) {
+      const hasWorkPunches = get().attendanceRecords.some(
+        (r) => r.employeeId === employeeId && getISTDateKey(r.punchedAt) === workDate,
+      );
+      if (!hasWorkPunches) {
+        const presentResult = await get().addManualAttendance(employeeId, workDate);
+        if (presentResult.error) {
+          return {
+            error: `Comp Off saved, but could not mark Present on work day ${workDate}: ${presentResult.error}`,
+          };
+        }
+      }
+    }
 
     const activity = createActivityEvent(
       'Manual Leave Entry',
@@ -1687,12 +1719,14 @@ export const useStore = create<AppState>((set, get) => ({
       employee.name,
       state.currentUser.name,
       'admin',
-      `Marked ${leaveType} leave for ${employee.name} on ${dateKey}.`,
+      leaveType === 'Comp Off' && workDate
+        ? `Marked Comp Off for ${employee.name} on ${dateKey} (work day ${workDate}).`
+        : `Marked ${leaveType} leave for ${employee.name} on ${dateKey}.`,
     );
     persistActivity(activity);
 
     set((s) => ({
-      leaveRequests: [request, ...s.leaveRequests],
+      leaveRequests: [request, ...s.leaveRequests.filter((lr) => lr.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
     }));
 
@@ -2098,10 +2132,21 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  applyLeave: async (leaveType, fromDate, toDate, reason) => {
+  applyLeave: async (leaveType, fromDate, toDate, reason, compOffWorkDate = null) => {
     const { currentUser, leaveRequests } = get();
-    const validation = validateLeaveApplication(leaveRequests, currentUser.id, fromDate, toDate, reason);
+    const validation = validateLeaveApplication(
+      leaveRequests,
+      currentUser.id,
+      fromDate,
+      toDate,
+      reason,
+      leaveType,
+      compOffWorkDate,
+    );
     if (validation.error) return validation;
+
+    const workDate =
+      leaveType === 'Comp Off' && compOffWorkDate ? compOffWorkDate.trim() : null;
 
     const createdAt = new Date().toISOString();
     const request: LeaveRequest = {
@@ -2118,6 +2163,7 @@ export const useStore = create<AppState>((set, get) => ({
       reviewedAt: null,
       adminNotes: '',
       createdAt,
+      compOffWorkDate: workDate,
     };
 
     const persistResult = await persistLeaveRequest(request);
@@ -2132,14 +2178,18 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: createdAt,
-      details: `${leaveType} leave ${fromDate} to ${toDate}: ${reason.trim()}`,
+      details: workDate
+        ? `${leaveType} leave ${fromDate} to ${toDate} (work day ${workDate}): ${reason.trim()}`
+        : `${leaveType} leave ${fromDate} to ${toDate}: ${reason.trim()}`,
     };
     persistActivity(activity);
 
     const notif: Notification = {
       id: newId(),
       title: 'Leave Request',
-      message: `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}).`,
+      message: workDate
+        ? `${currentUser.name} requested Comp Off (${fromDate} to ${toDate}), work day ${workDate}.`
+        : `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}).`,
       type: 'info',
       timestamp: createdAt,
       read: false,
@@ -2197,6 +2247,22 @@ export const useStore = create<AppState>((set, get) => ({
     const updateResult = await updateLeaveRequest(requestId, updates);
     if (updateResult.error) return updateResult;
 
+    // Comp Off: credit Present on the declared work day if punches are missing.
+    if (request.leaveType === 'Comp Off' && request.compOffWorkDate) {
+      const workDate = request.compOffWorkDate;
+      const hasWorkPunches = get().attendanceRecords.some(
+        (r) => r.employeeId === request.employeeId && getISTDateKey(r.punchedAt) === workDate,
+      );
+      if (!hasWorkPunches) {
+        const presentResult = await get().addManualAttendance(request.employeeId, workDate);
+        if (presentResult.error) {
+          return {
+            error: `Leave approved, but could not mark Present on work day ${workDate}: ${presentResult.error}`,
+          };
+        }
+      }
+    }
+
     const activity: ActivityEvent = {
       id: newId(),
       action: 'Leave Approved',
@@ -2206,7 +2272,9 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: reviewedAt,
-      details: `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}).`,
+      details: request.compOffWorkDate
+        ? `Approved Comp Off for ${request.employeeName} (${request.fromDate} to ${request.toDate}, work day ${request.compOffWorkDate}).`
+        : `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}).`,
     };
     persistActivity(activity);
 

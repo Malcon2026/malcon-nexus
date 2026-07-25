@@ -7,7 +7,6 @@ import {
 } from './attendance';
 
 export type RegisterCellCode = 'P' | 'PI' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
-
 export const PAYABLE_DAYS_PER_CYCLE = 30;
 
 export interface RegisterCellDetail {
@@ -19,6 +18,8 @@ export interface RegisterCellDetail {
   leaveType?: string;
   leaveReason?: string;
   leaveStatus?: string;
+  /** Formatted Comp Off work day, when applicable. */
+  compOffWorkDate?: string;
 }
 
 export interface RegisterDayColumn {
@@ -200,6 +201,26 @@ function formatWorkedDuration(summary: TodayAttendanceSummary): string {
   return `${hours}h ${minutes}m`;
 }
 
+function leaveCellFields(leave: LeaveRequest): Pick<
+  RegisterCellDetail,
+  'leaveType' | 'leaveReason' | 'leaveStatus' | 'compOffWorkDate'
+> {
+  const workLabel = leave.compOffWorkDate
+    ? new Date(`${leave.compOffWorkDate}T12:00:00`).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        weekday: 'short',
+      })
+    : null;
+  return {
+    leaveType: leave.leaveType,
+    leaveReason: leave.reason,
+    leaveStatus: leave.status,
+    ...(workLabel ? { compOffWorkDate: workLabel } : {}),
+  };
+}
+
 export function resolveRegisterCell(
   dateKey: string,
   employeeId: string,
@@ -243,18 +264,14 @@ export function resolveRegisterCell(
       return {
         code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
         label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
-        leaveType: leave.leaveType,
-        leaveReason: leave.reason,
-        leaveStatus: leave.status,
+        ...leaveCellFields(leave),
       };
     }
     if (leave?.status === 'pending') {
       return {
         code: 'PL',
         label: `Pending ${leave.leaveType} leave`,
-        leaveType: leave.leaveType,
-        leaveReason: leave.reason,
-        leaveStatus: leave.status,
+        ...leaveCellFields(leave),
       };
     }
     return { code: 'WO', label: 'Sunday off' };
@@ -265,18 +282,14 @@ export function resolveRegisterCell(
       return {
         code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
         label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
-        leaveType: leave.leaveType,
-        leaveReason: leave.reason,
-        leaveStatus: leave.status,
+        ...leaveCellFields(leave),
       };
     }
     if (leave.status === 'pending') {
       return {
         code: 'PL',
         label: `Pending ${leave.leaveType} leave`,
-        leaveType: leave.leaveType,
-        leaveReason: leave.reason,
-        leaveStatus: leave.status,
+        ...leaveCellFields(leave),
       };
     }
   }

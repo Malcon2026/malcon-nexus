@@ -706,6 +706,25 @@ export const sbAttendanceApprovalRepo = {
 
 // ─── LEAVE REQUESTS ──────────────────────────────────────────
 
+function mapLeaveRow(row: Record<string, unknown>): LeaveRequest {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    leaveType: row.leave_type as LeaveRequest['leaveType'],
+    fromDate: row.from_date as string,
+    toDate: row.to_date as string,
+    reason: row.reason as string,
+    status: row.status as LeaveRequest['status'],
+    reviewedBy: (row.reviewed_by as string | null) ?? null,
+    reviewedById: (row.reviewed_by_id as string | null) ?? null,
+    reviewedAt: (row.reviewed_at as string | null) ?? null,
+    adminNotes: (row.admin_notes as string | null) ?? '',
+    createdAt: row.created_at as string,
+    compOffWorkDate: (row.comp_off_work_date as string | null) ?? null,
+  };
+}
+
 export const sbLeaveRepo = {
   async getAll(): Promise<LeaveRequest[]> {
     const { data, error } = await supabase
@@ -713,21 +732,7 @@ export const sbLeaveRepo = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      leaveType: row.leave_type as LeaveRequest['leaveType'],
-      fromDate: row.from_date,
-      toDate: row.to_date,
-      reason: row.reason,
-      status: row.status as LeaveRequest['status'],
-      reviewedBy: row.reviewed_by,
-      reviewedById: row.reviewed_by_id,
-      reviewedAt: row.reviewed_at,
-      adminNotes: row.admin_notes ?? '',
-      createdAt: row.created_at,
-    }));
+    return (data ?? []).map((row) => mapLeaveRow(row));
   },
 
   async getForEmployee(employeeId: string): Promise<LeaveRequest[]> {
@@ -737,21 +742,7 @@ export const sbLeaveRepo = {
       .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      leaveType: row.leave_type as LeaveRequest['leaveType'],
-      fromDate: row.from_date,
-      toDate: row.to_date,
-      reason: row.reason,
-      status: row.status as LeaveRequest['status'],
-      reviewedBy: row.reviewed_by,
-      reviewedById: row.reviewed_by_id,
-      reviewedAt: row.reviewed_at,
-      adminNotes: row.admin_notes ?? '',
-      createdAt: row.created_at,
-    }));
+    return (data ?? []).map((row) => mapLeaveRow(row));
   },
 
   async insert(request: LeaveRequest): Promise<void> {
@@ -769,6 +760,7 @@ export const sbLeaveRepo = {
       reviewed_at: request.reviewedAt,
       admin_notes: request.adminNotes,
       created_at: request.createdAt,
+      comp_off_work_date: request.compOffWorkDate,
     });
     if (error) throw error;
   },
