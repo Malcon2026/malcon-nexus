@@ -100,7 +100,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   }, [selectedCell, attendanceRecords]);
 
   const applyMark = async (
-    kind: 'present' | 'absent' | LeaveType,
+    kind: 'present' | 'absent' | 'force-absent' | LeaveType,
   ) => {
     if (!selectedCell) return;
     setManualSaving(true);
@@ -115,7 +115,16 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           showTimes ? (manualOut || undefined) : undefined,
         );
       } else if (kind === 'absent') {
+        // Week off = clear day (register shows WO). Weekday absent = clear day (shows A).
         result = await markManualAbsent(selectedCell.employeeId, selectedCell.day.dateKey);
+      } else if (kind === 'force-absent') {
+        // Explicit Absent on a Sunday — store Unpaid leave so register shows A, not WO.
+        result = await addManualLeave(
+          selectedCell.employeeId,
+          selectedCell.day.dateKey,
+          'Unpaid',
+          'Marked Absent on weekly off',
+        );
       } else if (kind === 'Comp Off') {
         if (!compOffWorkDate) {
           setManualError('Select the day they will work for this Comp Off.');
@@ -570,21 +579,38 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         {selectedCell.day.isWeeklyOff ? 'Worked' : 'Present'}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      disabled={manualSaving}
-                      onClick={() => void applyMark('absent')}
-                      className={`${markTile} ${
-                        selectedCell.day.isWeeklyOff
-                          ? 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100'
-                          : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
-                      }`}
-                    >
-                      <span className={markTileCode}>{selectedCell.day.isWeeklyOff ? 'WO' : 'A'}</span>
-                      <span className={markTileLabel}>
-                        {selectedCell.day.isWeeklyOff ? 'Week off' : 'Absent'}
-                      </span>
-                    </button>
+                    {selectedCell.day.isWeeklyOff ? (
+                      <button
+                        type="button"
+                        disabled={manualSaving}
+                        onClick={() => void applyMark('absent')}
+                        className={`${markTile} bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100`}
+                      >
+                        <span className={markTileCode}>WO</span>
+                        <span className={markTileLabel}>Week off</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={manualSaving}
+                        onClick={() => void applyMark('absent')}
+                        className={`${markTile} bg-red-50 text-red-800 border-red-200 hover:bg-red-100`}
+                      >
+                        <span className={markTileCode}>A</span>
+                        <span className={markTileLabel}>Absent</span>
+                      </button>
+                    )}
+                    {selectedCell.day.isWeeklyOff && (
+                      <button
+                        type="button"
+                        disabled={manualSaving}
+                        onClick={() => void applyMark('force-absent')}
+                        className={`${markTile} bg-red-50 text-red-800 border-red-200 hover:bg-red-100 col-span-2`}
+                      >
+                        <span className={markTileCode}>A</span>
+                        <span className={markTileLabel}>Absent</span>
+                      </button>
+                    )}
                   </div>
 
                   <button
@@ -620,7 +646,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Leave
+                    Absent / Leave
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => {
