@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, Download, RefreshCw, Info,
+  ChevronLeft, ChevronRight, Download, RefreshCw, Info, Loader2,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -77,14 +77,15 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const [manualOut, setManualOut] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSaving, setManualSaving] = useState(false);
-  const [showCompOffWorkDay, setShowCompOffWorkDay] = useState(false);
+  /** menu = pick status; comp-off = pick work day */
+  const [markView, setMarkView] = useState<'menu' | 'comp-off'>('menu');
   const [compOffWorkDate, setCompOffWorkDate] = useState('');
 
   useEffect(() => {
     if (!selectedCell) {
       setShowTimes(false);
       setManualError(null);
-      setShowCompOffWorkDay(false);
+      setMarkView('menu');
       setCompOffWorkDate('');
       return;
     }
@@ -93,7 +94,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
     setShowTimes(false);
     setManualError(null);
-    setShowCompOffWorkDay(false);
+    setMarkView('menu');
     setCompOffWorkDate('');
   }, [selectedCell, attendanceRecords]);
 
@@ -117,7 +118,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       } else if (kind === 'Comp Off') {
         if (!compOffWorkDate) {
           setManualError('Select the day they will work for this Comp Off.');
-          setShowCompOffWorkDay(true);
+          setMarkView('comp-off');
           return;
         }
         result = await addManualLeave(
@@ -139,6 +140,20 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       setManualSaving(false);
     }
   };
+
+  const formatCellDate = (dateKey: string, weekday: string) => {
+    const nice = new Date(`${dateKey}T12:00:00`).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    return `${weekday}, ${nice}`;
+  };
+
+  const markBtn =
+    'w-full text-left px-3.5 py-3 rounded-xl border transition-colors disabled:opacity-50 disabled:pointer-events-none';
+  const markTitle = 'text-sm font-semibold';
+  const markHint = 'text-[11px] mt-0.5 opacity-80';
 
   const { year, month } = parseYearMonth(monthValue);
 
@@ -461,179 +476,241 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       {selectedCell && (
         <Modal
           isOpen
-          onClose={() => setSelectedCell(null)}
+          onClose={() => !manualSaving && setSelectedCell(null)}
           title={selectedCell.employeeName}
-          subtitle={`${selectedCell.day.weekday}, ${selectedCell.day.dateKey}`}
+          subtitle={formatCellDate(selectedCell.day.dateKey, selectedCell.day.weekday)}
           size="sm"
           footer={
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)} disabled={manualSaving}>
-                Close
-              </Button>
+            <div className="flex justify-end gap-2 w-full">
+              {markView === 'comp-off' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setMarkView('menu');
+                      setManualError(null);
+                      setCompOffWorkDate('');
+                    }}
+                    disabled={manualSaving}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={manualSaving || !compOffWorkDate}
+                    onClick={() => void applyMark('Comp Off')}
+                    icon={manualSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : undefined}
+                  >
+                    Save Comp Off
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)} disabled={manualSaving}>
+                  Close
+                </Button>
+              )}
             </div>
           }
         >
-          <div className="px-4 py-3 space-y-3 text-sm">
-            <div className="flex items-center gap-2">
+          <div className="px-4 py-4 space-y-4 text-sm">
+            {/* Current status */}
+            <div className="flex items-start gap-3 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3">
               <span
-                className={`inline-flex h-7 w-7 items-center justify-center rounded text-xs font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold border border-gray-300/50 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
               >
                 {displayCode(selectedCell.cell.code)}
               </span>
-              <span className="text-xs font-medium text-gray-700">{selectedCell.cell.label}</span>
+              <div className="min-w-0 pt-0.5">
+                <p className="text-sm font-semibold text-gray-900">{selectedCell.cell.label}</p>
+                <div className="mt-1 text-[11px] text-gray-500 space-y-0.5">
+                  {selectedCell.cell.punchInTime && selectedCell.cell.punchOutTime && (
+                    <p>{selectedCell.cell.punchInTime} – {selectedCell.cell.punchOutTime}</p>
+                  )}
+                  {selectedCell.cell.punchInTime && !selectedCell.cell.punchOutTime && (
+                    <p>In: {selectedCell.cell.punchInTime}</p>
+                  )}
+                  {selectedCell.cell.leaveType && <p>{selectedCell.cell.leaveType}</p>}
+                  {selectedCell.cell.compOffWorkDate && (
+                    <p className="text-violet-700">Works: {selectedCell.cell.compOffWorkDate}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {(selectedCell.cell.punchInTime || selectedCell.cell.punchOutTime || selectedCell.cell.leaveType || selectedCell.cell.compOffWorkDate) && (
-              <div className="text-[11px] text-gray-500 space-y-0.5">
-                {selectedCell.cell.punchInTime && <p>In: {selectedCell.cell.punchInTime}</p>}
-                {selectedCell.cell.punchOutTime && <p>Out: {selectedCell.cell.punchOutTime}</p>}
-                {selectedCell.cell.leaveType && <p>Leave: {selectedCell.cell.leaveType}</p>}
-                {selectedCell.cell.compOffWorkDate && (
-                  <p>Work day: {selectedCell.cell.compOffWorkDate}</p>
+            {isAdmin && !selectedCell.day.isFuture && markView === 'menu' && (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Attendance
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      disabled={manualSaving}
+                      onClick={() => void applyMark('present')}
+                      className={`${markBtn} bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100`}
+                    >
+                      <span className={markTitle}>
+                        {selectedCell.day.isWeeklyOff ? 'Worked (Present)' : 'Present'}
+                      </span>
+                      <p className={markHint}>
+                        {selectedCell.day.isWeeklyOff
+                          ? 'They came in on Sunday — mark as Present'
+                          : showTimes && (manualIn || manualOut)
+                            ? `Save with ${manualIn || '09:00'} – ${manualOut || '18:00'}`
+                            : 'Defaults to 09:00 – 18:00'}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={manualSaving}
+                      onClick={() => void applyMark('absent')}
+                      className={`${markBtn} ${
+                        selectedCell.day.isWeeklyOff
+                          ? 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100'
+                          : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
+                      }`}
+                    >
+                      <span className={markTitle}>
+                        {selectedCell.day.isWeeklyOff ? 'Week off' : 'Absent'}
+                      </span>
+                      <p className={markHint}>
+                        {selectedCell.day.isWeeklyOff
+                          ? 'Clear punches/leave — keep as Sunday off'
+                          : 'Clear punches and leave for this day'}
+                      </p>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowTimes((v) => !v)}
+                    className="mt-2 text-[11px] text-gray-500 hover:text-gray-800"
+                  >
+                    {showTimes ? 'Hide custom punch times' : 'Set custom punch times (optional)'}
+                  </button>
+                  {showTimes && (
+                    <div className="mt-2 grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-white border border-gray-100">
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-500 mb-0.5">In</label>
+                        <input
+                          type="time"
+                          value={manualIn}
+                          onChange={(e) => setManualIn(e.target.value)}
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Out</label>
+                        <input
+                          type="time"
+                          value={manualOut}
+                          onChange={(e) => setManualOut(e.target.value)}
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Leave
+                  </p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => (
+                      <button
+                        key={t.value}
+                        type="button"
+                        disabled={manualSaving}
+                        onClick={() => void applyMark(t.value)}
+                        className={`${markBtn} bg-amber-50 text-amber-950 border-amber-200 hover:bg-amber-100`}
+                      >
+                        <span className={markTitle}>{t.label}</span>
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={manualSaving}
+                      onClick={() => {
+                        setMarkView('comp-off');
+                        setManualError(null);
+                      }}
+                      className={`${markBtn} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 flex items-center justify-between gap-2`}
+                    >
+                      <span>
+                        <span className={markTitle}>Comp Off</span>
+                        <p className={markHint}>Take leave — pick the day they work</p>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
+                    </button>
+                  </div>
+                </div>
+
+                {manualError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
+                )}
+                {manualSaving && (
+                  <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                  </p>
                 )}
               </div>
             )}
 
-            {isAdmin && !selectedCell.day.isFuture && (
-              <div className="space-y-2 pt-1 border-t border-gray-100">
-                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
-                  {selectedCell.day.isWeeklyOff ? 'Sunday — mark if needed' : 'Mark as'}
-                </p>
-                {selectedCell.day.isWeeklyOff && (
-                  <p className="text-[11px] text-gray-500">
-                    Default is week off (WO). Tap Present if they worked, or a leave type if applicable.
-                  </p>
-                )}
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    disabled={manualSaving}
-                    onClick={() => void applyMark('present')}
-                    className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50"
-                  >
-                    {selectedCell.day.isWeeklyOff ? 'Worked (P)' : 'Present (P)'}
-                  </button>
-                  {!selectedCell.day.isWeeklyOff ? (
-                    <button
-                      type="button"
-                      disabled={manualSaving}
-                      onClick={() => void applyMark('absent')}
-                      className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
-                    >
-                      Absent (A)
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={manualSaving}
-                      onClick={() => void applyMark('absent')}
-                      className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      Week off (WO)
-                    </button>
-                  )}
-                  {LEAVE_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      disabled={manualSaving}
-                      onClick={() => {
-                        if (t.value === 'Comp Off') {
-                          setCompOffWorkDate('');
-                          setShowCompOffWorkDay(true);
-                          setManualError(null);
-                          return;
-                        }
-                        void applyMark(t.value);
-                      }}
-                      className={`px-2.5 py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 ${
-                        t.value === 'Comp Off'
-                          ? 'bg-violet-50 text-violet-800 border-violet-200 hover:bg-violet-100'
-                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
-                {showCompOffWorkDay && (
-                  <div className="space-y-2 p-2.5 rounded-lg bg-violet-50/70 border border-violet-100">
-                    <p className="text-[11px] font-medium text-violet-900">
-                      Comp Off — select the day they work
-                    </p>
-                    <input
-                      type="date"
-                      value={compOffWorkDate}
-                      onChange={(e) => setCompOffWorkDate(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md bg-white"
-                    />
-                    <p className="text-[10px] text-violet-700/80">
-                      Usually a Sunday (or other day) worked in lieu of this leave day.
-                    </p>
-                    <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        disabled={manualSaving || !compOffWorkDate}
-                        onClick={() => void applyMark('Comp Off')}
-                        className="flex-1 px-2.5 py-2 rounded-lg text-xs font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
-                      >
-                        Confirm Comp Off
-                      </button>
-                      <button
-                        type="button"
-                        disabled={manualSaving}
-                        onClick={() => {
-                          setShowCompOffWorkDay(false);
-                          setCompOffWorkDate('');
-                        }}
-                        className="px-2.5 py-2 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-white disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
+            {isAdmin && !selectedCell.day.isFuture && markView === 'comp-off' && (
+              <div className="space-y-4">
                 <button
                   type="button"
-                  onClick={() => setShowTimes((v) => !v)}
-                  className="text-[11px] text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+                  disabled={manualSaving}
+                  onClick={() => {
+                    setMarkView('menu');
+                    setManualError(null);
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
                 >
-                  {showTimes ? 'Hide punch times' : 'Optional: set punch times'}
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  All options
                 </button>
 
-                {showTimes && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5">In</label>
-                      <input
-                        type="time"
-                        value={manualIn}
-                        onChange={(e) => setManualIn(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Out</label>
-                      <input
-                        type="time"
-                        value={manualOut}
-                        onChange={(e) => setManualOut(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white"
-                      />
-                    </div>
-                    <p className="col-span-2 text-[10px] text-gray-400">
-                      Used only when you tap Present. Blank = 09:00–18:00.
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Comp Off</h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Leave on{' '}
+                    <span className="font-medium text-gray-700">
+                      {formatCellDate(selectedCell.day.dateKey, selectedCell.day.weekday)}
+                    </span>
+                    . Choose the day they will work instead (usually a Sunday).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Work day *
+                  </label>
+                  <input
+                    type="date"
+                    value={compOffWorkDate}
+                    onChange={(e) => setCompOffWorkDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    autoFocus
+                  />
+                </div>
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
                 )}
-                {manualSaving && <p className="text-[11px] text-gray-400">Saving…</p>}
               </div>
+            )}
+
+            {(!isAdmin || selectedCell.day.isFuture) && (
+              <p className="text-xs text-gray-500">
+                {selectedCell.day.isFuture
+                  ? 'Future dates cannot be marked yet.'
+                  : 'Only admins can change attendance from the register.'}
+              </p>
             )}
           </div>
         </Modal>
