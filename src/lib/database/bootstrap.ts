@@ -35,7 +35,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v2';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v3';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Skip essential re-fetch when session cache is newer than this. */
 const CACHE_TTL_MS = 5 * 60 * 1000;
