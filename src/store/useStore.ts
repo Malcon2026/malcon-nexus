@@ -1243,7 +1243,11 @@ export const useStore = create<AppState>((set, get) => ({
       if (nextEmail !== currentEmail) {
         const { error: authError } = await syncEmployeeLoginEmail(id, nextEmail);
         if (authError) {
-          return { error: `Login email not updated: ${authError}` };
+          // No auth account yet (or update function unavailable) — create login instead.
+          const { error: createErr } = await createEmployeeLogin(id, nextEmail, existing.name);
+          if (createErr) {
+            return { error: `Login email not updated: ${authError}` };
+          }
         }
         updates = { ...updates, email: nextEmail };
       }

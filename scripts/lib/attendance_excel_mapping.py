@@ -17,7 +17,7 @@ EXCEL_TO_EMAIL = {
     "S.RACHITHA SAI": "rachitha.abburi@malconnexus.com",
     "SEERALA BINDU": "bindhu.seerla@malconnexus.com",
     # Added for July 2026 backfill (previously unmapped)
-    "G.ARUN KUMAR": "arunkumar.gopu",  # Drivers — stored without domain in employees.email
+    "G.ARUN KUMAR": "arunkumar.gopu@malconnexus.com",
     "NAGAVATH CHIRANJEEVI": "chiranjeevi.nagavath@malconnexus.com",
     "D GOVIND": "govind.dasari@malconnexus.com",
     "HARSHAVARDHAN": "harshavardhan.jangili@malconnexus.com",
