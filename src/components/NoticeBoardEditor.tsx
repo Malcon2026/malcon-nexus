@@ -109,10 +109,10 @@ export const NoticeBoardEditor: React.FC = () => {
                 Preview
               </p>
               {preview ? (
-                <aside className="notice-board rounded-xl bg-white">
+                <aside className="notice-board rounded-xl">
                   <div className="notice-board-dashes" aria-hidden />
                   <div className="relative flex gap-3 items-start px-3.5 py-3">
-                    <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-800">
+                    <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50/80 border border-amber-200/60 flex items-center justify-center text-amber-800">
                       <Megaphone className="h-3.5 w-3.5" strokeWidth={2.25} />
                     </div>
                     <div className="min-w-0 flex-1">

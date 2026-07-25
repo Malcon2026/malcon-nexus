@@ -27,17 +27,16 @@ export const NoticeBoard: React.FC = () => {
 
   return (
     <motion.aside
-      className="notice-board mb-5 rounded-xl bg-white"
+      className="notice-board mb-5 rounded-xl"
       aria-label="Notice board"
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
-      {/* Dashed frame that marches around the edge */}
       <div className="notice-board-dashes" aria-hidden />
 
       <div className="relative flex gap-3 items-start px-3.5 py-3">
-        <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-800">
+        <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50/80 border border-amber-200/60 flex items-center justify-center text-amber-800">
           <Megaphone className="h-3.5 w-3.5" strokeWidth={2.25} />
         </div>
         <div className="min-w-0 flex-1">
