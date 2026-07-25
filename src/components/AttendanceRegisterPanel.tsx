@@ -150,12 +150,8 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     return `${weekday}, ${nice}`;
   };
 
-  const markBtn =
-    'w-full text-left px-3 py-2.5 rounded-sm border transition-colors disabled:opacity-50 disabled:pointer-events-none';
   const markTile =
     'flex flex-col items-center justify-center gap-1 aspect-square min-h-[4.5rem] px-2 py-2 rounded-sm border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
-  const markTitle = 'text-sm font-semibold';
-  const markHint = 'text-[11px] mt-0.5 opacity-80';
   const markTileCode = 'text-base font-bold leading-none';
   const markTileLabel = 'text-[10px] font-medium leading-tight opacity-90';
 
