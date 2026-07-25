@@ -63,19 +63,19 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={cn(
-              'relative w-full max-w-[calc(100%-0.5rem)] sm:max-w-none bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[92vh] sm:max-h-[90vh] min-w-0',
-              sizeClasses[size]
+              'relative w-full mx-2 sm:mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[92vh] sm:max-h-[90vh] min-w-0',
+              sizeClasses[size],
             )}
           >
             {title && (
-              <div className="flex items-start justify-between px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+              <div className="flex items-start justify-between px-4 py-3.5 border-b border-gray-100 shrink-0">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-gray-900 truncate">{title}</h2>
                   {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ml-4"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ml-3 shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -83,7 +83,7 @@ export const Modal: React.FC<ModalProps> = ({
             )}
             <div className="flex-1 overflow-y-auto">{children}</div>
             {footer && (
-              <div className="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl shrink-0">
+              <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl shrink-0">
                 {footer}
               </div>
             )}

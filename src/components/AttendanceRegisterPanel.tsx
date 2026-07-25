@@ -151,9 +151,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   };
 
   const markTile =
-    'flex flex-col items-center justify-center gap-0.5 h-16 w-full rounded-sm border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
-  const markTileCode = 'text-sm font-bold leading-none';
-  const markTileLabel = 'text-[10px] font-medium leading-tight opacity-90';
+    'flex flex-col items-center justify-center gap-0.5 h-[4.25rem] w-full rounded-xl border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
+  const markTileCode = 'text-lg font-bold leading-none';
+  const markTileLabel = 'text-[11px] font-medium leading-tight opacity-90';
 
   const { year, month } = parseYearMonth(monthValue);
 
@@ -514,17 +514,21 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
             </div>
           }
         >
-          <div className="px-4 py-4 space-y-4 text-sm">
+          <div className="px-4 py-3.5 space-y-3.5 text-sm max-w-[22rem] mx-auto w-full">
             {/* Current status */}
-            <div className="flex items-start gap-3 rounded-sm bg-gray-50 border border-gray-100 px-3.5 py-3">
+            <div
+              className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} border-gray-200/60`}
+            >
               <span
-                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm text-sm font-bold border border-gray-300/50 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold border border-black/5 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
               >
                 {displayCode(selectedCell.cell.code)}
               </span>
               <div className="min-w-0 pt-0.5">
-                <p className="text-sm font-semibold text-gray-900">{selectedCell.cell.label}</p>
-                <div className="mt-1 text-[11px] text-gray-500 space-y-0.5">
+                <p className={`text-sm font-semibold ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}>
+                  {selectedCell.cell.label}
+                </p>
+                <div className="mt-0.5 text-[11px] text-gray-600 space-y-0.5">
                   {selectedCell.cell.punchInTime && selectedCell.cell.punchOutTime && (
                     <p>{selectedCell.cell.punchInTime} – {selectedCell.cell.punchOutTime}</p>
                   )}
@@ -582,14 +586,14 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     {showTimes ? 'Hide custom punch times' : 'Set custom punch times (optional)'}
                   </button>
                   {showTimes && (
-                    <div className="mt-2 grid grid-cols-2 gap-2 p-2.5 rounded-sm bg-white border border-gray-100">
+                    <div className="mt-2 grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-white border border-gray-100">
                       <div>
                         <label className="block text-[10px] font-medium text-gray-500 mb-0.5">In</label>
                         <input
                           type="time"
                           value={manualIn}
                           onChange={(e) => setManualIn(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-sm bg-white"
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                         />
                       </div>
                       <div>
@@ -598,7 +602,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="time"
                           value={manualOut}
                           onChange={(e) => setManualOut(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-sm bg-white"
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                         />
                       </div>
                     </div>
@@ -636,7 +640,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       className={`${markTile} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 col-span-2 h-12 flex-row justify-between px-3`}
                     >
                       <span className="flex items-center gap-2 text-left">
-                        <span className={markTileCode}>CO</span>
+                        <span className="text-sm font-bold">CO</span>
                         <span>
                           <span className="block text-xs font-semibold">Comp Off</span>
                           <span className="block text-[10px] opacity-80">Pick work day next</span>
@@ -648,7 +652,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 </div>
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-sm px-3 py-2">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
                 )}
                 {manualSaving && (
                   <p className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -692,13 +696,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     type="date"
                     value={compOffWorkDate}
                     onChange={(e) => setCompOffWorkDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
                     autoFocus
                   />
                 </div>
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-sm px-3 py-2">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
                 )}
               </div>
             )}
