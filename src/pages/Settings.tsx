@@ -8,7 +8,7 @@ import { useStore } from '../store/useStore';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
 
-const tabs = [
+const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
   { id: 'notice', label: 'Notice Board', icon: <Megaphone className="h-4 w-4" />, adminOnly: true },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
@@ -74,12 +74,13 @@ const loadCompanyInfo = () => {
 };
 
 export const Settings: React.FC = () => {
-  const { currentUser, updateEmployee, clearAllData, cases } = useStore();
+  const { currentUser, viewMode, updateEmployee, clearAllData, cases } = useStore();
   const [activeTab, setActiveTab] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [showCaseExport, setShowCaseExport] = useState(false);
 
-  const visibleTabs = tabs.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || currentUser.role === 'admin');
+  const isAdmin = viewMode === 'admin' || currentUser.role === 'admin';
+  const visibleTabs = tabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -223,7 +224,7 @@ export const Settings: React.FC = () => {
               </Card>
             )}
 
-            {activeTab === 'notice' && currentUser.role === 'admin' && (
+            {activeTab === 'notice' && isAdmin && (
               <NoticeBoardEditor />
             )}
 

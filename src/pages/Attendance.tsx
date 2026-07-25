@@ -6,8 +6,9 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
 import { AttendanceChangesDemo } from '../components/AttendanceChangesDemo';
+import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
 
-type AttendanceTab = 'register' | 'today' | 'approvals' | 'demo';
+type AttendanceTab = 'register' | 'today' | 'approvals' | 'notice' | 'demo';
 
 export const Attendance: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
@@ -43,6 +44,7 @@ export const Attendance: React.FC = () => {
             id: 'approvals' as const,
             label: pendingTotal > 0 ? `Approvals (${pendingTotal})` : 'Approvals',
           },
+          { id: 'notice' as const, label: 'Notice Board' },
           { id: 'demo' as const, label: 'Demo' },
         ]).map(({ id, label }) => (
           <button
@@ -61,6 +63,11 @@ export const Attendance: React.FC = () => {
       {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'today' && <EmployeeAttendancePanel />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
+      {pageTab === 'notice' && (
+        <div className="max-w-xl">
+          <NoticeBoardEditor />
+        </div>
+      )}
       {pageTab === 'demo' && <AttendanceChangesDemo />}
     </div>
   );
