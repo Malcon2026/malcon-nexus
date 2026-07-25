@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, Download, RefreshCw, Info, Pencil,
+  ChevronLeft, ChevronRight, Download, RefreshCw, Info,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -58,6 +58,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const viewMode = useStore((s) => s.viewMode);
   const addManualAttendance = useStore((s) => s.addManualAttendance);
   const addManualLeave = useStore((s) => s.addManualLeave);
+  const markManualAbsent = useStore((s) => s.markManualAbsent);
   const isAdmin = viewMode === 'admin' && !employeeId;
 
   const now = new Date();
@@ -71,58 +72,50 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     day: RegisterDayColumn;
     cell: RegisterCellDetail;
   } | null>(null);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualEntryKind, setManualEntryKind] = useState<'punch' | 'leave'>('punch');
+  const [showTimes, setShowTimes] = useState(false);
   const [manualIn, setManualIn] = useState('');
   const [manualOut, setManualOut] = useState('');
-  const [manualLeaveType, setManualLeaveType] = useState<LeaveType>('Casual');
-  const [manualLeaveNotes, setManualLeaveNotes] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSaving, setManualSaving] = useState(false);
 
-  // Whenever a new cell is opened, prefill the manual-entry form from the
-  // employee's actual raw punch records for that day (not the formatted
-  // display strings, which are locale text like "09:30:15 am").
   useEffect(() => {
     if (!selectedCell) {
-      setManualMode(false);
+      setShowTimes(false);
       setManualError(null);
       return;
     }
     const summary = summarizeDayAttendance(attendanceRecords, selectedCell.employeeId, selectedCell.day.dateKey);
     setManualIn(summary.punchIn ? toHHMM(summary.punchIn.punchedAt) : '');
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
-    setManualEntryKind(selectedCell.cell.leaveType ? 'leave' : 'punch');
-    setManualLeaveType((selectedCell.cell.leaveType as LeaveType) || 'Casual');
-    setManualLeaveNotes('');
-    setManualMode(false);
+    setShowTimes(false);
     setManualError(null);
   }, [selectedCell, attendanceRecords]);
 
-  const handleSaveManual = async () => {
+  const applyMark = async (
+    kind: 'present' | 'absent' | LeaveType,
+  ) => {
     if (!selectedCell) return;
     setManualSaving(true);
     setManualError(null);
     try {
-      const result =
-        manualEntryKind === 'leave'
-          ? await addManualLeave(
-              selectedCell.employeeId,
-              selectedCell.day.dateKey,
-              manualLeaveType,
-              manualLeaveNotes,
-            )
-          : await addManualAttendance(
-              selectedCell.employeeId,
-              selectedCell.day.dateKey,
-              manualIn || undefined,
-              manualOut || undefined,
-            );
+      let result: { error: string | null };
+      if (kind === 'present') {
+        result = await addManualAttendance(
+          selectedCell.employeeId,
+          selectedCell.day.dateKey,
+          showTimes ? (manualIn || undefined) : undefined,
+          showTimes ? (manualOut || undefined) : undefined,
+        );
+      } else if (kind === 'absent') {
+        result = await markManualAbsent(selectedCell.employeeId, selectedCell.day.dateKey);
+      } else {
+        result = await addManualLeave(selectedCell.employeeId, selectedCell.day.dateKey, kind);
+      }
       if (result.error) {
         setManualError(result.error);
         return;
       }
-      setManualMode(false);
+      setSelectedCell(null);
     } finally {
       setManualSaving(false);
     }
@@ -443,146 +436,107 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           subtitle={`${selectedCell.day.weekday}, ${selectedCell.day.dateKey}`}
           size="sm"
           footer={
-            <div className="flex justify-end gap-2">
-              {isAdmin && !selectedCell.day.isFuture && manualMode && (
-                <Button variant="outline" size="sm" onClick={() => setManualMode(false)} disabled={manualSaving}>
-                  Cancel
-                </Button>
-              )}
-              {isAdmin && !selectedCell.day.isFuture && manualMode ? (
-                <Button variant="primary" size="sm" onClick={() => void handleSaveManual()} disabled={manualSaving}>
-                  {manualSaving ? 'Saving...' : 'Save'}
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)}>Close</Button>
-              )}
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setSelectedCell(null)} disabled={manualSaving}>
+                Close
+              </Button>
             </div>
           }
         >
-          <div className="p-6 space-y-3 text-sm">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
-                >
-                  {displayCode(selectedCell.cell.code)}
-                </span>
-                <span className="font-medium text-gray-900">{selectedCell.cell.label}</span>
-              </div>
-              {isAdmin && !selectedCell.day.isFuture && !manualMode && (
-                <button
-                  type="button"
-                  onClick={() => setManualMode(true)}
-                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Mark manually
-                </button>
-              )}
+          <div className="px-4 py-3 space-y-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center rounded text-xs font-bold border border-gray-400/60 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+              >
+                {displayCode(selectedCell.cell.code)}
+              </span>
+              <span className="text-xs font-medium text-gray-700">{selectedCell.cell.label}</span>
             </div>
 
-            {isAdmin && !selectedCell.day.isFuture && manualMode ? (
-              <div className="space-y-3 pt-1">
-                <div className="flex gap-1.5 p-1 bg-gray-100 rounded-lg w-fit">
-                  {([
-                    { id: 'punch' as const, label: 'Present / punch times' },
-                    { id: 'leave' as const, label: 'Leave' },
-                  ]).map(({ id, label }) => (
+            {(selectedCell.cell.punchInTime || selectedCell.cell.punchOutTime || selectedCell.cell.leaveType) && (
+              <div className="text-[11px] text-gray-500 space-y-0.5">
+                {selectedCell.cell.punchInTime && <p>In: {selectedCell.cell.punchInTime}</p>}
+                {selectedCell.cell.punchOutTime && <p>Out: {selectedCell.cell.punchOutTime}</p>}
+                {selectedCell.cell.leaveType && <p>Leave: {selectedCell.cell.leaveType}</p>}
+              </div>
+            )}
+
+            {isAdmin && !selectedCell.day.isFuture && (
+              <div className="space-y-2 pt-1 border-t border-gray-100">
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Mark as</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={manualSaving}
+                    onClick={() => void applyMark('present')}
+                    className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50"
+                  >
+                    Present (P)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={manualSaving}
+                    onClick={() => void applyMark('absent')}
+                    className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    Absent (A)
+                  </button>
+                  {LEAVE_TYPES.map((t) => (
                     <button
-                      key={id}
+                      key={t.value}
                       type="button"
-                      onClick={() => setManualEntryKind(id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        manualEntryKind === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
+                      disabled={manualSaving}
+                      onClick={() => void applyMark(t.value)}
+                      className={`px-2.5 py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 ${
+                        t.value === 'Comp Off'
+                          ? 'bg-violet-50 text-violet-800 border-violet-200 hover:bg-violet-100'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                       }`}
                     >
-                      {label}
+                      {t.label}
                     </button>
                   ))}
                 </div>
 
-                {manualEntryKind === 'punch' ? (
-                  <>
-                    <p className="text-xs text-gray-500">
-                      Set punch-in / punch-out for this date. Leave a field blank to clear it. This overrides the
-                      device punch shown above and is saved directly to attendance records.
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Punch in</label>
-                        <input
-                          type="time"
-                          value={manualIn}
-                          onChange={(e) => setManualIn(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Punch out</label>
-                        <input
-                          type="time"
-                          value={manualOut}
-                          onChange={(e) => setManualOut(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-500">
-                      Marks this single date as an already-approved leave for {selectedCell.employeeName}.
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => setShowTimes((v) => !v)}
+                  className="text-[11px] text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline"
+                >
+                  {showTimes ? 'Hide punch times' : 'Optional: set punch times'}
+                </button>
+
+                {showTimes && (
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Leave type</label>
-                      <select
-                        value={manualLeaveType}
-                        onChange={(e) => setManualLeaveType(e.target.value as LeaveType)}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
-                      >
-                        {LEAVE_TYPES.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5">In</label>
                       <input
-                        type="text"
-                        value={manualLeaveNotes}
-                        onChange={(e) => setManualLeaveNotes(e.target.value)}
-                        placeholder="e.g. Approved verbally, backdated entry..."
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white"
+                        type="time"
+                        value={manualIn}
+                        onChange={(e) => setManualIn(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white"
                       />
                     </div>
-                  </>
+                    <div>
+                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Out</label>
+                      <input
+                        type="time"
+                        value={manualOut}
+                        onChange={(e) => setManualOut(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md bg-white"
+                      />
+                    </div>
+                    <p className="col-span-2 text-[10px] text-gray-400">
+                      Used only when you tap Present. Blank = 09:00–18:00.
+                    </p>
+                  </div>
                 )}
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{manualError}</p>
                 )}
+                {manualSaving && <p className="text-[11px] text-gray-400">Saving…</p>}
               </div>
-            ) : (
-              <>
-            {selectedCell.cell.punchInTime && (
-              <p className="text-xs text-gray-600">Punch in: <span className="font-medium">{selectedCell.cell.punchInTime}</span></p>
-            )}
-            {selectedCell.cell.punchOutTime && (
-              <p className="text-xs text-gray-600">Punch out: <span className="font-medium">{selectedCell.cell.punchOutTime}</span></p>
-            )}
-            {selectedCell.cell.workedDuration && (
-              <p className="text-xs text-gray-600">Duration: <span className="font-medium">{selectedCell.cell.workedDuration}</span></p>
-            )}
-            {selectedCell.cell.leaveType && (
-              <p className="text-xs text-gray-600">
-                Leave: <span className="font-medium">{selectedCell.cell.leaveType}</span>
-                {selectedCell.cell.leaveStatus ? ` (${selectedCell.cell.leaveStatus})` : ''}
-              </p>
-            )}
-            {selectedCell.cell.leaveReason && (
-              <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg p-3">{selectedCell.cell.leaveReason}</p>
-            )}
-              </>
             )}
           </div>
         </Modal>

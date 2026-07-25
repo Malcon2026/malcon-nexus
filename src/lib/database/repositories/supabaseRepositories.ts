@@ -599,6 +599,12 @@ export const sbAttendanceRepo = {
     });
     if (error) throw error;
   },
+
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await supabase.from('attendance_records').delete().in('id', ids);
+    if (error) throw error;
+  },
 };
 
 
@@ -776,6 +782,12 @@ export const sbLeaveRepo = {
     if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
 
     const { error } = await supabase.from('leave_requests').update(payload).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await supabase.from('leave_requests').delete().in('id', ids);
     if (error) throw error;
   },
 };

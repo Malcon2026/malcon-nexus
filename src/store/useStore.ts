@@ -18,7 +18,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getISTDateKey } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
@@ -119,6 +119,7 @@ interface AppState {
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
   submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   /** Admin-only: manually record punch in/out for any employee on a given date (YYYY-MM-DD, IST). */
+  /** Admin-only: mark present for a day. Times optional — defaults to 09:00 / 18:00 IST. */
   addManualAttendance: (
     employeeId: string,
     dateKey: string,
@@ -140,6 +141,11 @@ interface AppState {
     dateKey: string,
     leaveType: LeaveType,
     notes?: string,
+  ) => Promise<{ error: string | null }>;
+  /** Admin-only: clear punches + single-day leave so the register shows Absent (or WO on Sunday). */
+  markManualAbsent: (
+    employeeId: string,
+    dateKey: string,
   ) => Promise<{ error: string | null }>;
 
   // Daily expenses (admin-only manual log: kms, petrol, food, other)
@@ -276,6 +282,58 @@ const persistAttendance = async (record: AttendanceRecord): Promise<{ error: str
   }
   const list = Database.getAll<AttendanceRecord>('attendanceRecords');
   Database.saveAll('attendanceRecords', [record, ...list]);
+  return { error: null };
+};
+
+/** Remove punches + single-day leave rows for one employee/date before re-marking. */
+const clearManualDayEntries = async (
+  employeeId: string,
+  dateKey: string,
+  attendanceRecords: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  onLocalClear: (punchIds: string[], leaveIds: string[]) => void,
+): Promise<{ error: string | null }> => {
+  const punchIds = attendanceRecords
+    .filter((r) => r.employeeId === employeeId && getISTDateKey(r.punchedAt) === dateKey)
+    .map((r) => r.id);
+  const leaveIds = leaveRequests
+    .filter(
+      (lr) =>
+        lr.employeeId === employeeId &&
+        lr.fromDate === dateKey &&
+        lr.toDate === dateKey &&
+        lr.status !== 'cancelled' &&
+        lr.status !== 'rejected',
+    )
+    .map((lr) => lr.id);
+
+  if (USE_SUPABASE) {
+    try {
+      if (punchIds.length) await sbAttendanceRepo.deleteByIds(punchIds);
+      if (leaveIds.length) await sbLeaveRepo.deleteByIds(leaveIds);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to clear day';
+      console.error('[attendance] clear day failed:', err);
+      return { error: message };
+    }
+  } else {
+    if (punchIds.length) {
+      const list = Database.getAll<AttendanceRecord>('attendanceRecords').filter((r) => !punchIds.includes(r.id));
+      Database.saveAll('attendanceRecords', list);
+    }
+    if (leaveIds.length) {
+      const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !leaveIds.includes(lr.id));
+      Database.saveAll('leaveRequests', list);
+    }
+  }
+
+  onLocalClear(punchIds, leaveIds);
+
+  if (USE_SUPABASE) {
+    // Keep session cache in sync with the in-memory store after deletes.
+    // (onLocalClear already updated Zustand; mirror into setCache below via callers if needed.)
+  }
+
   return { error: null };
 };
 
@@ -1500,70 +1558,64 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const employee = state.employees.find((e) => e.id === employeeId);
     if (!employee) return { error: 'Employee not found.' };
-    if (!punchInTime && !punchOutTime) {
-      return { error: 'Enter at least a punch-in or punch-out time.' };
-    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
       return { error: 'Invalid date.' };
     }
 
+    // Times are optional — one-tap Present uses a standard full day.
+    const inTime = punchInTime?.trim() || '09:00';
+    const outTime = punchOutTime?.trim() || '18:00';
+
     const toTimestamp = (time: string): string | null => {
       if (!/^\d{2}:\d{2}$/.test(time)) return null;
-      // Build the wall-clock time as IST (+05:30) explicitly so the stored
-      // UTC instant matches the intended local time regardless of the
-      // admin's own browser timezone.
       return new Date(`${dateKey}T${time}:00+05:30`).toISOString();
     };
 
-    const newRecords: AttendanceRecord[] = [];
-    if (punchInTime) {
-      const punchedAt = toTimestamp(punchInTime);
-      if (!punchedAt) return { error: 'Invalid punch-in time.' };
-      newRecords.push({
-        id: newId(),
-        employeeId,
-        employeeName: employee.name,
-        punchType: 'in',
-        punchedAt,
-        latitude: OFFICE_LOCATION.latitude,
-        longitude: OFFICE_LOCATION.longitude,
-        accuracyM: 0,
-        distanceM: 0,
-        withinOffice: true,
-        officeAddress: `Manual entry by ${state.currentUser.name}`,
-      });
-    }
-    if (punchOutTime) {
-      const punchedAt = toTimestamp(punchOutTime);
-      if (!punchedAt) return { error: 'Invalid punch-out time.' };
-      newRecords.push({
-        id: newId(),
-        employeeId,
-        employeeName: employee.name,
-        punchType: 'out',
-        punchedAt,
-        latitude: OFFICE_LOCATION.latitude,
-        longitude: OFFICE_LOCATION.longitude,
-        accuracyM: 0,
-        distanceM: 0,
-        withinOffice: true,
-        officeAddress: `Manual entry by ${state.currentUser.name}`,
-      });
-    }
+    const punchedInAt = toTimestamp(inTime);
+    const punchedOutAt = toTimestamp(outTime);
+    if (!punchedInAt || !punchedOutAt) return { error: 'Invalid punch time.' };
+    if (punchedInAt >= punchedOutAt) return { error: 'Punch-out time must be after punch-in time.' };
 
-    if (punchInTime && punchOutTime && newRecords[0].punchedAt >= newRecords[1].punchedAt) {
-      return { error: 'Punch-out time must be after punch-in time.' };
-    }
+    const clearResult = await clearManualDayEntries(
+      employeeId,
+      dateKey,
+      state.attendanceRecords,
+      state.leaveRequests,
+      (punchIds, leaveIds) => {
+        set((s) => ({
+          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
+          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
+        }));
+        if (USE_SUPABASE) {
+          setCache(
+            'attendanceRecords',
+            get().attendanceRecords,
+          );
+          setCache('leaveRequests', get().leaveRequests);
+        }
+      },
+    );
+    if (clearResult.error) return clearResult;
+
+    const base = {
+      employeeId,
+      employeeName: employee.name,
+      latitude: OFFICE_LOCATION.latitude,
+      longitude: OFFICE_LOCATION.longitude,
+      accuracyM: 0,
+      distanceM: 0,
+      withinOffice: true,
+      officeAddress: `Manual entry by ${state.currentUser.name}`,
+    };
+    const newRecords: AttendanceRecord[] = [
+      { ...base, id: newId(), punchType: 'in' as const, punchedAt: punchedInAt },
+      { ...base, id: newId(), punchType: 'out' as const, punchedAt: punchedOutAt },
+    ];
 
     for (const record of newRecords) {
       const persistResult = await persistAttendance(record);
       if (persistResult.error) return { error: persistResult.error };
     }
-
-    const timesLabel = [
-      punchInTime ? `in ${punchInTime}` : null,
-      punchOutTime ? `out ${punchOutTime}` : null,
-    ].filter(Boolean).join(', ');
 
     const activity = createActivityEvent(
       'Manual Attendance Entry',
@@ -1572,7 +1624,7 @@ export const useStore = create<AppState>((set, get) => ({
       employee.name,
       state.currentUser.name,
       'admin',
-      `Marked attendance for ${employee.name} on ${dateKey} (${timesLabel}).`,
+      `Marked Present for ${employee.name} on ${dateKey} (${inTime}–${outTime}).`,
     );
     persistActivity(activity);
 
@@ -1589,6 +1641,24 @@ export const useStore = create<AppState>((set, get) => ({
     const employee = state.employees.find((e) => e.id === employeeId);
     if (!employee) return { error: 'Employee not found.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return { error: 'Invalid date.' };
+
+    const clearResult = await clearManualDayEntries(
+      employeeId,
+      dateKey,
+      state.attendanceRecords,
+      state.leaveRequests,
+      (punchIds, leaveIds) => {
+        set((s) => ({
+          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
+          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
+        }));
+        if (USE_SUPABASE) {
+          setCache('attendanceRecords', get().attendanceRecords);
+          setCache('leaveRequests', get().leaveRequests);
+        }
+      },
+    );
+    if (clearResult.error) return clearResult;
 
     const reviewedAt = new Date().toISOString();
     const request: LeaveRequest = {
@@ -1623,6 +1693,48 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((s) => ({
       leaveRequests: [request, ...s.leaveRequests],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  markManualAbsent: async (employeeId, dateKey) => {
+    const state = get();
+    const employee = state.employees.find((e) => e.id === employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return { error: 'Invalid date.' };
+
+    const clearResult = await clearManualDayEntries(
+      employeeId,
+      dateKey,
+      state.attendanceRecords,
+      state.leaveRequests,
+      (punchIds, leaveIds) => {
+        set((s) => ({
+          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
+          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
+        }));
+        if (USE_SUPABASE) {
+          setCache('attendanceRecords', get().attendanceRecords);
+          setCache('leaveRequests', get().leaveRequests);
+        }
+      },
+    );
+    if (clearResult.error) return clearResult;
+
+    const activity = createActivityEvent(
+      'Manual Absent Entry',
+      'attendance',
+      employeeId,
+      employee.name,
+      state.currentUser.name,
+      'admin',
+      `Marked Absent for ${employee.name} on ${dateKey}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
       activityLog: [activity, ...s.activityLog],
     }));
 
