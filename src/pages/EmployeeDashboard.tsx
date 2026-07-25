@@ -29,6 +29,7 @@ function useMyCases(employee: Pick<import('../types').Employee, 'id' | 'email'>)
 const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -47,6 +48,24 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
     observer.observe(node);
     return () => observer.disconnect();
   }, [visible]);
+
+  // When the register scrolls into view, make sure attendance history is loaded.
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { bootstrapDeferred } = await import('../lib/database/bootstrap');
+        await bootstrapDeferred('employee', { employeeId });
+        if (!cancelled) reloadFromDatabase();
+      } catch (err) {
+        console.warn('[register] employee attendance refresh failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, employeeId, reloadFromDatabase]);
 
   return (
     <div ref={containerRef} className="mb-6 min-w-0 w-full max-w-full overflow-hidden">

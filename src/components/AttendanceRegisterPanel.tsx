@@ -52,6 +52,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
+  const currentUser = useStore((s) => s.currentUser);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const leaveRequests = useStore((s) => s.leaveRequests);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
@@ -164,14 +165,22 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       leaveRequests,
       year,
       month,
-      employeeId ? { employeeId } : undefined,
+      employeeId
+        ? {
+            employeeId,
+            selfEmployee:
+              currentUser.id === employeeId
+                ? currentUser
+                : employees.find((e) => e.id === employeeId) ?? null,
+          }
+        : undefined,
     );
     if (filterDept === 'All' || employeeId) return data;
     return {
       ...data,
       rows: data.rows.filter((r) => r.department === filterDept),
     };
-  }, [employees, attendanceRecords, leaveRequests, year, month, employeeId, filterDept]);
+  }, [employees, currentUser, attendanceRecords, leaveRequests, year, month, employeeId, filterDept]);
 
   const weekBands = useMemo(() => {
     const bands: { week: number; span: number }[] = [];

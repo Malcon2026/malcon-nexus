@@ -35,7 +35,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v4';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v5';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Skip essential re-fetch when session cache is newer than this. */
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -71,6 +71,15 @@ function readBootstrapCache(employeeId: string): BootstrapCachePayload | null {
 // login screen feel fast.
 function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
   return [
+    // Own profile is required so "My Attendance Register" can render a row
+    // (the register builds from the employees list, not currentUser alone).
+    {
+      key: 'employees',
+      run: async () => {
+        const self = await sbEmployeeRepo.getById(employeeId);
+        return self ? [self] : [];
+      },
+    },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',
@@ -218,6 +227,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'activityLog',
         ]
       : [
+          'employees',
           'attendanceRecords',
           'leaveRequests',
           'attendanceApprovalRequests',

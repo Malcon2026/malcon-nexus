@@ -381,14 +381,25 @@ export function buildAttendanceRegister(
   leaveRequests: LeaveRequest[],
   year: number,
   month: number,
-  options?: { employeeId?: string },
+  options?: {
+    employeeId?: string;
+    /** Used when viewing a single employee whose profile isn't in `employees` yet. */
+    selfEmployee?: { id: string; name: string; department: string; role: string; status: string } | null;
+  },
 ): AttendanceRegisterData {
   const days = buildSalaryCycleDayColumns(year, month);
-  // Admins are staff too — they just don't punch via geofence by default.
-  // Include them so manually-entered attendance shows up in the register.
-  const staff = filterAttendanceStaff(employees)
-    .filter((e) => !options?.employeeId || e.id === options.employeeId)
-    .sort((a, b) => a.name.localeCompare(b.name));
+
+  let staff: { id: string; name: string; department: string; role: string; status: string }[];
+  if (options?.employeeId) {
+    // Own register: always show the employee row (don't require Active roster filter).
+    const self =
+      employees.find((e) => e.id === options.employeeId) ??
+      (options.selfEmployee?.id === options.employeeId ? options.selfEmployee : null);
+    staff = self ? [self] : [];
+  } else {
+    // Admins are staff too — they just don't punch via geofence by default.
+    staff = filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   const rows: RegisterEmployeeRow[] = staff.map((employee) => {
     const cells = days.map((col) =>
