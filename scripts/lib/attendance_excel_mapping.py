@@ -30,4 +30,5 @@ EXCEL_TO_EMAIL = {
     "JAKATI VINAY": "vinay.jakati@malconnexus.com",
     "JAVAJI PRASHANTH": "prashanth.javaji@malconnexus.com",
     "JUNJUR.PRABHAKAR": "prabhakar.junjur@malconnexus.com",
+    "CH.ANUSHA": "anusha.chigurupati@malconnexus.com",
 }
