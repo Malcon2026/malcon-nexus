@@ -16,6 +16,7 @@ import { SubmitStageModal } from '../components/SubmitStageModal';
 import { AttendanceSection } from '../components/AttendanceSection';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
+import { NoticeBoard } from '../components/NoticeBoard';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -312,6 +313,8 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <NoticeBoard />
 
       <AttendanceSection />
       <LeaveApplySection />

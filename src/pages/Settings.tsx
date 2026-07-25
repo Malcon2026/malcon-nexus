@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Database, Building2, Save, Download, Check } from 'lucide-react';
+import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
+import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
+  { id: 'notice', label: 'Notice Board', icon: <Megaphone className="h-4 w-4" />, adminOnly: true },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
   { id: 'company', label: 'Company', icon: <Building2 className="h-4 w-4" /> },
@@ -76,6 +78,8 @@ export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [showCaseExport, setShowCaseExport] = useState(false);
+
+  const visibleTabs = tabs.filter((tab) => !('adminOnly' in tab && tab.adminOnly) || currentUser.role === 'admin');
 
   // Profile form
   const [profileForm, setProfileForm] = useState({
@@ -151,7 +155,7 @@ export const Settings: React.FC = () => {
         <div className="md:w-48 shrink-0">
           <Card className="p-2">
             <div className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-1 md:pb-0 -mx-1 px-1 md:mx-0 md:px-0">
-            {tabs.map(tab => (
+            {visibleTabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -217,6 +221,10 @@ export const Settings: React.FC = () => {
                   </div>
                 </CardBody>
               </Card>
+            )}
+
+            {activeTab === 'notice' && currentUser.role === 'admin' && (
+              <NoticeBoardEditor />
             )}
 
             {activeTab === 'notifications' && (

@@ -174,6 +174,8 @@ interface AppState {
   loadAppSettings: () => Promise<{ error: string | null }>;
   getIncentiveRatePerKm: () => number;
   setIncentiveRatePerKm: (rate: number) => Promise<{ error: string | null }>;
+  getEmployeeNotice: () => string;
+  setEmployeeNotice: (notice: string) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -1905,6 +1907,27 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: message };
     }
     set((s) => ({ appSettings: { ...s.appSettings, incentive_rate_per_km: String(rate) } }));
+    return { error: null };
+  },
+
+  getEmployeeNotice: () => {
+    return (get().appSettings.employee_notice ?? '').trim();
+  },
+
+  setEmployeeNotice: async (notice) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can update the notice board.' };
+    }
+    const value = notice.trim().slice(0, 500);
+    try {
+      await sbSettingsRepo.set('employee_notice', value, state.currentUser.name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save the notice.';
+      console.error('[settings] notice save failed:', err);
+      return { error: message };
+    }
+    set((s) => ({ appSettings: { ...s.appSettings, employee_notice: value } }));
     return { error: null };
   },
 
