@@ -151,9 +151,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   };
 
   const markBtn =
-    'w-full text-left px-3.5 py-3 rounded-xl border transition-colors disabled:opacity-50 disabled:pointer-events-none';
+    'w-full text-left px-3 py-2.5 rounded-sm border transition-colors disabled:opacity-50 disabled:pointer-events-none';
+  const markTile =
+    'flex flex-col items-center justify-center gap-1 aspect-square min-h-[4.5rem] px-2 py-2 rounded-sm border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
   const markTitle = 'text-sm font-semibold';
   const markHint = 'text-[11px] mt-0.5 opacity-80';
+  const markTileCode = 'text-base font-bold leading-none';
+  const markTileLabel = 'text-[10px] font-medium leading-tight opacity-90';
 
   const { year, month } = parseYearMonth(monthValue);
 
@@ -516,9 +520,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         >
           <div className="px-4 py-4 space-y-4 text-sm">
             {/* Current status */}
-            <div className="flex items-start gap-3 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3">
+            <div className="flex items-start gap-3 rounded-sm bg-gray-50 border border-gray-100 px-3.5 py-3">
               <span
-                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold border border-gray-300/50 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-sm text-sm font-bold border border-gray-300/50 ${REGISTER_CELL_STYLES[selectedCell.cell.code].bg} ${REGISTER_CELL_STYLES[selectedCell.cell.code].text}`}
               >
                 {displayCode(selectedCell.cell.code)}
               </span>
@@ -545,42 +549,32 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Attendance
                   </p>
-                  <div className="grid grid-cols-1 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       disabled={manualSaving}
                       onClick={() => void applyMark('present')}
-                      className={`${markBtn} bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100`}
+                      className={`${markTile} bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100`}
                     >
-                      <span className={markTitle}>
-                        {selectedCell.day.isWeeklyOff ? 'Worked (Present)' : 'Present'}
+                      <span className={markTileCode}>P</span>
+                      <span className={markTileLabel}>
+                        {selectedCell.day.isWeeklyOff ? 'Worked' : 'Present'}
                       </span>
-                      <p className={markHint}>
-                        {selectedCell.day.isWeeklyOff
-                          ? 'They came in on Sunday — mark as Present'
-                          : showTimes && (manualIn || manualOut)
-                            ? `Save with ${manualIn || '09:00'} – ${manualOut || '18:00'}`
-                            : 'Defaults to 09:00 – 18:00'}
-                      </p>
                     </button>
                     <button
                       type="button"
                       disabled={manualSaving}
                       onClick={() => void applyMark('absent')}
-                      className={`${markBtn} ${
+                      className={`${markTile} ${
                         selectedCell.day.isWeeklyOff
                           ? 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100'
                           : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
                       }`}
                     >
-                      <span className={markTitle}>
+                      <span className={markTileCode}>{selectedCell.day.isWeeklyOff ? 'WO' : 'A'}</span>
+                      <span className={markTileLabel}>
                         {selectedCell.day.isWeeklyOff ? 'Week off' : 'Absent'}
                       </span>
-                      <p className={markHint}>
-                        {selectedCell.day.isWeeklyOff
-                          ? 'Clear punches/leave — keep as Sunday off'
-                          : 'Clear punches and leave for this day'}
-                      </p>
                     </button>
                   </div>
 
@@ -592,14 +586,14 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     {showTimes ? 'Hide custom punch times' : 'Set custom punch times (optional)'}
                   </button>
                   {showTimes && (
-                    <div className="mt-2 grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-white border border-gray-100">
+                    <div className="mt-2 grid grid-cols-2 gap-2 p-2.5 rounded-sm bg-white border border-gray-100">
                       <div>
                         <label className="block text-[10px] font-medium text-gray-500 mb-0.5">In</label>
                         <input
                           type="time"
                           value={manualIn}
                           onChange={(e) => setManualIn(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-sm bg-white"
                         />
                       </div>
                       <div>
@@ -608,7 +602,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="time"
                           value={manualOut}
                           onChange={(e) => setManualOut(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-sm bg-white"
                         />
                       </div>
                     </div>
@@ -619,18 +613,23 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Leave
                   </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => (
-                      <button
-                        key={t.value}
-                        type="button"
-                        disabled={manualSaving}
-                        onClick={() => void applyMark(t.value)}
-                        className={`${markBtn} bg-amber-50 text-amber-950 border-amber-200 hover:bg-amber-100`}
-                      >
-                        <span className={markTitle}>{t.label}</span>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => {
+                      const code =
+                        t.value === 'Casual' ? 'CL' : t.value === 'Sick' ? 'SL' : 'UL';
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          disabled={manualSaving}
+                          onClick={() => void applyMark(t.value)}
+                          className={`${markTile} bg-amber-50 text-amber-950 border-amber-200 hover:bg-amber-100`}
+                        >
+                          <span className={markTileCode}>{code}</span>
+                          <span className={markTileLabel}>{t.value}</span>
+                        </button>
+                      );
+                    })}
                     <button
                       type="button"
                       disabled={manualSaving}
@@ -638,11 +637,14 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         setMarkView('comp-off');
                         setManualError(null);
                       }}
-                      className={`${markBtn} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 flex items-center justify-between gap-2`}
+                      className={`${markTile} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 col-span-2 aspect-auto min-h-[3.25rem] flex-row justify-between px-3`}
                     >
-                      <span>
-                        <span className={markTitle}>Comp Off</span>
-                        <p className={markHint}>Take leave — pick the day they work</p>
+                      <span className="flex items-center gap-2 text-left">
+                        <span className={markTileCode}>CO</span>
+                        <span>
+                          <span className="block text-xs font-semibold">Comp Off</span>
+                          <span className="block text-[10px] opacity-80">Pick work day next</span>
+                        </span>
                       </span>
                       <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />
                     </button>
@@ -650,7 +652,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 </div>
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-sm px-3 py-2">{manualError}</p>
                 )}
                 {manualSaving && (
                   <p className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -694,13 +696,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     type="date"
                     value={compOffWorkDate}
                     onChange={(e) => setCompOffWorkDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
+                    className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-100"
                     autoFocus
                   />
                 </div>
 
                 {manualError && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-sm px-3 py-2">{manualError}</p>
                 )}
               </div>
             )}
