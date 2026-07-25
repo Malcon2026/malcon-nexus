@@ -110,6 +110,7 @@ export const NoticeBoardEditor: React.FC = () => {
               </p>
               {preview ? (
                 <aside className="notice-board rounded-xl bg-white">
+                  <div className="notice-board-dashes" aria-hidden />
                   <div className="relative flex gap-3 items-start px-3.5 py-3">
                     <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-800">
                       <Megaphone className="h-3.5 w-3.5" strokeWidth={2.25} />

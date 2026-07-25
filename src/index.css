@@ -70,31 +70,87 @@ svg {
   }
 }
 
-/* Employee notice board — dashed frame, calm motion only */
+/* Employee notice board — marching dashed border + soft glow */
 .notice-board {
   position: relative;
-  border: 1.5px dashed #d97706;
-  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
-  /* Slow, soft glow — no spinning dashes */
-  animation: notice-board-breathe 4s ease-in-out infinite;
+  /* Soft amber glow behind the dashed frame */
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.15),
+    0 0 12px rgba(245, 158, 11, 0.35),
+    0 1px 2px rgba(28, 25, 23, 0.04);
+  animation: notice-board-glow 2.8s ease-in-out infinite;
 }
 
-@keyframes notice-board-breathe {
+.notice-board-dashes {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* Four edge strips of dashes that crawl around the perimeter */
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      #ea580c 0 7px,
+      transparent 7px 14px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      #ea580c 0 7px,
+      transparent 7px 14px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      #ea580c 0 7px,
+      transparent 7px 14px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      #ea580c 0 7px,
+      transparent 7px 14px
+    );
+  background-size:
+    14px 2px,
+    14px 2px,
+    2px 14px,
+    2px 14px;
+  background-position:
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  animation: notice-board-march 1s linear infinite;
+}
+
+@keyframes notice-board-march {
+  to {
+    background-position:
+      14px 0,
+      -14px 100%,
+      0 -14px,
+      100% 14px;
+  }
+}
+
+@keyframes notice-board-glow {
   0%,
   100% {
-    border-color: #d97706;
-    box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.15),
+      0 0 10px rgba(245, 158, 11, 0.28),
+      0 1px 2px rgba(28, 25, 23, 0.04);
   }
   50% {
-    border-color: #f59e0b;
     box-shadow:
-      0 1px 2px rgba(28, 25, 23, 0.04),
-      0 0 0 3px rgba(245, 158, 11, 0.12);
+      0 0 0 1px rgba(245, 158, 11, 0.28),
+      0 0 18px rgba(245, 158, 11, 0.5),
+      0 1px 2px rgba(28, 25, 23, 0.04);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notice-board {
+  .notice-board,
+  .notice-board-dashes {
     animation: none !important;
   }
 }
