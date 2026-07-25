@@ -81,7 +81,7 @@ svg {
   pointer-events: none;
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 0;
   background-image:
     repeating-linear-gradient(
       90deg,

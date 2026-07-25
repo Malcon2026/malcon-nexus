@@ -27,7 +27,7 @@ export const NoticeBoard: React.FC = () => {
 
   return (
     <motion.aside
-      className="notice-board mb-5 rounded-xl"
+      className="notice-board mb-5"
       aria-label="Notice board"
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
