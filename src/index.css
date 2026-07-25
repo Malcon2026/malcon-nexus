@@ -70,63 +70,82 @@ svg {
   }
 }
 
-/* Employee notice board — rotating dashed ring (highly visible) */
+/* Employee notice board — quiet, professional attention cue */
 .notice-board {
   position: relative;
-  border-radius: 14px;
-  padding: 3px;
   overflow: hidden;
-  isolation: isolate;
+  box-shadow:
+    0 1px 2px rgba(28, 25, 23, 0.04),
+    0 0 0 1px rgba(245, 158, 11, 0.12);
+  animation: notice-board-breathe 3.6s ease-in-out infinite;
 }
 
-.notice-board-spin {
+.notice-board-sheen {
+  pointer-events: none;
   position: absolute;
-  /* Oversized so rotation never shows empty corners */
-  inset: -60%;
-  background: repeating-conic-gradient(
-    from 0deg,
-    #ea580c 0deg 14deg,
-    #fbbf24 14deg 18deg,
-    transparent 18deg 32deg
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 65%
   );
-  animation: notice-board-spin 2.2s linear infinite;
-  z-index: 0;
+  transform: translateX(-130%);
+  animation: notice-board-sheen 5.5s ease-in-out infinite;
 }
 
-.notice-board-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #fffbeb 0%, #fffaf0 45%, #fafaf9 100%);
-  padding: 0.75rem 0.875rem;
-  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.35);
+.notice-board-live {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #d97706;
+  opacity: 0.85;
+  animation: notice-board-live 2.4s ease-in-out infinite;
 }
 
-@keyframes notice-board-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes notice-board-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 2px rgba(28, 25, 23, 0.04),
+      0 0 0 1px rgba(245, 158, 11, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 2px 10px rgba(28, 25, 23, 0.06),
+      0 0 0 1.5px rgba(217, 119, 6, 0.28);
+  }
+}
+
+@keyframes notice-board-sheen {
+  0%,
+  60% {
+    transform: translateX(-130%);
+  }
+  85%,
+  100% {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes notice-board-live {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notice-board-spin {
+  .notice-board,
+  .notice-board-sheen,
+  .notice-board-live {
     animation: none !important;
-    /* Static dashes still visible when motion is reduced */
-    inset: 0;
-    background: repeating-linear-gradient(
-      90deg,
-      #ea580c 0 10px,
-      transparent 10px 18px
-    );
-    opacity: 0.9;
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    padding: 3px;
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
   }
 }
 
