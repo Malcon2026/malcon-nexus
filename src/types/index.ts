@@ -29,6 +29,7 @@ export type Department =
   | 'Stores Audit'
   | 'Accounts'
   | 'Bill Submission'
+  | 'Office Staff'
   | 'Admin';
 
 export interface Employee {

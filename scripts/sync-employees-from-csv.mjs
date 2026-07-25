@@ -18,13 +18,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
 const VALID_DEPARTMENTS = new Set([
-  'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department',
-  'Stores Audit', 'Accounts', 'Bill Submission', 'Admin',
+  'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department',
+  'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
 ]);
 
 const DEPARTMENT_ALIASES = {
   scrub: 'Scrub Person',
   'scrub person': 'Scrub Person',
+  scrubbing: 'Scrub Person',
   cleaning: 'Cleaning Department',
   audit: 'Stores Audit',
   accounts: 'Accounts',
@@ -35,6 +36,11 @@ const DEPARTMENT_ALIASES = {
   stores: 'Stores',
   delivery: 'Delivery',
   delevery: 'Delivery',
+  drivers: 'Drivers',
+  driver: 'Drivers',
+  driving: 'Drivers',
+  'office staff': 'Office Staff',
+  office: 'Office Staff',
 };
 
 function loadEnv() {

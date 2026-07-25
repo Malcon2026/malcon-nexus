@@ -13,6 +13,7 @@ export const ASSIGN_DEPARTMENTS: Department[] = [
   'Stores Audit',
   'Accounts',
   'Bill Submission',
+  'Office Staff',
 ];
 
 type DeptFilter = Department | 'All';

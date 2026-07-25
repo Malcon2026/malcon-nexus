@@ -70,6 +70,7 @@ export const departmentColors: Record<Department, string> = {
   'Stores Audit': 'bg-amber-100 text-amber-800',
   Accounts: 'bg-emerald-100 text-emerald-800',
   'Bill Submission': 'bg-orange-100 text-orange-800',
+  'Office Staff': 'bg-slate-100 text-slate-800',
   Admin: 'bg-gray-100 text-gray-800',
 };
 

@@ -2187,7 +2187,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   getDepartmentPerformance: () => {
     const cases = get().cases;
-    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission'];
+    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff'];
 
     return departments.map(dept => {
       let casesHandled = 0;

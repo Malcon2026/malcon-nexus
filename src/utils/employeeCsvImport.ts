@@ -10,12 +10,14 @@ const VALID_DEPARTMENTS = new Set<Department>([
   'Stores Audit',
   'Accounts',
   'Bill Submission',
+  'Office Staff',
   'Admin',
 ]);
 
 const DEPARTMENT_ALIASES: Record<string, Department> = {
   scrub: 'Scrub Person',
   'scrub person': 'Scrub Person',
+  scrubbing: 'Scrub Person',
   cleaning: 'Cleaning Department',
   'cleaning department': 'Cleaning Department',
   audit: 'Stores Audit',
@@ -29,6 +31,9 @@ const DEPARTMENT_ALIASES: Record<string, Department> = {
   delivery: 'Delivery',
   drivers: 'Drivers',
   driver: 'Drivers',
+  driving: 'Drivers',
+  'office staff': 'Office Staff',
+  office: 'Office Staff',
 };
 
 export interface EmployeeCsvRow {
