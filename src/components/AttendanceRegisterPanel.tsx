@@ -151,8 +151,8 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   };
 
   const markTile =
-    'flex flex-col items-center justify-center gap-1 aspect-square min-h-[4.5rem] px-2 py-2 rounded-sm border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
-  const markTileCode = 'text-base font-bold leading-none';
+    'flex flex-col items-center justify-center gap-0.5 h-16 w-full rounded-sm border text-center transition-colors disabled:opacity-50 disabled:pointer-events-none';
+  const markTileCode = 'text-sm font-bold leading-none';
   const markTileLabel = 'text-[10px] font-medium leading-tight opacity-90';
 
   const { year, month } = parseYearMonth(monthValue);
@@ -633,7 +633,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         setMarkView('comp-off');
                         setManualError(null);
                       }}
-                      className={`${markTile} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 col-span-2 aspect-auto min-h-[3.25rem] flex-row justify-between px-3`}
+                      className={`${markTile} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 col-span-2 h-12 flex-row justify-between px-3`}
                     >
                       <span className="flex items-center gap-2 text-left">
                         <span className={markTileCode}>CO</span>
