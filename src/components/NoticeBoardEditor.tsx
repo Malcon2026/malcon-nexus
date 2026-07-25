@@ -109,16 +109,19 @@ export const NoticeBoardEditor: React.FC = () => {
                 Preview
               </p>
               {preview ? (
-                <aside className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-[#fffaf0] to-orange-50/40">
-                  <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-amber-500 to-orange-400" />
-                  <div className="pl-4 pr-3.5 py-3 flex gap-3 items-start">
-                    <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-100/90 border border-amber-200/70 flex items-center justify-center text-amber-800">
-                      <Megaphone className="h-3.5 w-3.5" strokeWidth={2.25} />
+                <aside className="notice-board relative overflow-hidden rounded-xl border border-amber-200/90 bg-gradient-to-br from-amber-50 via-[#fffaf0] to-stone-50">
+                  <div className="notice-board-ring" aria-hidden />
+                  <div className="relative px-3.5 py-3 flex gap-3 items-start">
+                    <div className="mt-0.5 shrink-0 h-9 w-9 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-800">
+                      <Megaphone className="h-4 w-4" strokeWidth={2.25} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800/80 mb-1">
-                        Notice Board
-                      </p>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800/85">
+                          Notice Board
+                        </p>
+                        <span className="notice-board-dot" aria-hidden />
+                      </div>
                       <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words">
                         {preview}
                       </p>
