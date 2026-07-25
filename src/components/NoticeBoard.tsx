@@ -27,39 +27,24 @@ export const NoticeBoard: React.FC = () => {
 
   return (
     <motion.aside
-      className="notice-board mb-5 relative rounded-xl"
+      className="notice-board mb-5"
       aria-label="Notice board"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Rotating dashed border (SVG so dash pattern stays crisp) */}
-      <svg
-        className="notice-board-dashes"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <rect
-          x="1.5"
-          y="1.5"
-          width="97"
-          height="97"
-          rx="10"
-          ry="10"
-          pathLength="100"
-        />
-      </svg>
+      {/* Rotating - - - - ring (conic dashes — reliable on all sizes) */}
+      <div className="notice-board-spin" aria-hidden />
 
-      <div className="notice-board-inner relative m-[3px] rounded-[10px] border border-amber-100 bg-gradient-to-br from-amber-50 via-[#fffaf0] to-stone-50 px-3.5 py-3 flex gap-3 items-start">
-        <div className="mt-0.5 shrink-0 h-9 w-9 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-800">
-          <Megaphone className="h-4 w-4" strokeWidth={2.25} />
+      <div className="notice-board-inner">
+        <div className="shrink-0 h-9 w-9 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-sm">
+          <Megaphone className="h-4 w-4" strokeWidth={2.5} />
         </div>
         <div className="min-w-0 flex-1 pt-0.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-800/85 mb-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 mb-1">
             Notice Board
           </p>
-          <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words">
+          <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words font-medium">
             {notice}
           </p>
         </div>
