@@ -11,7 +11,6 @@ import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
-import { Analytics } from './pages/Analytics';
 import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
@@ -186,8 +185,6 @@ function App() {
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
       case 'hospitals':  return <Hospitals />;
-      case 'analytics':
-        return viewMode === 'admin' ? <Analytics /> : <EmployeeDashboard />;
       case 'reports':
         return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;
       case 'case-history': return <CaseHistory />;

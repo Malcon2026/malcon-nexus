@@ -151,6 +151,43 @@ export const Employees: React.FC = () => {
         ))}
       </div>
 
+      {viewMode === 'admin' && (
+        <Card className="mb-6">
+          <CardBody className="!p-0">
+            <div className="px-5 pt-4 pb-1">
+              <h3 className="text-sm font-semibold text-gray-900">Performance Leaderboard</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    {['Rank', 'Employee', 'Department', 'Completed', 'Active'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {[...employees].filter(e => e.role === 'employee').sort((a, b) => b.casesCompleted - a.casesCompleted).map((emp, idx) => (
+                    <tr key={emp.id}>
+                      <td className="px-5 py-3 text-sm font-bold text-gray-500">#{idx + 1}</td>
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={emp.name} size="sm" />
+                          <span className="text-sm font-semibold">{emp.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3"><Badge className="text-xs">{emp.department}</Badge></td>
+                      <td className="px-5 py-3 font-bold">{emp.casesCompleted}</td>
+                      <td className="px-5 py-3">{emp.casesActive}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[12rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

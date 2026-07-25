@@ -419,7 +419,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'analytics', 'reports', 'case-history', 'activity'];
+const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity'];
 
 const applyUserSession = (
   user: Employee,
