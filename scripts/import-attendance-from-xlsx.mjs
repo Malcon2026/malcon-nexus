@@ -5,6 +5,7 @@
  * Usage:
  *   node scripts/import-attendance-from-xlsx.mjs "EMP ATTENDANCE MAY-2026.xlsx" 2026 5
  *   node scripts/import-attendance-from-xlsx.mjs "EMP ATTENDANCE JUNE-2026.xlsx" 2026 6 --dry-run
+ *   node scripts/import-attendance-from-xlsx.mjs "EMP ATTENDANCE JULY-2026.xlsx" 2026 7 --until 2026-07-25 --replace
  */
 
 import { execFileSync } from 'node:child_process';
@@ -17,14 +18,30 @@ import { createClient } from '@supabase/supabase-js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
-const args = process.argv.filter((a) => !a.startsWith('--'));
+const replace = process.argv.includes('--replace');
+
+function flagValue(flag) {
+  const i = process.argv.indexOf(flag);
+  if (i < 0 || i + 1 >= process.argv.length) return null;
+  return process.argv[i + 1];
+}
+
+const untilDate = flagValue('--until'); // inclusive YYYY-MM-DD (IST date key)
+const args = process.argv.filter((a) => !a.startsWith('--') && !/^\d{4}-\d{2}-\d{2}$/.test(a));
 
 const xlsxArg = args[2];
 const salaryYear = args[3];
 const salaryMonth = args[4];
 
 if (!xlsxArg || !salaryYear || !salaryMonth) {
-  console.error('Usage: node scripts/import-attendance-from-xlsx.mjs <xlsx> <year> <salaryMonth> [--dry-run]');
+  console.error(
+    'Usage: node scripts/import-attendance-from-xlsx.mjs <xlsx> <year> <salaryMonth> [--until YYYY-MM-DD] [--replace] [--dry-run]',
+  );
+  process.exit(1);
+}
+
+if (untilDate && !/^\d{4}-\d{2}-\d{2}$/.test(untilDate)) {
+  console.error('--until must be YYYY-MM-DD');
   process.exit(1);
 }
 
@@ -90,11 +107,20 @@ if (!leaveTableAvailable) {
 }
 
 const sheetLabel = xlsxArg.split('/').pop();
+const rangeStart = data.columns[0]?.dateKey;
+const rangeEndRaw = data.columns.at(-1)?.dateKey;
+const rangeEnd = untilDate && rangeEndRaw && untilDate < rangeEndRaw ? untilDate : rangeEndRaw;
+
 console.log(`File: ${sheetLabel}`);
 console.log(`Salary month: ${data.salaryMonth}`);
-console.log(`Date columns: ${data.columns.length} (${data.columns[0]?.dateKey} → ${data.columns.at(-1)?.dateKey})`);
+console.log(`Date columns: ${data.columns.length} (${rangeStart} → ${rangeEndRaw})`);
+if (untilDate) console.log(`Import cutoff (--until): ${untilDate} (inclusive)`);
+if (replace) console.log('Mode: --replace (delete existing punches/leaves in window, then insert)');
 console.log(`Matched employees to import: ${data.entries.length}`);
 console.log(`Skipped (unmapped) excel rows: ${data.skippedNames.length}`);
+if (data.skippedNames.length) {
+  console.log(`  (unmapped: ${data.skippedNames.join(', ')})`);
+}
 
 const emails = data.entries.map((e) => e.email);
 const { data: employees, error: empErr } = await supabase
@@ -119,21 +145,81 @@ if (!importEntries.length) {
   process.exit(1);
 }
 
+if (!rangeStart || !rangeEnd) {
+  console.error('No date columns found in sheet.');
+  process.exit(1);
+}
+
 let punchIns = 0;
 let punchOuts = 0;
 let leaves = 0;
 let skippedExisting = 0;
+let deletedPunches = 0;
+let deletedLeaves = 0;
 
 for (const entry of importEntries) {
   const employee = byEmail.get(entry.email.toLowerCase());
-  const dateKeys = entry.days.map((d) => d.dateKey);
+  const days = entry.days.filter((d) => !untilDate || d.dateKey <= untilDate);
+
+  if (replace) {
+    const { data: oldPunches, error: delPunchSelErr } = await supabase
+      .from('attendance_records')
+      .select('id')
+      .eq('employee_id', employee.id)
+      .gte('punched_at', `${rangeStart}T00:00:00+05:30`)
+      .lte('punched_at', `${rangeEnd}T23:59:59+05:30`);
+    if (delPunchSelErr) {
+      console.error(`Failed listing punches for ${employee.name}:`, delPunchSelErr.message);
+      process.exit(1);
+    }
+    const punchIds = (oldPunches ?? []).map((r) => r.id);
+    if (punchIds.length) {
+      if (!dryRun) {
+        const { error } = await supabase.from('attendance_records').delete().in('id', punchIds);
+        if (error) {
+          console.error(`Failed deleting punches for ${employee.name}:`, error.message);
+          process.exit(1);
+        }
+      }
+      deletedPunches += punchIds.length;
+    }
+
+    if (leaveTableAvailable) {
+      const { data: oldLeaves, error: delLeaveSelErr } = await supabase
+        .from('leave_requests')
+        .select('id, from_date, to_date, status')
+        .eq('employee_id', employee.id)
+        .neq('status', 'cancelled')
+        .lte('from_date', rangeEnd)
+        .gte('to_date', rangeStart);
+      if (delLeaveSelErr) {
+        console.error(`Failed listing leaves for ${employee.name}:`, delLeaveSelErr.message);
+        process.exit(1);
+      }
+      // Only remove single-day approved leaves that fall inside the import window
+      // (matches how the importer writes historical leaves).
+      const leaveIds = (oldLeaves ?? [])
+        .filter((lr) => lr.from_date === lr.to_date && lr.from_date >= rangeStart && lr.from_date <= rangeEnd)
+        .map((lr) => lr.id);
+      if (leaveIds.length) {
+        if (!dryRun) {
+          const { error } = await supabase.from('leave_requests').delete().in('id', leaveIds);
+          if (error) {
+            console.error(`Failed deleting leaves for ${employee.name}:`, error.message);
+            process.exit(1);
+          }
+        }
+        deletedLeaves += leaveIds.length;
+      }
+    }
+  }
 
   const { data: existingPunches } = await supabase
     .from('attendance_records')
     .select('id, punched_at, punch_type')
     .eq('employee_id', employee.id)
-    .gte('punched_at', `${dateKeys[0]}T00:00:00+05:30`)
-    .lte('punched_at', `${dateKeys.at(-1)}T23:59:59+05:30`);
+    .gte('punched_at', `${rangeStart}T00:00:00+05:30`)
+    .lte('punched_at', `${rangeEnd}T23:59:59+05:30`);
 
   const punchedDays = new Set(
     (existingPunches ?? []).map((r) => r.punched_at.slice(0, 10)),
@@ -144,8 +230,8 @@ for (const entry of importEntries) {
     .select('id, from_date, to_date, status')
     .eq('employee_id', employee.id)
     .neq('status', 'cancelled')
-    .lte('from_date', dateKeys.at(-1))
-    .gte('to_date', dateKeys[0]);
+    .lte('from_date', rangeEnd)
+    .gte('to_date', rangeStart);
 
   const leaveDays = new Set();
   for (const lr of existingLeave ?? []) {
@@ -158,7 +244,7 @@ for (const entry of importEntries) {
     }
   }
 
-  for (const day of entry.days) {
+  for (const day of days) {
     if (day.status === 'P') {
       if (punchedDays.has(day.dateKey)) {
         skippedExisting++;
@@ -227,10 +313,14 @@ for (const entry of importEntries) {
     }
   }
 
-  console.log(`  ✓ ${entry.excelName} → ${employee.name} (${entry.days.length} P/L days)`);
+  console.log(`  ✓ ${entry.excelName} → ${employee.name} (${days.length} P/L days through ${rangeEnd})`);
 }
 
 console.log('\nDone.');
+if (replace) {
+  console.log(`  Deleted punches:   ${deletedPunches}`);
+  console.log(`  Deleted leaves:    ${deletedLeaves}`);
+}
 console.log(`  Punch in records:  ${punchIns}`);
 console.log(`  Punch out records: ${punchOuts}`);
 console.log(`  Leave days:        ${leaves}`);
