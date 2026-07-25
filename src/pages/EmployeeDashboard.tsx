@@ -74,7 +74,7 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
         <AttendanceRegisterPanel
           employeeId={employeeId}
           title="My Attendance Register"
-          subtitle="Your salary-cycle attendance — P Present, L Leave, A Absent, WO Sunday off"
+          subtitle="Your salary-cycle attendance — P Present, A Absent, WO Sunday off"
         />
       ) : (
         <Card className="p-8 text-center">

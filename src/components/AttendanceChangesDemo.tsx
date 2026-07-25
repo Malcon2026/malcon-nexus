@@ -35,7 +35,7 @@ const CHANGES = [
   },
   {
     title: 'Weekly offs count as paid',
-    detail: `Pay days = Present + Leave + Sunday off (WO), capped at ${PAYABLE_DAYS_PER_CYCLE}.`,
+    detail: `Pay days = Present + Sunday off (WO), capped at ${PAYABLE_DAYS_PER_CYCLE}. Leave is shown as Absent.`,
   },
   {
     title: 'Salary cycle',
@@ -157,7 +157,7 @@ export const AttendanceChangesDemo: React.FC = () => {
             </table>
           </div>
           <p className="text-[11px] text-gray-500">
-            Pay = P + L + WO (Sundays included). Absent days are not paid. Maximum {PAYABLE_DAYS_PER_CYCLE} days per salary cycle.
+            Pay = P + WO (Sundays included). Leave is shown as Absent and not paid. Maximum {PAYABLE_DAYS_PER_CYCLE} days per salary cycle.
           </p>
         </CardBody>
       </Card>

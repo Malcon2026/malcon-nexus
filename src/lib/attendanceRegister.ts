@@ -260,39 +260,30 @@ export function resolveRegisterCell(
         workedDuration: formatWorkedDuration(summary),
       };
     }
-    // Approved leave on a Sunday still counts as leave (e.g. Comp Off).
-    if (leave?.status === 'approved') {
+    // Leave on a Sunday is shown as Absent on the register (for now).
+    if (leave?.status === 'approved' || leave?.status === 'pending') {
       return {
-        code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
-        label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
-        ...leaveCellFields(leave),
-      };
-    }
-    if (leave?.status === 'pending') {
-      return {
-        code: 'PL',
-        label: `Pending ${leave.leaveType} leave`,
+        code: 'A',
+        label:
+          leave.status === 'pending'
+            ? `Absent (pending ${leave.leaveType})`
+            : `Absent (${leave.leaveType})`,
         ...leaveCellFields(leave),
       };
     }
     return { code: 'WO', label: 'Sunday off' };
   }
 
-  if (leave) {
-    if (leave.status === 'approved') {
-      return {
-        code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
-        label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
-        ...leaveCellFields(leave),
-      };
-    }
-    if (leave.status === 'pending') {
-      return {
-        code: 'PL',
-        label: `Pending ${leave.leaveType} leave`,
-        ...leaveCellFields(leave),
-      };
-    }
+  // Leave days display as Absent on the register (for now).
+  if (leave && (leave.status === 'approved' || leave.status === 'pending')) {
+    return {
+      code: 'A',
+      label:
+        leave.status === 'pending'
+          ? `Absent (pending ${leave.leaveType})`
+          : `Absent (${leave.leaveType})`,
+      ...leaveCellFields(leave),
+    };
   }
 
   if (summary.punchIn && summary.punchOut) {
@@ -370,7 +361,7 @@ export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColum
   let count = 0;
   for (let i = 0; i < days.length; i++) {
     const code = cells[i].code;
-    if (code === 'P' || code === 'PI' || code === 'L' || code === 'CO' || code === 'WO') count++;
+    if (code === 'P' || code === 'PI' || code === 'WO') count++;
   }
   return Math.min(count, PAYABLE_DAYS_PER_CYCLE);
 }
