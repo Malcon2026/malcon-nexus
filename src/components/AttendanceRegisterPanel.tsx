@@ -463,7 +463,14 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
             {isAdmin && !selectedCell.day.isFuture && (
               <div className="space-y-2 pt-1 border-t border-gray-100">
-                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Mark as</p>
+                <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
+                  {selectedCell.day.isWeeklyOff ? 'Sunday — mark if needed' : 'Mark as'}
+                </p>
+                {selectedCell.day.isWeeklyOff && (
+                  <p className="text-[11px] text-gray-500">
+                    Default is week off (WO). Tap Present if they worked, or a leave type if applicable.
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
@@ -471,16 +478,27 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     onClick={() => void applyMark('present')}
                     className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50"
                   >
-                    Present (P)
+                    {selectedCell.day.isWeeklyOff ? 'Worked (P)' : 'Present (P)'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={manualSaving}
-                    onClick={() => void applyMark('absent')}
-                    className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
-                  >
-                    Absent (A)
-                  </button>
+                  {!selectedCell.day.isWeeklyOff ? (
+                    <button
+                      type="button"
+                      disabled={manualSaving}
+                      onClick={() => void applyMark('absent')}
+                      className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+                    >
+                      Absent (A)
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={manualSaving}
+                      onClick={() => void applyMark('absent')}
+                      className="px-2.5 py-2 rounded-lg text-xs font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      Week off (WO)
+                    </button>
+                  )}
                   {LEAVE_TYPES.map((t) => (
                     <button
                       key={t.value}

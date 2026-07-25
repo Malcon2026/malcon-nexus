@@ -207,40 +207,59 @@ export function resolveRegisterCell(
   leaveRequests: LeaveRequest[],
   isFuture: boolean,
 ): RegisterCellDetail {
-  if (isWeeklyOffDateKey(dateKey)) {
-    // Some staff still come in on their weekly off. If they actually
-    // punched that day, credit it as Present instead of hiding it behind
-    // the generic "Sunday off" cell.
-    const woSummary = summarizeDayAttendance(records, employeeId, dateKey);
-    if (woSummary.punchIn && woSummary.punchOut) {
+  const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
+  const summary = summarizeDayAttendance(records, employeeId, dateKey);
+  const weeklyOff = isWeeklyOffDateKey(dateKey);
+
+  // Worked on weekly off → Present (punches win over default WO).
+  if (weeklyOff) {
+    if (summary.punchIn && summary.punchOut) {
       return {
         code: 'P',
         label: 'Present (worked week off)',
-        punchInTime: formatTimeIST(woSummary.punchIn.punchedAt),
-        punchOutTime: formatTimeIST(woSummary.punchOut.punchedAt),
-        workedDuration: formatWorkedDuration(woSummary),
+        punchInTime: formatTimeIST(summary.punchIn.punchedAt),
+        punchOutTime: formatTimeIST(summary.punchOut.punchedAt),
+        workedDuration: formatWorkedDuration(summary),
       };
     }
-    if (woSummary.isPunchedIn) {
+    if (summary.isPunchedIn) {
       return {
         code: 'PI',
         label: 'Present, still in (worked week off)',
-        punchInTime: formatTimeIST(woSummary.punchIn!.punchedAt),
-        workedDuration: formatWorkedDuration(woSummary),
+        punchInTime: formatTimeIST(summary.punchIn!.punchedAt),
+        workedDuration: formatWorkedDuration(summary),
       };
     }
-    if (woSummary.punchIn && !woSummary.punchOut) {
+    if (summary.punchIn && !summary.punchOut) {
       return {
         code: 'P',
         label: 'Present, missing punch out (worked week off)',
-        punchInTime: formatTimeIST(woSummary.punchIn.punchedAt),
-        workedDuration: formatWorkedDuration(woSummary),
+        punchInTime: formatTimeIST(summary.punchIn.punchedAt),
+        workedDuration: formatWorkedDuration(summary),
+      };
+    }
+    // Approved leave on a Sunday still counts as leave (e.g. Comp Off).
+    if (leave?.status === 'approved') {
+      return {
+        code: leave.leaveType === 'Comp Off' ? 'CO' : 'L',
+        label: leave.leaveType === 'Comp Off' ? 'Comp off' : `${leave.leaveType} leave`,
+        leaveType: leave.leaveType,
+        leaveReason: leave.reason,
+        leaveStatus: leave.status,
+      };
+    }
+    if (leave?.status === 'pending') {
+      return {
+        code: 'PL',
+        label: `Pending ${leave.leaveType} leave`,
+        leaveType: leave.leaveType,
+        leaveReason: leave.reason,
+        leaveStatus: leave.status,
       };
     }
     return { code: 'WO', label: 'Sunday off' };
   }
 
-  const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
   if (leave) {
     if (leave.status === 'approved') {
       return {
@@ -261,8 +280,6 @@ export function resolveRegisterCell(
       };
     }
   }
-
-  const summary = summarizeDayAttendance(records, employeeId, dateKey);
 
   if (summary.punchIn && summary.punchOut) {
     return {
