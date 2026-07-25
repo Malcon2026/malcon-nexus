@@ -38,6 +38,42 @@ function camelToSnake(obj: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
+/** PostgREST / Supabase default max rows per request is 1000. Page until exhausted. */
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllRows<T>(
+  queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await queryFactory(from, to);
+    if (error) throw error;
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+  return all;
+}
+
+function rowToAttendance(row: Record<string, unknown>): AttendanceRecord {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    punchType: row.punch_type as AttendanceRecord['punchType'],
+    punchedAt: row.punched_at as string,
+    latitude: row.latitude as number,
+    longitude: row.longitude as number,
+    accuracyM: row.accuracy_m as number,
+    distanceM: row.distance_m as number,
+    withinOffice: row.within_office as boolean,
+    officeAddress: row.office_address as string,
+  };
+}
+
 // ─── EMPLOYEES ───────────────────────────────────────────────
 
 function rowToEmployee(row: Record<string, unknown>): Employee {
@@ -524,47 +560,27 @@ export const sbActivityRepo = {
 
 export const sbAttendanceRepo = {
   async getAll(): Promise<AttendanceRecord[]> {
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .order('punched_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      punchType: row.punch_type as AttendanceRecord['punchType'],
-      punchedAt: row.punched_at,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      accuracyM: row.accuracy_m,
-      distanceM: row.distance_m,
-      withinOffice: row.within_office,
-      officeAddress: row.office_address,
-    }));
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from('attendance_records')
+        .select('*')
+        .order('punched_at', { ascending: false })
+        .range(from, to),
+    );
+    return rows.map(rowToAttendance);
   },
 
   async getRecentForEmployee(employeeId: string, sinceIso: string): Promise<AttendanceRecord[]> {
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('employee_id', employeeId)
-      .gte('punched_at', sinceIso)
-      .order('punched_at', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      punchType: row.punch_type as AttendanceRecord['punchType'],
-      punchedAt: row.punched_at,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      accuracyM: row.accuracy_m,
-      distanceM: row.distance_m,
-      withinOffice: row.within_office,
-      officeAddress: row.office_address,
-    }));
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('punched_at', sinceIso)
+        .order('punched_at', { ascending: false })
+        .range(from, to),
+    );
+    return rows.map(rowToAttendance);
   },
 
   async insert(record: AttendanceRecord): Promise<void> {
