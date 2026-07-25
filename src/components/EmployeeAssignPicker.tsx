@@ -7,6 +7,7 @@ import { departmentColors } from '../utils/helpers';
 export const ASSIGN_DEPARTMENTS: Department[] = [
   'Stores',
   'Delivery',
+  'Drivers',
   'Scrub Person',
   'Cleaning Department',
   'Stores Audit',

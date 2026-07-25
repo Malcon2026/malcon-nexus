@@ -23,7 +23,7 @@ import type { LeaveType } from '../types';
 import { departmentColors } from '../utils/helpers';
 
 const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Admin',
+  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Admin',
 ];
 
 /** ISO punchedAt -> "HH:mm" 24h string in IST, for prefilling <input type="time">. */

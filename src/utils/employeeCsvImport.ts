@@ -4,6 +4,7 @@ import { parseCsvObjects } from './csv';
 const VALID_DEPARTMENTS = new Set<Department>([
   'Stores',
   'Delivery',
+  'Drivers',
   'Scrub Person',
   'Cleaning Department',
   'Stores Audit',
@@ -26,6 +27,8 @@ const DEPARTMENT_ALIASES: Record<string, Department> = {
   admin: 'Admin',
   stores: 'Stores',
   delivery: 'Delivery',
+  drivers: 'Drivers',
+  driver: 'Drivers',
 };
 
 export interface EmployeeCsvRow {

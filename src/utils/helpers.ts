@@ -64,6 +64,7 @@ export function normalizeWorkflowStage(stage: string | null | undefined): Workfl
 export const departmentColors: Record<Department, string> = {
   Stores: 'bg-violet-100 text-violet-800',
   Delivery: 'bg-rose-100 text-rose-800',
+  Drivers: 'bg-teal-100 text-teal-800',
   'Scrub Person': 'bg-blue-100 text-blue-800',
   'Cleaning Department': 'bg-cyan-100 text-cyan-800',
   'Stores Audit': 'bg-amber-100 text-amber-800',

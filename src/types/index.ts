@@ -23,6 +23,7 @@ export type WorkflowStage =
 export type Department =
   | 'Stores'
   | 'Delivery'
+  | 'Drivers'
   | 'Scrub Person'
   | 'Cleaning Department'
   | 'Stores Audit'
