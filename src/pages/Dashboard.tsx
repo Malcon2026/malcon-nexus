@@ -15,6 +15,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
 import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
+import { filterAttendanceStaff } from '../lib/staff';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -140,7 +141,7 @@ export const Dashboard: React.FC = () => {
         <KPICard label="Cleaning Queue" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" subtitle="Pending sterilize" />
         <KPICard label="Billing Pending" value={billingPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" subtitle="Invoice generation" />
         <KPICard label="Bill Submission" value={billSubmissionPending.length} icon={<Wallet className="h-4 w-4 text-orange-600" />} iconBg="bg-orange-50" subtitle="Pending bill submission" />
-        <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" subtitle={`${employees.filter(e => e.role === 'employee').length} employees`} />
+        <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" subtitle={`${filterAttendanceStaff(employees).length} staff`} />
         <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle="Active assignments" />
       </motion.div>
 

@@ -10,9 +10,10 @@ import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
+import { filterAttendanceStaff } from '../lib/staff';
 
 const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff'
+  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
 ];
 
 const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
@@ -89,21 +90,28 @@ export const Employees: React.FC = () => {
   };
 
   const filtered = employees
-    .filter(e => e.role === 'employee')
-    .filter(e => filterDept === 'All' || e.department === filterDept)
-    .filter(e => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()));
+    .filter((e) => e.role === 'employee' || e.role === 'admin')
+    .filter((e) => filterDept === 'All' || e.department === filterDept)
+    .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()));
 
-  const teamEmployees = employees.filter((e) => e.role === 'employee');
-  const totalEmployees = teamEmployees.length;
-  const totalActive = teamEmployees.filter((e) => e.casesActive > 0).length;
-  const totalCompleted = teamEmployees.reduce((s, e) => s + e.casesCompleted, 0);
+  // Same roster as Attendance register: Active employees + admins.
+  const rosterStaff = filterAttendanceStaff(employees);
+  const totalEmployees = rosterStaff.length;
+  const totalActive = rosterStaff.filter((e) => e.casesActive > 0).length;
+  const totalCompleted = rosterStaff.reduce((s, e) => s + e.casesCompleted, 0);
+  const inactiveCount = employees.filter(
+    (e) => (e.role === 'employee' || e.role === 'admin') && e.status !== 'Active',
+  ).length;
 
-  const deptStats = DEPARTMENTS.slice(1).map(dept => ({
-    dept,
-    employees: employees.filter(e => e.department === dept),
-    active: employees.filter(e => e.department === dept && e.casesActive > 0).length,
-    completed: employees.filter(e => e.department === dept).reduce((s, e) => s + e.casesCompleted, 0),
-  }));
+  const deptStats = DEPARTMENTS.slice(1).map((dept) => {
+    const emps = rosterStaff.filter((e) => e.department === dept);
+    return {
+      dept,
+      employees: emps,
+      active: emps.filter((e) => e.casesActive > 0).length,
+      completed: emps.reduce((s, e) => s + e.casesCompleted, 0),
+    };
+  });
 
   const maxCompleted = Math.max(1, ...employees.map(e => e.casesCompleted));
 
@@ -150,7 +158,9 @@ export const Employees: React.FC = () => {
           <div className="mt-2 flex items-end justify-between">
             <div>
               <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
-              <p className="text-[10px] text-gray-400">employees</p>
+              <p className="text-[10px] text-gray-400">
+                active{inactiveCount > 0 ? ` · ${inactiveCount} inactive` : ''}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs font-semibold text-indigo-600">{totalActive} active</p>
@@ -191,7 +201,7 @@ export const Employees: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {[...employees].filter(e => e.role === 'employee').sort((a, b) => b.casesCompleted - a.casesCompleted).map((emp, idx) => (
+                  {[...rosterStaff].sort((a, b) => b.casesCompleted - a.casesCompleted).map((emp, idx) => (
                     <tr key={emp.id}>
                       <td className="px-5 py-3 text-sm font-bold text-gray-500">#{idx + 1}</td>
                       <td className="px-5 py-3">

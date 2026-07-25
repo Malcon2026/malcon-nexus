@@ -1,4 +1,5 @@
 import type { AttendanceApprovalRequest, AttendanceRecord, PunchType } from '../types';
+import { filterAttendanceStaff } from './staff';
 
 /** Malcon Nexus office — CCWW+RJ, Hyderabad, Telangana (7J9WCCWW+RJ) */
 export const OFFICE_LOCATION = {
@@ -307,8 +308,7 @@ export function buildEmployeeAttendanceReport(
   records: AttendanceRecord[],
   dateKey = getISTDateKey(),
 ): EmployeeAttendanceRow[] {
-  return employees
-    .filter((e) => (e.role === 'employee' || e.role === 'admin') && e.status === 'Active')
+  return filterAttendanceStaff(employees)
     .map((employee) => {
       const summary = summarizeDayAttendance(records, employee.id, dateKey);
       return {

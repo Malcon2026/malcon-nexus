@@ -5,6 +5,7 @@ import {
   formatTimeIST,
   type TodayAttendanceSummary,
 } from './attendance';
+import { filterAttendanceStaff } from './staff';
 
 export type RegisterCellCode = 'P' | 'PI' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
 export const PAYABLE_DAYS_PER_CYCLE = 30;
@@ -385,8 +386,7 @@ export function buildAttendanceRegister(
   const days = buildSalaryCycleDayColumns(year, month);
   // Admins are staff too — they just don't punch via geofence by default.
   // Include them so manually-entered attendance shows up in the register.
-  const staff = employees
-    .filter((e) => (e.role === 'employee' || e.role === 'admin') && e.status === 'Active')
+  const staff = filterAttendanceStaff(employees)
     .filter((e) => !options?.employeeId || e.id === options.employeeId)
     .sort((a, b) => a.name.localeCompare(b.name));
 

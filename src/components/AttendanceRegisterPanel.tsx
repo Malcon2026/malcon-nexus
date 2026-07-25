@@ -209,7 +209,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         {!compactHeader && (
           <div>
             <h2 className="text-base font-bold text-gray-900">{title}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {subtitle}
+              {!employeeId && (
+                <span className="text-gray-400"> · {register.rows.length} staff</span>
+              )}
+            </p>
           </div>
         )}
         <div className={`flex flex-wrap items-center gap-2 ${compactHeader ? 'w-full lg:w-auto lg:ml-auto' : ''}`}>
@@ -287,6 +292,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         <span className="font-medium text-gray-800">{register.cycleLabel}</span>
         <span className="text-gray-400 mx-1.5">·</span>
         {register.cycleDescription}
+        {!employeeId && (
+          <>
+            <span className="text-gray-400 mx-1.5">·</span>
+            <span className="font-medium text-gray-800">{register.rows.length} staff</span>
+          </>
+        )}
       </p>
 
       <div className="flex flex-wrap gap-2 text-[10px]">
