@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS employees (
   status       TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   avatar       TEXT NOT NULL DEFAULT '',
   phone        TEXT NOT NULL DEFAULT '',
+  employee_code TEXT,
   cases_completed INT NOT NULL DEFAULT 0,
   cases_active    INT NOT NULL DEFAULT 0,
   join_date    DATE NOT NULL DEFAULT CURRENT_DATE,
@@ -32,6 +33,9 @@ CREATE TABLE IF NOT EXISTS employees (
 
 CREATE INDEX IF NOT EXISTS idx_employees_auth_user_id ON employees(auth_user_id);
 CREATE INDEX IF NOT EXISTS idx_employees_email ON employees(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_employee_code
+  ON employees (employee_code)
+  WHERE employee_code IS NOT NULL AND employee_code <> '';
 
 
 -- ============================================================

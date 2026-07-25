@@ -86,6 +86,7 @@ function rowToEmployee(row: Record<string, unknown>): Employee {
     status: row.status as Employee['status'],
     avatar: row.avatar as string,
     phone: row.phone as string,
+    employeeCode: (row.employee_code as string | null | undefined) ?? '',
     casesCompleted: row.cases_completed as number,
     casesActive: row.cases_active as number,
     joinDate: row.join_date as string,
@@ -135,6 +136,7 @@ export const sbEmployeeRepo = {
       status: e.status,
       avatar: e.avatar,
       phone: e.phone,
+      employee_code: e.employeeCode?.trim() || null,
       cases_completed: e.casesCompleted,
       cases_active: e.casesActive,
       join_date: e.joinDate,
@@ -152,6 +154,10 @@ export const sbEmployeeRepo = {
     if (updates.status)         patch.status = updates.status;
     if (updates.avatar)         patch.avatar = updates.avatar;
     if (updates.phone)          patch.phone = updates.phone;
+    if (updates.employeeCode !== undefined) {
+      const code = updates.employeeCode.trim();
+      patch.employee_code = code || null;
+    }
     if (updates.casesCompleted !== undefined) patch.cases_completed = updates.casesCompleted;
     if (updates.casesActive !== undefined)    patch.cases_active = updates.casesActive;
     if (updates.joinDate)       patch.join_date = updates.joinDate;

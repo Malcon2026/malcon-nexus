@@ -482,6 +482,7 @@ const placeholderAdmin: Employee = {
   casesActive: 0,
   joinDate: new Date().toISOString().split('T')[0],
   phone: '',
+  employeeCode: '',
 };
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
@@ -1223,6 +1224,7 @@ export const useStore = create<AppState>((set, get) => ({
       casesActive: 0,
       joinDate: new Date().toISOString().split('T')[0],
       phone: employeeData.phone || '',
+      employeeCode: (employeeData.employeeCode || '').trim(),
     };
 
     await employeeRepository.create(newEmp);
@@ -1272,6 +1274,7 @@ export const useStore = create<AppState>((set, get) => ({
             department: row.department,
             role: row.role,
             phone: row.phone,
+            employeeCode: row.employeeCode,
             avatar: row.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase(),
           });
           if (error) throw new Error(error);
@@ -1284,6 +1287,7 @@ export const useStore = create<AppState>((set, get) => ({
               department: row.department,
               role: row.role,
               phone: row.phone,
+              employeeCode: row.employeeCode,
             },
             { password: row.password },
           );

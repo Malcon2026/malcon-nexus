@@ -148,9 +148,10 @@ export function exportEmployeesCsv(
   const filename = exportFilename('employees', filter);
   downloadCsv(
     filename,
-    ['Name', 'Email', 'Department', 'Role', 'Status', 'Phone', 'Cases Completed', 'Active Cases', 'Join Date'],
+    ['Name', 'Employee ID', 'Email', 'Department', 'Role', 'Status', 'Phone', 'Cases Completed', 'Active Cases', 'Join Date'],
     filtered.map((e) => [
       e.name,
+      e.employeeCode || '',
       e.email,
       e.department,
       e.role,

@@ -15,6 +15,7 @@ EXCEL_TO_EMAIL = {
     "BURLAWAR VINEETH GOUD": "vinithgoud.burlawar@malconnexus.com",
     "JERIPOTHULA SAI KRISHNA": "saikrishna.jeripothula@malconnexus.com",
     "S.RACHITHA SAI": "rachitha.abburi@malconnexus.com",
+    "S.RACHITHA  SAI": "rachitha.abburi@malconnexus.com",
     "SEERALA BINDU": "bindhu.seerla@malconnexus.com",
     # Added for July 2026 backfill (previously unmapped)
     "G.ARUN KUMAR": "arunkumar.gopu@malconnexus.com",

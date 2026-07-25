@@ -18,6 +18,7 @@ export interface Database {
           status: 'Active' | 'Inactive';
           avatar: string;
           phone: string;
+          employee_code: string | null;
           cases_completed: number;
           cases_active: number;
           join_date: string;

@@ -24,6 +24,7 @@ const emptyForm = {
   department: 'Stores' as Department,
   email: '',
   phone: '',
+  employeeCode: '',
   role: 'employee' as 'admin' | 'employee',
 };
 
@@ -48,6 +49,7 @@ export const Employees: React.FC = () => {
       department: emp.department,
       email: emp.email,
       phone: emp.phone,
+      employeeCode: emp.employeeCode || '',
       role: emp.role,
     });
     setEditingEmployee(emp);
@@ -67,6 +69,7 @@ export const Employees: React.FC = () => {
         department: form.department,
         email: form.email,
         phone: form.phone,
+        employeeCode: form.employeeCode.trim(),
         role: form.role,
         avatar: form.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase(),
       });
@@ -80,6 +83,7 @@ export const Employees: React.FC = () => {
         department: form.department,
         email: form.email,
         phone: form.phone,
+        employeeCode: form.employeeCode.trim(),
         role: form.role,
       });
     }
@@ -92,7 +96,7 @@ export const Employees: React.FC = () => {
   const filtered = employees
     .filter((e) => e.role === 'employee' || e.role === 'admin')
     .filter((e) => filterDept === 'All' || e.department === filterDept)
-    .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()));
+    .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()) || (e.employeeCode || '').includes(search.trim()));
 
   // Same roster as Attendance register: Active employees + admins.
   const rosterStaff = filterAttendanceStaff(employees);
@@ -262,7 +266,12 @@ export const Employees: React.FC = () => {
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-grow mr-2">
                         <p className="text-sm font-bold text-gray-900 truncate" title={emp.name}>{emp.name}</p>
-                        <Badge className={`${departmentColors[emp.department]} text-[10px] mt-1`}>{emp.department}</Badge>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <Badge className={`${departmentColors[emp.department]} text-[10px]`}>{emp.department}</Badge>
+                          {emp.employeeCode ? (
+                            <span className="text-[10px] font-mono text-gray-500 tabular-nums">ID {emp.employeeCode}</span>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <div className={`h-2 w-2 rounded-full shrink-0 ${emp.status === 'Active' ? 'bg-emerald-500' : 'bg-gray-300'}`} title={emp.status} />
@@ -389,6 +398,16 @@ export const Employees: React.FC = () => {
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 required
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Employee ID</label>
+              <input
+                type="text"
+                placeholder="e.g. 0001 (from attendance sheet)"
+                className={inputClass}
+                value={form.employeeCode}
+                onChange={e => setForm({ ...form, employeeCode: e.target.value })}
               />
             </div>
             <div>

@@ -43,10 +43,10 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
   const handleDownloadTemplate = () => {
     downloadCsv(
       'malconnexus_employees_template.csv',
-      ['name', 'email', 'password', 'department', 'role', 'phone'],
+      ['name', 'email', 'password', 'department', 'role', 'phone', 'employee_code'],
       [
-        ['Bindhu', 'bindhu@malconnexus.com', 'Test@0011', 'Stores', 'employee', '8019971125'],
-        ['Ramakanth', 'ramakanth@malconnexus.com', 'Test@0011', 'Stores Audit', 'employee', '8019971125'],
+        ['Bindhu', 'bindhu@malconnexus.com', 'Test@0011', 'Stores', 'employee', '8019971125', '0138'],
+        ['Ramakanth', 'ramakanth@malconnexus.com', 'Test@0011', 'Stores Audit', 'employee', '8019971125', '0161'],
       ],
     );
   };
@@ -58,13 +58,14 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
     }
     downloadCsv(
       `malconnexus_employees_${new Date().toISOString().slice(0, 10)}.csv`,
-      ['name', 'email', 'department', 'role', 'phone', 'status', 'cases_completed', 'cases_active'],
+      ['name', 'email', 'department', 'role', 'phone', 'employee_code', 'status', 'cases_completed', 'cases_active'],
       employees.map((e) => [
         e.name,
         e.email,
         e.department,
         e.role,
         e.phone,
+        e.employeeCode || '',
         e.status,
         e.casesCompleted,
         e.casesActive,
@@ -135,7 +136,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
 
         <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 space-y-1">
           <p className="font-semibold">Required columns</p>
-          <p>name, email, password, department, role, phone (optional)</p>
+          <p>name, email, password, department, role, phone (optional), employee_code (optional)</p>
           <p className="text-blue-700">Departments: Stores, Delivery, Drivers, Scrub Person, Cleaning Department, Stores Audit, Accounts, Bill Submission, Office Staff, Admin</p>
         </div>
 

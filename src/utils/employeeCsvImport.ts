@@ -43,6 +43,7 @@ export interface EmployeeCsvRow {
   department: Department;
   role: 'admin' | 'employee';
   phone: string;
+  employeeCode: string;
   _line: number;
 }
 
@@ -89,13 +90,20 @@ export function parseEmployeeCsv(text: string): EmployeeCsvRow[] {
       department: normalizeDepartment(row.department ?? '', line),
       role: normalizeRole(row.role ?? 'employee', line),
       phone: row.phone?.trim() ?? '',
+      employeeCode: (
+        row.employee_code ??
+        row.employeeCode ??
+        row['employee id'] ??
+        row.employee_id ??
+        ''
+      ).trim(),
       _line: line,
     };
   });
 }
 
 export const EMPLOYEE_CSV_TEMPLATE = [
-  'name,email,password,department,role,phone',
-  'Bindhu,bindhu@malconnexus.com,Test@0011,Stores,employee,8019971125',
-  'Ramakanth,ramakanth@malconnexus.com,Test@0011,Stores Audit,employee,8019971125',
+  'name,email,password,department,role,phone,employee_code',
+  'Bindhu,bindhu@malconnexus.com,Test@0011,Stores,employee,8019971125,0138',
+  'Ramakanth,ramakanth@malconnexus.com,Test@0011,Stores Audit,employee,8019971125,0161',
 ].join('\n');

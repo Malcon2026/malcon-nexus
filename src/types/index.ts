@@ -44,6 +44,8 @@ export interface Employee {
   casesActive: number;
   joinDate: string;
   phone: string;
+  /** Payroll / attendance sheet ID (e.g. 0001, 0210). */
+  employeeCode: string;
 }
 
 export interface Hospital {
