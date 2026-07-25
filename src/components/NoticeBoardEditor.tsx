@@ -109,19 +109,15 @@ export const NoticeBoardEditor: React.FC = () => {
                 Preview
               </p>
               {preview ? (
-                <aside className="notice-board rounded-xl border border-stone-200/90 bg-white">
-                  <div className="notice-board-sheen" aria-hidden />
+                <aside className="notice-board rounded-xl bg-white">
                   <div className="relative flex gap-3 items-start px-3.5 py-3">
-                    <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-stone-100 border border-stone-200/80 flex items-center justify-center text-stone-600">
+                    <div className="mt-0.5 shrink-0 h-8 w-8 rounded-lg bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-800">
                       <Megaphone className="h-3.5 w-3.5" strokeWidth={2.25} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500">
-                          Notice Board
-                        </p>
-                        <span className="notice-board-live" aria-hidden />
-                      </div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-500 mb-1">
+                        Notice Board
+                      </p>
                       <p className="text-sm text-stone-800 leading-snug whitespace-pre-wrap break-words">
                         {preview}
                       </p>
