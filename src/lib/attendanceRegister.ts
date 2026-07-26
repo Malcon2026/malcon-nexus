@@ -1,9 +1,9 @@
 import type { AttendanceRecord, LeaveRequest } from '../types';
 import {
   getISTDateKey,
-  summarizeDayAttendance,
-  formatTimeIST,
+  buildEmployeeDayAttendanceIndex,
   type TodayAttendanceSummary,
+  formatTimeIST,
 } from './attendance';
 import { filterAttendanceStaff } from './staff';
 
@@ -180,13 +180,11 @@ function isDateInRange(dateKey: string, fromDate: string, toDate: string): boole
 
 function findLeaveForDate(
   leaveRequests: LeaveRequest[],
-  employeeId: string,
   dateKey: string,
 ): LeaveRequest | null {
   return (
     leaveRequests.find(
       (lr) =>
-        lr.employeeId === employeeId &&
         lr.status !== 'cancelled' &&
         lr.status !== 'rejected' &&
         isDateInRange(dateKey, lr.fromDate, lr.toDate),
@@ -222,15 +220,19 @@ function leaveCellFields(leave: LeaveRequest): Pick<
   };
 }
 
+const EMPTY_SUMMARY: TodayAttendanceSummary = {
+  punchIn: null,
+  punchOut: null,
+  isPunchedIn: false,
+  workedMs: 0,
+};
+
 export function resolveRegisterCell(
   dateKey: string,
-  employeeId: string,
-  records: AttendanceRecord[],
-  leaveRequests: LeaveRequest[],
+  summary: TodayAttendanceSummary,
+  leave: LeaveRequest | null,
   isFuture: boolean,
 ): RegisterCellDetail {
-  const leave = findLeaveForDate(leaveRequests, employeeId, dateKey);
-  const summary = summarizeDayAttendance(records, employeeId, dateKey);
   const weeklyOff = isWeeklyOffDateKey(dateKey);
 
   // Worked on weekly off → Present (punches win over default WO).
@@ -321,6 +323,17 @@ export function resolveRegisterCell(
   return { code: 'A', label: 'Absent' };
 }
 
+function groupLeavesByEmployee(leaveRequests: LeaveRequest[]): Map<string, LeaveRequest[]> {
+  const byEmployee = new Map<string, LeaveRequest[]>();
+  for (const leave of leaveRequests) {
+    if (leave.status === 'cancelled' || leave.status === 'rejected') continue;
+    const list = byEmployee.get(leave.employeeId);
+    if (list) list.push(leave);
+    else byEmployee.set(leave.employeeId, [leave]);
+  }
+  return byEmployee;
+}
+
 export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): RegisterDayColumn[] {
   const todayKey = getISTDateKey();
   const bounds = getSalaryCycleBounds(year, salaryMonth);
@@ -392,13 +405,17 @@ export function buildAttendanceRegister(
     staff = filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  const dayIndex = buildEmployeeDayAttendanceIndex(records);
+  const leaveByEmployee = groupLeavesByEmployee(leaveRequests);
+
   const rows: RegisterEmployeeRow[] = staff.map((employee) => {
+    const daySummaries = dayIndex.get(employee.id);
+    const empLeaves = leaveByEmployee.get(employee.id) ?? [];
     const cells = days.map((col) =>
       resolveRegisterCell(
         col.dateKey,
-        employee.id,
-        records,
-        leaveRequests,
+        daySummaries?.get(col.dateKey) ?? EMPTY_SUMMARY,
+        findLeaveForDate(empLeaves, col.dateKey),
         col.isFuture,
       ),
     );

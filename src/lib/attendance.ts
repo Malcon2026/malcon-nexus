@@ -142,20 +142,92 @@ export function getSortedEmployeeRecords(
     .sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime());
 }
 
-export function pairAttendanceShifts(
+/** Group punches by employee once — used by register / reports to avoid O(n) scans per cell. */
+export function groupAttendanceByEmployee(
   records: AttendanceRecord[],
-  employeeId: string,
-): { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] {
-  const sorted = getSortedEmployeeRecords(records, employeeId);
-  const pairs: { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] = [];
+): Map<string, AttendanceRecord[]> {
+  const byEmployee = new Map<string, AttendanceRecord[]>();
+  for (const record of records) {
+    const list = byEmployee.get(record.employeeId);
+    if (list) list.push(record);
+    else byEmployee.set(record.employeeId, [record]);
+  }
+  for (const list of byEmployee.values()) {
+    list.sort((a, b) => new Date(a.punchedAt).getTime() - new Date(b.punchedAt).getTime());
+  }
+  return byEmployee;
+}
 
+function pairSortedShifts(
+  sorted: AttendanceRecord[],
+): { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] {
+  const pairs: { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] = [];
   for (let i = 0; i < sorted.length; i++) {
     if (sorted[i].punchType !== 'in') continue;
     const punchOut = sorted.slice(i + 1).find((r) => r.punchType === 'out') ?? null;
     pairs.push({ punchIn: sorted[i], punchOut });
   }
-
   return pairs;
+}
+
+function openShiftFromSorted(sorted: AttendanceRecord[]): { punchIn: AttendanceRecord } | null {
+  const last = sorted[sorted.length - 1];
+  if (!last || last.punchType !== 'in') return null;
+  return { punchIn: last };
+}
+
+function summaryFromPair(
+  match: { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null } | undefined,
+  open: { punchIn: AttendanceRecord } | null,
+  nowMs: number,
+): TodayAttendanceSummary {
+  if (!match) {
+    return { punchIn: null, punchOut: null, isPunchedIn: false, workedMs: 0 };
+  }
+  const { punchIn, punchOut } = match;
+  const isPunchedIn = !punchOut && open?.punchIn.id === punchIn.id;
+  let workedMs = 0;
+  if (punchOut) {
+    workedMs = new Date(punchOut.punchedAt).getTime() - new Date(punchIn.punchedAt).getTime();
+  } else if (isPunchedIn) {
+    workedMs = nowMs - new Date(punchIn.punchedAt).getTime();
+  }
+  return { punchIn, punchOut, isPunchedIn, workedMs };
+}
+
+/**
+ * Precompute per-employee day summaries once.
+ * Register cells look up O(1) instead of re-pairing all punches per cell.
+ */
+export function buildEmployeeDayAttendanceIndex(
+  records: AttendanceRecord[],
+): Map<string, Map<string, TodayAttendanceSummary>> {
+  const byEmployee = groupAttendanceByEmployee(records);
+  const index = new Map<string, Map<string, TodayAttendanceSummary>>();
+  const nowMs = Date.now();
+
+  for (const [employeeId, sorted] of byEmployee) {
+    const pairs = pairSortedShifts(sorted);
+    const open = openShiftFromSorted(sorted);
+    const byDate = new Map<string, TodayAttendanceSummary>();
+    for (const pair of pairs) {
+      const dateKey = getISTDateKey(pair.punchIn.punchedAt);
+      // First pair for a day wins (matches previous find() behavior).
+      if (!byDate.has(dateKey)) {
+        byDate.set(dateKey, summaryFromPair(pair, open, nowMs));
+      }
+    }
+    index.set(employeeId, byDate);
+  }
+
+  return index;
+}
+
+export function pairAttendanceShifts(
+  records: AttendanceRecord[],
+  employeeId: string,
+): { punchIn: AttendanceRecord; punchOut: AttendanceRecord | null }[] {
+  return pairSortedShifts(getSortedEmployeeRecords(records, employeeId));
 }
 
 /** Latest punch is in with no matching out — includes shifts that cross midnight. */
@@ -163,10 +235,7 @@ export function getOpenShift(
   records: AttendanceRecord[],
   employeeId: string,
 ): { punchIn: AttendanceRecord } | null {
-  const sorted = getSortedEmployeeRecords(records, employeeId);
-  const last = sorted[sorted.length - 1];
-  if (!last || last.punchType !== 'in') return null;
-  return { punchIn: last };
+  return openShiftFromSorted(getSortedEmployeeRecords(records, employeeId));
 }
 
 export function hasOpenShift(records: AttendanceRecord[], employeeId: string): boolean {
@@ -180,31 +249,23 @@ function addDaysToDateKey(dateKey: string, delta: number): string {
   return getISTDateKey(date);
 }
 
+const EMPTY_DAY_SUMMARY: TodayAttendanceSummary = {
+  punchIn: null,
+  punchOut: null,
+  isPunchedIn: false,
+  workedMs: 0,
+};
+
 /** Attendance for one calendar day — shift day follows punch-in date (out after midnight counts on in-day). */
 export function summarizeDayAttendance(
   records: AttendanceRecord[],
   employeeId: string,
   dateKey: string,
 ): TodayAttendanceSummary {
-  const pairs = pairAttendanceShifts(records, employeeId);
+  const sorted = getSortedEmployeeRecords(records, employeeId);
+  const pairs = pairSortedShifts(sorted);
   const match = pairs.find((p) => getISTDateKey(p.punchIn.punchedAt) === dateKey);
-
-  if (!match) {
-    return { punchIn: null, punchOut: null, isPunchedIn: false, workedMs: 0 };
-  }
-
-  const { punchIn, punchOut } = match;
-  const open = getOpenShift(records, employeeId);
-  const isPunchedIn = !punchOut && open?.punchIn.id === punchIn.id;
-
-  let workedMs = 0;
-  if (punchOut) {
-    workedMs = new Date(punchOut.punchedAt).getTime() - new Date(punchIn.punchedAt).getTime();
-  } else if (isPunchedIn) {
-    workedMs = Date.now() - new Date(punchIn.punchedAt).getTime();
-  }
-
-  return { punchIn, punchOut, isPunchedIn, workedMs };
+  return summaryFromPair(match, openShiftFromSorted(sorted), Date.now());
 }
 
 /** Live punch UI — keeps an open shift from yesterday punchable after midnight. */
@@ -308,9 +369,10 @@ export function buildEmployeeAttendanceReport(
   records: AttendanceRecord[],
   dateKey = getISTDateKey(),
 ): EmployeeAttendanceRow[] {
+  const dayIndex = buildEmployeeDayAttendanceIndex(records);
   return filterAttendanceStaff(employees)
     .map((employee) => {
-      const summary = summarizeDayAttendance(records, employee.id, dateKey);
+      const summary = dayIndex.get(employee.id)?.get(dateKey) ?? EMPTY_DAY_SUMMARY;
       return {
         employeeId: employee.id,
         employeeName: employee.name,
