@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Check, Download, CalendarDays, CalendarRange } from 'lucide-react';
+import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Download, CalendarDays, CalendarRange } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -9,6 +9,7 @@ import type { Department, DailyExpense } from '../types';
 import { formatCurrency, departmentColors } from '../utils/helpers';
 import { getISTDateKey } from '../lib/attendance';
 import { exportExpenseDetailCsv } from '../utils/reportsExport';
+import { KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
 import {
   buildExpenseRegister,
   exportExpenseRegisterCsv,
@@ -81,10 +82,6 @@ export const Expenses: React.FC = () => {
   const loadDailyExpenses = useStore((s) => s.loadDailyExpenses);
   const saveDailyExpense = useStore((s) => s.saveDailyExpense);
   const deleteDailyExpense = useStore((s) => s.deleteDailyExpense);
-  const appSettingsLoaded = useStore((s) => s.appSettingsLoaded);
-  const loadAppSettings = useStore((s) => s.loadAppSettings);
-  const incentiveRatePerKm = useStore((s) => s.getIncentiveRatePerKm());
-  const setIncentiveRatePerKm = useStore((s) => s.setIncentiveRatePerKm);
 
   const isAdmin = viewMode === 'admin';
 
@@ -102,10 +99,6 @@ export const Expenses: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editingRate, setEditingRate] = useState(false);
-  const [rateInput, setRateInput] = useState('');
-  const [rateSaving, setRateSaving] = useState(false);
-  const [rateError, setRateError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -121,38 +114,6 @@ export const Expenses: React.FC = () => {
       void loadDailyExpenses();
     }
   }, [isAdmin, dailyExpensesLoaded, loadDailyExpenses]);
-
-  useEffect(() => {
-    if (isAdmin && !appSettingsLoaded) {
-      void loadAppSettings();
-    }
-  }, [isAdmin, appSettingsLoaded, loadAppSettings]);
-
-  const openRateEditor = () => {
-    setRateInput(String(incentiveRatePerKm));
-    setRateError(null);
-    setEditingRate(true);
-  };
-
-  const handleSaveRate = async () => {
-    setRateError(null);
-    const parsed = Number(rateInput);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      setRateError('Enter a valid rate.');
-      return;
-    }
-    setRateSaving(true);
-    try {
-      const result = await setIncentiveRatePerKm(parsed);
-      if (result.error) {
-        setRateError(result.error);
-        return;
-      }
-      setEditingRate(false);
-    } finally {
-      setRateSaving(false);
-    }
-  };
 
   const activeEmployees = useMemo(
     () => employees.filter((e) => e.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)),
@@ -196,9 +157,9 @@ export const Expenses: React.FC = () => {
     [scopeRows],
   );
   const grandTotal = totals.petrol + totals.food + totals.other;
-  const incentiveTotal = totals.kms * incentiveRatePerKm;
 
-  // Month register: one row per employee, one column per day of the picked month.
+  // Month register: one row per employee, one column per day of the salary cycle.
+  // Km incentive is tiered on each employee's cycle total (not a flat ₹/km).
   const register = useMemo(() => {
     const [regYear, regMonth] = monthValue.split('-').map(Number);
     return buildExpenseRegister(
@@ -206,10 +167,11 @@ export const Expenses: React.FC = () => {
       dailyExpenses,
       regYear,
       regMonth,
-      incentiveRatePerKm,
       filterEmployeeId !== 'all' ? { employeeId: filterEmployeeId } : undefined,
     );
-  }, [activeEmployees, dailyExpenses, monthValue, incentiveRatePerKm, filterEmployeeId]);
+  }, [activeEmployees, dailyExpenses, monthValue, filterEmployeeId]);
+
+  const incentiveTotal = register.grandIncentive;
 
   const registerWeekBands = useMemo(() => {
     const bands: { week: number; span: number }[] = [];
@@ -324,7 +286,6 @@ export const Expenses: React.FC = () => {
       const result = exportExpenseDetailCsv(
         dailyExpenses,
         { range: 'custom', customFrom: bounds.from, customTo: bounds.to },
-        incentiveRatePerKm,
       );
       setExportSuccess(`Downloaded ${result.count} row(s) → ${result.filename}`);
     } catch (err) {
@@ -372,7 +333,7 @@ export const Expenses: React.FC = () => {
           { label: 'Petrol', value: formatCurrency(totals.petrol), bg: 'bg-orange-50', icon: <Fuel className="h-4 w-4 text-orange-700" /> },
           { label: 'Food', value: formatCurrency(totals.food), bg: 'bg-emerald-50', icon: <Fuel className="h-4 w-4 text-emerald-700" /> },
           { label: 'Other', value: formatCurrency(totals.other), bg: 'bg-purple-50', icon: <Fuel className="h-4 w-4 text-purple-700" /> },
-          { label: `Km incentive (₹${incentiveRatePerKm}/km)`, value: formatCurrency(incentiveTotal), bg: 'bg-rose-50', icon: <IndianRupee className="h-4 w-4 text-rose-700" /> },
+          { label: 'Km incentive (salary cycle)', value: formatCurrency(incentiveTotal), bg: 'bg-rose-50', icon: <IndianRupee className="h-4 w-4 text-rose-700" /> },
         ].map(({ label, value, bg, icon }) => (
           <Card key={label} className="p-4">
             <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${bg} mb-2`}>
@@ -388,50 +349,10 @@ export const Expenses: React.FC = () => {
           Totals for <span className="font-semibold text-gray-600">{scopeLabel}</span>: {formatCurrency(grandTotal)} (petrol + food + other)
           {filterEmployeeId !== 'all' ? ' · filtered to one employee' : ''}
         </p>
-        {!editingRate ? (
-          <button
-            type="button"
-            onClick={openRateEditor}
-            className="text-xs text-gray-500 hover:text-gray-800 underline shrink-0"
-          >
-            Change incentive rate (₹{incentiveRatePerKm}/km)
-          </button>
-        ) : (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs text-gray-500">₹</span>
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              autoFocus
-              className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-lg"
-              value={rateInput}
-              onChange={(e) => setRateInput(e.target.value)}
-            />
-            <span className="text-xs text-gray-500">/km</span>
-            <button
-              type="button"
-              onClick={() => void handleSaveRate()}
-              disabled={rateSaving}
-              className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
-              aria-label="Save rate"
-            >
-              <Check className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditingRate(false)}
-              className="text-gray-400 hover:text-gray-600"
-              aria-label="Cancel"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
+        <p className="text-xs text-rose-700/80 shrink-0">
+          Incentive: {KM_INCENTIVE_RULE_LABEL} · on salary-cycle totals ({register.cycleLabel})
+        </p>
       </div>
-      {rateError && (
-        <p className="text-xs text-red-600 -mt-4 mb-4">{rateError}</p>
-      )}
 
       {showForm && (
         <Card className="mb-6">
@@ -696,7 +617,6 @@ export const Expenses: React.FC = () => {
                       <th className="px-4 py-2.5 font-medium">Employee</th>
                       <th className="px-4 py-2.5 font-medium">Dept</th>
                       <th className="px-4 py-2.5 font-medium text-right">Kms</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Incentive</th>
                       <th className="px-4 py-2.5 font-medium text-right">Petrol</th>
                       <th className="px-4 py-2.5 font-medium text-right">Food</th>
                       <th className="px-4 py-2.5 font-medium text-right">Other</th>
@@ -718,9 +638,6 @@ export const Expenses: React.FC = () => {
                             )}
                           </td>
                           <td className="px-4 py-2.5 text-right tabular-nums">{row.kmsDriven || ''}</td>
-                          <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">
-                            {row.kmsDriven ? formatCurrency(row.kmsDriven * incentiveRatePerKm) : ''}
-                          </td>
                           <td className="px-4 py-2.5 text-right tabular-nums">{row.petrolAmount ? formatCurrency(row.petrolAmount) : ''}</td>
                           <td className="px-4 py-2.5 text-right tabular-nums">{row.foodAmount ? formatCurrency(row.foodAmount) : ''}</td>
                           <td className="px-4 py-2.5 text-right tabular-nums">
@@ -757,7 +674,6 @@ export const Expenses: React.FC = () => {
                     <tr className="bg-gray-50/70 font-semibold text-gray-800">
                       <td className="px-4 py-2.5" colSpan={2}>Total</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{totals.kms.toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-rose-700">{formatCurrency(incentiveTotal)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.petrol)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.food)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(totals.other)}</td>
@@ -996,10 +912,10 @@ export const Expenses: React.FC = () => {
                   <span className="text-gray-500">Kms driven</span>
                   <span className="font-medium text-gray-900">{registerDetail.entry.kmsDriven || 0}</span>
                 </div>
-                <div className="flex justify-between py-1.5 border-b border-gray-100">
-                  <span className="text-gray-500">Km incentive (₹{incentiveRatePerKm}/km)</span>
-                  <span className="font-medium text-rose-700">
-                    {formatCurrency((registerDetail.entry.kmsDriven || 0) * incentiveRatePerKm)}
+                <div className="flex justify-between py-1.5 border-b border-gray-100 gap-4">
+                  <span className="text-gray-500">Cycle km incentive ({registerDetail.row.totalKms.toLocaleString('en-IN')} km total)</span>
+                  <span className="font-medium text-rose-700 shrink-0">
+                    {formatCurrency(registerDetail.row.incentiveTotal)}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-gray-100">

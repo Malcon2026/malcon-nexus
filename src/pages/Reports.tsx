@@ -12,6 +12,7 @@ import { EXPORT_REPORT_TYPES, type ExportReportType } from '../components/report
 import type { ReportDateFilter } from '../utils/reportFilters';
 import { REPORT_DATE_RANGE_LABELS, isTimestampInRange } from '../utils/reportFilters';
 import type { CaseDateField } from '../utils/caseExport';
+import { KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
 import {
   filterCasesForExport,
   exportCasesCsv,
@@ -60,21 +61,12 @@ export const Reports: React.FC = () => {
   const dailyExpenses = useStore((s) => s.dailyExpenses);
   const dailyExpensesLoaded = useStore((s) => s.dailyExpensesLoaded);
   const loadDailyExpenses = useStore((s) => s.loadDailyExpenses);
-  const appSettingsLoaded = useStore((s) => s.appSettingsLoaded);
-  const loadAppSettings = useStore((s) => s.loadAppSettings);
-  const incentiveRatePerKm = useStore((s) => s.getIncentiveRatePerKm());
 
   useEffect(() => {
     if (!dailyExpensesLoaded) {
       void loadDailyExpenses();
     }
   }, [dailyExpensesLoaded, loadDailyExpenses]);
-
-  useEffect(() => {
-    if (!appSettingsLoaded) {
-      void loadAppSettings();
-    }
-  }, [appSettingsLoaded, loadAppSettings]);
 
   const [selectedReport, setSelectedReport] = useState<ExportReportType>('cases');
   const [dateFilter, setDateFilter] = useState<ReportDateFilter>(defaultFilter);
@@ -105,7 +97,7 @@ export const Reports: React.FC = () => {
         case 'hospitals':
           return hospitals.length;
         case 'expenses-summary':
-          return buildExpenseSummaryRows(employees, dailyExpenses, dateFilter, incentiveRatePerKm).length;
+          return buildExpenseSummaryRows(employees, dailyExpenses, dateFilter).length;
         case 'expenses-detail':
           return filterExpensesForExport(dailyExpenses, dateFilter).length;
         default:
@@ -125,7 +117,6 @@ export const Reports: React.FC = () => {
     attendanceRecords,
     attendanceApprovalRequests,
     dailyExpenses,
-    incentiveRatePerKm,
   ]);
 
   const activeMeta = EXPORT_REPORT_TYPES.find((r) => r.id === selectedReport)!;
@@ -162,10 +153,10 @@ export const Reports: React.FC = () => {
           result = exportHospitalsCsv(hospitals, cases, dateFilter, { ...dateFilter, dateField: caseDateField });
           break;
         case 'expenses-summary':
-          result = exportExpenseSummaryCsv(employees, dailyExpenses, dateFilter, incentiveRatePerKm);
+          result = exportExpenseSummaryCsv(employees, dailyExpenses, dateFilter);
           break;
         case 'expenses-detail':
-          result = exportExpenseDetailCsv(dailyExpenses, dateFilter, incentiveRatePerKm);
+          result = exportExpenseDetailCsv(dailyExpenses, dateFilter);
           break;
         default:
           throw new Error('Unknown report type.');
@@ -304,7 +295,7 @@ export const Reports: React.FC = () => {
 
             {(selectedReport === 'expenses-summary' || selectedReport === 'expenses-detail') && (
               <p className="text-xs text-gray-500">
-                Km incentive is calculated at ₹{incentiveRatePerKm}/km (change the rate from the Expenses page).
+                Summary km incentive uses period totals per employee: {KM_INCENTIVE_RULE_LABEL}. First 1,000 km have no incentive. Detail export lists daily entries without a per-day incentive column.
               </p>
             )}
 

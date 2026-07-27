@@ -24,6 +24,7 @@ import {
   type ReportDateFilter,
 } from './reportFilters';
 import { filterCasesForExport, type CaseExportOptions } from './caseExport';
+import { calculateKmIncentive, KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
 
 function exportFilename(prefix: string, filter: ReportDateFilter): string {
   return `${prefix}_${reportRangeSlug(filter)}_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -300,7 +301,6 @@ export function buildExpenseSummaryRows(
   employees: Employee[],
   expenses: DailyExpense[],
   filter: ReportDateFilter,
-  incentiveRatePerKm = 0,
 ): ExpenseSummaryRow[] {
   const filtered = filterExpensesForExport(expenses, filter);
   const byEmployee = new Map<string, ExpenseSummaryRow>();
@@ -330,7 +330,7 @@ export function buildExpenseSummaryRows(
   }
 
   for (const row of byEmployee.values()) {
-    row.incentive = row.totalKms * incentiveRatePerKm;
+    row.incentive = calculateKmIncentive(row.totalKms);
   }
 
   return Array.from(byEmployee.values()).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
@@ -340,9 +340,8 @@ export function exportExpenseSummaryCsv(
   employees: Employee[],
   expenses: DailyExpense[],
   filter: ReportDateFilter,
-  incentiveRatePerKm = 0,
 ): { count: number; filename: string } {
-  const rows = buildExpenseSummaryRows(employees, expenses, filter, incentiveRatePerKm);
+  const rows = buildExpenseSummaryRows(employees, expenses, filter);
   if (rows.length === 0) {
     throw new Error('No expense entries match the selected date range.');
   }
@@ -350,7 +349,7 @@ export function exportExpenseSummaryCsv(
   const filename = exportFilename('expenses_summary', filter);
   downloadCsv(
     filename,
-    ['Employee', 'Department', 'Days Entered', 'Total Kms', `Km Incentive @₹${incentiveRatePerKm}/km`, 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Grand Total (₹)'],
+    ['Employee', 'Department', 'Days Entered', 'Total Kms', `Km Incentive (${KM_INCENTIVE_RULE_LABEL})`, 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Grand Total (₹)'],
     rows.map((r) => [
       r.employeeName,
       r.department,
@@ -369,7 +368,6 @@ export function exportExpenseSummaryCsv(
 export function exportExpenseDetailCsv(
   expenses: DailyExpense[],
   filter: ReportDateFilter,
-  incentiveRatePerKm = 0,
 ): { count: number; filename: string } {
   const filtered = filterExpensesForExport(expenses, filter).sort((a, b) =>
     a.expenseDate === b.expenseDate
@@ -383,12 +381,11 @@ export function exportExpenseDetailCsv(
   const filename = exportFilename('expenses_detail', filter);
   downloadCsv(
     filename,
-    ['Date', 'Employee', 'Kms', `Km Incentive @₹${incentiveRatePerKm}/km`, 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Other For', 'Notes', 'Entered By'],
+    ['Date', 'Employee', 'Kms', 'Petrol (₹)', 'Food (₹)', 'Other (₹)', 'Other For', 'Notes', 'Entered By'],
     filtered.map((e) => [
       e.expenseDate,
       e.employeeName,
       e.kmsDriven,
-      e.kmsDriven * incentiveRatePerKm,
       e.petrolAmount,
       e.foodAmount,
       e.otherAmount,

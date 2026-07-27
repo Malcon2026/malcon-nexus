@@ -6,6 +6,7 @@ import {
   getSalaryLabel,
   type RegisterDayColumn,
 } from './attendanceRegister';
+import { calculateKmIncentive, KM_INCENTIVE_RULE_LABEL } from './kmIncentive';
 
 /** Which figure a register cell/column is currently showing. */
 export type ExpenseMetric = 'expense' | 'kms' | 'petrol' | 'food' | 'other';
@@ -31,7 +32,7 @@ export interface ExpenseRegisterEmployeeRow {
   totalKms: number;
   /** Total petrol + food + other across the visible days (excludes incentive). */
   totalExpense: number;
-  /** totalKms * incentiveRatePerKm. */
+  /** Tiered km incentive on totalKms (₹3 above 1000, ₹4 above 1800). */
   incentiveTotal: number;
 }
 
@@ -42,7 +43,8 @@ export interface ExpenseRegisterData {
   /** e.g. "28 Jun – 27 Jul 2026" — same salary-cycle window as Attendance. */
   cycleLabel: string;
   cycleDescription: string;
-  incentiveRatePerKm: number;
+  /** Human-readable tier rule used for incentive totals. */
+  incentiveRuleLabel: string;
   days: ExpenseRegisterDayColumn[];
   rows: ExpenseRegisterEmployeeRow[];
   grandKms: number;
@@ -76,7 +78,6 @@ export function buildExpenseRegister(
   expenses: DailyExpense[],
   year: number,
   month: number,
-  incentiveRatePerKm: number,
   options?: { employeeId?: string },
 ): ExpenseRegisterData {
   // Same 28th(prev month)→27th salary-cycle window and week numbering as the
@@ -107,7 +108,7 @@ export function buildExpenseRegister(
       }
       return entry;
     });
-    const incentiveTotal = totalKms * incentiveRatePerKm;
+    const incentiveTotal = calculateKmIncentive(totalKms);
     grandKms += totalKms;
     grandIncentive += incentiveTotal;
     grandExpense += totalExpense;
@@ -129,7 +130,7 @@ export function buildExpenseRegister(
     monthLabel: getSalaryLabel(year, month),
     cycleLabel: getSalaryCycleLabel(year, month),
     cycleDescription: getSalaryCycleDescription(month),
-    incentiveRatePerKm,
+    incentiveRuleLabel: KM_INCENTIVE_RULE_LABEL,
     days,
     rows,
     grandKms,
@@ -150,7 +151,7 @@ export function exportExpenseRegisterCsv(data: ExpenseRegisterData, metric: Expe
     'Department',
     ...data.days.map((d) => formatShortDate(d.dateKey)),
     'Total Kms',
-    `Incentive Total (₹${data.incentiveRatePerKm}/km)`,
+    `Incentive Total (${data.incentiveRuleLabel})`,
     'Total Expense (₹)',
   ];
   const lines = [header.join(',')];
