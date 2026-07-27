@@ -572,7 +572,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       type="button"
                       disabled={manualSaving}
                       onClick={() => void applyMark('present')}
-                      className={`${markTile} bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100`}
+                      className={`${markTile} bg-emerald-50 text-emerald-300 border-emerald-200 hover:bg-emerald-100`}
                     >
                       <span className={markTileCode}>P</span>
                       <span className={markTileLabel}>
@@ -584,7 +584,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('absent')}
-                        className={`${markTile} bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100`}
+                        className={`${markTile} bg-gray-50 text-gray-300 border-gray-200 hover:bg-gray-100`}
                       >
                         <span className={markTileCode}>WO</span>
                         <span className={markTileLabel}>Week off</span>
@@ -594,7 +594,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('absent')}
-                        className={`${markTile} bg-red-50 text-red-800 border-red-200 hover:bg-red-100`}
+                        className={`${markTile} bg-red-50 text-red-300 border-red-200 hover:bg-red-100`}
                       >
                         <span className={markTileCode}>A</span>
                         <span className={markTileLabel}>Absent</span>
@@ -605,7 +605,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('force-absent')}
-                        className={`${markTile} bg-red-50 text-red-800 border-red-200 hover:bg-red-100 col-span-2`}
+                        className={`${markTile} bg-red-50 text-red-300 border-red-200 hover:bg-red-100 col-span-2`}
                       >
                         <span className={markTileCode}>A</span>
                         <span className={markTileLabel}>Absent</span>
@@ -658,7 +658,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="button"
                           disabled={manualSaving}
                           onClick={() => void applyMark(t.value)}
-                          className={`${markTile} bg-amber-50 text-amber-950 border-amber-200 hover:bg-amber-100`}
+                          className={`${markTile} bg-amber-50 text-amber-300 border-amber-200 hover:bg-amber-100`}
                         >
                           <span className={markTileCode}>{code}</span>
                           <span className={markTileLabel}>{t.value}</span>
@@ -672,7 +672,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         setMarkView('comp-off');
                         setManualError(null);
                       }}
-                      className={`${markTile} bg-violet-50 text-violet-950 border-violet-200 hover:bg-violet-100 col-span-2 h-12 flex-row justify-between px-3`}
+                      className={`${markTile} bg-violet-50 text-violet-300 border-violet-200 hover:bg-violet-100 col-span-2 h-12 flex-row justify-between px-3`}
                     >
                       <span className="flex items-center gap-2 text-left">
                         <span className="text-sm font-bold">CO</span>
