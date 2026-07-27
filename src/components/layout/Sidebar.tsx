@@ -83,7 +83,7 @@ export const Sidebar: React.FC = () => {
     <>
       {/* Logo */}
       <div className={cn(
-        'flex items-center px-4 py-5 border-b border-gray-100',
+        'flex items-center px-4 py-5 border-b border-gray-200',
         !showLabels ? 'justify-center' : 'gap-3 justify-between lg:justify-start'
       )}>
         <div className="flex items-center gap-2.5">
@@ -123,15 +123,15 @@ export const Sidebar: React.FC = () => {
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
                 className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
                   isActive
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
                   !showLabels && 'justify-center px-2'
                 )}
                 title={!showLabels ? item.label : undefined}
               >
-                <span className={cn('shrink-0', isActive ? 'text-white' : 'text-gray-500')}>
+                <span className={cn('shrink-0', isActive ? 'text-indigo-400' : 'text-gray-400')}>
                   {item.icon}
                 </span>
                 <AnimatePresence>
@@ -149,7 +149,7 @@ export const Sidebar: React.FC = () => {
                 {showLabels && badge !== undefined && badge > 0 && (
                   <span className={cn(
                     'text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
-                    isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                    isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'
                   )}>
                     {badge}
                   </span>
@@ -161,7 +161,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Status indicator */}
       {showLabels && (
-        <div className="px-4 py-3 border-t border-gray-100">
+        <div className="px-4 py-3 border-t border-gray-200">
           <div className="flex items-center gap-2">
             <ActivityIcon className="h-3.5 w-3.5 text-emerald-500" />
             <span className="text-xs text-gray-500">All systems operational</span>
@@ -181,7 +181,7 @@ export const Sidebar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden"
             onClick={() => setMobileSidebarOpen(false)}
           />
         )}
@@ -192,7 +192,7 @@ export const Sidebar: React.FC = () => {
         initial={false}
         animate={{ x: mobileSidebarOpen ? 0 : '-100%' }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
-        className="fixed inset-y-0 left-0 w-[min(280px,85vw)] flex flex-col bg-white border-r border-gray-100 h-screen z-50 lg:hidden shadow-xl"
+        className="fixed inset-y-0 left-0 w-[min(280px,85vw)] flex flex-col bg-[#05070c] border-r border-gray-200 h-screen z-50 lg:hidden shadow-xl shadow-black/50"
       >
         {sidebarContent}
       </motion.aside>
@@ -201,13 +201,13 @@ export const Sidebar: React.FC = () => {
       <motion.aside
         animate={{ width: sidebarCollapsed ? 64 : 232 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="relative hidden lg:flex flex-col bg-white border-r border-gray-100 h-screen shrink-0 z-20"
+        className="relative hidden lg:flex flex-col bg-[#05070c] border-r border-gray-200 h-screen shrink-0 z-20"
       >
         {sidebarContent}
 
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute -right-3 top-16 h-6 w-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow hover:border-gray-300 transition-all z-30"
+          className="absolute -right-3 top-16 h-6 w-6 bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-sm shadow-black/40 hover:border-indigo-400 transition-all z-30"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {sidebarCollapsed ? (

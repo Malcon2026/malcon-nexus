@@ -1,5 +1,141 @@
 @import "tailwindcss";
 
+/* ── Demo 2: Deeper Midnight ─────────────────────────────── */
+:root {
+  --mn-bg: #06080f;
+  --mn-elevated: #0c1019;
+  --mn-surface: #121722;
+  --mn-surface-2: #181e2c;
+  --mn-border: rgba(148, 163, 184, 0.10);
+  --mn-border-strong: rgba(148, 163, 184, 0.20);
+  --mn-text: #e6ebf5;
+  --mn-muted: #8b97ab;
+  --mn-dim: #5c667a;
+  --mn-accent: #7c6cf0;
+  --mn-accent-hover: #9a8cff;
+  --mn-accent-soft: rgba(124, 108, 240, 0.14);
+}
+
+/*
+  Remap default Tailwind neutrals + soft pastels so existing
+  bg-white / gray-* / *-50 utility classes render as dark theme.
+*/
+@theme {
+  --color-white: #0c1019;
+  --color-gray-50: #121722;
+  --color-gray-100: #181e2c;
+  --color-gray-200: #252d3d;
+  --color-gray-300: #3d4659;
+  --color-gray-400: #5c667a;
+  --color-gray-500: #8b97ab;
+  --color-gray-600: #a8b2c4;
+  --color-gray-700: #c5cddb;
+  --color-gray-800: #d8deea;
+  --color-gray-900: #e6ebf5;
+  --color-gray-950: #f1f4fa;
+
+  --color-slate-50: #121722;
+  --color-slate-100: #181e2c;
+  --color-slate-200: #252d3d;
+  --color-slate-700: #c5cddb;
+  --color-slate-800: #d8deea;
+
+  --color-stone-50: #121722;
+  --color-stone-100: #181e2c;
+  --color-stone-200: #252d3d;
+  --color-stone-500: #8b97ab;
+  --color-stone-800: #e6ebf5;
+
+  /* Accent = quiet violet (Demo 2) */
+  --color-indigo-50: rgba(124, 108, 240, 0.14);
+  --color-indigo-100: rgba(124, 108, 240, 0.18);
+  --color-indigo-200: rgba(124, 108, 240, 0.28);
+  --color-indigo-400: #9a8cff;
+  --color-indigo-500: #7c6cf0;
+  --color-indigo-600: #8b7cf6;
+  --color-indigo-700: #b4a9ff;
+  --color-indigo-800: #c4bbff;
+  --color-indigo-900: #d6d0ff;
+
+  --color-violet-50: rgba(124, 108, 240, 0.14);
+  --color-violet-100: rgba(124, 108, 240, 0.18);
+  --color-violet-200: rgba(124, 108, 240, 0.28);
+  --color-violet-700: #b4a9ff;
+  --color-violet-800: #c4bbff;
+
+  --color-purple-50: rgba(168, 85, 247, 0.14);
+  --color-purple-100: rgba(168, 85, 247, 0.18);
+  --color-purple-200: rgba(168, 85, 247, 0.28);
+  --color-purple-700: #d8b4fe;
+  --color-purple-800: #e9d5ff;
+
+  --color-red-50: rgba(248, 113, 113, 0.12);
+  --color-red-100: rgba(248, 113, 113, 0.18);
+  --color-red-200: rgba(248, 113, 113, 0.28);
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+
+  --color-orange-50: rgba(251, 146, 60, 0.12);
+  --color-orange-100: rgba(251, 146, 60, 0.18);
+  --color-orange-200: rgba(251, 146, 60, 0.28);
+  --color-orange-700: #fdba74;
+  --color-orange-800: #fed7aa;
+
+  --color-amber-50: rgba(251, 191, 36, 0.12);
+  --color-amber-100: rgba(251, 191, 36, 0.18);
+  --color-amber-200: rgba(251, 191, 36, 0.28);
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+
+  --color-yellow-50: rgba(250, 204, 21, 0.12);
+  --color-yellow-100: rgba(250, 204, 21, 0.18);
+  --color-yellow-200: rgba(250, 204, 21, 0.28);
+  --color-yellow-700: #fde047;
+  --color-yellow-800: #fef08a;
+
+  --color-emerald-50: rgba(52, 211, 153, 0.12);
+  --color-emerald-100: rgba(52, 211, 153, 0.18);
+  --color-emerald-200: rgba(52, 211, 153, 0.28);
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+
+  --color-green-50: rgba(74, 222, 128, 0.12);
+  --color-green-100: rgba(74, 222, 128, 0.18);
+  --color-green-200: rgba(74, 222, 128, 0.28);
+  --color-green-700: #86efac;
+  --color-green-800: #bbf7d0;
+
+  --color-blue-50: rgba(96, 165, 250, 0.12);
+  --color-blue-100: rgba(96, 165, 250, 0.18);
+  --color-blue-200: rgba(96, 165, 250, 0.28);
+  --color-blue-700: #93c5fd;
+  --color-blue-800: #bfdbfe;
+
+  --color-cyan-50: rgba(34, 211, 238, 0.12);
+  --color-cyan-100: rgba(34, 211, 238, 0.18);
+  --color-cyan-200: rgba(34, 211, 238, 0.28);
+  --color-cyan-700: #67e8f9;
+  --color-cyan-800: #a5f3fc;
+
+  --color-teal-50: rgba(45, 212, 191, 0.12);
+  --color-teal-100: rgba(45, 212, 191, 0.18);
+  --color-teal-200: rgba(45, 212, 191, 0.28);
+  --color-teal-700: #5eead4;
+  --color-teal-800: #99f6e4;
+
+  --color-rose-50: rgba(251, 113, 133, 0.12);
+  --color-rose-100: rgba(251, 113, 133, 0.18);
+  --color-rose-200: rgba(251, 113, 133, 0.28);
+  --color-rose-700: #fda4af;
+  --color-rose-800: #fecdd3;
+
+  --color-pink-50: rgba(244, 114, 182, 0.12);
+  --color-pink-100: rgba(244, 114, 182, 0.18);
+  --color-pink-200: rgba(244, 114, 182, 0.28);
+  --color-pink-700: #f9a8d4;
+  --color-pink-800: #fbcfe8;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,6 +145,7 @@ html {
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  color-scheme: dark;
 }
 
 html, body, #root {
@@ -20,8 +157,10 @@ html, body, #root {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  background: #f9fafb;
-  color: #111827;
+  background:
+    radial-gradient(900px 420px at 50% -20%, rgba(124, 108, 240, 0.07), transparent 60%),
+    var(--mn-bg);
+  color: var(--mn-text);
   width: 100%;
   max-width: 100%;
   -webkit-font-smoothing: antialiased;
@@ -48,12 +187,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
+  background: #2a3344;
   border-radius: 100px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
+  background: #3d4659;
 }
 
 img,
@@ -68,6 +207,13 @@ svg {
   textarea {
     font-size: 16px;
   }
+}
+
+/* Form controls on dark surfaces */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  color-scheme: dark;
 }
 
 /* Rich text notice content */
@@ -86,7 +232,7 @@ svg {
   margin: 0.1em 0;
 }
 .notice-html a {
-  color: #b45309;
+  color: #fbbf24;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -112,7 +258,7 @@ svg {
   padding-left: 1.25rem;
 }
 .notice-rich-editor a {
-  color: #b45309;
+  color: #fbbf24;
   text-decoration: underline;
 }
 
@@ -131,22 +277,22 @@ svg {
   background-image:
     repeating-linear-gradient(
       90deg,
-      #ea580c 0 7px,
+      #f59e0b 0 7px,
       transparent 7px 14px
     ),
     repeating-linear-gradient(
       90deg,
-      #ea580c 0 7px,
+      #f59e0b 0 7px,
       transparent 7px 14px
     ),
     repeating-linear-gradient(
       0deg,
-      #ea580c 0 7px,
+      #f59e0b 0 7px,
       transparent 7px 14px
     ),
     repeating-linear-gradient(
       0deg,
-      #ea580c 0 7px,
+      #f59e0b 0 7px,
       transparent 7px 14px
     );
   background-size:
@@ -161,7 +307,7 @@ svg {
     100% 0;
   background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
   animation: notice-board-march 1s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.55));
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.35));
 }
 
 @keyframes notice-board-march {
@@ -177,10 +323,10 @@ svg {
 @keyframes notice-board-glow {
   0%,
   100% {
-    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.25));
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.18));
   }
   50% {
-    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.45));
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.32));
   }
 }
 
@@ -190,5 +336,3 @@ svg {
     animation: none !important;
   }
 }
-
-

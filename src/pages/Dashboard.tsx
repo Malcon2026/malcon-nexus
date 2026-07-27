@@ -172,20 +172,20 @@ export const Dashboard: React.FC = () => {
                 <AreaChart data={monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#111827" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#111827" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#9a8cff" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#9a8cff" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="cases" name="Cases" stroke="#111827" strokeWidth={2} fill="url(#colorCases)" dot={false} />
-                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#10b981" strokeWidth={2} fill="url(#colorCompleted)" dot={false} />
+                  <Area type="monotone" dataKey="cases" name="Cases" stroke="#9a8cff" strokeWidth={2} fill="url(#colorCases)" dot={false} />
+                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#34d399" strokeWidth={2} fill="url(#colorCompleted)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </CardBody>
@@ -252,11 +252,11 @@ export const Dashboard: React.FC = () => {
           <CardBody>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={departmentPerformance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} domain={[80, 100]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" vertical={false} />
+                <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} domain={[80, 100]} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="onTime" name="On Time %" fill="#111827" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="onTime" name="On Time %" fill="#7c6cf0" radius={[4, 4, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </CardBody>

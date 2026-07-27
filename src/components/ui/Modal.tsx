@@ -54,7 +54,7 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
@@ -63,19 +63,19 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={cn(
-              'relative w-full mx-2 sm:mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[92vh] sm:max-h-[90vh] min-w-0',
+              'relative w-full mx-2 sm:mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-xl shadow-black/40 border border-gray-200 flex flex-col max-h-[92vh] sm:max-h-[90vh] min-w-0',
               sizeClasses[size],
             )}
           >
             {title && (
-              <div className="flex items-start justify-between px-4 py-3.5 border-b border-gray-100 shrink-0">
+              <div className="flex items-start justify-between px-4 py-3.5 border-b border-gray-200 shrink-0">
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-gray-900 truncate">{title}</h2>
                   {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ml-3 shrink-0"
+                  className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors ml-3 shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -83,7 +83,7 @@ export const Modal: React.FC<ModalProps> = ({
             )}
             <div className="flex-1 overflow-y-auto">{children}</div>
             {footer && (
-              <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl shrink-0">
+              <div className="px-4 py-3 border-t border-gray-200 bg-gray-50/80 rounded-b-2xl shrink-0">
                 {footer}
               </div>
             )}

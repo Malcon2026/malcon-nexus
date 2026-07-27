@@ -54,11 +54,11 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-gray-100 flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3 shrink-0 z-10">
+    <header className="h-14 bg-[#05070c]/90 backdrop-blur-md border-b border-gray-200 flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3 shrink-0 z-10">
       {/* Mobile menu */}
       <button
         onClick={() => setMobileSidebarOpen(true)}
-        className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors shrink-0"
+        className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
@@ -77,12 +77,12 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         <input
           type="text"
           placeholder="Search cases, hospitals..."
-          className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:bg-white w-48 lg:w-64 placeholder:text-gray-400"
+          className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 w-48 lg:w-64 placeholder:text-gray-400 text-gray-800"
         />
       </div>
 
       {/* Role badge */}
-      <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-600 shrink-0 capitalize">
+      <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 shrink-0 capitalize">
         {isAdmin ? 'Admin' : currentUser.department}
       </span>
 
@@ -90,12 +90,12 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       <div className="relative shrink-0">
         <button
           onClick={() => { setShowNotifs(!showNotifs); setShowUserMenu(false); }}
-          className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+          className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full ring-2 ring-[#05070c]" />
           )}
         </button>
 
@@ -108,9 +108,9 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.97 }}
                 transition={{ duration: 0.15 }}
-                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-xl shadow-black/40 border border-gray-200 z-50 overflow-hidden"
               >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">Notifications</span>
                     {unread > 0 && (
@@ -118,29 +118,29 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                     )}
                   </div>
                   {unread > 0 && (
-                    <button onClick={markAllNotificationsRead} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                    <button onClick={markAllNotificationsRead} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
                       Mark all read
                     </button>
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
                   {notifications.slice(0, 8).map((n) => (
                     <div
                       key={n.id}
                       onClick={() => markNotificationRead(n.id)}
                       className={cn(
                         'px-4 py-3 cursor-pointer transition-colors',
-                        n.read ? 'hover:bg-gray-50' : 'bg-blue-50/50 hover:bg-blue-50'
+                        n.read ? 'hover:bg-gray-50' : 'bg-indigo-50/50 hover:bg-indigo-50'
                       )}
                     >
                       <div className="flex items-start gap-3">
                         <div className={cn('h-2 w-2 rounded-full mt-1.5 shrink-0', notifDot[n.type])} />
                         <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', n.read ? 'text-gray-600' : 'text-gray-900')}>{n.title}</p>
+                          <p className={cn('text-xs font-medium', n.read ? 'text-gray-500' : 'text-gray-900')}>{n.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
                           <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.timestamp)}</p>
                         </div>
-                        {!n.read && <div className="h-1.5 w-1.5 bg-blue-500 rounded-full shrink-0 mt-2" />}
+                        {!n.read && <div className="h-1.5 w-1.5 bg-indigo-400 rounded-full shrink-0 mt-2" />}
                       </div>
                     </div>
                   ))}
@@ -173,20 +173,20 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden py-1"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-56 bg-white rounded-xl shadow-xl shadow-black/40 border border-gray-200 z-50 overflow-hidden py-1"
               >
-                <div className="px-4 py-3 border-b border-gray-100">
+                <div className="px-4 py-3 border-b border-gray-200">
                   <p className="text-xs font-semibold text-gray-900">{currentUser.name}</p>
                   <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
                 </div>
                 <div className="py-1">
-                  <button className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-xs text-gray-600">
+                  <button className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-xs text-gray-500">
                     <User className="h-3.5 w-3.5" />
                     Profile Settings
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 text-xs text-red-600 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 text-xs text-red-700 transition-colors"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     Log out

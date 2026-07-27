@@ -23,10 +23,11 @@ type Cmd =
 
 const COLORS = [
   { label: 'Default', value: '' },
-  { label: 'Amber', value: '#b45309' },
-  { label: 'Red', value: '#b91c1c' },
-  { label: 'Green', value: '#15803d' },
-  { label: 'Blue', value: '#1d4ed8' },
+  { label: 'Amber', value: '#fbbf24' },
+  { label: 'Red', value: '#f87171' },
+  { label: 'Green', value: '#34d399' },
+  { label: 'Blue', value: '#93c5fd' },
+  { label: 'Violet', value: '#9a8cff' },
 ];
 
 function runCommand(cmd: Cmd) {
@@ -141,7 +142,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             type="button"
             title={c.label}
             className="h-5 w-5 rounded-full border border-gray-200 mx-0.5 hover:scale-110 transition-transform"
-            style={{ background: c.value || '#111827' }}
+            style={{ background: c.value || '#e6ebf5' }}
             onMouseDown={(e) => {
               e.preventDefault();
               setColor(c.value);
