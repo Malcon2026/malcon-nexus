@@ -691,11 +691,14 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <Card>
             <CardBody className="p-0">
               <div className="relative">
-                <div className="absolute left-10 top-0 bottom-0 w-px bg-gray-100" />
+                {/* Center line on the sm avatar column (w-7), inset by row px-6 */}
+                <div className="absolute left-6 top-0 bottom-0 w-7 flex justify-center pointer-events-none">
+                  <div className="w-px h-full bg-gray-100" />
+                </div>
                 <div className="divide-y divide-gray-50">
                   {[...c.activityLogs].reverse().map((log) => (
                     <div key={log.id} className="flex items-start gap-4 px-6 py-4">
-                      <div className="relative z-10">
+                      <div className="relative z-10 w-7 shrink-0 flex justify-center">
                         <Avatar name={log.performedBy} size="sm" />
                       </div>
                       <div className="flex-1 min-w-0">

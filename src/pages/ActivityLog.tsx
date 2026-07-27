@@ -113,7 +113,10 @@ export const ActivityLog: React.FC = () => {
 
       {/* Timeline */}
       <div className="relative">
-        <div className="absolute left-[52px] top-4 bottom-4 w-px bg-gray-100" />
+        {/* Center line on the sm avatar column (w-7) */}
+        <div className="absolute left-0 top-4 bottom-4 w-7 flex justify-center pointer-events-none">
+          <div className="w-px h-full bg-gray-100" />
+        </div>
         <div className="space-y-1">
           {filteredLogs.map((log, idx) => (
             <motion.div
@@ -124,7 +127,7 @@ export const ActivityLog: React.FC = () => {
               className="flex items-start gap-4 group"
             >
               {/* Avatar with line */}
-              <div className="relative z-10 mt-3">
+              <div className="relative z-10 mt-3 w-7 shrink-0 flex justify-center">
                 <Avatar name={log.performedBy} size="sm" />
               </div>
 
