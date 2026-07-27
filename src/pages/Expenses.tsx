@@ -697,7 +697,7 @@ export const Expenses: React.FC = () => {
                   <col style={{ width: 140 }} />
                   <col style={{ width: 110 }} />
                   {register.days.map((day) => (
-                    <col key={day.dateKey} />
+                    <col key={day.dateKey} style={{ width: 34 }} />
                   ))}
                   <col style={{ width: 74 }} />
                   <col style={{ width: 74 }} />
@@ -797,19 +797,30 @@ export const Expenses: React.FC = () => {
                         (acc, row) => acc + (metricValueForEntry(row.entries[idx], registerMetric) ?? 0),
                         0,
                       );
+                      const label = sum
+                        ? registerMetric === 'kms'
+                          ? String(sum)
+                          : `₹${sum.toLocaleString('en-IN')}`
+                        : '—';
                       return (
-                        <td key={day.dateKey} className="border-r border-gray-50 px-0.5 py-2 text-center">
-                          {sum ? (registerMetric === 'kms' ? sum : `₹${sum.toLocaleString('en-IN')}`) : '—'}
+                        <td
+                          key={day.dateKey}
+                          className="border-r border-gray-50 px-0 py-2 text-center overflow-hidden max-w-[34px]"
+                          title={sum ? `${day.dateKey}: ${label}` : day.dateKey}
+                        >
+                          <span className="block truncate text-[9px] tabular-nums leading-tight px-0.5">
+                            {label}
+                          </span>
                         </td>
                       );
                     })}
-                    <td className="border-l border-gray-100 px-1 py-2 text-center text-sky-700 bg-sky-50/60">
+                    <td className="border-l border-gray-100 px-1 py-2 text-center text-sky-700 bg-sky-50/60 whitespace-nowrap">
                       {register.grandKms.toLocaleString('en-IN')}
                     </td>
-                    <td className="px-1 py-2 text-center text-rose-700 bg-rose-50/60">
+                    <td className="px-1 py-2 text-center text-rose-700 bg-rose-50/60 whitespace-nowrap">
                       {formatCurrency(register.grandIncentive)}
                     </td>
-                    <td className="px-1 py-2 text-center bg-gray-50">
+                    <td className="px-1 py-2 text-center bg-gray-50 whitespace-nowrap">
                       {formatCurrency(register.grandExpense)}
                     </td>
                   </tr>
