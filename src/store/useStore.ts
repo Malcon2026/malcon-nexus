@@ -18,7 +18,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getISTDateKey } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateCompOffWorkDate, validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
@@ -293,6 +293,23 @@ const persistAttendance = async (record: AttendanceRecord): Promise<{ error: str
   Database.saveAll('attendanceRecords', [record, ...list]);
   return { error: null };
 };
+
+/** Build an attendance row from an off-site approval request (used on submit for out, and to unblock next-day punch-in). */
+function attendanceRecordFromOffsiteRequest(request: AttendanceApprovalRequest): AttendanceRecord {
+  return {
+    id: newId(),
+    employeeId: request.employeeId,
+    employeeName: request.employeeName,
+    punchType: request.punchType,
+    punchedAt: request.requestedAt,
+    latitude: request.latitude,
+    longitude: request.longitude,
+    accuracyM: request.accuracyM,
+    distanceM: request.distanceM,
+    withinOffice: false,
+    officeAddress: OFFICE_LOCATION.address,
+  };
+}
 
 /** Remove punches + single-day leave rows for one employee/date before re-marking. */
 const clearManualDayEntries = async (
@@ -1508,8 +1525,29 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   punchAttendance: async (punchType, position) => {
-    const { currentUser, attendanceRecords } = get();
-    const openShift = hasOpenShift(attendanceRecords, currentUser.id);
+    const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
+    let openShift = hasOpenShift(attendanceRecords, currentUser.id);
+
+    // Prior-day off-site out may still be pending approval — apply it so today punch-in works.
+    if (punchType === 'in' && openShift) {
+      const priorOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
+      if (priorOut && !priorOut.attendanceRecordId) {
+        const outRecord = attendanceRecordFromOffsiteRequest(priorOut);
+        const closeResult = await persistAttendance(outRecord);
+        if (closeResult.error) return closeResult;
+        const linkResult = await updateAttendanceApprovalRequest(priorOut.id, {
+          attendanceRecordId: outRecord.id,
+        });
+        if (linkResult.error) return linkResult;
+        set((s) => ({
+          attendanceRecords: [outRecord, ...s.attendanceRecords],
+          attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
+            r.id === priorOut.id ? { ...r, attendanceRecordId: outRecord.id } : r,
+          ),
+        }));
+        openShift = false;
+      }
+    }
 
     if (punchType === 'in' && openShift) {
       return { error: 'You are already punched in. Punch out first.' };
@@ -1943,7 +1981,26 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'Please provide a reason (at least 10 characters).' };
     }
 
-    const openShift = hasOpenShift(attendanceRecords, currentUser.id);
+    let openShift = hasOpenShift(attendanceRecords, currentUser.id);
+    if (punchType === 'in' && openShift) {
+      const priorOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
+      if (priorOut && !priorOut.attendanceRecordId) {
+        const outRecord = attendanceRecordFromOffsiteRequest(priorOut);
+        const closeResult = await persistAttendance(outRecord);
+        if (closeResult.error) return closeResult;
+        const linkResult = await updateAttendanceApprovalRequest(priorOut.id, {
+          attendanceRecordId: outRecord.id,
+        });
+        if (linkResult.error) return linkResult;
+        set((s) => ({
+          attendanceRecords: [outRecord, ...s.attendanceRecords],
+          attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
+            r.id === priorOut.id ? { ...r, attendanceRecordId: outRecord.id } : r,
+          ),
+        }));
+        openShift = false;
+      }
+    }
     if (punchType === 'in' && openShift) {
       return { error: 'You are already punched in. Punch out first.' };
     }
@@ -1952,11 +2009,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const existingPending = getPendingOffsitePunchRequest(
-      attendanceApprovalRequests,
+      get().attendanceApprovalRequests,
       currentUser.id,
       punchType,
     );
-    if (existingPending) {
+    // Applied off-site outs stay "pending" for admin review but must not block a later punch-out.
+    if (existingPending && !(punchType === 'out' && existingPending.attendanceRecordId)) {
       return {
         error: `You already have a pending off-site ${punchType === 'in' ? 'punch-in' : 'punch-out'} request awaiting admin approval.`,
       };
@@ -1970,6 +2028,27 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const requestedAt = new Date().toISOString();
+    // Off-site punch-out closes the shift immediately so next-day punch-in is not blocked.
+    // Admin approval remains for review; punch-in still waits for approval before recording.
+    let outRecord: AttendanceRecord | null = null;
+    if (punchType === 'out') {
+      outRecord = {
+        id: newId(),
+        employeeId: currentUser.id,
+        employeeName: currentUser.name,
+        punchType: 'out',
+        punchedAt: requestedAt,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracyM: position.accuracyM,
+        distanceM: geofence.distanceM,
+        withinOffice: false,
+        officeAddress: OFFICE_LOCATION.address,
+      };
+      const outPersist = await persistAttendance(outRecord);
+      if (outPersist.error) return outPersist;
+    }
+
     const request: AttendanceApprovalRequest = {
       id: newId(),
       employeeId: currentUser.id,
@@ -1986,7 +2065,7 @@ export const useStore = create<AppState>((set, get) => ({
       reviewedById: null,
       reviewedAt: null,
       adminNotes: '',
-      attendanceRecordId: null,
+      attendanceRecordId: outRecord?.id ?? null,
     };
 
     const persistResult = await persistAttendanceApprovalRequest(request);
@@ -2019,6 +2098,7 @@ export const useStore = create<AppState>((set, get) => ({
     persistNotification(notif);
 
     set((s) => ({
+      attendanceRecords: outRecord ? [outRecord, ...s.attendanceRecords] : s.attendanceRecords,
       attendanceApprovalRequests: [request, ...s.attendanceApprovalRequests],
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
@@ -2045,27 +2125,31 @@ export const useStore = create<AppState>((set, get) => ({
     if (request.punchType === 'in' && openShift) {
       return { error: 'Employee is already punched in.' };
     }
-    if (request.punchType === 'out' && !openShift) {
-      return { error: 'Employee is no longer punched in.' };
+
+    // Off-site punch-out may already have been recorded on submit (so next-day punch-in works).
+    let record: AttendanceRecord | null = null;
+    if (request.attendanceRecordId) {
+      record = attendanceRecords.find((r) => r.id === request.attendanceRecordId) ?? null;
     }
-
-    const record: AttendanceRecord = {
-      id: newId(),
-      employeeId: request.employeeId,
-      employeeName: request.employeeName,
-      punchType: request.punchType,
-      punchedAt: request.requestedAt,
-      latitude: request.latitude,
-      longitude: request.longitude,
-      accuracyM: request.accuracyM,
-      distanceM: request.distanceM,
-      withinOffice: false,
-      officeAddress: OFFICE_LOCATION.address,
-    };
-
-    const persistResult = await persistAttendance(record);
-    if (persistResult.error) {
-      return { error: persistResult.error };
+    if (!record && request.punchType === 'out' && !openShift) {
+      // Shift already closed (e.g. applied when employee punched in next day) — just approve.
+      record =
+        attendanceRecords.find(
+          (r) =>
+            r.employeeId === request.employeeId &&
+            r.punchType === 'out' &&
+            r.punchedAt === request.requestedAt,
+        ) ?? null;
+    }
+    if (!record) {
+      if (request.punchType === 'out' && !openShift) {
+        return { error: 'Employee is no longer punched in.' };
+      }
+      record = attendanceRecordFromOffsiteRequest(request);
+      const persistResult = await persistAttendance(record);
+      if (persistResult.error) {
+        return { error: persistResult.error };
+      }
     }
 
     const reviewedAt = new Date().toISOString();
@@ -2097,13 +2181,17 @@ export const useStore = create<AppState>((set, get) => ({
     };
     persistActivity(activity);
 
-    set((s) => ({
-      attendanceRecords: [record, ...s.attendanceRecords],
-      attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
-        r.id === requestId ? { ...r, ...updates } : r,
-      ),
-      activityLog: [activity, ...s.activityLog],
-    }));
+    const recordId = record.id;
+    set((s) => {
+      const alreadyPresent = s.attendanceRecords.some((r) => r.id === recordId);
+      return {
+        attendanceRecords: alreadyPresent ? s.attendanceRecords : [record!, ...s.attendanceRecords],
+        attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
+          r.id === requestId ? { ...r, ...updates } : r,
+        ),
+        activityLog: [activity, ...s.activityLog],
+      };
+    });
 
     return { error: null };
   },

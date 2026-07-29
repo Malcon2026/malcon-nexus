@@ -15,6 +15,7 @@ import {
   checkOfficeGeofence,
   summarizeLiveAttendance,
   getPendingOffsitePunchRequest,
+  getPriorDayPendingOffsiteOut,
   getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
@@ -37,6 +38,14 @@ export const AttendanceSection: React.FC = () => {
     summary.punchIn !== null && getISTDateKey(summary.punchIn.punchedAt) !== getISTDateKey();
   const pendingOffsiteIn = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'in');
   const pendingOffsiteOut = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'out');
+  const priorDayPendingOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
+  // Prior-day off-site out (even if still pending review) must not block today's punch-in.
+  const canPunchInDespiteOpenShift =
+    summary.isPunchedIn && punchInFromPriorDay && !!priorDayPendingOut;
+  const punchInDisabled = (!!pendingOffsiteIn) || (summary.isPunchedIn && !canPunchInDespiteOpenShift);
+  // Applied outs remain pending for review — don't block a later punch-out after a new punch-in.
+  const blockingPendingOut = pendingOffsiteOut && !pendingOffsiteOut.attendanceRecordId;
+  const punchOutDisabled = !summary.isPunchedIn || !!blockingPendingOut;
 
   const [now, setNow] = useState(new Date());
   const [confirmType, setConfirmType] = useState<PunchType | null>(null);
@@ -214,11 +223,16 @@ export const AttendanceSection: React.FC = () => {
               <span>
                 Your off-site punch out at {formatTimeIST(pendingOffsiteOut.requestedAt)} is awaiting admin approval.
                 Reason: <span className="font-medium">{pendingOffsiteOut.reason}</span>
+                {priorDayPendingOut ? (
+                  <span className="block mt-1 text-amber-900 font-medium">
+                    You can still punch in for today — approval is only for review.
+                  </span>
+                ) : null}
               </span>
             </div>
           )}
 
-          {punchInFromPriorDay && summary.isPunchedIn && (
+          {punchInFromPriorDay && summary.isPunchedIn && !priorDayPendingOut && (
             <div className="flex items-start gap-2 text-xs text-amber-800 mb-4 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
               <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -247,7 +261,7 @@ export const AttendanceSection: React.FC = () => {
               className="flex-1"
               icon={<LogIn className="h-4 w-4" />}
               onClick={() => openConfirm('in')}
-              disabled={summary.isPunchedIn || !!pendingOffsiteIn}
+              disabled={punchInDisabled}
             >
               Punch In
             </Button>
@@ -257,7 +271,7 @@ export const AttendanceSection: React.FC = () => {
               className="flex-1"
               icon={<LogOut className="h-4 w-4" />}
               onClick={() => openConfirm('out')}
-              disabled={!summary.isPunchedIn || !!pendingOffsiteOut}
+              disabled={punchOutDisabled}
             >
               Punch Out
             </Button>

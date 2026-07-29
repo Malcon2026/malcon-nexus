@@ -305,15 +305,29 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
 
             {reviewAction === 'approve' ? (
               <p className="text-sm text-gray-600">
-                Approving will record {reviewing.punchType === 'in' ? 'punch in' : 'punch out'} at{' '}
-                <span className="font-medium tabular-nums">{formatTimeIST(reviewing.requestedAt)}</span>{' '}
-                for this employee.
+                {reviewing.punchType === 'out' && reviewing.attendanceRecordId
+                  ? (
+                    <>
+                      Punch out was already recorded at{' '}
+                      <span className="font-medium tabular-nums">{formatTimeIST(reviewing.requestedAt)}</span>
+                      {' '}so the employee could continue next day. Approving marks this request reviewed.
+                    </>
+                  )
+                  : (
+                    <>
+                      Approving will record {reviewing.punchType === 'in' ? 'punch in' : 'punch out'} at{' '}
+                      <span className="font-medium tabular-nums">{formatTimeIST(reviewing.requestedAt)}</span>{' '}
+                      for this employee.
+                    </>
+                  )}
               </p>
             ) : (
               <p className="text-sm text-gray-600">
                 {reviewing.punchType === 'in'
                   ? 'The employee will remain not punched in and can punch in again from the office or submit a new request.'
-                  : 'The employee will remain punched in and can punch out again from the office or submit a new request.'}
+                  : reviewing.attendanceRecordId
+                    ? 'Punch out was already applied so next-day punch-in works. Rejecting only marks the request as rejected; the out time stays on the record.'
+                    : 'The employee will remain punched in and can punch out again from the office or submit a new request.'}
               </p>
             )}
 

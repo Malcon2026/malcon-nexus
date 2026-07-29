@@ -349,10 +349,31 @@ export function getPendingOffsitePunchRequest(
 
   if (punchType === 'out') {
     const previousDay = addDaysToDateKey(dateKey, -1);
-    return pending.find((r) => getISTDateKey(r.requestedAt) === previousDay) ?? null;
+    // Only surface prior-day out if it was never applied (legacy stuck open shifts).
+    return (
+      pending.find(
+        (r) => getISTDateKey(r.requestedAt) === previousDay && !r.attendanceRecordId,
+      ) ?? null
+    );
   }
 
   return null;
+}
+
+/**
+ * Pending off-site punch-out from a prior IST day that never wrote an out record.
+ * Used to unlock next-day punch-in without waiting for admin approval.
+ */
+export function getPriorDayPendingOffsiteOut(
+  requests: AttendanceApprovalRequest[] | null | undefined,
+  employeeId: string,
+  dateKey = getISTDateKey(),
+): AttendanceApprovalRequest | null {
+  const pending = getPendingOffsitePunchRequest(requests, employeeId, 'out', dateKey);
+  if (!pending) return null;
+  if (getISTDateKey(pending.requestedAt) === dateKey) return null;
+  if (pending.attendanceRecordId) return null;
+  return pending;
 }
 
 /** @deprecated Use getPendingOffsitePunchRequest(..., 'out') */
