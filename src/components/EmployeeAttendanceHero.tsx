@@ -28,6 +28,8 @@ import {
   getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
+import { attendanceErrorTe } from '../lib/attendanceBilingual';
+import { Bilingual, Te } from './BilingualText';
 
 type LocationState =
   | { status: 'idle' }
@@ -194,6 +196,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
               Welcome, {firstName}
             </h1>
+            <Te className="text-gray-500 mt-0.5">స్వాగతం, {firstName}</Te>
             <p className="text-sm text-gray-500 mt-1">{currentUser.department}</p>
           </div>
           <div className="sm:text-right">
@@ -213,21 +216,24 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div className="min-w-0 space-y-1">
-                <p className="text-base sm:text-lg font-bold text-amber-800">
-                  Previous session still open
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-amber-800"
+                  teClassName="text-amber-700/90"
+                  en="Previous session still open"
+                  te="మునుపటి session ఇంకా open గా ఉంది"
+                />
                 <p className="text-sm text-amber-700">
                   You did not punch out on <span className="font-semibold">{priorSessionDate}</span>.
                   Logged in since{' '}
                   <span className="font-semibold tabular-nums">{formatTimeIST(summary.punchIn.punchedAt)}</span>.
                   This is <span className="font-semibold">not</span> today&apos;s login.
                 </p>
-                <p className="text-xs text-amber-700/90 pt-1">
-                  ○ Not logged in for {todayLabel} · Close previous session first.
-                </p>
-                <p className="text-xs text-amber-700/90">
-                  మీరు {priorSessionDate} న punch out చేయలేదు. ముందు Punch Out చేయండి.
-                </p>
+                <Te className="text-amber-700/90">
+                  మీరు {priorSessionDate} న punch out చేయలేదు. {formatTimeIST(summary.punchIn.punchedAt)} నుండి login ఉంది — ఈ రోజు login కాదు.
+                </Te>
+                <Te className="text-amber-700/90 pt-0.5">
+                  ○ {todayLabel} న login కాలేదు · ముందు Close Session / Punch Out చేయండి.
+                </Te>
               </div>
             </div>
           ) : loggedInToday && summary.punchIn ? (
@@ -236,15 +242,22 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-base sm:text-lg font-bold text-emerald-800">
-                  You are logged in for {todayLabel}
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-emerald-800"
+                  teClassName="text-emerald-700/90"
+                  en={`You are logged in for ${todayLabel}`}
+                  te={`మీరు ${todayLabel} న login అయ్యారు`}
+                />
                 <p className="text-sm text-emerald-700 mt-0.5">
                   Since{' '}
                   <span className="font-semibold tabular-nums">{formatTimeIST(summary.punchIn.punchedAt)}</span>
                   {' · '}
                   {summary.punchIn.withinOffice ? 'At office' : 'Off-site (approved)'}
                 </p>
+                <Te className="text-emerald-700/90">
+                  {formatTimeIST(summary.punchIn.punchedAt)} నుండి ·{' '}
+                  {summary.punchIn.withinOffice ? 'Office లో' : 'Off-site (approval అయింది)'}
+                </Te>
               </div>
             </div>
           ) : pendingOffsiteIn ? (
@@ -253,22 +266,36 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-base sm:text-lg font-bold text-amber-800">
-                  Punch-in pending approval
-                </p>
-                <p className="text-sm text-amber-700 mt-0.5">
-                  You are not logged in for {todayLabel} until admin approves.
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-amber-800"
+                  teClassName="text-amber-700/90"
+                  en="Punch-in pending approval"
+                  te="Punch in admin approval కోసం వేచి ఉంది"
+                />
+                <Bilingual
+                  enClassName="text-sm text-amber-700 mt-0.5"
+                  teClassName="text-amber-700/90"
+                  en={`You are not logged in for ${todayLabel} until admin approves.`}
+                  te={`Admin approve చేసే varaku ${todayLabel} న login avvadu.`}
+                />
               </div>
             </div>
           ) : (
             <div className="flex items-start gap-3">
               <div className="attendance-status-ring out shrink-0" />
               <div>
-                <p className="text-base sm:text-lg font-bold text-gray-900">
-                  You are not logged in for {todayLabel}
-                </p>
-                <p className="text-sm text-gray-500 mt-0.5">Tap Punch In to start your day.</p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-gray-900"
+                  teClassName="text-gray-500"
+                  en={`You are not logged in for ${todayLabel}`}
+                  te={`మీరు ${todayLabel} న login కాలేదు`}
+                />
+                <Bilingual
+                  enClassName="text-sm text-gray-500 mt-0.5"
+                  teClassName="text-gray-500"
+                  en="Tap Punch In to start your day."
+                  te="మీ రోజు ప్రారంభించడానికి Punch In నొక్కండి."
+                />
               </div>
             </div>
           )}
@@ -286,12 +313,19 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <LogIn className="h-7 w-7" strokeWidth={2.25} />
             </span>
             <span className="attendance-punch-label">Punch In</span>
-            <span className="attendance-punch-hint">
+            <span className="attendance-punch-hint block">
               {punchInDisabled && priorDayOpenSession
                 ? 'Close previous session first'
                 : punchInActive
                   ? 'Tap to start · GPS required'
                   : 'Unavailable'}
+            </span>
+            <span className="attendance-punch-hint-te">
+              {punchInDisabled && priorDayOpenSession
+                ? 'ముందు session close cheyandi'
+                : punchInActive
+                  ? 'GPS అవసరం · ప్రారంభించండి'
+                  : 'అందుబాటులో లేదు'}
             </span>
           </button>
 
@@ -313,12 +347,19 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <span className="attendance-punch-label">
               {priorDayOpenSession ? 'Close Session' : 'Punch Out'}
             </span>
-            <span className="attendance-punch-hint">
+            <span className="attendance-punch-hint block">
               {punchOutActive
                 ? priorDayOpenSession
                   ? 'Reason required · close yesterday'
                   : 'Reason required · GPS required'
                 : 'Unavailable'}
+            </span>
+            <span className="attendance-punch-hint-te">
+              {punchOutActive
+                ? priorDayOpenSession
+                  ? 'కారణం అవసరం · నిన్న close cheyandi'
+                  : 'కారణం + GPS అవసరం'
+                : 'అందుబాటులో లేదు'}
             </span>
           </button>
         </div>
@@ -327,26 +368,30 @@ export const EmployeeAttendanceHero: React.FC = () => {
           {[
             {
               label: priorDayOpenSession ? 'Session In' : 'Punch In',
+              labelTe: priorDayOpenSession ? 'Session In' : 'పంచ్ ఇన్',
               value: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : '—',
               sub: priorDayOpenSession && summary.punchIn ? priorSessionDate : undefined,
             },
             {
               label: 'Punch Out',
+              labelTe: 'పంచ్ అవుట్',
               value: summary.punchOut ? formatTimeIST(summary.punchOut.punchedAt) : '—',
             },
             {
               label: priorDayOpenSession ? 'Open Since' : 'Hours Today',
+              labelTe: priorDayOpenSession ? 'ఎప్పటి నుండి' : 'ఈ రోజు గంటలు',
               value:
                 priorDayOpenSession && summary.punchIn
                   ? priorSessionDate
                   : formatDuration(summary.workedMs),
             },
-          ].map(({ label, value, sub }) => (
+          ].map(({ label, labelTe, value, sub }) => (
             <div
               key={label}
               className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5 text-center"
             >
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</p>
+              <p className="text-[9px] text-gray-400 leading-tight">{labelTe}</p>
               <p className="text-sm sm:text-base font-bold text-gray-900 tabular-nums mt-0.5 truncate">{value}</p>
               {sub && <p className="text-[10px] text-amber-700 font-medium">{sub}</p>}
             </div>
@@ -354,18 +399,28 @@ export const EmployeeAttendanceHero: React.FC = () => {
         </div>
 
         {pendingOffsiteIn && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            Off-site punch in at {formatTimeIST(pendingOffsiteIn.requestedAt)} awaiting approval ·{' '}
-            {pendingOffsiteIn.reason}
-          </p>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            <p>
+              Off-site punch in at {formatTimeIST(pendingOffsiteIn.requestedAt)} awaiting approval ·{' '}
+              {pendingOffsiteIn.reason}
+            </p>
+            <Te className="text-amber-700/90 mb-0">
+              Off-site punch in {formatTimeIST(pendingOffsiteIn.requestedAt)} admin approval కోసం wait చేస్తోంది.
+            </Te>
+          </div>
         )}
 
-        <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
+        <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
-          <span>
-            {OFFICE_LOCATION.address} · GPS mandatory · Punch-in off-site needs approval · Punch-out needs reason only (no approval)
-          </span>
-        </p>
+          <div>
+            <p>
+              {OFFICE_LOCATION.address} · GPS mandatory · Punch-in off-site needs approval · Punch-out needs reason only (no approval)
+            </p>
+            <Te className="text-gray-500 mb-0">
+              GPS తప్పనిసరి · Off-site punch-in ki admin approval · Punch-out ki reason matrame (approval avasaram ledu)
+            </Te>
+          </div>
+        </div>
       </section>
 
       <Modal
@@ -431,6 +486,15 @@ export const EmployeeAttendanceHero: React.FC = () => {
                     ? 'Outside office — admin approval required to punch in.'
                     : 'Confirm punch in at office?'}
             </p>
+            <Te className="text-amber-800/90">
+              {closingPriorSession
+                ? `${priorSessionDate} session close avutundi. Tarvata ${todayLabel} ki punch in cheyochu.`
+                : confirmType === 'out'
+                  ? 'కారణం రాసి punch out cheyandi — office/off-site rendu, approval avasaram ledu.'
+                  : isOffsitePunch
+                    ? 'Office bayata unnaru — punch in ki admin approval avasaram.'
+                    : 'Office lo punch in confirm cheyala?'}
+            </Te>
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Current time: {formatTimeIST(now)}</p>
           </div>
 
@@ -460,14 +524,22 @@ export const EmployeeAttendanceHero: React.FC = () => {
               </div>
 
               {locationState.status === 'idle' || locationState.status === 'loading' ? (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Getting GPS…
+                <div className="text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Getting GPS…
+                  </div>
+                  <Te className="text-gray-500 mb-0">GPS teesukuntunnamu…</Te>
                 </div>
               ) : locationState.status === 'error' ? (
-                <div className="flex items-start gap-2 text-sm text-red-700">
-                  <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{locationState.message}</span>
+                <div className="text-sm text-red-700">
+                  <div className="flex items-start gap-2">
+                    <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{locationState.message}</span>
+                  </div>
+                  {attendanceErrorTe(locationState.message) && (
+                    <Te className="text-red-700/90 mb-0">{attendanceErrorTe(locationState.message)}</Te>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -476,6 +548,11 @@ export const EmployeeAttendanceHero: React.FC = () => {
                       ? `At office (${locationState.distanceM}m)`
                       : `Off-site (${locationState.distanceM}m from office)`}
                   </p>
+                  <Te className={`mb-0 ${locationState.withinOffice ? 'text-emerald-700/90' : 'text-amber-700/90'}`}>
+                    {locationState.withinOffice
+                      ? `Office lo unnaru (${locationState.distanceM}m)`
+                      : `Office nunchi ${locationState.distanceM}m dooram — off-site`}
+                  </Te>
                   <p className="text-[11px] text-gray-400 tabular-nums">
                     Accuracy ±{Math.round(locationState.position.accuracyM)}m
                   </p>
@@ -489,6 +566,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
                 {confirmType === 'out' ? 'Reason for punch out' : 'Reason for off-site punch-in'}
               </label>
+              <Te className="text-gray-500 mb-2">
+                {confirmType === 'out' ? 'Punch out కారణం' : 'Off-site punch in కారణం'}
+              </Te>
               <textarea
                 id="punch-reason"
                 rows={3}
@@ -506,12 +586,20 @@ export const EmployeeAttendanceHero: React.FC = () => {
                   ? 'Min 10 characters · Saved immediately · No admin approval'
                   : 'Min 10 characters · Admin must approve punch-in'}
               </p>
+              <Te className="text-gray-400 mb-0">
+                {confirmType === 'out'
+                  ? 'కనీసం 10 అక్షరాలు · వెంటనే save · approval avasaram ledu'
+                  : 'కనీసం 10 అక్షరాలు · admin approve avasaram'}
+              </Te>
             </div>
           )}
 
           {submitError && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-              {submitError}
+              <p>{submitError}</p>
+              {attendanceErrorTe(submitError) && (
+                <Te className="text-red-700/90 mb-0">{attendanceErrorTe(submitError)}</Te>
+              )}
             </div>
           )}
         </div>
