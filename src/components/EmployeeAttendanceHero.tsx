@@ -42,7 +42,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
   const currentUser = useStore((s) => s.currentUser);
   const punchAttendance = useStore((s) => s.punchAttendance);
-  const punchOutWithReason = useStore((s) => s.punchOutWithReason);
+  const punchOut = useStore((s) => s.punchOut);
   const submitOffsitePunchRequest = useStore((s) => s.submitOffsitePunchRequest);
 
   const summary = summarizeLiveAttendance(attendanceRecords, currentUser.id);
@@ -104,7 +104,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setSubmitError(null);
     setOffsiteReason('');
     setLocationState({ status: 'idle' });
-    void refreshLocation();
+    if (type === 'in') {
+      void refreshLocation();
+    }
   };
 
   const closeConfirm = () => {
@@ -126,6 +128,17 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setSubmitting(true);
     setSubmitError(null);
 
+    if (confirmType === 'out') {
+      const result = await punchOut();
+      setSubmitting(false);
+      if (result.error) {
+        setErrorFromMessage(result.error);
+        return;
+      }
+      closeConfirm();
+      return;
+    }
+
     let position: GeoPosition;
     try {
       position =
@@ -146,17 +159,6 @@ export const EmployeeAttendanceHero: React.FC = () => {
       distanceM: geofence.distanceM,
       withinOffice: geofence.withinOffice,
     });
-
-    if (confirmType === 'out') {
-      const result = await punchOutWithReason(offsiteReason, position);
-      setSubmitting(false);
-      if (result.error) {
-        setErrorFromMessage(result.error);
-        return;
-      }
-      closeConfirm();
-      return;
-    }
 
     if (!geofence.withinOffice) {
       const result = await submitOffsitePunchRequest('in', offsiteReason, position);
@@ -181,7 +183,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   };
 
   const closingPriorSession = confirmType === 'out' && priorDayOpenSession;
-  const needsReason = confirmType === 'out' || (confirmType === 'in' && isOffsitePunch);
+  const needsReason = confirmType === 'in' && isOffsitePunch;
   const reasonValid = offsiteReason.trim().length >= 10;
 
   const statusTone = priorDayOpenSession
@@ -352,10 +354,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
               {priorDayOpenSession ? 'Punch Out Yesterday' : 'Punch Out'}
             </span>
             <span className="attendance-punch-hint block">
-              {punchOutActive ? 'Write reason · GPS on' : 'Not available'}
+              {punchOutActive ? 'Tap here to finish' : 'Not available'}
             </span>
             <span className="attendance-punch-hint-te">
-              {punchOutActive ? 'Reason rayandi · GPS on' : 'available ledu'}
+              {punchOutActive ? 'Ikkada tap cheyandi' : 'available ledu'}
             </span>
           </button>
         </div>
@@ -410,10 +412,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
           <div>
             <p>
-              {OFFICE_LOCATION.address} · GPS needed · Out of office Punch In = admin OK · Punch Out = reason only
+              {OFFICE_LOCATION.address} · Punch In needs GPS · Out of office Punch In = admin OK
             </p>
             <Te className="text-gray-400 mb-0">
-              GPS avasaram · Office bayata Punch In ki admin OK · Punch Out ki reason matrame
+              Punch In ki GPS avasaram · Office bayata Punch In ki admin OK · Punch Out simple ga
             </Te>
           </div>
         </div>
@@ -435,7 +437,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
           closingPriorSession
             ? `This closes ${priorSessionDate}. Then you can Punch In for today.`
             : confirmType === 'out'
-              ? 'Write why you are leaving. Saves right away.'
+              ? 'No GPS or reason needed. Just tap Yes.'
               : isOffsitePunch
                 ? 'Write reason. Admin must approve.'
                 : 'You are at office. OK to Punch In?'
@@ -451,7 +453,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
               onClick={() => void handleConfirm()}
               disabled={
                 submitting ||
-                locationState.status === 'loading' ||
+                (confirmType === 'in' && locationState.status === 'loading') ||
                 (needsReason && !reasonValid)
               }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
@@ -475,7 +477,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
               {closingPriorSession
                 ? `Close ${priorSessionDate}. After that, Punch In for ${todayLabel}.`
                 : confirmType === 'out'
-                  ? 'Write a reason. Works at office or out of office. No admin approval.'
+                  ? 'Ready to Punch Out? No GPS or reason needed.'
                   : isOffsitePunch
                     ? 'You are out of office. Admin must approve Punch In.'
                     : 'You are at office. Punch In now?'}
@@ -485,7 +487,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 {priorSessionDate} close cheyandi. Taruvata {todayLabel} ki Punch In.
               </Te>
             ) : confirmType === 'out' ? (
-              <Te className="text-amber-800/90">Reason rayandi. Admin approval avasaram ledu.</Te>
+              <Te className="text-amber-800/90">Punch Out cheyadaniki Yes ani press cheyandi. GPS/reason avasaram ledu.</Te>
             ) : isOffsitePunch ? (
               <Te className="text-amber-800/90">Office bayata unnaru. Admin approve cheyali.</Te>
             ) : (
@@ -494,6 +496,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Time now: {formatTimeIST(now)}</p>
           </div>
 
+          {confirmType === 'in' && (
           <div className="rounded-xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
@@ -553,37 +556,24 @@ export const EmployeeAttendanceHero: React.FC = () => {
               )}
             </div>
           </div>
+          )}
 
           {needsReason && (
             <div>
               <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
-                {confirmType === 'out' ? 'Why are you leaving?' : 'Why are you out of office?'}
+                Why are you out of office?
               </label>
-              <Te className="text-gray-500 mb-1.5">
-                {confirmType === 'out' ? 'Enduku velthunnaru?' : 'Office bayata enduku unnaru?'}
-              </Te>
+              <Te className="text-gray-500 mb-1.5">Office bayata enduku unnaru?</Te>
               <textarea
                 id="punch-reason"
                 rows={3}
                 value={offsiteReason}
                 onChange={(e) => setOffsiteReason(e.target.value)}
-                placeholder={
-                  confirmType === 'out'
-                    ? 'Example: End of day, finished delivery, going home…'
-                    : 'Example: Client visit, delivery trip…'
-                }
+                placeholder="Example: Client visit, delivery trip…"
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
               />
-              <p className="text-[11px] text-gray-400 mt-1">
-                {confirmType === 'out'
-                  ? 'At least 10 letters · Saves right away'
-                  : 'At least 10 letters · Admin must approve'}
-              </p>
-              <Te className="text-gray-400 mb-0">
-                {confirmType === 'out'
-                  ? '10 letters minimum · ventane save avuthundi'
-                  : '10 letters minimum · admin approve cheyali'}
-              </Te>
+              <p className="text-[11px] text-gray-400 mt-1">At least 10 letters · Admin must approve</p>
+              <Te className="text-gray-400 mb-0">10 letters minimum · admin approve cheyali</Te>
             </div>
           )}
 

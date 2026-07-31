@@ -117,8 +117,8 @@ interface AppState {
 
   // Attendance
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
-  /** Punch out at office or off-site — reason required, saved immediately, no approval. */
-  punchOutWithReason: (reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
+  /** Punch out — no GPS or reason required. */
+  punchOut: () => Promise<{ error: string | null }>;
   submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   /** Admin-only: manually record punch in/out for any employee on a given date (YYYY-MM-DD, IST). */
   /** Admin-only: mark present for a day. Times optional — defaults to 09:00 / 18:00 IST. */
@@ -1607,17 +1607,12 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  punchOutWithReason: async (reason, position) => {
+  punchOut: async () => {
     const { currentUser, attendanceRecords } = get();
-    const trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
-      return { error: 'Please provide a reason for punch out (at least 10 characters).' };
-    }
     if (!hasOpenShift(attendanceRecords, currentUser.id)) {
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
-    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
     const punchedAt = new Date().toISOString();
     const record: AttendanceRecord = {
       id: newId(),
@@ -1625,11 +1620,11 @@ export const useStore = create<AppState>((set, get) => ({
       employeeName: currentUser.name,
       punchType: 'out',
       punchedAt,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracyM: position.accuracyM,
-      distanceM: geofence.distanceM,
-      withinOffice: geofence.withinOffice,
+      latitude: 0,
+      longitude: 0,
+      accuracyM: 0,
+      distanceM: 0,
+      withinOffice: false,
       officeAddress: OFFICE_LOCATION.address,
     };
 
@@ -1638,9 +1633,6 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: persistResult.error };
     }
 
-    const locationLabel = geofence.withinOffice
-      ? `at office (${geofence.distanceM}m)`
-      : `off-site (${geofence.distanceM}m from office)`;
     const activity: ActivityEvent = {
       id: newId(),
       action: 'Punch Out',
@@ -1650,7 +1642,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: punchedAt,
-      details: `Punch out ${locationLabel}. Reason: ${trimmedReason}`,
+      details: 'Punch out',
     };
     persistActivity(activity);
 
@@ -2033,7 +2025,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   submitOffsitePunchRequest: async (punchType, reason, position) => {
     if (punchType === 'out') {
-      return get().punchOutWithReason(reason, position);
+      return get().punchOut();
     }
 
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
