@@ -40,6 +40,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
   const currentUser = useStore((s) => s.currentUser);
   const punchAttendance = useStore((s) => s.punchAttendance);
+  const punchOutWithReason = useStore((s) => s.punchOutWithReason);
   const submitOffsitePunchRequest = useStore((s) => s.submitOffsitePunchRequest);
 
   const summary = summarizeLiveAttendance(attendanceRecords, currentUser.id);
@@ -49,15 +50,13 @@ export const EmployeeAttendanceHero: React.FC = () => {
     summary.punchIn !== null && getISTDateKey(summary.punchIn.punchedAt) !== todayKey;
   const priorSessionDate = summary.punchIn ? formatDateShortIST(summary.punchIn.punchedAt) : '';
   const pendingOffsiteIn = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'in');
-  const pendingOffsiteOut = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'out');
   const priorDayPendingOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
   const priorDayOpenSession = punchInFromPriorDay && summary.isPunchedIn && !priorDayPendingOut;
   const loggedInToday = summary.isPunchedIn && !punchInFromPriorDay;
   const canPunchInDespiteOpenShift =
     summary.isPunchedIn && punchInFromPriorDay && !!priorDayPendingOut;
   const punchInDisabled = (!!pendingOffsiteIn) || (summary.isPunchedIn && !canPunchInDespiteOpenShift);
-  const blockingPendingOut = pendingOffsiteOut && !pendingOffsiteOut.attendanceRecordId;
-  const punchOutDisabled = !summary.isPunchedIn || !!blockingPendingOut;
+  const punchOutDisabled = !summary.isPunchedIn;
 
   const punchInActive = !punchInDisabled && !priorDayOpenSession;
   const punchOutActive = !punchOutDisabled;
@@ -142,8 +141,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
       withinOffice: geofence.withinOffice,
     });
 
-    if (!geofence.withinOffice) {
-      const result = await submitOffsitePunchRequest(confirmType, offsiteReason, position);
+    if (confirmType === 'out') {
+      const result = await punchOutWithReason(offsiteReason, position);
       setSubmitting(false);
       if (result.error) {
         setSubmitError(result.error);
@@ -153,7 +152,18 @@ export const EmployeeAttendanceHero: React.FC = () => {
       return;
     }
 
-    const result = await punchAttendance(confirmType, position);
+    if (!geofence.withinOffice) {
+      const result = await submitOffsitePunchRequest('in', offsiteReason, position);
+      setSubmitting(false);
+      if (result.error) {
+        setSubmitError(result.error);
+        return;
+      }
+      closeConfirm();
+      return;
+    }
+
+    const result = await punchAttendance('in', position);
     setSubmitting(false);
 
     if (result.error) {
@@ -164,9 +174,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
     closeConfirm();
   };
 
-  const punchLabel = confirmType === 'in' ? 'Punch In' : 'Punch Out';
   const closingPriorSession = confirmType === 'out' && priorDayOpenSession;
-  const canSubmitOffsite = offsiteReason.trim().length >= 10;
+  const needsReason = confirmType === 'out' || (confirmType === 'in' && isOffsitePunch);
+  const reasonValid = offsiteReason.trim().length >= 10;
 
   const statusTone = priorDayOpenSession
     ? 'warn'
@@ -306,8 +316,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <span className="attendance-punch-hint">
               {punchOutActive
                 ? priorDayOpenSession
-                  ? 'Close yesterday first · GPS required'
-                  : 'Tap to end · GPS required'
+                  ? 'Reason required · close yesterday'
+                  : 'Reason required · GPS required'
                 : 'Unavailable'}
             </span>
           </button>
@@ -350,17 +360,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
           </p>
         )}
 
-        {pendingOffsiteOut && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            Off-site punch out at {formatTimeIST(pendingOffsiteOut.requestedAt)} awaiting approval ·{' '}
-            {pendingOffsiteOut.reason}
-          </p>
-        )}
-
         <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
           <span>
-            {OFFICE_LOCATION.address} · GPS mandatory · Off-site in = approval · Off-site out = direct
+            {OFFICE_LOCATION.address} · GPS mandatory · Punch-in off-site needs approval · Punch-out needs reason only (no approval)
           </span>
         </p>
       </section>
@@ -371,18 +374,20 @@ export const EmployeeAttendanceHero: React.FC = () => {
         title={
           closingPriorSession
             ? 'Close previous session?'
-            : isOffsitePunch
-              ? `Off-site ${punchLabel}`
-              : 'Are you sure?'
+            : confirmType === 'out'
+              ? 'Punch Out'
+              : isOffsitePunch
+                ? 'Off-site Punch In'
+                : 'Punch In'
         }
         subtitle={
           closingPriorSession
             ? `This closes your open session from ${priorSessionDate}`
-            : isOffsitePunch
-              ? confirmType === 'in'
+            : confirmType === 'out'
+              ? 'Reason required · saved immediately · no approval'
+              : isOffsitePunch
                 ? 'Submit a reason for admin approval'
-                : 'GPS recorded — punch-out is saved directly'
-              : `Confirm ${punchLabel} for today`
+                : 'Confirm punch in for today'
         }
         size="md"
         footer={
@@ -396,7 +401,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
               disabled={
                 submitting ||
                 locationState.status === 'loading' ||
-                (isOffsitePunch && confirmType === 'in' && !canSubmitOffsite)
+                (needsReason && !reasonValid)
               }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             >
@@ -404,11 +409,11 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 ? 'Processing…'
                 : closingPriorSession
                   ? 'Yes, Close Session'
-                  : isOffsitePunch
-                    ? confirmType === 'in'
+                  : confirmType === 'out'
+                    ? 'Yes, Punch Out'
+                    : isOffsitePunch
                       ? 'Submit for Approval'
-                      : 'Yes, Punch Out'
-                    : `Yes, ${punchLabel}`}
+                      : 'Yes, Punch In'}
             </Button>
           </div>
         }
@@ -418,11 +423,13 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <p className="text-sm font-semibold text-amber-900">
               {closingPriorSession
                 ? `Closing session from ${priorSessionDate}. You can punch in for ${todayLabel} after this.`
-                : isOffsitePunch
-                  ? confirmType === 'in'
+                : confirmType === 'out'
+                  ? locationState.status === 'ready' && locationState.withinOffice
+                    ? 'At office — enter a reason and punch out (no approval needed).'
+                    : 'Enter a reason and punch out — works at office or off-site, no approval needed.'
+                  : isOffsitePunch
                     ? 'Outside office — admin approval required to punch in.'
-                    : 'Outside office — punch-out saves immediately (no approval).'
-                  : `Confirm ${punchLabel.toLowerCase()}?`}
+                    : 'Confirm punch in at office?'}
             </p>
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Current time: {formatTimeIST(now)}</p>
           </div>
@@ -477,20 +484,28 @@ export const EmployeeAttendanceHero: React.FC = () => {
             </div>
           </div>
 
-          {isOffsitePunch && confirmType === 'in' && (
+          {needsReason && (
             <div>
-              <label htmlFor="offsite-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
-                Reason for off-site punch-in
+              <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
+                {confirmType === 'out' ? 'Reason for punch out' : 'Reason for off-site punch-in'}
               </label>
               <textarea
-                id="offsite-reason"
+                id="punch-reason"
                 rows={3}
                 value={offsiteReason}
                 onChange={(e) => setOffsiteReason(e.target.value)}
-                placeholder="e.g. Client visit, field delivery…"
+                placeholder={
+                  confirmType === 'out'
+                    ? 'e.g. End of shift, client visit complete, leaving early…'
+                    : 'e.g. Client visit, field delivery…'
+                }
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
               />
-              <p className="text-[11px] text-gray-400 mt-1">Min 10 characters · Admin must approve</p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {confirmType === 'out'
+                  ? 'Min 10 characters · Saved immediately · No admin approval'
+                  : 'Min 10 characters · Admin must approve punch-in'}
+              </p>
             </div>
           )}
 

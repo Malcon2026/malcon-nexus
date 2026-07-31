@@ -117,6 +117,8 @@ interface AppState {
 
   // Attendance
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
+  /** Punch out at office or off-site — reason required, saved immediately, no approval. */
+  punchOutWithReason: (reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
   /** Admin-only: manually record punch in/out for any employee on a given date (YYYY-MM-DD, IST). */
   /** Admin-only: mark present for a day. Times optional — defaults to 09:00 / 18:00 IST. */
@@ -1605,6 +1607,61 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
+  punchOutWithReason: async (reason, position) => {
+    const { currentUser, attendanceRecords } = get();
+    const trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      return { error: 'Please provide a reason for punch out (at least 10 characters).' };
+    }
+    if (!hasOpenShift(attendanceRecords, currentUser.id)) {
+      return { error: 'You are not punched in yet. Punch in first.' };
+    }
+
+    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
+    const punchedAt = new Date().toISOString();
+    const record: AttendanceRecord = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      punchType: 'out',
+      punchedAt,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyM: position.accuracyM,
+      distanceM: geofence.distanceM,
+      withinOffice: geofence.withinOffice,
+      officeAddress: OFFICE_LOCATION.address,
+    };
+
+    const persistResult = await persistAttendance(record);
+    if (persistResult.error) {
+      return { error: persistResult.error };
+    }
+
+    const locationLabel = geofence.withinOffice
+      ? `at office (${geofence.distanceM}m)`
+      : `off-site (${geofence.distanceM}m from office)`;
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Punch Out',
+      entityType: 'attendance',
+      entityId: record.id,
+      entityLabel: currentUser.name,
+      performedBy: currentUser.name,
+      performedByRole: currentUser.role,
+      timestamp: punchedAt,
+      details: `Punch out ${locationLabel}. Reason: ${trimmedReason}`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      attendanceRecords: [record, ...s.attendanceRecords],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
   addManualAttendance: async (employeeId, dateKey, punchInTime, punchOutTime) => {
     const state = get();
     const employee = state.employees.find((e) => e.id === employeeId);
@@ -1975,14 +2032,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   submitOffsitePunchRequest: async (punchType, reason, position) => {
+    if (punchType === 'out') {
+      return get().punchOutWithReason(reason, position);
+    }
+
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
     const trimmedReason = reason.trim();
-    if (punchType === 'in' && trimmedReason.length < 10) {
+    if (trimmedReason.length < 10) {
       return { error: 'Please provide a reason (at least 10 characters).' };
     }
 
     let openShift = hasOpenShift(attendanceRecords, currentUser.id);
-    if (punchType === 'in' && openShift) {
+    if (openShift) {
       const priorOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
       if (priorOut && !priorOut.attendanceRecordId) {
         const outRecord = attendanceRecordFromOffsiteRequest(priorOut);
@@ -2001,71 +2062,25 @@ export const useStore = create<AppState>((set, get) => ({
         openShift = false;
       }
     }
-    if (punchType === 'in' && openShift) {
+    if (openShift) {
       return { error: 'You are already punched in. Punch out first.' };
-    }
-    if (punchType === 'out' && !openShift) {
-      return { error: 'You are not punched in yet. Punch in first.' };
     }
 
     const existingPending = getPendingOffsitePunchRequest(
       get().attendanceApprovalRequests,
       currentUser.id,
-      punchType,
+      'in',
     );
-    // Applied off-site outs stay "pending" for admin review but must not block a later punch-out.
-    if (existingPending && !(punchType === 'out' && existingPending.attendanceRecordId)) {
-      return {
-        error: `You already have a pending off-site ${punchType === 'in' ? 'punch-in' : 'punch-out'} request awaiting admin approval.`,
-      };
+    if (existingPending) {
+      return { error: 'You already have a pending off-site punch-in request awaiting admin approval.' };
     }
 
     const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
     if (geofence.withinOffice) {
-      return {
-        error: `You are at the office. Use regular ${punchType === 'in' ? 'punch in' : 'punch out'} instead.`,
-      };
+      return { error: 'You are at the office. Use regular punch in instead.' };
     }
 
     const requestedAt = new Date().toISOString();
-    // Off-site punch-out: record immediately, no admin approval queue.
-    if (punchType === 'out') {
-      const outRecord: AttendanceRecord = {
-        id: newId(),
-        employeeId: currentUser.id,
-        employeeName: currentUser.name,
-        punchType: 'out',
-        punchedAt: requestedAt,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracyM: position.accuracyM,
-        distanceM: geofence.distanceM,
-        withinOffice: false,
-        officeAddress: OFFICE_LOCATION.address,
-      };
-      const outPersist = await persistAttendance(outRecord);
-      if (outPersist.error) return outPersist;
-
-      const activity: ActivityEvent = {
-        id: newId(),
-        action: 'Off-site Punch Out',
-        entityType: 'attendance',
-        entityId: outRecord.id,
-        entityLabel: currentUser.name,
-        performedBy: currentUser.name,
-        performedByRole: currentUser.role,
-        timestamp: requestedAt,
-        details: `Off-site punch out (${geofence.distanceM}m from office)`,
-      };
-      persistActivity(activity);
-
-      set((s) => ({
-        attendanceRecords: [outRecord, ...s.attendanceRecords],
-        activityLog: [activity, ...s.activityLog],
-      }));
-
-      return { error: null };
-    }
 
     const request: AttendanceApprovalRequest = {
       id: newId(),
