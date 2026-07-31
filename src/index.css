@@ -360,9 +360,187 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .notice-board,
   .notice-board-dashes,
-  .punch-close-pulse {
+  .punch-close-pulse,
+  .attendance-punch-active-in,
+  .attendance-punch-active-out,
+  .attendance-punch-active-warn,
+  .attendance-status-ring.in,
+  .attendance-status-ring.pending {
     animation: none !important;
   }
+}
+
+/* ── Employee attendance hero (dashboard redesign) ── */
+.attendance-status-panel {
+  background: var(--mn-surface);
+}
+
+.attendance-status-in {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+.attendance-status-out {
+  background: var(--mn-surface);
+  border-color: var(--mn-border-strong);
+}
+
+.attendance-status-warn,
+.attendance-status-pending {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.attendance-status-ring {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--mn-border-strong);
+}
+
+.attendance-status-ring.in {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+  animation: attendance-ring-pulse 2.2s ease-in-out infinite;
+}
+
+.attendance-status-ring.pending,
+.attendance-status-ring.warn {
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fcd34d;
+  animation: attendance-ring-pulse 2.2s ease-in-out infinite;
+}
+
+.attendance-status-ring.out {
+  background: var(--mn-surface-2);
+  border-color: var(--mn-dim);
+}
+
+@keyframes attendance-ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 108, 240, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(124, 108, 240, 0.12);
+  }
+}
+
+.attendance-punch-tile {
+  min-height: 9.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--mn-border-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem 1rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  font-family: inherit;
+  color: var(--mn-text);
+}
+
+.attendance-punch-tile:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.attendance-punch-tile:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+
+.attendance-punch-in {
+  background: linear-gradient(160deg, rgba(124, 108, 240, 0.22), rgba(124, 108, 240, 0.06));
+  border-color: rgba(124, 108, 240, 0.4);
+}
+
+.attendance-punch-out {
+  background: linear-gradient(160deg, rgba(148, 163, 184, 0.14), rgba(148, 163, 184, 0.04));
+}
+
+.attendance-punch-active-in {
+  animation: attendance-punch-glow-in 2.2s ease-in-out infinite;
+}
+
+.attendance-punch-active-out {
+  animation: attendance-punch-glow-out 2.2s ease-in-out infinite;
+}
+
+.attendance-punch-active-warn {
+  animation: attendance-punch-glow-warn 1.8s ease-in-out infinite;
+  border-color: rgba(251, 191, 36, 0.5) !important;
+  background: linear-gradient(160deg, rgba(251, 191, 36, 0.18), rgba(251, 191, 36, 0.06));
+}
+
+@keyframes attendance-punch-glow-in {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 108, 240, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 28px 4px rgba(124, 108, 240, 0.28);
+  }
+}
+
+@keyframes attendance-punch-glow-out {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(230, 235, 245, 0.05);
+  }
+  50% {
+    box-shadow: 0 0 24px 4px rgba(230, 235, 245, 0.1);
+  }
+}
+
+@keyframes attendance-punch-glow-warn {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 28px 4px rgba(251, 191, 36, 0.25);
+  }
+}
+
+.attendance-punch-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.attendance-punch-in .attendance-punch-icon {
+  background: rgba(124, 108, 240, 0.2);
+  color: var(--mn-accent-hover);
+}
+
+.attendance-punch-label {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.attendance-punch-hint {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--mn-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: center;
+  line-height: 1.3;
+  max-width: 12rem;
 }
 
 /* Employee attendance — highlight Punch Out when a prior-day session is still open */

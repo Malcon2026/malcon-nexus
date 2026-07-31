@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { Avatar } from '../components/ui/Avatar';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
@@ -13,7 +12,7 @@ import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/h
 import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWorkflow';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
-import { AttendanceSection } from '../components/AttendanceSection';
+import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
@@ -304,27 +303,20 @@ export const EmployeeDashboard: React.FC = () => {
         <SubmitModal isOpen={true} onClose={() => setSubmitCase(null)} case={submitCase} />
       )}
 
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <Avatar name={currentUser.name} size="lg" />
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Welcome, {currentUser.name.split(' ')[0]}</h1>
-            <p className="text-sm text-gray-500">{currentUser.department} • {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          </div>
-        </div>
-      </div>
-
       <NoticeBoard />
 
-      <AttendanceSection />
-      <LeaveApplySection />
-      <LazyEmployeeRegister employeeId={currentUser.id} />
-      <EmployeeQuickStats employee={currentUser} />
-      <EmployeeCasesPanel
-        employee={currentUser}
-        onViewCase={setViewCase}
-        onSubmitCase={setSubmitCase}
-      />
+      <EmployeeAttendanceHero />
+
+      <div className="space-y-6 pt-2 border-t border-gray-200">
+        <LeaveApplySection />
+        <LazyEmployeeRegister employeeId={currentUser.id} />
+        <EmployeeQuickStats employee={currentUser} />
+        <EmployeeCasesPanel
+          employee={currentUser}
+          onViewCase={setViewCase}
+          onSubmitCase={setSubmitCase}
+        />
+      </div>
     </div>
   );
 };
