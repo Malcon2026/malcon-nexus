@@ -14,7 +14,6 @@ import {
   formatLeaveDateRange,
 } from '../lib/leave';
 import { getISTDateKey } from '../lib/attendance';
-import { Te } from './BilingualText';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
@@ -77,8 +76,8 @@ export const LeaveApplySection: React.FC = () => {
       }
       setSuccess(
         leaveType === 'Comp Off'
-          ? 'Comp Off submitted with work day. Awaiting admin approval.'
-          : 'Leave request submitted. Awaiting admin approval.',
+          ? 'Comp Off sent. Waiting for boss.'
+          : 'Leave sent. Waiting for boss.',
       );
       setFromDate('');
       setToDate('');
@@ -102,10 +101,7 @@ export const LeaveApplySection: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-indigo-600" />
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Leave Management</h3>
-              <Te className="text-gray-500 mb-0">సెలవు / Leave</Te>
-            </div>
+            <h3 className="text-sm font-semibold text-gray-900">Leave</h3>
           </div>
           <Button
             variant={showForm ? 'outline' : 'primary'}
@@ -183,7 +179,7 @@ export const LeaveApplySection: React.FC = () => {
                     required
                   />
                   <p className="text-[11px] text-indigo-700/80 mt-1.5">
-                    Select the Sunday (or other day) you work in lieu of this Comp Off leave.
+                    Pick the day you will work instead (often a Sunday).
                   </p>
                 </div>
               )}
@@ -192,7 +188,7 @@ export const LeaveApplySection: React.FC = () => {
               <label className={labelClass}>Reason *</label>
               <textarea
                 className={`${inputClass} min-h-[80px] resize-y`}
-                placeholder="Brief reason for leave (min 10 characters)"
+                placeholder="Why do you need leave? (at least 10 letters)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 required
@@ -205,34 +201,18 @@ export const LeaveApplySection: React.FC = () => {
               icon={submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               disabled={submitting}
             >
-              Submit Leave Request
+              Send to Boss
             </Button>
           </form>
         )}
 
-        {error && (
-          <div className="text-xs text-red-600">
-            <p>{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="text-xs text-emerald-700">
-            <p>{success}</p>
-            <Te className="text-emerald-700/90 mb-0">
-              {success.includes('Comp Off')
-                ? 'Comp Off pampincharu. Admin approval kosam wait cheyandi.'
-                : 'Leave request pampincharu. Admin approval kosam wait cheyandi.'}
-            </Te>
-          </div>
-        )}
+        {error && <p className="text-xs text-red-600">{error}</p>}
+        {success && <p className="text-xs text-emerald-700">{success}</p>}
 
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">My Leave Requests</p>
+          <p className="text-xs font-medium text-gray-500 mb-2">My leave</p>
           {myLeaves.length === 0 ? (
-            <div className="py-4 text-center">
-              <p className="text-xs text-gray-400">No leave requests yet</p>
-              <Te className="text-gray-400 mb-0">ఇంకా leave requests levu</Te>
-            </div>
+            <p className="text-xs text-gray-400 py-4 text-center">No leave yet</p>
           ) : (
             <div className="space-y-2">
               {myLeaves.map((lr) => (

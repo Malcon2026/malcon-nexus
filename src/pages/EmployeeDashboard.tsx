@@ -72,12 +72,12 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
       {visible ? (
         <AttendanceRegisterPanel
           employeeId={employeeId}
-          title="My Attendance Register"
-          subtitle="Your salary-cycle attendance — P Present, A Absent, WO Sunday off"
+          title="My Attendance"
+          subtitle="P = Present · A = Absent · WO = Sunday off"
         />
       ) : (
         <Card className="p-8 text-center">
-          <p className="text-sm text-gray-400">Attendance register loads when you scroll here…</p>
+          <p className="text-sm text-gray-400">Scroll down to see your attendance</p>
         </Card>
       )}
     </div>
@@ -99,10 +99,10 @@ const EmployeeQuickStats: React.FC<{ employee: Pick<import('../types').Employee,
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
       {[
-        { label: 'My Active Cases', value: activeCases, icon: <Clock className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50' },
-        { label: 'Awaiting Approval', value: submittedCases, icon: <AlertCircle className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
-        { label: 'Completed', value: completedCases, icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
-        { label: 'Notifications', value: unreadNotifCount, icon: <Bell className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50' },
+        { label: 'Active Cases', value: activeCases, icon: <Clock className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50' },
+        { label: 'Waiting for Boss', value: submittedCases, icon: <AlertCircle className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
+        { label: 'Done', value: completedCases, icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
+        { label: 'Alerts', value: unreadNotifCount, icon: <Bell className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50' },
       ].map(({ label, value, icon, bg }) => (
         <Card key={label} className="p-5">
           <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${bg} mb-3`}>{icon}</div>
@@ -128,15 +128,15 @@ const EmployeeCasesPanel: React.FC<{
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <h2 className="text-sm font-bold text-gray-900">My Assigned Cases</h2>
+        <h2 className="text-sm font-bold text-gray-900">My Cases</h2>
 
         {myCases.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="h-12 w-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="h-6 w-6 text-gray-400" />
             </div>
-            <p className="text-sm font-medium text-gray-600">No cases assigned</p>
-            <p className="text-xs text-gray-400 mt-1">The admin will assign cases to you shortly</p>
+            <p className="text-sm font-medium text-gray-600">No cases yet</p>
+            <p className="text-xs text-gray-400 mt-1">Boss will give you cases soon</p>
           </Card>
         ) : (
           myCases.map((c, idx) => {
@@ -165,7 +165,7 @@ const EmployeeCasesPanel: React.FC<{
                           <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
                           {isSubmitted && (
                             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                              ⏳ Awaiting Admin
+                              Waiting for boss
                             </Badge>
                           )}
                         </div>
@@ -229,7 +229,7 @@ const EmployeeSidebar: React.FC<{
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Alerts</h3>
             {myNotifs.length > 0 && (
               <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium">{myNotifs.length}</span>
             )}
@@ -239,7 +239,7 @@ const EmployeeSidebar: React.FC<{
           {myNotifs.length === 0 ? (
             <div className="py-8 text-center text-gray-400">
               <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-xs">No new notifications</p>
+              <p className="text-xs">No new alerts</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -261,12 +261,12 @@ const EmployeeSidebar: React.FC<{
       </Card>
 
       <Card>
-        <CardHeader><h3 className="text-sm font-semibold text-gray-900">Recently Completed</h3></CardHeader>
+        <CardHeader><h3 className="text-sm font-semibold text-gray-900">Recently Done</h3></CardHeader>
         <CardBody className="p-0">
           {completedCases.length === 0 ? (
             <div className="py-8 text-center text-gray-400">
               <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-xs">No completed cases yet</p>
+              <p className="text-xs">No done cases yet</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -276,7 +276,7 @@ const EmployeeSidebar: React.FC<{
                   <p className="text-xs text-gray-700 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                    <span className="text-[10px] text-emerald-600">Stage completed</span>
+                    <span className="text-[10px] text-emerald-600">Done</span>
                   </div>
                 </div>
               ))}
