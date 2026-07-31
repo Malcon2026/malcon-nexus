@@ -359,7 +359,23 @@ textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .notice-board,
-  .notice-board-dashes {
+  .notice-board-dashes,
+  .punch-close-pulse {
     animation: none !important;
+  }
+}
+
+/* Employee attendance — highlight Punch Out when a prior-day session is still open */
+.punch-close-pulse {
+  animation: punch-close-glow 2s ease-in-out infinite;
+}
+
+@keyframes punch-close-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.12);
   }
 }

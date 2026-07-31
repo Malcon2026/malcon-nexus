@@ -52,6 +52,19 @@ export function getISTDateKey(date: Date | string = new Date()): string {
   return d.toLocaleDateString('en-CA', { timeZone: IST });
 }
 
+/** DD-MM-YYYY in IST for employee-facing status lines */
+export function formatDateShortIST(date: Date | string = new Date()): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d
+    .toLocaleDateString('en-IN', {
+      timeZone: IST,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+    .replace(/\//g, '-');
+}
+
 export function getDistanceMeters(
   lat1: number,
   lng1: number,

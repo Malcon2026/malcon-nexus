@@ -1977,7 +1977,7 @@ export const useStore = create<AppState>((set, get) => ({
   submitOffsitePunchRequest: async (punchType, reason, position) => {
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
     const trimmedReason = reason.trim();
-    if (trimmedReason.length < 10) {
+    if (punchType === 'in' && trimmedReason.length < 10) {
       return { error: 'Please provide a reason (at least 10 characters).' };
     }
 
@@ -2028,11 +2028,9 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const requestedAt = new Date().toISOString();
-    // Off-site punch-out closes the shift immediately so next-day punch-in is not blocked.
-    // Admin approval remains for review; punch-in still waits for approval before recording.
-    let outRecord: AttendanceRecord | null = null;
+    // Off-site punch-out: record immediately, no admin approval queue.
     if (punchType === 'out') {
-      outRecord = {
+      const outRecord: AttendanceRecord = {
         id: newId(),
         employeeId: currentUser.id,
         employeeName: currentUser.name,
@@ -2047,6 +2045,26 @@ export const useStore = create<AppState>((set, get) => ({
       };
       const outPersist = await persistAttendance(outRecord);
       if (outPersist.error) return outPersist;
+
+      const activity: ActivityEvent = {
+        id: newId(),
+        action: 'Off-site Punch Out',
+        entityType: 'attendance',
+        entityId: outRecord.id,
+        entityLabel: currentUser.name,
+        performedBy: currentUser.name,
+        performedByRole: currentUser.role,
+        timestamp: requestedAt,
+        details: `Off-site punch out (${geofence.distanceM}m from office)`,
+      };
+      persistActivity(activity);
+
+      set((s) => ({
+        attendanceRecords: [outRecord, ...s.attendanceRecords],
+        activityLog: [activity, ...s.activityLog],
+      }));
+
+      return { error: null };
     }
 
     const request: AttendanceApprovalRequest = {
@@ -2065,7 +2083,7 @@ export const useStore = create<AppState>((set, get) => ({
       reviewedById: null,
       reviewedAt: null,
       adminNotes: '',
-      attendanceRecordId: outRecord?.id ?? null,
+      attendanceRecordId: null,
     };
 
     const persistResult = await persistAttendanceApprovalRequest(request);
@@ -2073,24 +2091,23 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: persistResult.error };
     }
 
-    const punchLabel = punchType === 'in' ? 'Punch In' : 'Punch Out';
     const activity: ActivityEvent = {
       id: newId(),
-      action: `Off-site ${punchLabel} Request`,
+      action: 'Off-site Punch In Request',
       entityType: 'attendance',
       entityId: request.id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: requestedAt,
-      details: `Submitted off-site ${punchLabel.toLowerCase()} (${geofence.distanceM}m from office): ${trimmedReason}`,
+      details: `Submitted off-site punch in (${geofence.distanceM}m from office): ${trimmedReason}`,
     };
     persistActivity(activity);
 
     const notif: Notification = {
       id: newId(),
-      title: `Off-site ${punchLabel} Request`,
-      message: `${currentUser.name} requested off-site ${punchLabel.toLowerCase()} approval (${geofence.distanceM}m from office).`,
+      title: 'Off-site Punch In Request',
+      message: `${currentUser.name} requested off-site punch in approval (${geofence.distanceM}m from office).`,
       type: 'warning',
       timestamp: requestedAt,
       read: false,
@@ -2098,7 +2115,6 @@ export const useStore = create<AppState>((set, get) => ({
     persistNotification(notif);
 
     set((s) => ({
-      attendanceRecords: outRecord ? [outRecord, ...s.attendanceRecords] : s.attendanceRecords,
       attendanceApprovalRequests: [request, ...s.attendanceApprovalRequests],
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
