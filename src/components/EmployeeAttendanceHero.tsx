@@ -437,7 +437,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
           closingPriorSession
             ? `This closes ${priorSessionDate}. Then you can Punch In for today.`
             : confirmType === 'out'
-              ? 'No GPS or reason needed. Just tap Yes.'
+              ? 'Tap Yes to finish your day.'
               : isOffsitePunch
                 ? 'Write reason. Admin must approve.'
                 : 'You are at office. OK to Punch In?'
@@ -477,7 +477,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
               {closingPriorSession
                 ? `Close ${priorSessionDate}. After that, Punch In for ${todayLabel}.`
                 : confirmType === 'out'
-                  ? 'Ready to Punch Out? No GPS or reason needed.'
+                  ? 'Ready to Punch Out? Tap Yes.'
                   : isOffsitePunch
                     ? 'You are out of office. Admin must approve Punch In.'
                     : 'You are at office. Punch In now?'}
@@ -487,7 +487,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 {priorSessionDate} close cheyandi. Taruvata {todayLabel} ki Punch In.
               </Te>
             ) : confirmType === 'out' ? (
-              <Te className="text-amber-800/90">Punch Out cheyadaniki Yes ani press cheyandi. GPS/reason avasaram ledu.</Te>
+              <Te className="text-amber-800/90">Punch Out cheyadaniki Yes ani press cheyandi.</Te>
             ) : isOffsitePunch ? (
               <Te className="text-amber-800/90">Office bayata unnaru. Admin approve cheyali.</Te>
             ) : (
