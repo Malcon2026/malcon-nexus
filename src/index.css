@@ -543,6 +543,16 @@ textarea {
   max-width: 12rem;
 }
 
+.attendance-punch-hint-te {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--mn-dim);
+  text-align: center;
+  line-height: 1.25;
+  max-width: 12rem;
+  margin-top: 2px;
+}
+
 /* Employee attendance — highlight Punch Out when a prior-day session is still open */
 .punch-close-pulse {
   animation: punch-close-glow 2s ease-in-out infinite;

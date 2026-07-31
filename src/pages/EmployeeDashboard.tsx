@@ -16,6 +16,7 @@ import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
+import { Te } from '../components/BilingualText';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -78,6 +79,7 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
       ) : (
         <Card className="p-8 text-center">
           <p className="text-sm text-gray-400">Scroll down to see your attendance</p>
+          <Te className="text-gray-400 mb-0">Attendance chudadaniki kindaki scroll cheyandi</Te>
         </Card>
       )}
     </div>
@@ -100,7 +102,7 @@ const EmployeeQuickStats: React.FC<{ employee: Pick<import('../types').Employee,
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
       {[
         { label: 'Active Cases', value: activeCases, icon: <Clock className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50' },
-        { label: 'Waiting for Boss', value: submittedCases, icon: <AlertCircle className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
+        { label: 'Waiting for Admin', value: submittedCases, icon: <AlertCircle className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
         { label: 'Done', value: completedCases, icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
         { label: 'Alerts', value: unreadNotifCount, icon: <Bell className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50' },
       ].map(({ label, value, icon, bg }) => (
@@ -136,7 +138,8 @@ const EmployeeCasesPanel: React.FC<{
               <CheckCircle2 className="h-6 w-6 text-gray-400" />
             </div>
             <p className="text-sm font-medium text-gray-600">No cases yet</p>
-            <p className="text-xs text-gray-400 mt-1">Boss will give you cases soon</p>
+            <p className="text-xs text-gray-400 mt-1">Admin will assign cases soon</p>
+            <Te className="text-gray-400 mt-1 mb-0">Admin meeku cases istaru</Te>
           </Card>
         ) : (
           myCases.map((c, idx) => {
@@ -165,7 +168,7 @@ const EmployeeCasesPanel: React.FC<{
                           <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
                           {isSubmitted && (
                             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                              Waiting for boss
+                              Waiting for admin
                             </Badge>
                           )}
                         </div>

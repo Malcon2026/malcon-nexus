@@ -28,13 +28,14 @@ import {
   getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
-import { simplifyAttendanceError } from '../lib/attendanceSimpleEnglish';
+import { formatAttendanceError } from '../lib/attendanceBilingual';
+import { Bilingual, Te } from './BilingualText';
 
 type LocationState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'ready'; position: GeoPosition; distanceM: number; withinOffice: boolean }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; messageTe?: string | null };
 
 export const EmployeeAttendanceHero: React.FC = () => {
   const attendanceRecords = useStore((s) => s.attendanceRecords);
@@ -66,7 +67,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const [confirmType, setConfirmType] = useState<PunchType | null>(null);
   const [locationState, setLocationState] = useState<LocationState>({ status: 'idle' });
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<{ en: string; te: string | null } | null>(null);
   const [offsiteReason, setOffsiteReason] = useState('');
 
   const firstName = currentUser.name.split(' ')[0];
@@ -75,6 +76,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const setErrorFromMessage = (message: string) => {
+    setSubmitError(formatAttendanceError(message));
+  };
 
   const refreshLocation = useCallback(async () => {
     setLocationState({ status: 'loading' });
@@ -88,8 +93,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
         withinOffice: geofence.withinOffice,
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to get location.';
-      setLocationState({ status: 'error', message: simplifyAttendanceError(msg) });
+      const raw = err instanceof Error ? err.message : 'Failed to get location.';
+      const { en, te } = formatAttendanceError(raw);
+      setLocationState({ status: 'error', message: en, messageTe: te });
     }
   }, []);
 
@@ -127,8 +133,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
           ? locationState.position
           : await getCurrentPosition();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Location required to punch.';
-      setSubmitError(simplifyAttendanceError(msg));
+      const raw = err instanceof Error ? err.message : 'Location required to punch.';
+      setErrorFromMessage(raw);
       setSubmitting(false);
       return;
     }
@@ -145,7 +151,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
       const result = await punchOutWithReason(offsiteReason, position);
       setSubmitting(false);
       if (result.error) {
-        setSubmitError(simplifyAttendanceError(result.error));
+        setErrorFromMessage(result.error);
         return;
       }
       closeConfirm();
@@ -156,7 +162,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
       const result = await submitOffsitePunchRequest('in', offsiteReason, position);
       setSubmitting(false);
       if (result.error) {
-        setSubmitError(simplifyAttendanceError(result.error));
+        setErrorFromMessage(result.error);
         return;
       }
       closeConfirm();
@@ -167,7 +173,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setSubmitting(false);
 
     if (result.error) {
-      setSubmitError(simplifyAttendanceError(result.error));
+      setErrorFromMessage(result.error);
       return;
     }
 
@@ -194,6 +200,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
               Hi, {firstName}
             </h1>
+            <Te className="text-gray-500 mt-0.5">హాయ్, {firstName}</Te>
             <p className="text-sm text-gray-500 mt-1">{currentUser.department}</p>
           </div>
           <div className="sm:text-right">
@@ -213,16 +220,25 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div className="min-w-0 space-y-1">
-                <p className="text-base sm:text-lg font-bold text-amber-800">
-                  You forgot to Punch Out yesterday
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-amber-800"
+                  teClassName="text-amber-700/90"
+                  en="You forgot to Punch Out yesterday"
+                  te="నిన్న Punch Out చేయలేదు"
+                />
                 <p className="text-sm text-amber-700">
                   Still IN from {priorSessionDate} at {formatTimeIST(summary.punchIn.punchedAt)}.
                   This is not today.
                 </p>
-                <p className="text-sm text-amber-800 font-medium">
-                  Punch Out first. Then Punch In for today ({todayLabel}).
-                </p>
+                <Te className="text-amber-700/90">
+                  {priorSessionDate} నుండి IN · {formatTimeIST(summary.punchIn.punchedAt)} — ఈ రోజు కాదు.
+                </Te>
+                <Bilingual
+                  enClassName="text-sm text-amber-800 font-medium"
+                  teClassName="text-amber-700/90 pt-0.5"
+                  en={`Punch Out first. Then Punch In for today (${todayLabel}).`}
+                  te={`ముందు Punch Out చేయండి. తర్వాత ${todayLabel} కి Punch In.`}
+                />
               </div>
             </div>
           ) : loggedInToday && summary.punchIn ? (
@@ -231,14 +247,21 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-base sm:text-lg font-bold text-emerald-800">
-                  You are IN for today ({todayLabel})
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-emerald-800"
+                  teClassName="text-emerald-700/90"
+                  en={`You are IN for today (${todayLabel})`}
+                  te={`మీరు ${todayLabel} న IN అయ్యారు`}
+                />
                 <p className="text-sm text-emerald-700 mt-0.5">
                   Since {formatTimeIST(summary.punchIn.punchedAt)}
                   {' · '}
                   {summary.punchIn.withinOffice ? 'At office' : 'Out of office (approved)'}
                 </p>
+                <Te className="text-emerald-700/90">
+                  {formatTimeIST(summary.punchIn.punchedAt)} నుండి ·{' '}
+                  {summary.punchIn.withinOffice ? 'Office లో' : 'Office బయట (admin approve అయింది)'}
+                </Te>
               </div>
             </div>
           ) : pendingOffsiteIn ? (
@@ -247,22 +270,36 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-base sm:text-lg font-bold text-amber-800">
-                  Punch In waiting for boss
-                </p>
-                <p className="text-sm text-amber-700 mt-0.5">
-                  You are not IN for {todayLabel} until boss approves.
-                </p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-amber-800"
+                  teClassName="text-amber-700/90"
+                  en="Punch In waiting for admin"
+                  te="Punch In admin approval కోసం వేచి ఉంది"
+                />
+                <Bilingual
+                  enClassName="text-sm text-amber-700 mt-0.5"
+                  teClassName="text-amber-700/90"
+                  en={`You are not IN for ${todayLabel} until admin approves.`}
+                  te={`Admin approve చేసే varaku ${todayLabel} న IN avvadu.`}
+                />
               </div>
             </div>
           ) : (
             <div className="flex items-start gap-3">
               <div className="attendance-status-ring out shrink-0" />
               <div>
-                <p className="text-base sm:text-lg font-bold text-gray-900">
-                  You are OUT for today ({todayLabel})
-                </p>
-                <p className="text-sm text-gray-500 mt-0.5">Tap Punch In to start work.</p>
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-gray-900"
+                  teClassName="text-gray-500"
+                  en={`You are OUT for today (${todayLabel})`}
+                  te={`మీరు ${todayLabel} న OUT`}
+                />
+                <Bilingual
+                  enClassName="text-sm text-gray-500 mt-0.5"
+                  teClassName="text-gray-500"
+                  en="Tap Punch In to start work."
+                  te="పని ప్రారంభించడానికి Punch In నొక్కండి."
+                />
               </div>
             </div>
           )}
@@ -280,12 +317,19 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <LogIn className="h-7 w-7" strokeWidth={2.25} />
             </span>
             <span className="attendance-punch-label">Punch In</span>
-            <span className="attendance-punch-hint">
+            <span className="attendance-punch-hint block">
               {punchInDisabled && priorDayOpenSession
                 ? 'Punch Out yesterday first'
                 : punchInActive
                   ? 'Tap here · GPS on'
                   : 'Not available'}
+            </span>
+            <span className="attendance-punch-hint-te">
+              {punchInDisabled && priorDayOpenSession
+                ? 'ముందు Punch Out cheyandi'
+                : punchInActive
+                  ? 'GPS on · ikkada tap cheyandi'
+                  : 'available ledu'}
             </span>
           </button>
 
@@ -307,8 +351,11 @@ export const EmployeeAttendanceHero: React.FC = () => {
             <span className="attendance-punch-label">
               {priorDayOpenSession ? 'Punch Out Yesterday' : 'Punch Out'}
             </span>
-            <span className="attendance-punch-hint">
+            <span className="attendance-punch-hint block">
               {punchOutActive ? 'Write reason · GPS on' : 'Not available'}
+            </span>
+            <span className="attendance-punch-hint-te">
+              {punchOutActive ? 'Reason rayandi · GPS on' : 'available ledu'}
             </span>
           </button>
         </div>
@@ -317,26 +364,30 @@ export const EmployeeAttendanceHero: React.FC = () => {
           {[
             {
               label: priorDayOpenSession ? 'In (old day)' : 'In time',
+              labelTe: priorDayOpenSession ? 'In (పాత day)' : 'In time',
               value: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : '—',
               sub: priorDayOpenSession && summary.punchIn ? priorSessionDate : undefined,
             },
             {
               label: 'Out time',
+              labelTe: 'Out time',
               value: summary.punchOut ? formatTimeIST(summary.punchOut.punchedAt) : '—',
             },
             {
               label: priorDayOpenSession ? 'Since date' : 'Hours today',
+              labelTe: priorDayOpenSession ? 'Date nunchi' : 'Hours today',
               value:
                 priorDayOpenSession && summary.punchIn
                   ? priorSessionDate
                   : formatDuration(summary.workedMs),
             },
-          ].map(({ label, value, sub }) => (
+          ].map(({ label, labelTe, value, sub }) => (
             <div
               key={label}
               className="rounded-xl bg-gray-50 border border-gray-200 px-3 py-2.5 text-center"
             >
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</p>
+              <p className="text-[9px] text-gray-400">{labelTe}</p>
               <p className="text-sm sm:text-base font-bold text-gray-900 tabular-nums mt-0.5 truncate">{value}</p>
               {sub && <p className="text-[10px] text-amber-700 font-medium">{sub}</p>}
             </div>
@@ -344,18 +395,28 @@ export const EmployeeAttendanceHero: React.FC = () => {
         </div>
 
         {pendingOffsiteIn && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-            Punch In sent at {formatTimeIST(pendingOffsiteIn.requestedAt)} — waiting for boss.
-            Reason: {pendingOffsiteIn.reason}
-          </p>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+            <p>
+              Punch In sent at {formatTimeIST(pendingOffsiteIn.requestedAt)} — waiting for admin.
+              Reason: {pendingOffsiteIn.reason}
+            </p>
+            <Te className="text-amber-700/90 mb-0">
+              {formatTimeIST(pendingOffsiteIn.requestedAt)} న పంపారు — admin approval wait.
+            </Te>
+          </div>
         )}
 
-        <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
+        <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
-          <span>
-            {OFFICE_LOCATION.address} · GPS needed · Out of office Punch In = boss OK · Punch Out = reason only
-          </span>
-        </p>
+          <div>
+            <p>
+              {OFFICE_LOCATION.address} · GPS needed · Out of office Punch In = admin OK · Punch Out = reason only
+            </p>
+            <Te className="text-gray-400 mb-0">
+              GPS avasaram · Office bayata Punch In ki admin OK · Punch Out ki reason matrame
+            </Te>
+          </div>
+        </div>
       </section>
 
       <Modal
@@ -376,7 +437,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
             : confirmType === 'out'
               ? 'Write why you are leaving. Saves right away.'
               : isOffsitePunch
-                ? 'Write reason. Boss must approve.'
+                ? 'Write reason. Admin must approve.'
                 : 'You are at office. OK to Punch In?'
         }
         size="md"
@@ -402,7 +463,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
                   : confirmType === 'out'
                     ? 'Yes, Punch Out'
                     : isOffsitePunch
-                      ? 'Send to boss'
+                      ? 'Send to admin'
                       : 'Yes, Punch In'}
             </Button>
           </div>
@@ -414,11 +475,22 @@ export const EmployeeAttendanceHero: React.FC = () => {
               {closingPriorSession
                 ? `Close ${priorSessionDate}. After that, Punch In for ${todayLabel}.`
                 : confirmType === 'out'
-                  ? 'Write a reason. Works at office or out of office. No boss approval.'
+                  ? 'Write a reason. Works at office or out of office. No admin approval.'
                   : isOffsitePunch
-                    ? 'You are out of office. Boss must approve Punch In.'
+                    ? 'You are out of office. Admin must approve Punch In.'
                     : 'You are at office. Punch In now?'}
             </p>
+            {closingPriorSession ? (
+              <Te className="text-amber-800/90">
+                {priorSessionDate} close cheyandi. Taruvata {todayLabel} ki Punch In.
+              </Te>
+            ) : confirmType === 'out' ? (
+              <Te className="text-amber-800/90">Reason rayandi. Admin approval avasaram ledu.</Te>
+            ) : isOffsitePunch ? (
+              <Te className="text-amber-800/90">Office bayata unnaru. Admin approve cheyali.</Te>
+            ) : (
+              <Te className="text-amber-800/90">Office lo unnaru. Punch In cheyala?</Te>
+            )}
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Time now: {formatTimeIST(now)}</p>
           </div>
 
@@ -455,7 +527,12 @@ export const EmployeeAttendanceHero: React.FC = () => {
               ) : locationState.status === 'error' ? (
                 <div className="flex items-start gap-2 text-sm text-red-700">
                   <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>{locationState.message}</span>
+                  <div>
+                    <span>{locationState.message}</span>
+                    {locationState.messageTe && (
+                      <Te className="text-red-600/90 mb-0">{locationState.messageTe}</Te>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -464,6 +541,11 @@ export const EmployeeAttendanceHero: React.FC = () => {
                       ? `At office (${locationState.distanceM}m away)`
                       : `Out of office (${locationState.distanceM}m away)`}
                   </p>
+                  <Te className={locationState.withinOffice ? 'text-emerald-600/90 mb-0' : 'text-amber-600/90 mb-0'}>
+                    {locationState.withinOffice
+                      ? `Office lo (${locationState.distanceM}m dooram)`
+                      : `Office bayata (${locationState.distanceM}m dooram)`}
+                  </Te>
                   <p className="text-[11px] text-gray-400 tabular-nums">
                     GPS accuracy ±{Math.round(locationState.position.accuracyM)}m
                   </p>
@@ -477,6 +559,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
                 {confirmType === 'out' ? 'Why are you leaving?' : 'Why are you out of office?'}
               </label>
+              <Te className="text-gray-500 mb-1.5">
+                {confirmType === 'out' ? 'Enduku velthunnaru?' : 'Office bayata enduku unnaru?'}
+              </Te>
               <textarea
                 id="punch-reason"
                 rows={3}
@@ -492,14 +577,20 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <p className="text-[11px] text-gray-400 mt-1">
                 {confirmType === 'out'
                   ? 'At least 10 letters · Saves right away'
-                  : 'At least 10 letters · Boss must approve'}
+                  : 'At least 10 letters · Admin must approve'}
               </p>
+              <Te className="text-gray-400 mb-0">
+                {confirmType === 'out'
+                  ? '10 letters minimum · ventane save avuthundi'
+                  : '10 letters minimum · admin approve cheyali'}
+              </Te>
             </div>
           )}
 
           {submitError && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-              {submitError}
+              <p>{submitError.en}</p>
+              {submitError.te && <Te className="text-red-600/90 mb-0">{submitError.te}</Te>}
             </div>
           )}
         </div>

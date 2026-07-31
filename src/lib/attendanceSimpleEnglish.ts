@@ -11,7 +11,7 @@ export function simplifyAttendanceError(message: string): string {
     'You are already punched in. Punch out first.':
       'You are already IN. Punch Out first.',
     'You already have a pending off-site punch-in request awaiting admin approval.':
-      'Your punch in is waiting for boss approval.',
+      'Your punch in is waiting for admin approval.',
     'You are at the office. Use regular punch in instead.':
       'You are at office. Use Punch In button.',
     'Location required to punch.':

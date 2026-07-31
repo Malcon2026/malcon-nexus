@@ -14,6 +14,7 @@ import {
   formatLeaveDateRange,
 } from '../lib/leave';
 import { getISTDateKey } from '../lib/attendance';
+import { Te } from './BilingualText';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
@@ -76,8 +77,8 @@ export const LeaveApplySection: React.FC = () => {
       }
       setSuccess(
         leaveType === 'Comp Off'
-          ? 'Comp Off sent. Waiting for boss.'
-          : 'Leave sent. Waiting for boss.',
+          ? 'Comp Off sent. Waiting for admin.'
+          : 'Leave sent. Waiting for admin.',
       );
       setFromDate('');
       setToDate('');
@@ -101,7 +102,10 @@ export const LeaveApplySection: React.FC = () => {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-indigo-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Leave</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Leave</h3>
+              <Te className="text-gray-500 mb-0">సెలవు</Te>
+            </div>
           </div>
           <Button
             variant={showForm ? 'outline' : 'primary'}
@@ -201,18 +205,27 @@ export const LeaveApplySection: React.FC = () => {
               icon={submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               disabled={submitting}
             >
-              Send to Boss
+              Send to Admin
             </Button>
           </form>
         )}
 
         {error && <p className="text-xs text-red-600">{error}</p>}
-        {success && <p className="text-xs text-emerald-700">{success}</p>}
+        {success && (
+          <div>
+            <p className="text-xs text-emerald-700">{success}</p>
+            <Te className="text-emerald-600/90 mb-0">Admin approval kosam wait chestunnaru.</Te>
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-medium text-gray-500 mb-2">My leave</p>
+          <Te className="text-gray-400 mb-2">Na leave</Te>
           {myLeaves.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">No leave yet</p>
+            <div className="py-4 text-center">
+              <p className="text-xs text-gray-400">No leave yet</p>
+              <Te className="text-gray-400 mb-0">Inka leave ledu</Te>
+            </div>
           ) : (
             <div className="space-y-2">
               {myLeaves.map((lr) => (
