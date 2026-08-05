@@ -179,7 +179,19 @@ export const EmployeeAttendancePanel: React.FC = () => {
                       {row.punchIn ? formatDuration(row.workedMs) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge className={`${sc.className} text-[10px]`}>{sc.label}</Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge className={`${sc.className} text-[10px] w-fit`}>{sc.label}</Badge>
+                        {isToday && row.unclosedPriorShift && row.unclosedShiftFromDateKey && (
+                          <span className="text-[10px] text-amber-700 font-medium">
+                            Unclosed shift from{' '}
+                            {new Date(`${row.unclosedShiftFromDateKey}T12:00:00`).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              timeZone: 'Asia/Kolkata',
+                            })}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

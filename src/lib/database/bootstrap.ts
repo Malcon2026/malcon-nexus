@@ -37,13 +37,19 @@ interface BootstrapCachePayload {
 
 const CACHE_PREFIX = 'malcon-nexus-bootstrap-v5';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
+/** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
+const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
 /** Skip essential re-fetch when session cache is newer than this. */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-function getAttendanceBootstrapSinceIso(): string {
+function getAttendanceSinceIso(days: number): string {
   const date = new Date();
-  date.setDate(date.getDate() - ATTENDANCE_LOOKBACK_DAYS);
+  date.setDate(date.getDate() - days);
   return date.toISOString();
+}
+
+function getAttendanceBootstrapSinceIso(): string {
+  return getAttendanceSinceIso(ATTENDANCE_LOOKBACK_DAYS);
 }
 
 function cacheKey(employeeId: string): string {
@@ -64,12 +70,11 @@ function readBootstrapCache(employeeId: string): BootstrapCachePayload | null {
   }
 }
 
-// Only what the employee dashboard needs painted immediately: today's
-// punch status (derived from recent records the store already has after
-// first deferred load) needs pending-approval + leave state, not months of
-// attendance history. Keeping this tier small is what actually makes the
-// login screen feel fast.
+// Employee dashboard essentials: profile, leave, pending approvals, and recent
+// punches so the hero never flips from OUT → IN after deferred load (which
+// looked like an automatic punch-in when opening the app).
 function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
+  const recentSinceIso = getAttendanceSinceIso(ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS);
   return [
     // Own profile is required so "My Attendance Register" can render a row
     // (the register builds from the employees list, not currentUser alone).
@@ -79,6 +84,10 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
         const self = await sbEmployeeRepo.getById(employeeId);
         return self ? [self] : [];
       },
+    },
+    {
+      key: 'attendanceRecords',
+      run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, recentSinceIso),
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     {

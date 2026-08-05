@@ -150,6 +150,19 @@ export interface TodayAttendanceSummary {
   punchOut: AttendanceRecord | null;
   isPunchedIn: boolean;
   workedMs: number;
+  /** Open punch-in from a prior IST calendar day — not a new punch for today. */
+  unclosedShiftFromDateKey?: string | null;
+}
+
+export function getUnclosedShiftFromDateKey(
+  records: AttendanceRecord[],
+  employeeId: string,
+  dateKey = getISTDateKey(),
+): string | null {
+  const open = getOpenShift(records, employeeId);
+  if (!open) return null;
+  const shiftDateKey = getISTDateKey(open.punchIn.punchedAt);
+  return shiftDateKey < dateKey ? shiftDateKey : null;
 }
 
 export function getSortedEmployeeRecords(
@@ -292,17 +305,19 @@ export function summarizeLiveAttendance(
   records: AttendanceRecord[],
   employeeId: string,
 ): TodayAttendanceSummary {
+  const todayKey = getISTDateKey();
   const open = getOpenShift(records, employeeId);
   if (open) {
+    const shiftDateKey = getISTDateKey(open.punchIn.punchedAt);
     return {
       punchIn: open.punchIn,
       punchOut: null,
       isPunchedIn: true,
       workedMs: Date.now() - new Date(open.punchIn.punchedAt).getTime(),
+      unclosedShiftFromDateKey: shiftDateKey < todayKey ? shiftDateKey : null,
     };
   }
 
-  const todayKey = getISTDateKey();
   const pairs = pairAttendanceShifts(records, employeeId);
   const closedToday = [...pairs]
     .reverse()
@@ -347,6 +362,8 @@ export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
   employeeName: string;
   department: string;
   status: AttendanceDayStatus;
+  /** Prior-day punch-in still open — not counted as punched in for `dateKey`. */
+  unclosedPriorShift?: boolean;
 }
 
 export function getPendingOffsitePunchRequest(
@@ -413,11 +430,14 @@ export function buildEmployeeAttendanceReport(
   return filterAttendanceStaff(employees)
     .map((employee) => {
       const summary = dayIndex.get(employee.id)?.get(dateKey) ?? EMPTY_DAY_SUMMARY;
+      const unclosedFrom = getUnclosedShiftFromDateKey(records, employee.id, dateKey);
       return {
         employeeId: employee.id,
         employeeName: employee.name,
         department: employee.department,
         status: getAttendanceDayStatus(summary),
+        unclosedPriorShift: unclosedFrom !== null,
+        unclosedShiftFromDateKey: unclosedFrom,
         ...summary,
       };
     })

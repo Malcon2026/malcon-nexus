@@ -51,6 +51,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const punchInFromPriorDay =
     summary.punchIn !== null && getISTDateKey(summary.punchIn.punchedAt) !== todayKey;
   const priorSessionDate = summary.punchIn ? formatDateShortIST(summary.punchIn.punchedAt) : '';
+  const unclosedShiftDate =
+    summary.unclosedShiftFromDateKey
+      ? formatDateShortIST(`${summary.unclosedShiftFromDateKey}T12:00:00+05:30`)
+      : priorSessionDate;
   const pendingOffsiteIn = getPendingOffsitePunchRequest(attendanceApprovalRequests, currentUser.id, 'in');
   const priorDayPendingOut = getPriorDayPendingOffsiteOut(attendanceApprovalRequests, currentUser.id);
   const priorDayOpenSession = punchInFromPriorDay && summary.isPunchedIn && !priorDayPendingOut;
@@ -225,21 +229,41 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 <Bilingual
                   enClassName="text-base sm:text-lg font-bold text-amber-800"
                   teClassName="text-amber-700/90"
-                  en="You forgot to Punch Out yesterday"
-                  te="నిన్న Punch Out చేయలేదు"
+                  en={`Unclosed shift from ${unclosedShiftDate}`}
+                  te={`${unclosedShiftDate} shift close cheyyaledu`}
                 />
                 <p className="text-sm text-amber-700">
                   Still IN from {priorSessionDate} at {formatTimeIST(summary.punchIn.punchedAt)}.
-                  This is not today.
+                  This is <strong>not</strong> a punch-in for today ({todayLabel}).
                 </p>
                 <Te className="text-amber-700/90">
-                  {priorSessionDate} నుండి IN · {formatTimeIST(summary.punchIn.punchedAt)} — ఈ రోజు కాదు.
+                  {priorSessionDate} nunchi IN · {formatTimeIST(summary.punchIn.punchedAt)} — eeroju ({todayLabel}) kaadu.
                 </Te>
                 <Bilingual
                   enClassName="text-sm text-amber-800 font-medium"
                   teClassName="text-amber-700/90 pt-0.5"
-                  en={`Punch Out first. Then Punch In for today (${todayLabel}).`}
-                  te={`ముందు Punch Out చేయండి. తర్వాత ${todayLabel} కి Punch In.`}
+                  en={`Punch Out that day first. Then Punch In for today (${todayLabel}).`}
+                  te={`Mundu aa roju Punch Out cheyandi. Taruvata ${todayLabel} ki Punch In.`}
+                />
+              </div>
+            </div>
+          ) : punchInFromPriorDay && summary.isPunchedIn && priorDayPendingOut && summary.punchIn ? (
+            <div className="flex items-start gap-3">
+              <div className="attendance-status-ring warn shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Bilingual
+                  enClassName="text-base sm:text-lg font-bold text-amber-800"
+                  teClassName="text-amber-700/90"
+                  en={`Unclosed shift from ${unclosedShiftDate}`}
+                  te={`${unclosedShiftDate} shift close cheyyaledu`}
+                />
+                <Bilingual
+                  enClassName="text-sm text-amber-700 mt-0.5"
+                  teClassName="text-amber-700/90"
+                  en={`You are OUT for ${todayLabel} until you close ${priorSessionDate}.`}
+                  te={`${priorSessionDate} close cheyakunda ${todayLabel} n IN avvadu.`}
                 />
               </div>
             </div>
@@ -351,7 +375,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <LogOut className="h-7 w-7" strokeWidth={2.25} />
             </span>
             <span className="attendance-punch-label">
-              {priorDayOpenSession ? 'Punch Out Yesterday' : 'Punch Out'}
+              {priorDayOpenSession || (punchInFromPriorDay && summary.isPunchedIn)
+                ? `Punch Out (${unclosedShiftDate})`
+                : 'Punch Out'}
             </span>
             <span className="attendance-punch-hint block">
               {punchOutActive ? 'Tap here to finish' : 'Not available'}
@@ -365,10 +391,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
           {[
             {
-              label: priorDayOpenSession ? 'In (old day)' : 'In time',
-              labelTe: priorDayOpenSession ? 'In (పాత day)' : 'In time',
+              label: punchInFromPriorDay ? 'In (old day)' : 'In time',
+              labelTe: punchInFromPriorDay ? 'In (pati roju)' : 'In time',
               value: summary.punchIn ? formatTimeIST(summary.punchIn.punchedAt) : '—',
-              sub: priorDayOpenSession && summary.punchIn ? priorSessionDate : undefined,
+              sub: punchInFromPriorDay && summary.punchIn ? priorSessionDate : undefined,
             },
             {
               label: 'Out time',
@@ -376,10 +402,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
               value: summary.punchOut ? formatTimeIST(summary.punchOut.punchedAt) : '—',
             },
             {
-              label: priorDayOpenSession ? 'Since date' : 'Hours today',
-              labelTe: priorDayOpenSession ? 'Date nunchi' : 'Hours today',
+              label: punchInFromPriorDay ? 'Since date' : 'Hours today',
+              labelTe: punchInFromPriorDay ? 'Date nunchi' : 'Hours today',
               value:
-                priorDayOpenSession && summary.punchIn
+                punchInFromPriorDay && summary.punchIn
                   ? priorSessionDate
                   : formatDuration(summary.workedMs),
             },
