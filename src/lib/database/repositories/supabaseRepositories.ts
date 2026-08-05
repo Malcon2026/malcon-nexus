@@ -13,6 +13,7 @@ import type {
   DailyExpense,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
+import { normalizeDateKey } from '../../attendance';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -718,8 +719,8 @@ function mapLeaveRow(row: Record<string, unknown>): LeaveRequest {
     employeeId: row.employee_id as string,
     employeeName: row.employee_name as string,
     leaveType: row.leave_type as LeaveRequest['leaveType'],
-    fromDate: row.from_date as string,
-    toDate: row.to_date as string,
+    fromDate: normalizeDateKey(row.from_date as string),
+    toDate: normalizeDateKey(row.to_date as string),
     reason: row.reason as string,
     status: row.status as LeaveRequest['status'],
     reviewedBy: (row.reviewed_by as string | null) ?? null,
@@ -727,7 +728,9 @@ function mapLeaveRow(row: Record<string, unknown>): LeaveRequest {
     reviewedAt: (row.reviewed_at as string | null) ?? null,
     adminNotes: (row.admin_notes as string | null) ?? '',
     createdAt: row.created_at as string,
-    compOffWorkDate: (row.comp_off_work_date as string | null) ?? null,
+    compOffWorkDate: row.comp_off_work_date
+      ? normalizeDateKey(row.comp_off_work_date as string)
+      : null,
   };
 }
 

@@ -18,7 +18,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateCompOffWorkDate, validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
@@ -324,14 +324,15 @@ const clearManualDayEntries = async (
   const punchIds = attendanceRecords
     .filter((r) => r.employeeId === employeeId && getISTDateKey(r.punchedAt) === dateKey)
     .map((r) => r.id);
+  const dayKey = normalizeDateKey(dateKey);
   const leaveIds = leaveRequests
     .filter(
       (lr) =>
         lr.employeeId === employeeId &&
-        lr.fromDate === dateKey &&
-        lr.toDate === dateKey &&
         lr.status !== 'cancelled' &&
-        lr.status !== 'rejected',
+        lr.status !== 'rejected' &&
+        normalizeDateKey(lr.fromDate) === dayKey &&
+        normalizeDateKey(lr.toDate) === dayKey,
     )
     .map((lr) => lr.id);
 
@@ -431,7 +432,7 @@ const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: stri
       return { error: message };
     }
     const list = Database.getAll<LeaveRequest>('leaveRequests');
-    setCache('leaveRequests', [request, ...list]);
+    setCache('leaveRequests', [request, ...list.filter((lr) => lr.id !== request.id)]);
     return { error: null };
   }
   const list = Database.getAll<LeaveRequest>('leaveRequests');

@@ -52,6 +52,12 @@ export function getISTDateKey(date: Date | string = new Date()): string {
   return d.toLocaleDateString('en-CA', { timeZone: IST });
 }
 
+/** Normalize API/DB date strings to YYYY-MM-DD for reliable comparisons. */
+export function normalizeDateKey(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
 /** DD-MM-YYYY in IST for employee-facing status lines */
 export function formatDateShortIST(date: Date | string = new Date()): string {
   const d = typeof date === 'string' ? new Date(date) : date;

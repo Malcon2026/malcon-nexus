@@ -1,13 +1,14 @@
-import type { AttendanceRecord, LeaveRequest } from '../types';
+import type { AttendanceRecord, LeaveRequest, LeaveType } from '../types';
 import {
   getISTDateKey,
+  normalizeDateKey,
   buildEmployeeDayAttendanceIndex,
   type TodayAttendanceSummary,
   formatTimeIST,
 } from './attendance';
 import { filterAttendanceStaff } from './staff';
 
-export type RegisterCellCode = 'P' | 'PI' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
+export type RegisterCellCode = 'P' | 'PI' | 'CL' | 'SL' | 'UL' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
 export const PAYABLE_DAYS_PER_CYCLE = 30;
 
 export interface RegisterCellDetail {
@@ -175,7 +176,36 @@ function getWeekNumberInCycle(cycleStartDateKey: string, dateKey: string): numbe
 }
 
 function isDateInRange(dateKey: string, fromDate: string, toDate: string): boolean {
-  return dateKey >= fromDate && dateKey <= toDate;
+  const key = normalizeDateKey(dateKey);
+  const from = normalizeDateKey(fromDate);
+  const to = normalizeDateKey(toDate);
+  return key >= from && key <= to;
+}
+
+function leaveRegisterDetail(leave: LeaveRequest): Pick<RegisterCellDetail, 'code' | 'label'> {
+  const typeLabel: Record<LeaveType, string> = {
+    Casual: 'Casual Leave',
+    Sick: 'Sick Leave',
+    Unpaid: 'Unpaid Leave',
+    'Comp Off': 'Comp Off',
+  };
+
+  if (leave.status === 'pending') {
+    return { code: 'PL', label: `Pending ${typeLabel[leave.leaveType]}` };
+  }
+
+  switch (leave.leaveType) {
+    case 'Comp Off':
+      return { code: 'CO', label: 'Comp Off' };
+    case 'Casual':
+      return { code: 'CL', label: 'Casual Leave' };
+    case 'Sick':
+      return { code: 'SL', label: 'Sick Leave' };
+    case 'Unpaid':
+      return { code: 'UL', label: 'Unpaid Leave' };
+    default:
+      return { code: 'L', label: typeLabel[leave.leaveType] };
+  }
 }
 
 function findLeaveForDate(
@@ -262,28 +292,18 @@ export function resolveRegisterCell(
         workedDuration: formatWorkedDuration(summary),
       };
     }
-    // Leave on a Sunday is shown as Absent on the register (for now).
     if (leave?.status === 'approved' || leave?.status === 'pending') {
       return {
-        code: 'A',
-        label:
-          leave.status === 'pending'
-            ? `Absent (pending ${leave.leaveType})`
-            : `Absent (${leave.leaveType})`,
+        ...leaveRegisterDetail(leave),
         ...leaveCellFields(leave),
       };
     }
     return { code: 'WO', label: 'Sunday off' };
   }
 
-  // Leave days display as Absent on the register (for now).
   if (leave && (leave.status === 'approved' || leave.status === 'pending')) {
     return {
-      code: 'A',
-      label:
-        leave.status === 'pending'
-          ? `Absent (pending ${leave.leaveType})`
-          : `Absent (${leave.leaveType})`,
+      ...leaveRegisterDetail(leave),
       ...leaveCellFields(leave),
     };
   }
@@ -447,9 +467,12 @@ export const REGISTER_CELL_STYLES: Record<
 > = {
   P: { bg: 'bg-emerald-100', text: 'text-emerald-800', title: 'Present' },
   PI: { bg: 'bg-emerald-50', text: 'text-emerald-700', title: 'Present (in)' },
+  CL: { bg: 'bg-sky-100', text: 'text-sky-800', title: 'Casual Leave' },
+  SL: { bg: 'bg-amber-100', text: 'text-amber-800', title: 'Sick Leave' },
+  UL: { bg: 'bg-orange-100', text: 'text-orange-800', title: 'Unpaid Leave' },
   L: { bg: 'bg-blue-100', text: 'text-blue-800', title: 'Approved leave' },
   CO: { bg: 'bg-purple-100', text: 'text-purple-800', title: 'Comp off' },
-  PL: { bg: 'bg-amber-100', text: 'text-amber-800', title: 'Pending leave' },
+  PL: { bg: 'bg-yellow-100', text: 'text-yellow-800', title: 'Pending leave' },
   A: { bg: 'bg-red-50', text: 'text-red-700', title: 'Absent' },
   WO: { bg: 'bg-gray-100', text: 'text-gray-500', title: 'Sunday off' },
   '—': { bg: 'bg-white', text: 'text-gray-300', title: 'Future' },
