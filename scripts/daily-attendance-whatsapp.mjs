@@ -474,11 +474,61 @@ function logConnectedAccount(client) {
   }
 }
 
+async function getChatSnapshot(client, groupId) {
+  return client.pupPage.evaluate((targetGroupId) => {
+    function serializeChatId(id) {
+      if (!id) return null;
+      if (typeof id === 'string') return id;
+      if (typeof id._serialized === 'string') return id._serialized;
+      if (typeof id.toString === 'function') {
+        const s = id.toString();
+        if (s && s.includes('@')) return s;
+      }
+      if (id.user && id.server) return `${id.user}@${id.server}`;
+      return null;
+    }
+
+    const chats = window.require('WAWebCollections').Chat.getModelsArray();
+    const chat = chats.find(
+      (c) => c.groupMetadata && serializeChatId(c.id) === targetGroupId,
+    );
+    if (!chat) return null;
+
+    const msgs = chat.msgs?.getModelsArray?.() ?? [];
+    const mine = msgs.filter((m) => m.id?.fromMe || m.fromMe);
+    const last = mine[mine.length - 1];
+    return {
+      count: mine.length,
+      lastTs: last?.t ?? 0,
+      lastCaption: (last?.caption ?? last?.body ?? '').trim(),
+    };
+  }, groupId);
+}
+
+async function waitForChatDelivery(client, groupId, before, caption, timeoutMs = 90_000) {
+  const captionNeedle = caption.slice(0, 30);
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const after = await getChatSnapshot(client, groupId);
+    if (after && (after.count > before.count || after.lastTs > before.lastTs)) {
+      if (!captionNeedle || after.lastCaption.includes(captionNeedle) || after.lastCaption.includes('Malcon Nexus')) {
+        return true;
+      }
+      // New outgoing message with different caption still counts as delivered
+      if (after.lastTs > before.lastTs) return true;
+    }
+    await sleep(2000);
+  }
+  return false;
+}
+
 /**
- * Send via chat object in WhatsApp store — fallback when client.sendMessage fails.
+ * Fire one store send, then confirm in chat — never use a second send method.
+ * (client.sendMessage often returns null even when the image was delivered.)
  */
-async function sendImageViaStoreEvaluate(client, targetGroupId, media, caption) {
-  return client.pupPage.evaluate(
+async function attemptStoreSend(client, targetGroupId, media, caption) {
+  await client.pupPage.evaluate(
     async ({ groupId, groupName, mediaPayload, captionText }) => {
       function serializeChatId(id) {
         if (!id) return null;
@@ -493,10 +543,7 @@ async function sendImageViaStoreEvaluate(client, targetGroupId, media, caption) 
       }
 
       const chats = window.require('WAWebCollections').Chat.getModelsArray();
-      let chat = null;
-      if (groupId) {
-        chat = chats.find((c) => c.groupMetadata && serializeChatId(c.id) === groupId);
-      }
+      let chat = chats.find((c) => c.groupMetadata && serializeChatId(c.id) === groupId);
       if (!chat && groupName) {
         const target = groupName.trim().toLowerCase();
         chat = chats.find(
@@ -504,40 +551,13 @@ async function sendImageViaStoreEvaluate(client, targetGroupId, media, caption) 
             && (c.formattedTitle || c.name || '').trim().toLowerCase() === target,
         );
       }
-      if (!chat) {
-        return { ok: false, error: `Group not found in WhatsApp store (id=${groupId || 'n/a'})` };
-      }
+      if (!chat) throw new Error(`Group not found: ${groupId || groupName}`);
 
-      const chatId = serializeChatId(chat.id);
-      const msg = await window.WWebJS.sendMessage(chat, '', {
+      await window.WWebJS.sendMessage(chat, '', {
         media: mediaPayload,
         caption: captionText,
         waitUntilMsgSent: true,
       });
-
-      if (!msg) {
-        return { ok: false, error: 'store sendMessage returned null' };
-      }
-
-      const msgId = msg.id?._serialized ?? msg.id?.$1 ?? null;
-      let ack = msg.ack ?? 0;
-      for (let i = 0; i < 45 && ack < 1; i += 1) {
-        await new Promise((r) => setTimeout(r, 1000));
-        const updated = msgId
-          ? window.require('WAWebCollections').Msg.get(msgId)
-          : null;
-        if (updated) ack = updated.ack ?? ack;
-        if (ack >= 1) break;
-      }
-
-      return {
-        ok: true,
-        method: 'store',
-        chatId,
-        chatName: (chat.formattedTitle || chat.name || '').trim(),
-        msgId,
-        ack,
-      };
     },
     {
       groupId: targetGroupId,
@@ -552,94 +572,52 @@ async function sendImageViaStoreEvaluate(client, targetGroupId, media, caption) 
   );
 }
 
-async function waitForMessageAck(client, messageId, timeoutMs = 90_000) {
-  if (!messageId) return 0;
-
-  const ackFromPage = async () => client.pupPage.evaluate((id) => {
-    const msg = window.require('WAWebCollections').Msg.get(id);
-    return msg?.ack ?? 0;
-  }, messageId);
-
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const ack = await ackFromPage();
-    if (ack >= 1) return ack;
-    await sleep(1000);
+async function sendOneImageOnce(client, targetGroupId, media, caption, filter) {
+  const before = await getChatSnapshot(client, targetGroupId);
+  if (!before) {
+    throw new Error(`Group chat not loaded in WhatsApp store: ${targetGroupId}`);
   }
-  return 0;
+
+  try {
+    await attemptStoreSend(client, targetGroupId, media, caption);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[attendance-whatsapp] ${filter} store send error: ${msg} — checking chat anyway…`);
+  }
+
+  console.log(`[attendance-whatsapp] ${filter} waiting for message in group chat…`);
+  const delivered = await waitForChatDelivery(client, targetGroupId, before, caption);
+  if (delivered) {
+    console.log(`[attendance-whatsapp] ${filter} confirmed in group ✓`);
+    return;
+  }
+
+  throw new Error(`Failed to send ${filter} — message not seen in group chat`);
 }
 
-async function sendImageViaClientApi(client, targetGroupId, media, caption) {
-  const sent = await client.sendMessage(targetGroupId, media, {
-    caption,
-    sendSeen: false,
-    waitUntilMsgSent: true,
-  });
-
-  if (!sent) {
-    return { ok: false, error: 'client.sendMessage returned null' };
-  }
-
-  const msgId = sent.id?._serialized ?? sent.id?.id ?? null;
-  return {
-    ok: true,
-    method: 'client',
-    chatId: targetGroupId,
-    chatName: groupName || targetGroupId,
-    msgId,
-    ack: sent.ack ?? 0,
-  };
-}
-
-/** Send exactly once — never retry after WhatsApp accepts a message (avoids duplicate images). */
-async function sendOneImageRobust(client, targetGroupId, media, caption, filter) {
-  let result = await sendImageViaClientApi(client, targetGroupId, media, caption);
-
-  if (!result.ok) {
-    console.warn(`[attendance-whatsapp] ${filter} client send failed: ${result.error}, trying store fallback…`);
-    result = await sendImageViaStoreEvaluate(client, targetGroupId, media, caption);
-    if (!result.ok) {
-      throw new Error(`Failed to send ${filter}: ${result.error}`);
-    }
-  }
-
-  if (result.ack < 1 && result.msgId) {
-    console.log(`[attendance-whatsapp] ${filter} sent via ${result.method}, waiting for ACK…`);
-    const ack = await waitForMessageAck(client, result.msgId, 120_000);
-    result = { ...result, ack };
-  }
-
-  console.log(
-    `[attendance-whatsapp] ${filter} done via ${result.method} `
-    + `(ack=${result.ack ?? 0}${result.ack >= 1 ? ' ✓' : ' — assumed delivered, no retry'})`,
-  );
-
-  return result;
-}
-
-/** One WhatsApp session per image — more reliable than batching in one session. */
 async function sendWhatsAppBatch(items) {
   const targetLabel = groupIdEnv ? groupIdEnv : groupName;
   console.log(`[attendance-whatsapp] sending ${items.length} image(s) to "${targetLabel}"…`);
 
-  for (let i = 0; i < items.length; i += 1) {
-    const { pngPath, caption, filter } = items[i];
-    const { client, MessageMedia } = await connectWhatsAppClient();
-    try {
-      logConnectedAccount(client);
-      const targetGroupId = await resolveGroupChatId(client);
+  const { client, MessageMedia } = await connectWhatsAppClient();
+  try {
+    logConnectedAccount(client);
+    const targetGroupId = await resolveGroupChatId(client);
+
+    for (let i = 0; i < items.length; i += 1) {
+      const { pngPath, caption, filter } = items[i];
       const media = MessageMedia.fromFilePath(pngPath);
       const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
       console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
-      await sendOneImageRobust(client, targetGroupId, media, caption, filter);
-    } finally {
-      await client.destroy();
-    }
+      await sendOneImageOnce(client, targetGroupId, media, caption, filter);
 
-    if (i < items.length - 1) {
-      console.log('[attendance-whatsapp] waiting 15s before next image…');
-      await sleep(15_000);
+      if (i < items.length - 1) {
+        console.log('[attendance-whatsapp] waiting 12s before next image…');
+        await sleep(12_000);
+      }
     }
+  } finally {
+    await client.destroy();
   }
 }
 
