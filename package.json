@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "db:health": "node scripts/db-health-check.mjs",
     "photos:sync": "node scripts/windows-photo-sync.mjs",
-    "photos:purge": "node scripts/purge-old-photos.mjs"
+    "photos:purge": "node scripts/purge-old-photos.mjs",
+    "attendance:whatsapp": "node scripts/daily-attendance-whatsapp.mjs",
+    "attendance:whatsapp:png": "node scripts/daily-attendance-whatsapp.mjs --png-only"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
@@ -19,6 +21,9 @@
     "framer-motion": "^12.42.2",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.23.0",
+    "puppeteer": "^24.36.1",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-router-dom": "^7.18.1",
