@@ -14,10 +14,20 @@ import {
   formatDuration,
   formatTimeIST,
   getISTDateKey,
+  type AttendanceDayStatus,
 } from '../lib/attendance';
 
 const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
+];
+
+type StatusFilter = 'all' | AttendanceDayStatus;
+
+const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'in', label: 'Punched In' },
+  { id: 'out', label: 'Punched Out' },
+  { id: 'absent', label: 'Absent' },
 ];
 
 const statusConfig = {
@@ -32,6 +42,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [dateKey, setDateKey] = useState(getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -42,6 +53,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
   const filtered = report.filter((row) => {
     if (filterDept !== 'All' && row.department !== filterDept) return false;
+    if (filterStatus !== 'all' && row.status !== filterStatus) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return row.employeeName.toLowerCase().includes(q) || row.department.toLowerCase().includes(q);
@@ -69,20 +81,35 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">
-      {/* Summary */}
+      {/* Summary — tap a card to filter the table */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Staff', value: stats.total, icon: <Users className="h-4 w-4 text-gray-600" />, bg: 'bg-gray-50' },
-          { label: 'Punched In', value: stats.in, icon: <LogIn className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50' },
-          { label: 'Punched Out', value: stats.out, icon: <LogOut className="h-4 w-4 text-blue-600" />, bg: 'bg-blue-50' },
-          { label: 'Absent', value: stats.absent, icon: <UserX className="h-4 w-4 text-gray-500" />, bg: 'bg-gray-50' },
-        ].map(({ label, value, icon, bg }) => (
-          <Card key={label} className="p-4">
-            <div className={`h-8 w-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>{icon}</div>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-          </Card>
-        ))}
+          { id: 'all' as const, label: 'Total Staff', value: stats.total, icon: <Users className="h-4 w-4 text-gray-600" />, bg: 'bg-gray-50', activeRing: 'ring-gray-400' },
+          { id: 'in' as const, label: 'Punched In', value: stats.in, icon: <LogIn className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50', activeRing: 'ring-emerald-500' },
+          { id: 'out' as const, label: 'Punched Out', value: stats.out, icon: <LogOut className="h-4 w-4 text-blue-600" />, bg: 'bg-blue-50', activeRing: 'ring-blue-500' },
+          { id: 'absent' as const, label: 'Absent', value: stats.absent, icon: <UserX className="h-4 w-4 text-gray-500" />, bg: 'bg-gray-50', activeRing: 'ring-gray-500' },
+        ].map(({ id, label, value, icon, bg, activeRing }) => {
+          const active = filterStatus === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setFilterStatus(id)}
+              className={`text-left rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                active ? `ring-2 ${activeRing} shadow-sm` : 'ring-1 ring-gray-200 hover:ring-gray-300'
+              }`}
+            >
+              <Card className="p-4 border-0 shadow-none">
+                <div className={`h-8 w-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>{icon}</div>
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+                {active && id !== 'all' && (
+                  <p className="text-[10px] text-indigo-600 font-medium mt-1">Filter active</p>
+                )}
+              </Card>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
@@ -123,7 +150,32 @@ export const EmployeeAttendancePanel: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex gap-1.5 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
+        {STATUS_FILTERS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setFilterStatus(id)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              filterStatus === id
+                ? id === 'in'
+                  ? 'bg-emerald-600 text-white'
+                  : id === 'out'
+                    ? 'bg-blue-600 text-white'
+                    : id === 'absent'
+                      ? 'bg-gray-700 text-white'
+                      : 'bg-gray-900 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-1.5 flex-wrap items-center">
+        <span className="text-xs font-semibold text-gray-500 mr-1">Dept:</span>
         {DEPARTMENTS.map((dept) => (
           <button
             key={dept}
@@ -202,8 +254,12 @@ export const EmployeeAttendancePanel: React.FC = () => {
           {filtered.length === 0 && (
             <div className="text-center py-16 text-gray-400">
               <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium">No attendance records found</p>
-              <p className="text-xs mt-1">Try another date or adjust filters</p>
+              <p className="text-sm font-medium">No employees match this filter</p>
+              <p className="text-xs mt-1">
+                {filterStatus !== 'all'
+                  ? `No one with status "${STATUS_FILTERS.find((f) => f.id === filterStatus)?.label}" for this date.`
+                  : 'Try another date or adjust filters.'}
+              </p>
             </div>
           )}
         </CardBody>
