@@ -140,7 +140,9 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const shareTitle = shareTitleForFilter(filterStatus);
 
   const sortedForShare = useMemo(
-    () => [...filtered].sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
+    () => [...filtered]
+      .filter((row) => row.department !== 'Admin')
+      .sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
     [filtered],
   );
 
@@ -305,43 +307,43 @@ export const EmployeeAttendancePanel: React.FC = () => {
       {simpleView && filterStatus !== 'all' && (
         <div
           ref={shareListRef}
-          className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-5 sm:p-6 shadow-sm max-w-lg"
+          className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-4 sm:p-5 shadow-sm max-w-3xl"
           id="attendance-share-list"
         >
-          <p className="text-center text-sm font-semibold text-indigo-700 uppercase tracking-wide">
+          <p className="text-center text-xs font-semibold text-indigo-700 uppercase tracking-wide">
             Malcon Nexus
           </p>
-          <h2 className="text-center text-lg font-bold mt-1">{shareTitle}</h2>
-          <p className="text-center text-sm text-gray-600 mt-0.5">{formatShareDate(dateKey)}</p>
-          <p className="text-center text-xs text-gray-500 mt-1 mb-4">
+          <h2 className="text-center text-base font-bold mt-0.5">{shareTitle}</h2>
+          <p className="text-center text-xs text-gray-600">{formatShareDate(dateKey)}</p>
+          <p className="text-center text-[11px] text-gray-500 mt-0.5 mb-3">
             Total: <strong>{sortedForShare.length}</strong>
           </p>
 
           {sortedForShare.length === 0 ? (
             <p className="text-center text-sm text-gray-500 py-6">No one in this list.</p>
           ) : (
-            <ol className="space-y-2.5">
+            <ol className="grid grid-cols-3 gap-x-2 gap-y-2">
               {sortedForShare.map((row, i) => {
                 const details = shareDetailLines(row, filterStatus);
                 return (
                   <li
                     key={row.employeeId}
-                    className="flex gap-3 text-[15px] leading-snug border-b border-gray-100 pb-2.5 last:border-0 last:pb-0"
+                    className="min-w-0 rounded-lg border border-gray-100 bg-gray-50/50 px-2 py-1.5 leading-tight"
                   >
-                    <span className="font-bold text-gray-400 w-6 shrink-0 tabular-nums">{i + 1}.</span>
-                    <span className="min-w-0">
-                      <span className="font-semibold text-gray-900">{row.employeeName}</span>
-                      {details.map((line) => (
-                        <span
-                          key={line}
-                          className={`block text-sm mt-0.5 tabular-nums ${
-                            line.startsWith('Unclosed') ? 'text-amber-700 font-medium' : 'text-gray-600'
-                          }`}
-                        >
-                          {line}
-                        </span>
-                      ))}
-                    </span>
+                    <p className="text-[11px] text-gray-900">
+                      <span className="font-bold text-gray-400 tabular-nums">{i + 1}. </span>
+                      <span className="font-semibold">{row.employeeName}</span>
+                    </p>
+                    {details.map((line) => (
+                      <p
+                        key={line}
+                        className={`text-[10px] mt-0.5 tabular-nums leading-snug ${
+                          line.startsWith('Unclosed') ? 'text-amber-700 font-medium' : 'text-gray-600'
+                        }`}
+                      >
+                        {line}
+                      </p>
+                    ))}
                   </li>
                 );
               })}
