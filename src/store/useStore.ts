@@ -447,6 +447,9 @@ const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: stri
       if (message.includes('leave_requests') && message.includes('does not exist')) {
         return { error: 'Leave management is not set up in the database yet. Please run the leave migration.' };
       }
+      if (message.includes('row-level security') || message.includes('RLS')) {
+        return { error: 'Leave could not be saved. Please log out and log in again, then retry.' };
+      }
       return { error: message };
     }
     const list = Database.getAll<LeaveRequest>('leaveRequests');
@@ -1915,6 +1918,7 @@ export const useStore = create<AppState>((set, get) => ({
       leaveRequests: [request, ...s.leaveRequests.filter((lr) => lr.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
     }));
+    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
 
     return {
       error: null,

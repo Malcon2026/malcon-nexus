@@ -52,11 +52,10 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const leaveRequests = useStore((s) => s.leaveRequests);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
-  const viewMode = useStore((s) => s.viewMode);
   const addManualAttendance = useStore((s) => s.addManualAttendance);
   const addManualLeave = useStore((s) => s.addManualLeave);
   const clearManualDayMark = useStore((s) => s.clearManualDayMark);
-  const isAdmin = viewMode === 'admin' && !employeeId;
+  const isAdmin = currentUser.role === 'admin';
 
   const now = new Date();
   const [monthValue, setMonthValue] = useState(formatYearMonth(now.getFullYear(), now.getMonth() + 1));
@@ -73,6 +72,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const [manualIn, setManualIn] = useState('');
   const [manualOut, setManualOut] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
+  const [manualSuccess, setManualSuccess] = useState<string | null>(null);
   const [manualSaving, setManualSaving] = useState(false);
   /** menu = pick status; comp-off = pick work day */
   const [markView, setMarkView] = useState<'menu' | 'comp-off'>('menu');
@@ -82,6 +82,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     if (!selectedCell) {
       setShowTimes(false);
       setManualError(null);
+      setManualSuccess(null);
       setMarkView('menu');
       setCompOffWorkDate('');
       return;
@@ -91,9 +92,20 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
     setShowTimes(false);
     setManualError(null);
+    setManualSuccess(null);
     setMarkView('menu');
     setCompOffWorkDate('');
   }, [selectedCell, attendanceRecords]);
+
+  const syncRegisterData = async () => {
+    const { bootstrapEssential } = await import('../lib/database/bootstrap');
+    if (employeeId) {
+      await bootstrapEssential('employee', { employeeId }, { force: true });
+    } else {
+      await bootstrapEssential('admin', undefined, { force: true });
+    }
+    reloadFromDatabase();
+  };
 
   const applyMark = async (
     kind: 'present' | 'week-off' | 'unpaid' | LeaveType,
@@ -101,6 +113,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     if (!selectedCell) return;
     setManualSaving(true);
     setManualError(null);
+    setManualSuccess(null);
     try {
       let result: { error: string | null; message?: string };
       if (kind === 'present') {
@@ -111,7 +124,6 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           showTimes ? (manualOut || undefined) : undefined,
         );
       } else if (kind === 'week-off') {
-        // Clear marks so Sunday defaults back to paid weekly off.
         result = await clearManualDayMark(selectedCell.employeeId, selectedCell.day.dateKey);
       } else if (kind === 'unpaid') {
         result = await addManualLeave(
@@ -140,7 +152,17 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         setManualError(result.error);
         return;
       }
-      setSelectedCell(null);
+      try {
+        await syncRegisterData();
+      } catch (syncErr) {
+        console.error('[register] refresh after manual mark failed:', syncErr);
+      }
+      setManualSuccess(result.message ?? 'Saved successfully.');
+      window.setTimeout(() => setSelectedCell(null), 600);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not save. Please try again.';
+      setManualError(message);
+      console.error('[register] manual mark failed:', err);
     } finally {
       setManualSaving(false);
     }
@@ -581,7 +603,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       type="button"
                       disabled={manualSaving}
                       onClick={() => void applyMark('present')}
-                      className={`${markTile} bg-emerald-50 text-emerald-300 border-emerald-200 hover:bg-emerald-100`}
+                      className={`${markTile} bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100`}
                     >
                       <span className={markTileCode}>P</span>
                       <span className={markTileLabel}>
@@ -593,7 +615,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('week-off')}
-                        className={`${markTile} bg-gray-50 text-gray-300 border-gray-200 hover:bg-gray-100`}
+                        className={`${markTile} bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100`}
                       >
                         <span className={markTileCode}>WO</span>
                         <span className={markTileLabel}>Week off</span>
@@ -603,7 +625,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('unpaid')}
-                        className={`${markTile} bg-orange-50 text-orange-400 border-orange-200 hover:bg-orange-100`}
+                        className={`${markTile} bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100`}
                       >
                         <span className={markTileCode}>UL</span>
                         <span className={markTileLabel}>Unpaid</span>
@@ -614,7 +636,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         type="button"
                         disabled={manualSaving}
                         onClick={() => void applyMark('unpaid')}
-                        className={`${markTile} bg-orange-50 text-orange-400 border-orange-200 hover:bg-orange-100 col-span-2`}
+                        className={`${markTile} bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100 col-span-2`}
                       >
                         <span className={markTileCode}>UL</span>
                         <span className={markTileLabel}>Unpaid / loss of pay</span>
@@ -669,7 +691,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="button"
                           disabled={manualSaving}
                           onClick={() => void applyMark(t.value)}
-                          className={`${markTile} bg-amber-50 text-amber-300 border-amber-200 hover:bg-amber-100`}
+                          className={`${markTile} bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100`}
                         >
                           <span className={markTileCode}>{code}</span>
                           <span className={markTileLabel}>{t.value}</span>
@@ -697,6 +719,9 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   </div>
                 </div>
 
+                {manualSuccess && (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">{manualSuccess}</p>
+                )}
                 {manualError && (
                   <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{manualError}</p>
                 )}
