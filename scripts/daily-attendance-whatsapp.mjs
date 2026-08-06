@@ -581,57 +581,40 @@ async function sendImageViaClientApi(client, targetGroupId, media, caption) {
   }
 
   const msgId = sent.id?._serialized ?? sent.id?.id ?? null;
-  const ack = await waitForMessageAck(client, msgId);
   return {
     ok: true,
     method: 'client',
     chatId: targetGroupId,
     chatName: groupName || targetGroupId,
     msgId,
-    ack,
+    ack: sent.ack ?? 0,
   };
 }
 
+/** Send exactly once — never retry after WhatsApp accepts a message (avoids duplicate images). */
 async function sendOneImageRobust(client, targetGroupId, media, caption, filter) {
-  const attempts = [
-    () => sendImageViaClientApi(client, targetGroupId, media, caption),
-    () => sendImageViaStoreEvaluate(client, targetGroupId, media, caption),
-  ];
+  let result = await sendImageViaClientApi(client, targetGroupId, media, caption);
 
-  let lastError = 'unknown error';
-
-  for (let round = 1; round <= 3; round += 1) {
-    for (const attempt of attempts) {
-      try {
-        const result = await attempt();
-        if (!result.ok) {
-          lastError = result.error ?? 'send failed';
-          console.warn(`[attendance-whatsapp] ${filter} try ${round}: ${lastError}`);
-          continue;
-        }
-
-        console.log(
-          `[attendance-whatsapp] ${filter} sent via ${result.method} `
-          + `(ack=${result.ack}${result.chatName ? `, ${result.chatName}` : ''})`,
-        );
-
-        if (result.ack >= 1) return result;
-
-        lastError = 'no delivery ACK from WhatsApp server';
-        console.warn(`[attendance-whatsapp] ${filter} try ${round}: ${lastError}`);
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
-        console.warn(`[attendance-whatsapp] ${filter} try ${round}: ${lastError}`);
-      }
-    }
-
-    if (round < 3) {
-      console.log(`[attendance-whatsapp] retrying ${filter} in 12s…`);
-      await sleep(12_000);
+  if (!result.ok) {
+    console.warn(`[attendance-whatsapp] ${filter} client send failed: ${result.error}, trying store fallback…`);
+    result = await sendImageViaStoreEvaluate(client, targetGroupId, media, caption);
+    if (!result.ok) {
+      throw new Error(`Failed to send ${filter}: ${result.error}`);
     }
   }
 
-  throw new Error(`Failed to send ${filter} image after 3 rounds: ${lastError}`);
+  if (result.ack < 1 && result.msgId) {
+    console.log(`[attendance-whatsapp] ${filter} sent via ${result.method}, waiting for ACK…`);
+    const ack = await waitForMessageAck(client, result.msgId, 120_000);
+    result = { ...result, ack };
+  }
+
+  console.log(
+    `[attendance-whatsapp] ${filter} done via ${result.method} `
+    + `(ack=${result.ack ?? 0}${result.ack >= 1 ? ' ✓' : ' — assumed delivered, no retry'})`,
+  );
+
+  return result;
 }
 
 /** One WhatsApp session per image — more reliable than batching in one session. */
