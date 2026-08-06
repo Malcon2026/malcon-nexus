@@ -12,7 +12,8 @@
     "photos:purge": "node scripts/purge-old-photos.mjs",
     "attendance:whatsapp": "node scripts/daily-attendance-whatsapp.mjs",
     "attendance:whatsapp:png": "node scripts/daily-attendance-whatsapp.mjs --png-only",
-    "attendance:whatsapp:groups": "node scripts/daily-attendance-whatsapp.mjs --list-groups"
+    "attendance:whatsapp:groups": "node scripts/daily-attendance-whatsapp.mjs --list-groups",
+    "attendance:whatsapp:noon": "node scripts/daily-attendance-whatsapp.mjs --filters=in,absent"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

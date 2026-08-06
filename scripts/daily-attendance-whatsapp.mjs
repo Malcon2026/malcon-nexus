@@ -11,11 +11,13 @@
  *        ATTENDANCE_WHATSAPP_SESSION_PATH=D:\MalconNexus\WhatsAppSession
  *        ATTENDANCE_REPORTS_DIR=D:\MalconNexus\AttendanceReports
  *        ATTENDANCE_REPORT_FILTER=in
+ *        ATTENDANCE_REPORT_FILTERS=in,absent   (multiple — noon job)
  *   2. npm install
  *   3. node scripts/daily-attendance-whatsapp.mjs   (scan QR on first run)
- *   4. powershell -ExecutionPolicy Bypass -File scripts/setup-attendance-whatsapp-task.ps1
+ *   4. powershell -ExecutionPolicy Bypass -File scripts/setup-attendance-whatsapp-noon-task.ps1
  *
  * Manual PNG only (no WhatsApp):  node scripts/daily-attendance-whatsapp.mjs --png-only
+ * Both in + absent now:           node scripts/daily-attendance-whatsapp.mjs --filters=in,absent
  * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
  * Fresh start (delete session):    powershell -ExecutionPolicy Bypass -File scripts/reset-attendance-whatsapp.ps1
  */
@@ -57,7 +59,24 @@ const sessionPath = process.env.ATTENDANCE_WHATSAPP_SESSION_PATH
   ?? join('D:', 'MalconNexus', 'WhatsAppSession');
 const reportsDir = process.env.ATTENDANCE_REPORTS_DIR
   ?? join('D:', 'MalconNexus', 'AttendanceReports');
-const filterStatus = (process.env.ATTENDANCE_REPORT_FILTER ?? 'in').trim();
+
+const VALID_FILTERS = new Set(['in', 'out', 'absent', 'unclosed']);
+
+function parseReportFilters() {
+  const cliMulti = process.argv.find((arg) => arg.startsWith('--filters='));
+  if (cliMulti) {
+    return cliMulti.slice('--filters='.length).split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  const cliSingle = process.argv.find((arg) => arg.startsWith('--filter='));
+  if (cliSingle) {
+    return [cliSingle.slice('--filter='.length).trim()];
+  }
+  const multiEnv = process.env.ATTENDANCE_REPORT_FILTERS?.trim();
+  if (multiEnv) {
+    return multiEnv.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [(process.env.ATTENDANCE_REPORT_FILTER ?? 'in').trim()];
+}
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -538,15 +557,25 @@ async function sendImageViaStoreChat(client, targetGroupId, media, caption) {
   }
 }
 
-async function sendWhatsAppImage(pngPath, caption) {
+async function sendWhatsAppBatch(items) {
   const { client, MessageMedia } = await connectWhatsAppClient();
   try {
     logConnectedAccount(client);
     const targetGroupId = await resolveGroupChatId(client);
-    const media = MessageMedia.fromFilePath(pngPath);
-    const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
-    console.log(`[attendance-whatsapp] sending ${sizeKb}KB image…`);
-    await sendImageViaStoreChat(client, targetGroupId, media, caption);
+    const targetLabel = groupIdEnv ? groupIdEnv : groupName;
+    console.log(`[attendance-whatsapp] sending ${items.length} image(s) to "${targetLabel}"…`);
+
+    for (let i = 0; i < items.length; i += 1) {
+      const { pngPath, caption, filter } = items[i];
+      const media = MessageMedia.fromFilePath(pngPath);
+      const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
+      console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
+      await sendImageViaStoreChat(client, targetGroupId, media, caption);
+      if (i < items.length - 1) {
+        console.log('[attendance-whatsapp] waiting 5s before next image…');
+        await sleep(5000);
+      }
+    }
   } finally {
     await client.destroy();
   }
@@ -575,9 +604,16 @@ async function main() {
     return;
   }
 
+  const filters = parseReportFilters();
+  for (const filter of filters) {
+    if (!VALID_FILTERS.has(filter)) {
+      throw new Error(`Invalid filter "${filter}". Use: in, out, absent, unclosed`);
+    }
+  }
+
   const started = Date.now();
   const dateKey = getISTDateKey();
-  console.log(`[attendance-whatsapp] date=${dateKey} filter=${filterStatus}`);
+  console.log(`[attendance-whatsapp] date=${dateKey} filters=${filters.join(',')}`);
 
   mkdirSync(reportsDir, { recursive: true });
 
@@ -588,28 +624,31 @@ async function main() {
 
   const employees = employeeRows.map(mapEmployeeRow);
   const records = attendanceRows.map(mapAttendanceRow);
-  const rows = buildShareListRows(employees, records, dateKey, filterStatus);
 
-  console.log(`[attendance-whatsapp] ${rows.length} employees in share list`);
+  const sendItems = [];
 
-  const html = buildShareHtml(dateKey, filterStatus, rows);
-  const pngPath = join(reportsDir, `malcon-attendance-${dateKey}-${filterStatus}.png`);
-  await htmlToPng(html, pngPath);
-  console.log(`[attendance-whatsapp] PNG saved: ${pngPath}`);
+  for (const filter of filters) {
+    const rows = buildShareListRows(employees, records, dateKey, filter);
+    console.log(`[attendance-whatsapp] ${filter}: ${rows.length} employees in share list`);
 
-  const caption = `Malcon Nexus · ${shareTitleForFilter(filterStatus)} · ${formatShareDate(dateKey)} · Total: ${rows.length}`;
+    const html = buildShareHtml(dateKey, filter, rows);
+    const pngPath = join(reportsDir, `malcon-attendance-${dateKey}-${filter}.png`);
+    await htmlToPng(html, pngPath);
+    console.log(`[attendance-whatsapp] PNG saved: ${pngPath}`);
+
+    const caption = `Malcon Nexus · ${shareTitleForFilter(filter)} · ${formatShareDate(dateKey)} · Total: ${rows.length}`;
+    sendItems.push({ filter, pngPath, caption, count: rows.length });
+
+    const logLine = `[${new Date().toISOString()}] OK date=${dateKey} filter=${filter} count=${rows.length} png=${pngPath}\n`;
+    writeFileSync(join(reportsDir, '_whatsapp-task.log'), logLine, { flag: 'a' });
+  }
 
   if (pngOnly) {
     console.log('[attendance-whatsapp] --png-only: skipped WhatsApp send');
   } else {
-    const targetLabel = groupIdEnv ? groupIdEnv : groupName;
-    console.log(`[attendance-whatsapp] sending to group "${targetLabel}"…`);
-    await sendWhatsAppImage(pngPath, caption);
-    console.log('[attendance-whatsapp] sent to WhatsApp group');
+    await sendWhatsAppBatch(sendItems);
+    console.log(`[attendance-whatsapp] sent ${sendItems.length} image(s) to WhatsApp group`);
   }
-
-  const logLine = `[${new Date().toISOString()}] OK date=${dateKey} filter=${filterStatus} count=${rows.length} png=${pngPath}\n`;
-  writeFileSync(join(reportsDir, '_whatsapp-task.log'), logLine, { flag: 'a' });
 
   console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
 }
