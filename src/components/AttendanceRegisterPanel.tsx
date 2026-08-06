@@ -91,7 +91,6 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
     setShowTimes(false);
     setManualError(null);
-    setManualInfo(null);
     setMarkView('menu');
     setCompOffWorkDate('');
   }, [selectedCell, attendanceRecords]);
