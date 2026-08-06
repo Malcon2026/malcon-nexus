@@ -31,10 +31,32 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
 ];
 
 const statusConfig = {
-  in: { label: 'Punched In', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  out: { label: 'Completed', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-  absent: { label: 'Absent', className: 'bg-gray-100 text-gray-600 border-gray-200' },
+  in: { label: 'Punched In', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', shareTitle: 'Punched In Today' },
+  out: { label: 'Completed', className: 'bg-blue-50 text-blue-700 border-blue-200', shareTitle: 'Punched Out Today' },
+  absent: { label: 'Absent', className: 'bg-gray-100 text-gray-600 border-gray-200', shareTitle: 'Absent Today' },
 } as const;
+
+function formatShareDate(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  });
+}
+
+function shareLine(
+  row: ReturnType<typeof buildEmployeeAttendanceReport>[number],
+  status: AttendanceDayStatus,
+): string {
+  const inT = row.punchIn ? formatTimeIST(row.punchIn.punchedAt) : '';
+  const outT = row.punchOut ? formatTimeIST(row.punchOut.punchedAt) : '';
+  if (status === 'in') return inT ? `In ${inT}` : '';
+  if (status === 'out') return `In ${inT || '—'} · Out ${outT || '—'}`;
+  return '';
+}
 
 export const EmployeeAttendancePanel: React.FC = () => {
   const employees = useStore((s) => s.employees);
@@ -42,9 +64,10 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
-  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('in');
   const [dateKey, setDateKey] = useState(getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
+  const [simpleView, setSimpleView] = useState(true);
 
   const report = useMemo(
     () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey),
@@ -78,6 +101,16 @@ export const EmployeeAttendancePanel: React.FC = () => {
   };
 
   const isToday = dateKey === getISTDateKey();
+
+  const shareTitle =
+    filterStatus === 'all'
+      ? 'All Staff'
+      : statusConfig[filterStatus].shareTitle;
+
+  const sortedForShare = useMemo(
+    () => [...filtered].sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
+    [filtered],
+  );
 
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">
@@ -190,7 +223,70 @@ export const EmployeeAttendancePanel: React.FC = () => {
         ))}
       </div>
 
-      {/* Table */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-xs text-gray-500">
+          Tap <strong>Punched In</strong> or <strong>Punched Out</strong>, then screenshot the simple list below for your group.
+        </p>
+        <button
+          type="button"
+          onClick={() => setSimpleView((v) => !v)}
+          className="text-xs font-medium text-indigo-600 hover:text-indigo-500 shrink-0"
+        >
+          {simpleView ? 'Show full table' : 'Show simple list'}
+        </button>
+      </div>
+
+      {simpleView && filterStatus !== 'all' && (
+        <div
+          className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-5 sm:p-6 shadow-sm max-w-lg"
+          id="attendance-share-list"
+        >
+          <p className="text-center text-sm font-semibold text-indigo-700 uppercase tracking-wide">
+            Malcon Nexus
+          </p>
+          <h2 className="text-center text-lg font-bold mt-1">{shareTitle}</h2>
+          <p className="text-center text-sm text-gray-600 mt-0.5">{formatShareDate(dateKey)}</p>
+          <p className="text-center text-xs text-gray-500 mt-1 mb-4">
+            Total: <strong>{sortedForShare.length}</strong>
+          </p>
+
+          {sortedForShare.length === 0 ? (
+            <p className="text-center text-sm text-gray-500 py-6">No one in this list.</p>
+          ) : (
+            <ol className="space-y-2.5">
+              {sortedForShare.map((row, i) => {
+                const detail = shareLine(row, row.status);
+                return (
+                  <li
+                    key={row.employeeId}
+                    className="flex gap-3 text-[15px] leading-snug border-b border-gray-100 pb-2.5 last:border-0 last:pb-0"
+                  >
+                    <span className="font-bold text-gray-400 w-6 shrink-0 tabular-nums">{i + 1}.</span>
+                    <span className="min-w-0">
+                      <span className="font-semibold text-gray-900">{row.employeeName}</span>
+                      {detail && (
+                        <span className="block text-sm text-gray-600 mt-0.5 tabular-nums">{detail}</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          <p className="text-center text-[10px] text-gray-400 mt-5 pt-3 border-t border-gray-100">
+            Updated {formatTimeIST(new Date())} · malcon-nexus-gamma.vercel.app
+          </p>
+        </div>
+      )}
+
+      {simpleView && filterStatus === 'all' && (
+        <p className="text-sm text-gray-500 text-center py-8 rounded-xl bg-gray-50 border border-gray-200">
+          Select <strong>Punched In</strong>, <strong>Punched Out</strong>, or <strong>Absent</strong> above to see the simple list for your group.
+        </p>
+      )}
+
+      {!simpleView && (
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
         <CardBody className="p-0 overflow-x-auto overscroll-x-contain max-w-full">
           <table className="w-max min-w-full text-sm">
@@ -264,6 +360,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
           )}
         </CardBody>
       </Card>
+      )}
     </div>
   );
 };
