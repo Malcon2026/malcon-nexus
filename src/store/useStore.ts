@@ -18,7 +18,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
   planLeaveClearForDate,
@@ -26,7 +26,15 @@ import {
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
-import { validateCompOffWorkDate, validateLeaveApplication, validateLeaveQuota } from '../lib/leave';
+import {
+  validateCompOffWorkDate,
+  validateLeaveApplication,
+  splitLeaveByClSlQuota,
+  resolveSingleDayLeaveType,
+  describeClSlQuotaSplit,
+  segmentReasonForQuotaSplit,
+  type LeaveSegment,
+} from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
@@ -145,7 +153,7 @@ interface AppState {
     toDate: string,
     reason: string,
     compOffWorkDate?: string | null,
-  ) => Promise<{ error: string | null }>;
+  ) => Promise<{ error: string | null; message?: string }>;
   cancelLeave: (requestId: string) => Promise<{ error: string | null }>;
   approveLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectLeave: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
@@ -156,7 +164,7 @@ interface AppState {
     leaveType: LeaveType,
     notes?: string,
     compOffWorkDate?: string | null,
-  ) => Promise<{ error: string | null }>;
+  ) => Promise<{ error: string | null; message?: string }>;
   /** Admin-only: clear punches + leave so the register reverts to default (UL/A weekday, WO Sunday). */
   clearManualDayMark: (
     employeeId: string,
@@ -448,6 +456,49 @@ const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: stri
   const list = Database.getAll<LeaveRequest>('leaveRequests');
   Database.saveAll('leaveRequests', [request, ...list]);
   return { error: null };
+};
+
+const deleteLeaveRequests = async (ids: string[]): Promise<{ error: string | null }> => {
+  if (ids.length === 0) return { error: null };
+  if (USE_SUPABASE) {
+    try {
+      await sbLeaveRepo.deleteByIds(ids);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete leave request';
+      console.error('[leave] delete failed:', err);
+      return { error: message };
+    }
+  } else {
+    const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !ids.includes(lr.id));
+    Database.saveAll('leaveRequests', list);
+  }
+  set((s) => ({
+    leaveRequests: s.leaveRequests.filter((lr) => !ids.includes(lr.id)),
+  }));
+  if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+  return { error: null };
+};
+
+const buildApprovedLeaveSegments = (
+  base: Omit<LeaveRequest, 'id' | 'leaveType' | 'fromDate' | 'toDate' | 'reason' | 'createdAt'>,
+  segments: LeaveSegment[],
+  reason: string,
+  requestedType?: 'Casual' | 'Sick',
+  createdAt?: string,
+): LeaveRequest[] => {
+  const ts = createdAt ?? new Date().toISOString();
+  return segments.map((segment) => ({
+    ...base,
+    id: newId(),
+    leaveType: segment.leaveType,
+    fromDate: segment.fromDate,
+    toDate: segment.toDate,
+    reason:
+      requestedType && segment.leaveType === 'Unpaid'
+        ? segmentReasonForQuotaSplit(reason, segment, requestedType)
+        : reason,
+    createdAt: ts,
+  }));
 };
 
 const updateLeaveRequest = async (
@@ -1780,16 +1831,14 @@ export const useStore = create<AppState>((set, get) => ({
       workDate = compOffWorkDate!.trim();
     }
 
+    let effectiveType: LeaveType = leaveType;
     if (leaveType === 'Casual' || leaveType === 'Sick') {
-      const quotaCheck = validateLeaveQuota(
+      effectiveType = resolveSingleDayLeaveType(
         state.leaveRequests,
         employeeId,
         dateKey,
-        dateKey,
         leaveType,
-        { excludeDateKey: dateKey },
       );
-      if (quotaCheck.error) return quotaCheck;
     }
 
     const clearResult = await clearManualDayEntries(
@@ -1802,21 +1851,29 @@ export const useStore = create<AppState>((set, get) => ({
     if (clearResult.error) return clearResult;
 
     const reviewedAt = new Date().toISOString();
+    const baseReason = notes.trim() || `Marked by ${state.currentUser.name}`;
+    const convertedFromClSl =
+      (leaveType === 'Casual' || leaveType === 'Sick') && effectiveType === 'Unpaid';
     const request: LeaveRequest = {
       id: newId(),
       employeeId,
       employeeName: employee.name,
-      leaveType,
+      leaveType: effectiveType,
       fromDate: dateKey,
       toDate: dateKey,
-      reason: notes.trim() || `Marked by ${state.currentUser.name}`,
+      reason: convertedFromClSl
+        ? segmentReasonForQuotaSplit(baseReason, { leaveType: 'Unpaid', fromDate: dateKey, toDate: dateKey }, leaveType)
+        : baseReason,
       status: 'approved',
       reviewedBy: state.currentUser.name,
       reviewedById: state.currentUser.id,
       reviewedAt,
-      adminNotes: leaveType === 'Comp Off' && workDate
-        ? `Manually marked Comp Off from the attendance register (work day: ${workDate}).`
-        : `Manually marked ${leaveType} leave from the attendance register.`,
+      adminNotes:
+        leaveType === 'Comp Off' && workDate
+          ? `Manually marked Comp Off from the attendance register (work day: ${workDate}).`
+          : convertedFromClSl
+            ? `Requested ${leaveType} — auto-converted to Unpaid (quota used for this salary month).`
+            : `Manually marked ${effectiveType} leave from the attendance register.`,
       createdAt: reviewedAt,
       compOffWorkDate: workDate,
     };
@@ -1848,7 +1905,9 @@ export const useStore = create<AppState>((set, get) => ({
       'admin',
       leaveType === 'Comp Off' && workDate
         ? `Marked Comp Off for ${employee.name} on ${dateKey} (work day ${workDate}).`
-        : `Marked ${leaveType} leave for ${employee.name} on ${dateKey}.`,
+        : convertedFromClSl
+          ? `Marked ${leaveType} for ${employee.name} on ${dateKey} — auto-converted to Unpaid (quota used).`
+          : `Marked ${effectiveType} leave for ${employee.name} on ${dateKey}.`,
     );
     persistActivity(activity);
 
@@ -1857,7 +1916,12 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
 
-    return { error: null };
+    return {
+      error: null,
+      message: convertedFromClSl
+        ? `${leaveType} quota already used this salary month — saved as Unpaid (UL).`
+        : undefined,
+    };
   },
 
   clearManualDayMark: async (employeeId, dateKey) => {
@@ -2312,39 +2376,61 @@ export const useStore = create<AppState>((set, get) => ({
     const workDate =
       leaveType === 'Comp Off' && compOffWorkDate ? compOffWorkDate.trim() : null;
 
+    const trimmedReason = reason.trim();
+    const segments: LeaveSegment[] =
+      leaveType === 'Casual' || leaveType === 'Sick'
+        ? splitLeaveByClSlQuota(leaveRequests, currentUser.id, fromDate, toDate, leaveType)
+        : [{ leaveType, fromDate, toDate }];
+
     const createdAt = new Date().toISOString();
-    const request: LeaveRequest = {
-      id: newId(),
+    const baseRequest = {
       employeeId: currentUser.id,
       employeeName: currentUser.name,
-      leaveType,
-      fromDate,
-      toDate,
-      reason: reason.trim(),
-      status: 'pending',
+      status: 'pending' as const,
       reviewedBy: null,
       reviewedById: null,
       reviewedAt: null,
       adminNotes: '',
-      createdAt,
       compOffWorkDate: workDate,
     };
 
-    const persistResult = await persistLeaveRequest(request);
-    if (persistResult.error) return persistResult;
+    const requests = buildApprovedLeaveSegments(
+      baseRequest,
+      segments,
+      trimmedReason,
+      leaveType === 'Casual' || leaveType === 'Sick' ? leaveType : undefined,
+      createdAt,
+    );
+
+    const inserted: LeaveRequest[] = [];
+    for (const request of requests) {
+      const persistResult = await persistLeaveRequest(request);
+      if (persistResult.error) {
+        if (inserted.length) {
+          await deleteLeaveRequests(inserted.map((r) => r.id));
+        }
+        return persistResult;
+      }
+      inserted.push(request);
+    }
+
+    const splitNote =
+      leaveType === 'Casual' || leaveType === 'Sick'
+        ? describeClSlQuotaSplit(segments, leaveType)
+        : null;
 
     const activity: ActivityEvent = {
       id: newId(),
       action: 'Leave Request Submitted',
       entityType: 'leave',
-      entityId: request.id,
+      entityId: inserted[0].id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
       performedByRole: currentUser.role,
       timestamp: createdAt,
       details: workDate
-        ? `${leaveType} leave ${fromDate} to ${toDate} (work day ${workDate}): ${reason.trim()}`
-        : `${leaveType} leave ${fromDate} to ${toDate}: ${reason.trim()}`,
+        ? `${leaveType} leave ${fromDate} to ${toDate} (work day ${workDate}): ${trimmedReason}${splitNote ? ` · ${splitNote}` : ''}`
+        : `${leaveType} leave ${fromDate} to ${toDate}: ${trimmedReason}${splitNote ? ` · ${splitNote}` : ''}`,
     };
     persistActivity(activity);
 
@@ -2353,7 +2439,9 @@ export const useStore = create<AppState>((set, get) => ({
       title: 'Leave Request',
       message: workDate
         ? `${currentUser.name} requested Comp Off (${fromDate} to ${toDate}), work day ${workDate}.`
-        : `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}).`,
+        : splitNote
+          ? `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}). ${splitNote}`
+          : `${currentUser.name} requested ${leaveType} leave (${fromDate} to ${toDate}).`,
       type: 'info',
       timestamp: createdAt,
       read: false,
@@ -2361,12 +2449,19 @@ export const useStore = create<AppState>((set, get) => ({
     persistNotification(notif);
 
     set((s) => ({
-      leaveRequests: [request, ...s.leaveRequests],
+      leaveRequests: [...inserted, ...s.leaveRequests],
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
 
-    return { error: null };
+    return {
+      error: null,
+      message: splitNote
+        ? `Leave sent. ${splitNote}`
+        : leaveType === 'Comp Off'
+          ? 'Comp Off sent. Waiting for admin.'
+          : 'Leave sent. Waiting for admin.',
+    };
   },
 
   cancelLeave: async (requestId) => {
@@ -2400,12 +2495,86 @@ export const useStore = create<AppState>((set, get) => ({
     if (request.status !== 'pending') return { error: 'This leave request has already been reviewed.' };
 
     const reviewedAt = new Date().toISOString();
+    const notes = adminNotes.trim();
+
+    if (request.leaveType === 'Casual' || request.leaveType === 'Sick') {
+      const segments = splitLeaveByClSlQuota(
+        leaveRequests,
+        request.employeeId,
+        request.fromDate,
+        request.toDate,
+        request.leaveType,
+        { excludeRequestId: requestId },
+      );
+
+      const singleUnchanged =
+        segments.length === 1 &&
+        segments[0].leaveType === request.leaveType &&
+        segments[0].fromDate === normalizeDateKey(request.fromDate) &&
+        segments[0].toDate === normalizeDateKey(request.toDate);
+
+      if (!singleUnchanged) {
+        const deleteResult = await deleteLeaveRequests([requestId]);
+        if (deleteResult.error) return deleteResult;
+
+        const splitNote = describeClSlQuotaSplit(segments, request.leaveType);
+        const approvedRequests = buildApprovedLeaveSegments(
+          {
+            employeeId: request.employeeId,
+            employeeName: request.employeeName,
+            status: 'approved',
+            reviewedBy: currentUser.name,
+            reviewedById: currentUser.id,
+            reviewedAt,
+            adminNotes: splitNote ? (notes ? `${notes} · ${splitNote}` : splitNote) : notes,
+            compOffWorkDate: null,
+          },
+          segments,
+          request.reason,
+          request.leaveType,
+          reviewedAt,
+        );
+
+        const inserted: LeaveRequest[] = [];
+        for (const approved of approvedRequests) {
+          const persistResult = await persistLeaveRequest(approved);
+          if (persistResult.error) {
+            if (inserted.length) await deleteLeaveRequests(inserted.map((r) => r.id));
+            return persistResult;
+          }
+          inserted.push(approved);
+        }
+
+        const activity: ActivityEvent = {
+          id: newId(),
+          action: 'Leave Approved',
+          entityType: 'leave',
+          entityId: inserted[0].id,
+          entityLabel: request.employeeName,
+          performedBy: currentUser.name,
+          performedByRole: currentUser.role,
+          timestamp: reviewedAt,
+          details: splitNote
+            ? `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}). ${splitNote}`
+            : `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}).`,
+        };
+        persistActivity(activity);
+
+        set((s) => ({
+          leaveRequests: [...inserted, ...s.leaveRequests.filter((r) => r.id !== requestId)],
+          activityLog: [activity, ...s.activityLog],
+        }));
+
+        return { error: null };
+      }
+    }
+
     const updates: Partial<LeaveRequest> = {
       status: 'approved',
       reviewedBy: currentUser.name,
       reviewedById: currentUser.id,
       reviewedAt,
-      adminNotes: adminNotes.trim(),
+      adminNotes: notes,
     };
 
     const updateResult = await updateLeaveRequest(requestId, updates);

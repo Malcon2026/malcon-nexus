@@ -77,13 +77,15 @@ export function countLeaveTypeDaysInSalaryCycle(
   year: number,
   salaryMonth: number,
   leaveType: LeaveType,
-  options?: { excludeDateKey?: string },
+  options?: { excludeDateKey?: string; excludeRequestId?: string },
 ): number {
   const bounds = getSalaryCycleBounds(year, salaryMonth);
   const exclude = options?.excludeDateKey ? normalizeDateKey(options.excludeDateKey) : null;
+  const excludeRequestId = options?.excludeRequestId;
   let count = 0;
 
   for (const lr of requests) {
+    if (lr.id === excludeRequestId) continue;
     if (lr.employeeId !== employeeId || lr.leaveType !== leaveType) continue;
     if (lr.status !== 'approved' && lr.status !== 'pending') continue;
 
@@ -102,42 +104,156 @@ export function countLeaveTypeDaysInSalaryCycle(
   return count;
 }
 
-export function validateLeaveQuota(
+export interface LeaveSegment {
+  leaveType: LeaveType;
+  fromDate: string;
+  toDate: string;
+}
+
+function salaryCycleKey(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function buildClSlQuotaUsedByCycle(
+  requests: LeaveRequest[],
+  employeeId: string,
+  leaveType: 'Casual' | 'Sick',
+  options?: { excludeRequestId?: string; excludeDateKeys?: Set<string> },
+): Map<string, number> {
+  const used = new Map<string, number>();
+  const excludeId = options?.excludeRequestId;
+  const excludeDates = options?.excludeDateKeys;
+
+  for (const lr of requests) {
+    if (lr.id === excludeId) continue;
+    if (lr.employeeId !== employeeId || lr.leaveType !== leaveType) continue;
+    if (lr.status !== 'approved' && lr.status !== 'pending') continue;
+
+    const from = normalizeDateKey(lr.fromDate);
+    const to = normalizeDateKey(lr.toDate);
+    for (const dayKey of iterateDateKeys(from, to)) {
+      if (excludeDates?.has(dayKey)) continue;
+      const cycle = getSalaryMonthForDateKey(dayKey);
+      const key = salaryCycleKey(cycle.year, cycle.month);
+      used.set(key, (used.get(key) ?? 0) + 1);
+    }
+  }
+
+  return used;
+}
+
+function mergeConsecutiveLeaveSegments(
+  days: { dateKey: string; leaveType: LeaveType }[],
+): LeaveSegment[] {
+  if (days.length === 0) return [];
+
+  const segments: LeaveSegment[] = [];
+  let current: LeaveSegment = {
+    leaveType: days[0].leaveType,
+    fromDate: days[0].dateKey,
+    toDate: days[0].dateKey,
+  };
+
+  for (let i = 1; i < days.length; i++) {
+    const { dateKey, leaveType } = days[i];
+    const nextExpected = addDaysToDateKey(current.toDate, 1);
+    if (leaveType === current.leaveType && dateKey === nextExpected) {
+      current.toDate = dateKey;
+    } else {
+      segments.push(current);
+      current = { leaveType, fromDate: dateKey, toDate: dateKey };
+    }
+  }
+
+  segments.push(current);
+  return segments;
+}
+
+/** Split a CL/SL range: first day per salary month stays CL/SL, extra days become UL. */
+export function splitLeaveByClSlQuota(
   requests: LeaveRequest[],
   employeeId: string,
   fromDate: string,
   toDate: string,
-  leaveType: LeaveType,
-  options?: { excludeDateKey?: string },
-): { error: string | null } {
-  if (leaveType !== 'Casual' && leaveType !== 'Sick') {
-    return { error: null };
+  requestedType: 'Casual' | 'Sick',
+  options?: { excludeRequestId?: string; excludeDateKeys?: string[] },
+): LeaveSegment[] {
+  const excludeDates = options?.excludeDateKeys
+    ? new Set(options.excludeDateKeys.map(normalizeDateKey))
+    : undefined;
+  const quotaUsed = buildClSlQuotaUsedByCycle(requests, employeeId, requestedType, {
+    excludeRequestId: options?.excludeRequestId,
+    excludeDateKeys: excludeDates,
+  });
+
+  const dayAssignments: { dateKey: string; leaveType: LeaveType }[] = [];
+  const from = normalizeDateKey(fromDate);
+  const to = normalizeDateKey(toDate);
+
+  for (const dayKey of iterateDateKeys(from, to)) {
+    if (excludeDates?.has(dayKey)) continue;
+
+    const cycle = getSalaryMonthForDateKey(dayKey);
+    const cycleKey = salaryCycleKey(cycle.year, cycle.month);
+    const used = quotaUsed.get(cycleKey) ?? 0;
+
+    if (used < CL_SL_QUOTA_PER_CYCLE) {
+      dayAssignments.push({ dateKey, leaveType: requestedType });
+      quotaUsed.set(cycleKey, used + 1);
+    } else {
+      dayAssignments.push({ dateKey, leaveType: 'Unpaid' });
+    }
   }
 
-  const salaryMonth = getSalaryMonthForDateKey(fromDate);
-  const existing = countLeaveTypeDaysInSalaryCycle(
+  return mergeConsecutiveLeaveSegments(dayAssignments);
+}
+
+/** Resolve one manual CL/SL mark — returns UL when quota for that salary month is used. */
+export function resolveSingleDayLeaveType(
+  requests: LeaveRequest[],
+  employeeId: string,
+  dateKey: string,
+  requestedType: 'Casual' | 'Sick',
+): LeaveType {
+  const segments = splitLeaveByClSlQuota(
     requests,
     employeeId,
-    salaryMonth.year,
-    salaryMonth.month,
-    leaveType,
-    options,
+    dateKey,
+    dateKey,
+    requestedType,
+    { excludeDateKeys: [dateKey] },
   );
+  return segments[0]?.leaveType ?? 'Unpaid';
+}
 
-  let newDays = 0;
-  for (const dayKey of iterateDateKeys(fromDate, toDate)) {
-    if (options?.excludeDateKey && dayKey === normalizeDateKey(options.excludeDateKey)) continue;
-    newDays++;
+export function countDaysInLeaveSegments(segments: LeaveSegment[]): number {
+  return segments.reduce(
+    (total, seg) => total + iterateDateKeys(seg.fromDate, seg.toDate).length,
+    0,
+  );
+}
+
+export function describeClSlQuotaSplit(
+  segments: LeaveSegment[],
+  requestedType: 'Casual' | 'Sick',
+): string | null {
+  const label = requestedType === 'Casual' ? 'Casual' : 'Sick';
+  let unpaidDays = 0;
+  for (const seg of segments) {
+    if (seg.leaveType !== 'Unpaid') continue;
+    unpaidDays += iterateDateKeys(seg.fromDate, seg.toDate).length;
   }
+  if (unpaidDays === 0) return null;
+  return `${unpaidDays} day${unpaidDays === 1 ? '' : 's'} converted to Unpaid Leave (only 1 ${label} day per salary month).`;
+}
 
-  if (existing + newDays > CL_SL_QUOTA_PER_CYCLE) {
-    const label = leaveType === 'Casual' ? 'Casual Leave' : 'Sick Leave';
-    return {
-      error: `Only ${CL_SL_QUOTA_PER_CYCLE} ${label} day is allowed per salary month. Use Unpaid Leave for additional days.`,
-    };
-  }
-
-  return { error: null };
+export function segmentReasonForQuotaSplit(
+  baseReason: string,
+  segment: LeaveSegment,
+  requestedType: 'Casual' | 'Sick',
+): string {
+  if (segment.leaveType !== 'Unpaid') return baseReason;
+  return `${baseReason} (Auto: ${requestedType} quota used — unpaid)`;
 }
 
 export function validateLeaveApplication(
@@ -176,11 +292,6 @@ export function validateLeaveApplication(
     return {
       error: `Overlaps with existing ${overlap.status} leave (${overlap.fromDate} to ${overlap.toDate}).`,
     };
-  }
-
-  if (leaveType === 'Casual' || leaveType === 'Sick') {
-    const quotaCheck = validateLeaveQuota(requests, employeeId, fromDate, toDate, leaveType);
-    if (quotaCheck.error) return quotaCheck;
   }
 
   return { error: null };

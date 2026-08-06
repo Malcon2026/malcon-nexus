@@ -91,6 +91,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualOut(summary.punchOut ? toHHMM(summary.punchOut.punchedAt) : '');
     setShowTimes(false);
     setManualError(null);
+    setManualInfo(null);
     setMarkView('menu');
     setCompOffWorkDate('');
   }, [selectedCell, attendanceRecords]);
@@ -102,7 +103,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     setManualSaving(true);
     setManualError(null);
     try {
-      let result: { error: string | null };
+      let result: { error: string | null; message?: string };
       if (kind === 'present') {
         result = await addManualAttendance(
           selectedCell.employeeId,
@@ -658,7 +659,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     Leave
                   </p>
                   <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
-                    1 Casual + 1 Sick day per salary month. Any extra absence = Unpaid (UL).
+                    1 Casual + 1 Sick per salary month. Extra CL/SL days auto-convert to Unpaid (UL).
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {LEAVE_TYPES.filter((t) => t.value === 'Casual' || t.value === 'Sick').map((t) => {

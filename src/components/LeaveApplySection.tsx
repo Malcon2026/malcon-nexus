@@ -75,11 +75,9 @@ export const LeaveApplySection: React.FC = () => {
         setError(result.error);
         return;
       }
-      setSuccess(
-        leaveType === 'Comp Off'
-          ? 'Comp Off sent. Waiting for admin.'
-          : 'Leave sent. Waiting for admin.',
-      );
+      setSuccess(result.message ?? (leaveType === 'Comp Off'
+        ? 'Comp Off sent. Waiting for admin.'
+        : 'Leave sent. Waiting for admin.'));
       setFromDate('');
       setToDate('');
       setCompOffWorkDate('');
