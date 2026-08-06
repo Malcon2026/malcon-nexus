@@ -18,7 +18,13 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey } from '../lib/attendance';
+import {
+  findAttendanceRecordIdsForDayClear,
+  planLeaveClearForDate,
+  getStaleOpenShiftBeforeDate,
+  buildAutoCloseOutRecord,
+} from '../lib/manualAttendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
 import { validateCompOffWorkDate, validateLeaveApplication } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
@@ -313,33 +319,24 @@ function attendanceRecordFromOffsiteRequest(request: AttendanceApprovalRequest):
   };
 }
 
-/** Remove punches + single-day leave rows for one employee/date before re-marking. */
+/** Remove punches + leave rows for one employee/date before re-marking. */
 const clearManualDayEntries = async (
   employeeId: string,
   dateKey: string,
   attendanceRecords: AttendanceRecord[],
   leaveRequests: LeaveRequest[],
-  onLocalClear: (punchIds: string[], leaveIds: string[]) => void,
+  onLocalClear: (punchIds: string[], leaveIds: string[], newLeaves: LeaveRequest[]) => void,
 ): Promise<{ error: string | null }> => {
-  const punchIds = attendanceRecords
-    .filter((r) => r.employeeId === employeeId && getISTDateKey(r.punchedAt) === dateKey)
-    .map((r) => r.id);
-  const dayKey = normalizeDateKey(dateKey);
-  const leaveIds = leaveRequests
-    .filter(
-      (lr) =>
-        lr.employeeId === employeeId &&
-        lr.status !== 'cancelled' &&
-        lr.status !== 'rejected' &&
-        normalizeDateKey(lr.fromDate) === dayKey &&
-        normalizeDateKey(lr.toDate) === dayKey,
-    )
-    .map((lr) => lr.id);
+  const punchIds = findAttendanceRecordIdsForDayClear(attendanceRecords, employeeId, dateKey);
+  const leavePlan = planLeaveClearForDate(leaveRequests, employeeId, dateKey);
 
   if (USE_SUPABASE) {
     try {
       if (punchIds.length) await sbAttendanceRepo.deleteByIds(punchIds);
-      if (leaveIds.length) await sbLeaveRepo.deleteByIds(leaveIds);
+      if (leavePlan.deleteIds.length) await sbLeaveRepo.deleteByIds(leavePlan.deleteIds);
+      for (const leave of leavePlan.replaceWith) {
+        await sbLeaveRepo.insert(leave);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to clear day';
       console.error('[attendance] clear day failed:', err);
@@ -350,20 +347,33 @@ const clearManualDayEntries = async (
       const list = Database.getAll<AttendanceRecord>('attendanceRecords').filter((r) => !punchIds.includes(r.id));
       Database.saveAll('attendanceRecords', list);
     }
-    if (leaveIds.length) {
-      const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !leaveIds.includes(lr.id));
+    if (leavePlan.deleteIds.length) {
+      const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !leavePlan.deleteIds.includes(lr.id));
       Database.saveAll('leaveRequests', list);
+    }
+    if (leavePlan.replaceWith.length) {
+      const list = Database.getAll<LeaveRequest>('leaveRequests');
+      Database.saveAll('leaveRequests', [...leavePlan.replaceWith, ...list]);
     }
   }
 
-  onLocalClear(punchIds, leaveIds);
-
-  if (USE_SUPABASE) {
-    // Keep session cache in sync with the in-memory store after deletes.
-    // (onLocalClear already updated Zustand; mirror into setCache below via callers if needed.)
-  }
+  onLocalClear(punchIds, leavePlan.deleteIds, leavePlan.replaceWith);
 
   return { error: null };
+};
+
+const applyManualDayClearLocal = (punchIds: string[], leaveIds: string[], newLeaves: LeaveRequest[]) => {
+  set((s) => ({
+    attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
+    leaveRequests: [
+      ...newLeaves,
+      ...s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
+    ],
+  }));
+  if (USE_SUPABASE) {
+    setCache('attendanceRecords', get().attendanceRecords);
+    setCache('leaveRequests', get().leaveRequests);
+  }
 };
 
 const persistAttendanceApprovalRequest = async (
@@ -1682,21 +1692,25 @@ export const useStore = create<AppState>((set, get) => ({
       dateKey,
       state.attendanceRecords,
       state.leaveRequests,
-      (punchIds, leaveIds) => {
-        set((s) => ({
-          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
-          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
-        }));
-        if (USE_SUPABASE) {
-          setCache(
-            'attendanceRecords',
-            get().attendanceRecords,
-          );
-          setCache('leaveRequests', get().leaveRequests);
-        }
-      },
+      applyManualDayClearLocal,
     );
     if (clearResult.error) return clearResult;
+
+    const afterClear = get();
+    const staleOpenIn = getStaleOpenShiftBeforeDate(afterClear.attendanceRecords, employeeId, dateKey);
+    const autoClosedRecords: AttendanceRecord[] = [];
+    if (staleOpenIn) {
+      const autoOut = buildAutoCloseOutRecord(employee, staleOpenIn, state.currentUser.name);
+      const autoResult = await persistAttendance(autoOut);
+      if (autoResult.error) return autoResult;
+      autoClosedRecords.push(autoOut);
+      set((s) => ({
+        attendanceRecords: [autoOut, ...s.attendanceRecords],
+      }));
+      if (USE_SUPABASE) {
+        setCache('attendanceRecords', get().attendanceRecords);
+      }
+    }
 
     const base = {
       employeeId,
@@ -1713,9 +1727,22 @@ export const useStore = create<AppState>((set, get) => ({
       { ...base, id: newId(), punchType: 'out' as const, punchedAt: punchedOutAt },
     ];
 
+    const insertedIds: string[] = [];
     for (const record of newRecords) {
       const persistResult = await persistAttendance(record);
-      if (persistResult.error) return { error: persistResult.error };
+      if (persistResult.error) {
+        if (USE_SUPABASE && insertedIds.length) {
+          await sbAttendanceRepo.deleteByIds(insertedIds).catch((err) => {
+            console.error('[attendance] rollback failed:', err);
+          });
+        }
+        set((s) => ({
+          attendanceRecords: s.attendanceRecords.filter((r) => !insertedIds.includes(r.id)),
+        }));
+        if (USE_SUPABASE) setCache('attendanceRecords', get().attendanceRecords);
+        return { error: persistResult.error };
+      }
+      insertedIds.push(record.id);
     }
 
     const activity = createActivityEvent(
@@ -1725,7 +1752,9 @@ export const useStore = create<AppState>((set, get) => ({
       employee.name,
       state.currentUser.name,
       'admin',
-      `Marked Present for ${employee.name} on ${dateKey} (${inTime}–${outTime}).`,
+      staleOpenIn
+        ? `Marked Present for ${employee.name} on ${dateKey} (${inTime}–${outTime}); auto-closed prior unclosed shift.`
+        : `Marked Present for ${employee.name} on ${dateKey} (${inTime}–${outTime}).`,
     );
     persistActivity(activity);
 
@@ -1733,6 +1762,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceRecords: [...newRecords, ...s.attendanceRecords],
       activityLog: [activity, ...s.activityLog],
     }));
+    if (USE_SUPABASE) setCache('attendanceRecords', get().attendanceRecords);
 
     return { error: null };
   },
@@ -1755,16 +1785,7 @@ export const useStore = create<AppState>((set, get) => ({
       dateKey,
       state.attendanceRecords,
       state.leaveRequests,
-      (punchIds, leaveIds) => {
-        set((s) => ({
-          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
-          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
-        }));
-        if (USE_SUPABASE) {
-          setCache('attendanceRecords', get().attendanceRecords);
-          setCache('leaveRequests', get().leaveRequests);
-        }
-      },
+      applyManualDayClearLocal,
     );
     if (clearResult.error) return clearResult;
 
@@ -1838,16 +1859,7 @@ export const useStore = create<AppState>((set, get) => ({
       dateKey,
       state.attendanceRecords,
       state.leaveRequests,
-      (punchIds, leaveIds) => {
-        set((s) => ({
-          attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
-          leaveRequests: s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
-        }));
-        if (USE_SUPABASE) {
-          setCache('attendanceRecords', get().attendanceRecords);
-          setCache('leaveRequests', get().leaveRequests);
-        }
-      },
+      applyManualDayClearLocal,
     );
     if (clearResult.error) return clearResult;
 

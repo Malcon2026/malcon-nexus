@@ -301,13 +301,7 @@ export function resolveRegisterCell(
     return { code: 'WO', label: 'Sunday off' };
   }
 
-  if (leave && (leave.status === 'approved' || leave.status === 'pending')) {
-    return {
-      ...leaveRegisterDetail(leave),
-      ...leaveCellFields(leave),
-    };
-  }
-
+  // Completed or partial punches win over leave — admin manual Present must show.
   if (summary.punchIn && summary.punchOut) {
     return {
       code: 'P',
@@ -333,6 +327,13 @@ export function resolveRegisterCell(
       label: 'Present (missing punch out)',
       punchInTime: formatTimeIST(summary.punchIn.punchedAt),
       workedDuration: formatWorkedDuration(summary),
+    };
+  }
+
+  if (leave && (leave.status === 'approved' || leave.status === 'pending')) {
+    return {
+      ...leaveRegisterDetail(leave),
+      ...leaveCellFields(leave),
     };
   }
 

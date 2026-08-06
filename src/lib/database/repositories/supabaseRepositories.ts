@@ -781,6 +781,11 @@ export const sbLeaveRepo = {
     if (updates.reviewedById !== undefined) payload.reviewed_by_id = updates.reviewedById;
     if (updates.reviewedAt !== undefined) payload.reviewed_at = updates.reviewedAt;
     if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
+    if (updates.fromDate !== undefined) payload.from_date = updates.fromDate;
+    if (updates.toDate !== undefined) payload.to_date = updates.toDate;
+    if (updates.leaveType !== undefined) payload.leave_type = updates.leaveType;
+    if (updates.reason !== undefined) payload.reason = updates.reason;
+    if (updates.compOffWorkDate !== undefined) payload.comp_off_work_date = updates.compOffWorkDate;
 
     const { error } = await supabase.from('leave_requests').update(payload).eq('id', id);
     if (error) throw error;
