@@ -10,6 +10,8 @@ import { filterAttendanceStaff } from './staff';
 
 export type RegisterCellCode = 'P' | 'PI' | 'CL' | 'SL' | 'UL' | 'L' | 'CO' | 'PL' | 'A' | 'WO' | '—';
 export const PAYABLE_DAYS_PER_CYCLE = 30;
+/** Must match leave.ts — first CL/SL day per salary month kept, rest become UL on the register. */
+export const CL_SL_QUOTA_PER_CYCLE = 1;
 
 export interface RegisterCellDetail {
   code: RegisterCellCode;
@@ -360,6 +362,70 @@ export function resolveRegisterCell(
   return { code: 'A', label: 'Absent' };
 }
 
+function salaryCycleKeyFromDateKey(dateKey: string): string {
+  const cycle = getSalaryMonthForDateKey(dateKey);
+  return `${cycle.year}-${String(cycle.month).padStart(2, '0')}`;
+}
+
+function isLossOfPayCode(code: RegisterCellCode): boolean {
+  return code === 'UL' || code === 'A';
+}
+
+/**
+ * Apply payroll display rules on top of raw punch/leave data:
+ * - Absent → Unpaid (UL)
+ * - Only 1 CL + 1 SL per salary month (chronological); extras → UL
+ * - Sandwich rule: Sat + Mon unpaid → Sunday becomes UL (not paid WO)
+ */
+export function applyRegisterPayrollRules(
+  cells: RegisterCellDetail[],
+  days: RegisterDayColumn[],
+): RegisterCellDetail[] {
+  const result = cells.map((cell) => ({ ...cell }));
+
+  for (let i = 0; i < result.length; i++) {
+    if (result[i].code === 'A') {
+      result[i] = { code: 'UL', label: 'Unpaid Leave (no punch)' };
+    }
+  }
+
+  const clUsedByCycle = new Map<string, number>();
+  const slUsedByCycle = new Map<string, number>();
+
+  for (let i = 0; i < result.length; i++) {
+    const code = result[i].code;
+    if (code !== 'CL' && code !== 'SL') continue;
+
+    const cycleKey = salaryCycleKeyFromDateKey(days[i].dateKey);
+    const usedMap = code === 'CL' ? clUsedByCycle : slUsedByCycle;
+    const used = usedMap.get(cycleKey) ?? 0;
+
+    if (used >= CL_SL_QUOTA_PER_CYCLE) {
+      result[i] = {
+        code: 'UL',
+        label: code === 'CL' ? 'Unpaid Leave (CL quota used)' : 'Unpaid Leave (SL quota used)',
+        leaveType: 'Unpaid',
+      };
+    } else {
+      usedMap.set(cycleKey, used + 1);
+    }
+  }
+
+  for (let i = 0; i < result.length; i++) {
+    if (!days[i].isWeeklyOff || result[i].code !== 'WO') continue;
+
+    const satIdx = i - 1;
+    const monIdx = i + 1;
+    if (satIdx < 0 || monIdx >= result.length) continue;
+
+    if (isLossOfPayCode(result[satIdx].code) && isLossOfPayCode(result[monIdx].code)) {
+      result[i] = { code: 'UL', label: 'Unpaid Leave (sandwich week off)' };
+    }
+  }
+
+  return result;
+}
+
 function groupLeavesByEmployee(leaveRequests: LeaveRequest[]): Map<string, LeaveRequest[]> {
   const byEmployee = new Map<string, LeaveRequest[]>();
   for (const leave of leaveRequests) {
@@ -448,7 +514,7 @@ export function buildAttendanceRegister(
   const rows: RegisterEmployeeRow[] = staff.map((employee) => {
     const daySummaries = dayIndex.get(employee.id);
     const empLeaves = leaveByEmployee.get(employee.id) ?? [];
-    const cells = days.map((col) =>
+    const rawCells = days.map((col) =>
       resolveRegisterCell(
         col.dateKey,
         daySummaries?.get(col.dateKey) ?? EMPTY_SUMMARY,
@@ -456,6 +522,7 @@ export function buildAttendanceRegister(
         col.isFuture,
       ),
     );
+    const cells = applyRegisterPayrollRules(rawCells, days);
     return {
       employeeId: employee.id,
       employeeName: employee.name,

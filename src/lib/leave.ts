@@ -1,9 +1,9 @@
 import type { LeaveRequest, LeaveType } from '../types';
 import { getISTDateKey, normalizeDateKey } from './attendance';
-import { getSalaryCycleBounds, getSalaryMonthForDateKey, isWeeklyOffDateKey } from './attendanceRegister';
+import { getSalaryCycleBounds, getSalaryMonthForDateKey, isWeeklyOffDateKey, CL_SL_QUOTA_PER_CYCLE } from './attendanceRegister';
 
 /** Max paid casual / sick leave days per salary cycle (28th→27th, max 30 pay days). */
-export const CL_SL_QUOTA_PER_CYCLE = 1;
+export { CL_SL_QUOTA_PER_CYCLE };
 
 export const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
   { value: 'Casual', label: 'Casual Leave (CL)' },

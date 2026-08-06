@@ -497,7 +497,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         </summary>
         <p className="mt-2 leading-relaxed">
           Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + WO (max 30).
-          UL = loss of pay (same as unmarked absent). A = no punch and no leave recorded. Today: {getISTDateKey()}.
+          UL = loss of pay (includes no-punch days). Only 1 CL + 1 SL shown per salary month; extras display as UL. Today: {getISTDateKey()}.
         </p>
       </details>
 
