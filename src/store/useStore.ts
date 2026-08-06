@@ -26,7 +26,7 @@ import {
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation } from '../lib/caseWorkflow';
-import { validateCompOffWorkDate, validateLeaveApplication } from '../lib/leave';
+import { validateCompOffWorkDate, validateLeaveApplication, validateLeaveQuota } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
@@ -157,8 +157,8 @@ interface AppState {
     notes?: string,
     compOffWorkDate?: string | null,
   ) => Promise<{ error: string | null }>;
-  /** Admin-only: clear punches + single-day leave so the register shows Absent (or WO on Sunday). */
-  markManualAbsent: (
+  /** Admin-only: clear punches + leave so the register reverts to default (UL/A weekday, WO Sunday). */
+  clearManualDayMark: (
     employeeId: string,
     dateKey: string,
   ) => Promise<{ error: string | null }>;
@@ -1780,6 +1780,18 @@ export const useStore = create<AppState>((set, get) => ({
       workDate = compOffWorkDate!.trim();
     }
 
+    if (leaveType === 'Casual' || leaveType === 'Sick') {
+      const quotaCheck = validateLeaveQuota(
+        state.leaveRequests,
+        employeeId,
+        dateKey,
+        dateKey,
+        leaveType,
+        { excludeDateKey: dateKey },
+      );
+      if (quotaCheck.error) return quotaCheck;
+    }
+
     const clearResult = await clearManualDayEntries(
       employeeId,
       dateKey,
@@ -1848,7 +1860,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  markManualAbsent: async (employeeId, dateKey) => {
+  clearManualDayMark: async (employeeId, dateKey) => {
     const state = get();
     const employee = state.employees.find((e) => e.id === employeeId);
     if (!employee) return { error: 'Employee not found.' };
@@ -1864,13 +1876,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (clearResult.error) return clearResult;
 
     const activity = createActivityEvent(
-      'Manual Absent Entry',
+      'Manual Day Cleared',
       'attendance',
       employeeId,
       employee.name,
       state.currentUser.name,
       'admin',
-      `Marked Absent for ${employee.name} on ${dateKey}.`,
+      `Cleared manual marks for ${employee.name} on ${dateKey}.`,
     );
     persistActivity(activity);
 

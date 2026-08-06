@@ -1,6 +1,9 @@
 import type { LeaveRequest, LeaveType } from '../types';
-import { getISTDateKey } from './attendance';
-import { isWeeklyOffDateKey } from './attendanceRegister';
+import { getISTDateKey, normalizeDateKey } from './attendance';
+import { getSalaryCycleBounds, getSalaryMonthForDateKey, isWeeklyOffDateKey } from './attendanceRegister';
+
+/** Max paid casual / sick leave days per salary cycle (28th→27th, max 30 pay days). */
+export const CL_SL_QUOTA_PER_CYCLE = 1;
 
 export const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
   { value: 'Casual', label: 'Casual Leave (CL)' },
@@ -50,6 +53,93 @@ export function validateCompOffWorkDate(
   return { error: null };
 }
 
+function addDaysToDateKey(dateKey: string, delta: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + delta);
+  return getISTDateKey(date);
+}
+
+function iterateDateKeys(fromDateKey: string, toDateKey: string): string[] {
+  const keys: string[] = [];
+  let current = fromDateKey;
+  while (current <= toDateKey) {
+    keys.push(current);
+    current = addDaysToDateKey(current, 1);
+  }
+  return keys;
+}
+
+/** Count calendar days with approved/pending leave of `leaveType` in a salary cycle. */
+export function countLeaveTypeDaysInSalaryCycle(
+  requests: LeaveRequest[],
+  employeeId: string,
+  year: number,
+  salaryMonth: number,
+  leaveType: LeaveType,
+  options?: { excludeDateKey?: string },
+): number {
+  const bounds = getSalaryCycleBounds(year, salaryMonth);
+  const exclude = options?.excludeDateKey ? normalizeDateKey(options.excludeDateKey) : null;
+  let count = 0;
+
+  for (const lr of requests) {
+    if (lr.employeeId !== employeeId || lr.leaveType !== leaveType) continue;
+    if (lr.status !== 'approved' && lr.status !== 'pending') continue;
+
+    const from = normalizeDateKey(lr.fromDate);
+    const to = normalizeDateKey(lr.toDate);
+    const rangeStart = from > bounds.startDateKey ? from : bounds.startDateKey;
+    const rangeEnd = to < bounds.endDateKey ? to : bounds.endDateKey;
+    if (rangeStart > rangeEnd) continue;
+
+    for (const dayKey of iterateDateKeys(rangeStart, rangeEnd)) {
+      if (exclude && dayKey === exclude) continue;
+      count++;
+    }
+  }
+
+  return count;
+}
+
+export function validateLeaveQuota(
+  requests: LeaveRequest[],
+  employeeId: string,
+  fromDate: string,
+  toDate: string,
+  leaveType: LeaveType,
+  options?: { excludeDateKey?: string },
+): { error: string | null } {
+  if (leaveType !== 'Casual' && leaveType !== 'Sick') {
+    return { error: null };
+  }
+
+  const salaryMonth = getSalaryMonthForDateKey(fromDate);
+  const existing = countLeaveTypeDaysInSalaryCycle(
+    requests,
+    employeeId,
+    salaryMonth.year,
+    salaryMonth.month,
+    leaveType,
+    options,
+  );
+
+  let newDays = 0;
+  for (const dayKey of iterateDateKeys(fromDate, toDate)) {
+    if (options?.excludeDateKey && dayKey === normalizeDateKey(options.excludeDateKey)) continue;
+    newDays++;
+  }
+
+  if (existing + newDays > CL_SL_QUOTA_PER_CYCLE) {
+    const label = leaveType === 'Casual' ? 'Casual Leave' : 'Sick Leave';
+    return {
+      error: `Only ${CL_SL_QUOTA_PER_CYCLE} ${label} day is allowed per salary month. Use Unpaid Leave for additional days.`,
+    };
+  }
+
+  return { error: null };
+}
+
 export function validateLeaveApplication(
   requests: LeaveRequest[],
   employeeId: string,
@@ -86,6 +176,11 @@ export function validateLeaveApplication(
     return {
       error: `Overlaps with existing ${overlap.status} leave (${overlap.fromDate} to ${overlap.toDate}).`,
     };
+  }
+
+  if (leaveType === 'Casual' || leaveType === 'Sick') {
+    const quotaCheck = validateLeaveQuota(requests, employeeId, fromDate, toDate, leaveType);
+    if (quotaCheck.error) return quotaCheck;
   }
 
   return { error: null };

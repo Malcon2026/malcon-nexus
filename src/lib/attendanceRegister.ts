@@ -129,6 +129,22 @@ export function getSalaryCycleStartDay(salaryMonth: number): number {
   return salaryMonth === 5 ? 27 : 28;
 }
 
+/** Salary month (year + month paid) that contains `dateKey`. */
+export function getSalaryMonthForDateKey(dateKey: string): { year: number; month: number } {
+  const [y, m] = dateKey.split('-').map(Number);
+  const candidates: { year: number; month: number }[] = [
+    { year: y, month: m },
+    { year: m === 12 ? y + 1 : y, month: m === 12 ? 1 : m + 1 },
+  ];
+  for (const candidate of candidates) {
+    const bounds = getSalaryCycleBounds(candidate.year, candidate.month);
+    if (dateKey >= bounds.startDateKey && dateKey <= bounds.endDateKey) {
+      return candidate;
+    }
+  }
+  return { year: y, month: m };
+}
+
 export function getSalaryCycleBounds(year: number, salaryMonth: number): SalaryCycleBounds {
   const prevMonth = salaryMonth === 1 ? 12 : salaryMonth - 1;
   const prevYear = salaryMonth === 1 ? year - 1 : year;

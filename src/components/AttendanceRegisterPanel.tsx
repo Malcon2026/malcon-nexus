@@ -44,7 +44,7 @@ interface AttendanceRegisterPanelProps {
 export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = ({
   employeeId,
   title = 'Attendance Register',
-  subtitle = 'Salary cycle register — P Present, A Absent, WO Sunday off',
+  subtitle = 'Salary cycle register — P Present, UL Unpaid, WO Sunday off',
   compactHeader = false,
 }) => {
   const employees = useStore((s) => s.employees);
@@ -55,7 +55,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const viewMode = useStore((s) => s.viewMode);
   const addManualAttendance = useStore((s) => s.addManualAttendance);
   const addManualLeave = useStore((s) => s.addManualLeave);
-  const markManualAbsent = useStore((s) => s.markManualAbsent);
+  const clearManualDayMark = useStore((s) => s.clearManualDayMark);
   const isAdmin = viewMode === 'admin' && !employeeId;
 
   const now = new Date();
@@ -96,7 +96,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   }, [selectedCell, attendanceRecords]);
 
   const applyMark = async (
-    kind: 'present' | 'absent' | 'force-absent' | LeaveType,
+    kind: 'present' | 'week-off' | 'unpaid' | LeaveType,
   ) => {
     if (!selectedCell) return;
     setManualSaving(true);
@@ -110,16 +110,15 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           showTimes ? (manualIn || undefined) : undefined,
           showTimes ? (manualOut || undefined) : undefined,
         );
-      } else if (kind === 'absent') {
-        // Week off = clear day (register shows WO). Weekday absent = clear day (shows A).
-        result = await markManualAbsent(selectedCell.employeeId, selectedCell.day.dateKey);
-      } else if (kind === 'force-absent') {
-        // Explicit Absent on a Sunday — store Unpaid leave so register shows A, not WO.
+      } else if (kind === 'week-off') {
+        // Clear marks so Sunday defaults back to paid weekly off.
+        result = await clearManualDayMark(selectedCell.employeeId, selectedCell.day.dateKey);
+      } else if (kind === 'unpaid') {
         result = await addManualLeave(
           selectedCell.employeeId,
           selectedCell.day.dateKey,
           'Unpaid',
-          'Marked Absent on weekly off',
+          'Loss of pay',
         );
       } else if (kind === 'Comp Off') {
         if (!compOffWorkDate) {
@@ -497,7 +496,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         </summary>
         <p className="mt-2 leading-relaxed">
           Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + WO (max 30).
-          CL / SL / UL / CO = leave types. Today: {getISTDateKey()}.
+          UL = loss of pay (same as unmarked absent). A = no punch and no leave recorded. Today: {getISTDateKey()}.
         </p>
       </details>
 
@@ -593,7 +592,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       <button
                         type="button"
                         disabled={manualSaving}
-                        onClick={() => void applyMark('absent')}
+                        onClick={() => void applyMark('week-off')}
                         className={`${markTile} bg-gray-50 text-gray-300 border-gray-200 hover:bg-gray-100`}
                       >
                         <span className={markTileCode}>WO</span>
@@ -603,22 +602,22 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       <button
                         type="button"
                         disabled={manualSaving}
-                        onClick={() => void applyMark('absent')}
-                        className={`${markTile} bg-red-50 text-red-300 border-red-200 hover:bg-red-100`}
+                        onClick={() => void applyMark('unpaid')}
+                        className={`${markTile} bg-orange-50 text-orange-400 border-orange-200 hover:bg-orange-100`}
                       >
-                        <span className={markTileCode}>A</span>
-                        <span className={markTileLabel}>Absent</span>
+                        <span className={markTileCode}>UL</span>
+                        <span className={markTileLabel}>Unpaid</span>
                       </button>
                     )}
                     {selectedCell.day.isWeeklyOff && (
                       <button
                         type="button"
                         disabled={manualSaving}
-                        onClick={() => void applyMark('force-absent')}
-                        className={`${markTile} bg-red-50 text-red-300 border-red-200 hover:bg-red-100 col-span-2`}
+                        onClick={() => void applyMark('unpaid')}
+                        className={`${markTile} bg-orange-50 text-orange-400 border-orange-200 hover:bg-orange-100 col-span-2`}
                       >
-                        <span className={markTileCode}>A</span>
-                        <span className={markTileLabel}>Absent</span>
+                        <span className={markTileCode}>UL</span>
+                        <span className={markTileLabel}>Unpaid / loss of pay</span>
                       </button>
                     )}
                   </div>
@@ -658,10 +657,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Leave
                   </p>
+                  <p className="text-[10px] text-gray-500 mb-2 leading-relaxed">
+                    1 Casual + 1 Sick day per salary month. Any extra absence = Unpaid (UL).
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => {
-                      const code =
-                        t.value === 'Casual' ? 'CL' : t.value === 'Sick' ? 'SL' : 'UL';
+                    {LEAVE_TYPES.filter((t) => t.value === 'Casual' || t.value === 'Sick').map((t) => {
+                      const code = t.value === 'Casual' ? 'CL' : 'SL';
                       return (
                         <button
                           key={t.value}
