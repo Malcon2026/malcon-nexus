@@ -5,9 +5,8 @@ import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
-import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
 
-type AttendanceTab = 'register' | 'today' | 'approvals' | 'notice';
+type AttendanceTab = 'today' | 'register' | 'approvals';
 
 export const Attendance: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
@@ -19,7 +18,7 @@ export const Attendance: React.FC = () => {
   );
   const pendingTotal = pendingLeaveCount + pendingOffsiteCount;
 
-  const [pageTab, setPageTab] = useState<AttendanceTab>('register');
+  const [pageTab, setPageTab] = useState<AttendanceTab>('today');
 
   if (viewMode !== 'admin') {
     return (
@@ -37,13 +36,12 @@ export const Attendance: React.FC = () => {
     <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
       <div className="flex flex-wrap gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
         {([
-          { id: 'register' as const, label: 'Register' },
           { id: 'today' as const, label: 'Today' },
+          { id: 'register' as const, label: 'Register' },
           {
             id: 'approvals' as const,
             label: pendingTotal > 0 ? `Approvals (${pendingTotal})` : 'Approvals',
           },
-          { id: 'notice' as const, label: 'Notice Board' },
         ]).map(({ id, label }) => (
           <button
             key={id}
@@ -58,14 +56,9 @@ export const Attendance: React.FC = () => {
         ))}
       </div>
 
-      {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'today' && <EmployeeAttendancePanel />}
+      {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
-      {pageTab === 'notice' && (
-        <div className="max-w-xl">
-          <NoticeBoardEditor />
-        </div>
-      )}
     </div>
   );
 };

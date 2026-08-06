@@ -7,7 +7,9 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Modal } from './ui/Modal';
 import { useStore } from '../store/useStore';
-import type { Department } from '../types';
+import { departmentColors } from '../utils/helpers';
+import { DEPARTMENTS_WITH_ALL, departmentSelectClass } from '../constants/departments';
+import type { Department, LeaveType } from '../types';
 import {
   buildAttendanceRegister,
   REGISTER_CELL_STYLES,
@@ -19,12 +21,6 @@ import {
 } from '../lib/attendanceRegister';
 import { getISTDateKey, summarizeDayAttendance } from '../lib/attendance';
 import { LEAVE_TYPES } from '../lib/leave';
-import type { LeaveType } from '../types';
-import { departmentColors } from '../utils/helpers';
-
-const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
-];
 
 /** ISO punchedAt -> "HH:mm" 24h string in IST, for prefilling <input type="time">. */
 function toHHMM(iso: string): string {
@@ -305,19 +301,22 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       </div>
 
       {!employeeId && (
-        <div className="flex flex-wrap gap-1.5">
-          {DEPARTMENTS.map((dept) => (
-            <button
-              key={dept}
-              type="button"
-              onClick={() => setFilterDept(dept)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                filterDept === dept ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {dept}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="register-dept-filter" className="text-xs font-medium text-gray-500">
+            Department
+          </label>
+          <select
+            id="register-dept-filter"
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value as Department | 'All')}
+            className={`${departmentSelectClass} min-w-[11rem]`}
+          >
+            {DEPARTMENTS_WITH_ALL.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept === 'All' ? 'All departments' : dept}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -333,14 +332,19 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         )}
       </p>
 
-      <div className="flex flex-wrap gap-2 text-[10px]">
-        {Object.entries(REGISTER_CELL_STYLES).map(([code, style]) => (
-          <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${style.bg} ${style.text}`}>
-            <span className="font-bold">{code === 'PI' ? 'P●' : code}</span>
-            {style.title}
-          </span>
-        ))}
-      </div>
+      <details className="text-[10px] text-gray-600">
+        <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-800 select-none">
+          Cell legend (P, A, WO, CL…)
+        </summary>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {Object.entries(REGISTER_CELL_STYLES).map(([code, style]) => (
+            <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${style.bg} ${style.text}`}>
+              <span className="font-bold">{code === 'PI' ? 'P●' : code}</span>
+              {style.title}
+            </span>
+          ))}
+        </div>
+      </details>
 
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
         <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
@@ -486,10 +490,16 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         </div>
       </Card>
 
-      <p className="text-[10px] text-gray-400 flex items-center gap-1">
-        <Info className="h-3 w-3" />
-        Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + WO (max 30). CL / SL / UL / CO = leave types. Today: {getISTDateKey()}.
-      </p>
+      <details className="text-[10px] text-gray-500">
+        <summary className="cursor-pointer flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 select-none">
+          <Info className="h-3 w-3" />
+          How pay days work
+        </summary>
+        <p className="mt-2 leading-relaxed">
+          Salary month = month paid (e.g. June = 28 May – 27 Jun). Pay days = P + WO (max 30).
+          CL / SL / UL / CO = leave types. Today: {getISTDateKey()}.
+        </p>
+      </details>
 
       {selectedCell && (
         <Modal
@@ -646,7 +656,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
 
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Absent / Leave
+                    Leave
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     {LEAVE_TYPES.filter((t) => t.value !== 'Comp Off').map((t) => {

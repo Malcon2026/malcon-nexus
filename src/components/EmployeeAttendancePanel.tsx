@@ -2,40 +2,26 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users, AlertTriangle, Download, Loader2,
 } from 'lucide-react';
-import { Card, CardBody } from './ui/Card';
+import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Avatar } from './ui/Avatar';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
-import { departmentColors } from '../utils/helpers';
 import type { Department } from '../types';
 import {
   buildEmployeeAttendanceReport,
-  formatDuration,
   formatTimeIST,
   getISTDateKey,
   type AttendanceDayStatus,
 } from '../lib/attendance';
-
-const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
-];
+import { DEPARTMENTS_WITH_ALL, departmentSelectClass } from '../constants/departments';
 
 type StatusFilter = 'all' | AttendanceDayStatus | 'unclosed';
 
-const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'in', label: 'Punched In' },
-  { id: 'out', label: 'Punched Out' },
-  { id: 'absent', label: 'Absent' },
-  { id: 'unclosed', label: 'Unclosed Shift' },
-];
-
 const statusConfig = {
-  in: { label: 'Punched In', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', shareTitle: 'Punched In Today' },
-  out: { label: 'Completed', className: 'bg-blue-50 text-blue-700 border-blue-200', shareTitle: 'Punched Out Today' },
-  absent: { label: 'Absent', className: 'bg-gray-100 text-gray-600 border-gray-200', shareTitle: 'Absent Today' },
-  unclosed: { label: 'Unclosed Shift', className: 'bg-amber-50 text-amber-800 border-amber-200', shareTitle: 'Unclosed Shift (forgot Punch Out)' },
+  in: { shareTitle: 'Punched In Today' },
+  out: { shareTitle: 'Punched Out Today' },
+  absent: { shareTitle: 'Absent Today' },
+  unclosed: { shareTitle: 'Unclosed Shift (forgot Punch Out)' },
 } as const;
 
 function formatShareDate(dateKey: string): string {
@@ -95,7 +81,6 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('in');
   const [dateKey, setDateKey] = useState(getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
-  const [simpleView, setSimpleView] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const shareListRef = useRef<HTMLDivElement>(null);
 
@@ -136,7 +121,6 @@ export const EmployeeAttendancePanel: React.FC = () => {
   };
 
   const isToday = dateKey === getISTDateKey();
-
   const shareTitle = shareTitleForFilter(filterStatus);
 
   const sortedForShare = useMemo(
@@ -165,8 +149,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 min-w-0 w-full max-w-full">
-      {/* Summary — tap a card to filter the table */}
+    <div className="space-y-4 min-w-0 w-full max-w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { id: 'all' as const, label: 'Total Staff', value: stats.total, icon: <Users className="h-4 w-4 text-gray-600" />, bg: 'bg-gray-50', activeRing: 'ring-gray-400' },
@@ -189,101 +172,64 @@ export const EmployeeAttendancePanel: React.FC = () => {
                 <div className={`h-8 w-8 rounded-lg ${bg} flex items-center justify-center mb-2`}>{icon}</div>
                 <p className="text-2xl font-bold text-gray-900">{value}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-                {active && id !== 'all' && (
-                  <p className="text-[10px] text-indigo-600 font-medium mt-1">Filter active</p>
-                )}
               </Card>
             </button>
           );
         })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
+          <Calendar className="h-4 w-4 text-gray-400" />
           <input
             type="date"
             value={dateKey}
             max={getISTDateKey()}
             onChange={(e) => setDateKey(e.target.value || getISTDateKey())}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+            className={departmentSelectClass}
+            aria-label="Attendance date"
           />
           {isToday && (
             <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">Today</Badge>
           )}
         </div>
 
-        <div className="relative flex-1 min-w-[12rem]">
+        <div className="relative flex-1 min-w-[10rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name or department..."
+            placeholder="Search name or dept…"
             className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
-          onClick={() => void handleRefresh()}
-          disabled={refreshing}
+        <select
+          value={filterDept}
+          onChange={(e) => setFilterDept(e.target.value as Department | 'All')}
+          className={`${departmentSelectClass} min-w-[10rem]`}
+          aria-label="Filter by department"
         >
-          Refresh
-        </Button>
-      </div>
+          {DEPARTMENTS_WITH_ALL.map((dept) => (
+            <option key={dept} value={dept}>
+              {dept === 'All' ? 'All departments' : dept}
+            </option>
+          ))}
+        </select>
 
-      <div className="flex gap-1.5 flex-wrap items-center">
-        <span className="text-xs font-semibold text-gray-500 mr-1">Status:</span>
-        {STATUS_FILTERS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setFilterStatus(id)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              filterStatus === id
-                ? id === 'in'
-                  ? 'bg-emerald-600 text-white'
-                  : id === 'out'
-                    ? 'bg-blue-600 text-white'
-                    : id === 'absent'
-                      ? 'bg-gray-700 text-white'
-                      : id === 'unclosed'
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-1.5 flex-wrap items-center">
-        <span className="text-xs font-semibold text-gray-500 mr-1">Dept:</span>
-        {DEPARTMENTS.map((dept) => (
-          <button
-            key={dept}
-            type="button"
-            onClick={() => setFilterDept(dept)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              filterDept === dept ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {dept}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-gray-500">
-          Pick a status, then <strong>Download image</strong> or screenshot the white list for your group.
-        </p>
         <div className="flex items-center gap-2 shrink-0">
-          {simpleView && filterStatus !== 'all' && (
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+            aria-label="Refresh"
+          >
+            Refresh
+          </Button>
+          {filterStatus !== 'all' && (
             <Button
               variant="outline"
               size="sm"
@@ -291,20 +237,13 @@ export const EmployeeAttendancePanel: React.FC = () => {
               icon={downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               onClick={() => void handleDownloadImage()}
             >
-              Download image
+              Download
             </Button>
           )}
-          <button
-            type="button"
-            onClick={() => setSimpleView((v) => !v)}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            {simpleView ? 'Show full table' : 'Show simple list'}
-          </button>
         </div>
       </div>
 
-      {simpleView && filterStatus !== 'all' && (
+      {filterStatus !== 'all' ? (
         <div
           ref={shareListRef}
           className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-4 sm:p-5 shadow-sm max-w-3xl"
@@ -354,89 +293,10 @@ export const EmployeeAttendancePanel: React.FC = () => {
             Updated {formatTimeIST(new Date())} · malcon-nexus-gamma.vercel.app
           </p>
         </div>
-      )}
-
-      {simpleView && filterStatus === 'all' && (
+      ) : (
         <p className="text-sm text-gray-500 text-center py-8 rounded-xl bg-gray-50 border border-gray-200">
-          Select <strong>Punched In</strong>, <strong>Punched Out</strong>, <strong>Absent</strong>, or{' '}
-          <strong>Unclosed Shift</strong> above to see the simple list for your group.
+          Tap a card above to see punched in, out, absent, or unclosed lists.
         </p>
-      )}
-
-      {!simpleView && (
-      <Card className="min-w-0 w-full max-w-full overflow-hidden">
-        <CardBody className="p-0 overflow-x-auto overscroll-x-contain max-w-full">
-          <table className="w-max min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/80">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Employee</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Department</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Punch In</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Punch Out</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Hours</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((row) => {
-                const sc = statusConfig[row.status];
-                const dept = row.department as Department;
-                return (
-                  <tr key={row.employeeId} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar name={row.employeeName} size="sm" />
-                        <span className="font-medium text-gray-900 truncate">{row.employeeName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className={`${departmentColors[dept] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
-                        {row.department}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-gray-700">
-                      {row.punchIn ? formatTimeIST(row.punchIn.punchedAt) : '—'}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-gray-700">
-                      {row.punchOut ? formatTimeIST(row.punchOut.punchedAt) : '—'}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums font-medium text-gray-900">
-                      {row.punchIn ? formatDuration(row.workedMs) : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <Badge className={`${sc.className} text-[10px] w-fit`}>{sc.label}</Badge>
-                        {isToday && row.unclosedPriorShift && row.unclosedShiftFromDateKey && (
-                          <span className="text-[10px] text-amber-700 font-medium">
-                            Unclosed shift from{' '}
-                            {new Date(`${row.unclosedShiftFromDateKey}T12:00:00`).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              timeZone: 'Asia/Kolkata',
-                            })}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-400">
-              <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium">No employees match this filter</p>
-              <p className="text-xs mt-1">
-                {filterStatus !== 'all'
-                  ? `No one with status "${STATUS_FILTERS.find((f) => f.id === filterStatus)?.label}" for this date.`
-                  : 'Try another date or adjust filters.'}
-              </p>
-            </div>
-          )}
-        </CardBody>
-      </Card>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  CheckCircle2, XCircle, Clock, MapPin, RefreshCw, AlertCircle,
+  CheckCircle2, XCircle, Clock, MapPin, RefreshCw,
 } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -97,12 +97,15 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Off-site Punch Approvals</h2>
           <p className="text-sm text-gray-500 mt-0.5">
             Review employee requests when they punch in or out away from the office.
+            {pendingCount > 0 && (
+              <span className="ml-1 font-medium text-amber-700">{pendingCount} pending</span>
+            )}
           </p>
         </div>
         <Button
@@ -114,34 +117,6 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
         >
           Refresh
         </Button>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <Card className="p-4">
-          <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center mb-2">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Pending Requests</p>
-        </Card>
-        <Card className="p-4">
-          <div className="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center mb-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {sorted.filter((r) => r.status === 'approved').length}
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">Approved</p>
-        </Card>
-        <Card className="p-4 col-span-2 sm:col-span-1">
-          <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center mb-2">
-            <XCircle className="h-4 w-4 text-red-600" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {sorted.filter((r) => r.status === 'rejected').length}
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">Rejected</p>
-        </Card>
       </div>
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">

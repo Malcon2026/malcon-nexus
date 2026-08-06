@@ -5,6 +5,15 @@ import { useStore } from '../store/useStore';
 
 type ApprovalFilter = 'all' | 'leave' | 'offsite';
 
+function initialApprovalFilter(
+  pendingLeave: number,
+  pendingOffsite: number,
+): ApprovalFilter {
+  if (pendingLeave > 0 && pendingOffsite === 0) return 'leave';
+  if (pendingOffsite > 0 && pendingLeave === 0) return 'offsite';
+  return 'all';
+}
+
 export const AttendanceApprovalsPanel: React.FC = () => {
   const pendingLeaveCount = useStore((s) =>
     s.leaveRequests.filter((r) => r.status === 'pending').length,
@@ -12,7 +21,9 @@ export const AttendanceApprovalsPanel: React.FC = () => {
   const pendingOffsiteCount = useStore((s) =>
     s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
   );
-  const [filter, setFilter] = useState<ApprovalFilter>('all');
+  const [filter, setFilter] = useState<ApprovalFilter>(() =>
+    initialApprovalFilter(pendingLeaveCount, pendingOffsiteCount),
+  );
 
   const tabs: { id: ApprovalFilter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: pendingLeaveCount + pendingOffsiteCount },
