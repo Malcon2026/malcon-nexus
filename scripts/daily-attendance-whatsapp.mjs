@@ -21,6 +21,7 @@
  */
 
 import {
+  existsSync,
   mkdirSync,
   writeFileSync,
 } from 'node:fs';
@@ -220,14 +221,32 @@ function buildShareHtml(dateKey, filter, rows) {
 </html>`;
 }
 
+function resolvePuppeteerExecutablePath() {
+  const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+
+  if (process.platform === 'win32') {
+    const candidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    ];
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
 async function htmlToPng(html, outPath) {
   const puppeteer = await import('puppeteer');
   const launchOpts = {
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   };
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    launchOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const executablePath = resolvePuppeteerExecutablePath();
+  if (executablePath) {
+    launchOpts.executablePath = executablePath;
   }
   const browser = await puppeteer.default.launch(launchOpts);
   try {
@@ -342,8 +361,9 @@ function buildWhatsAppClient(LocalAuth, Client) {
       '--disable-gpu',
     ],
   };
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const executablePath = resolvePuppeteerExecutablePath();
+  if (executablePath) {
+    puppeteerOpts.executablePath = executablePath;
   }
 
   return new Client({
