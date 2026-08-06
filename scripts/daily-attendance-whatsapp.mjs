@@ -352,8 +352,10 @@ async function resolveGroupChatId(client) {
 function buildWhatsAppClient(LocalAuth, Client) {
   mkdirSync(sessionPath, { recursive: true });
 
+  const headless = process.env.ATTENDANCE_WHATSAPP_HEADLESS !== '0';
+
   const puppeteerOpts = {
-    headless: true,
+    headless,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -383,16 +385,49 @@ async function connectWhatsAppClient() {
   const { Client, LocalAuth, MessageMedia } = wweb.default ?? wweb;
 
   const client = buildWhatsAppClient(LocalAuth, Client);
+  const readyTimeoutMs = 180_000;
 
   client.on('qr', (qr) => {
     console.log('\nScan this QR with WhatsApp → Linked devices → Link a device:\n');
     qrcode.generate(qr, { small: true });
+    console.log('[attendance-whatsapp] waiting for scan… (do not close this window)\n');
+  });
+
+  client.on('authenticated', () => {
+    console.log('[attendance-whatsapp] phone linked — loading WhatsApp Web (can take 1–2 min)…');
+  });
+
+  client.on('loading_screen', (percent, message) => {
+    console.log(`[attendance-whatsapp] loading ${percent}%${message ? ` — ${message}` : ''}`);
+  });
+
+  client.on('change_state', (state) => {
+    console.log(`[attendance-whatsapp] state: ${state}`);
   });
 
   await new Promise((resolvePromise, reject) => {
-    client.on('ready', resolvePromise);
-    client.on('auth_failure', (msg) => reject(new Error(`WhatsApp auth failed: ${msg}`)));
-    client.initialize().catch(reject);
+    const timeout = setTimeout(() => {
+      reject(new Error(
+        'WhatsApp did not finish loading within 3 minutes after scan. '
+        + 'Phone shows linked but PC is stuck — press Ctrl+C, run reset script, and try again. '
+        + 'Or set ATTENDANCE_WHATSAPP_HEADLESS=0 in .env to see the browser window.',
+      ));
+    }, readyTimeoutMs);
+
+    const done = () => {
+      clearTimeout(timeout);
+      resolvePromise();
+    };
+
+    client.on('ready', done);
+    client.on('auth_failure', (msg) => {
+      clearTimeout(timeout);
+      reject(new Error(`WhatsApp auth failed: ${msg}`));
+    });
+    client.initialize().catch((err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
   });
 
   console.log('[attendance-whatsapp] WhatsApp ready — waiting 10s for chat store to sync…');
