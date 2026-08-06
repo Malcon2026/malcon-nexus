@@ -300,7 +300,7 @@ async function resolveGroupChatId(client) {
   return group.id._serialized;
 }
 
-function buildWhatsAppClient(LocalAuth) {
+function buildWhatsAppClient(LocalAuth, Client) {
   mkdirSync(sessionPath, { recursive: true });
 
   const puppeteerOpts = {
@@ -332,7 +332,7 @@ async function sendWhatsAppImage(pngPath, caption) {
   const wweb = await import('whatsapp-web.js');
   const { Client, LocalAuth, MessageMedia } = wweb.default ?? wweb;
 
-  const client = buildWhatsAppClient(LocalAuth);
+  const client = buildWhatsAppClient(LocalAuth, Client);
 
   client.on('qr', (qr) => {
     console.log('\nScan this QR with WhatsApp → Linked devices → Link a device:\n');
