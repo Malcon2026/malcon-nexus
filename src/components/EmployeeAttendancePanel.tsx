@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
-  Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users,
+  Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users, AlertTriangle, Download, Loader2,
 } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -21,19 +21,21 @@ const DEPARTMENTS: (Department | 'All')[] = [
   'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
 ];
 
-type StatusFilter = 'all' | AttendanceDayStatus;
+type StatusFilter = 'all' | AttendanceDayStatus | 'unclosed';
 
 const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'in', label: 'Punched In' },
   { id: 'out', label: 'Punched Out' },
   { id: 'absent', label: 'Absent' },
+  { id: 'unclosed', label: 'Unclosed Shift' },
 ];
 
 const statusConfig = {
   in: { label: 'Punched In', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', shareTitle: 'Punched In Today' },
   out: { label: 'Completed', className: 'bg-blue-50 text-blue-700 border-blue-200', shareTitle: 'Punched Out Today' },
   absent: { label: 'Absent', className: 'bg-gray-100 text-gray-600 border-gray-200', shareTitle: 'Absent Today' },
+  unclosed: { label: 'Unclosed Shift', className: 'bg-amber-50 text-amber-800 border-amber-200', shareTitle: 'Unclosed Shift (forgot Punch Out)' },
 } as const;
 
 function formatShareDate(dateKey: string): string {
@@ -47,15 +49,41 @@ function formatShareDate(dateKey: string): string {
   });
 }
 
-function shareLine(
-  row: ReturnType<typeof buildEmployeeAttendanceReport>[number],
-  status: AttendanceDayStatus,
-): string {
-  const inT = row.punchIn ? formatTimeIST(row.punchIn.punchedAt) : '';
-  const outT = row.punchOut ? formatTimeIST(row.punchOut.punchedAt) : '';
-  if (status === 'in') return inT ? `In ${inT}` : '';
-  if (status === 'out') return `In ${inT || '—'} · Out ${outT || '—'}`;
-  return '';
+function formatShortShiftDate(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
+}
+
+type ShareRow = ReturnType<typeof buildEmployeeAttendanceReport>[number];
+
+function shareDetailLines(row: ShareRow, filterStatus: StatusFilter): string[] {
+  const lines: string[] = [];
+  if (filterStatus === 'in' || (filterStatus === 'unclosed' && row.status === 'in')) {
+    if (row.punchIn) lines.push(`In ${formatTimeIST(row.punchIn.punchedAt)}`);
+  } else if (filterStatus === 'out') {
+    const inT = row.punchIn ? formatTimeIST(row.punchIn.punchedAt) : '—';
+    const outT = row.punchOut ? formatTimeIST(row.punchOut.punchedAt) : '—';
+    lines.push(`In ${inT} · Out ${outT}`);
+  } else if (filterStatus === 'absent' && row.status === 'absent') {
+    lines.push('Absent');
+  }
+  if (row.unclosedPriorShift && row.unclosedShiftFromDateKey) {
+    lines.push(`Unclosed shift from ${formatShortShiftDate(row.unclosedShiftFromDateKey)}`);
+    if (filterStatus === 'unclosed' && row.punchIn) {
+      lines.push(`Still IN since ${formatTimeIST(row.punchIn.punchedAt)}`);
+    }
+  }
+  return lines;
+}
+
+function shareTitleForFilter(filterStatus: StatusFilter): string {
+  if (filterStatus === 'all') return 'All Staff';
+  if (filterStatus === 'unclosed') return statusConfig.unclosed.shareTitle;
+  return statusConfig[filterStatus].shareTitle;
 }
 
 export const EmployeeAttendancePanel: React.FC = () => {
@@ -68,6 +96,8 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const [dateKey, setDateKey] = useState(getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
   const [simpleView, setSimpleView] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const shareListRef = useRef<HTMLDivElement>(null);
 
   const report = useMemo(
     () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey),
@@ -76,7 +106,11 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
   const filtered = report.filter((row) => {
     if (filterDept !== 'All' && row.department !== filterDept) return false;
-    if (filterStatus !== 'all' && row.status !== filterStatus) return false;
+    if (filterStatus === 'unclosed') {
+      if (!row.unclosedPriorShift) return false;
+    } else if (filterStatus !== 'all' && row.status !== filterStatus) {
+      return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return row.employeeName.toLowerCase().includes(q) || row.department.toLowerCase().includes(q);
@@ -87,6 +121,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
     in: report.filter((r) => r.status === 'in').length,
     out: report.filter((r) => r.status === 'out').length,
     absent: report.filter((r) => r.status === 'absent').length,
+    unclosed: report.filter((r) => r.unclosedPriorShift).length,
   }), [report]);
 
   const handleRefresh = async () => {
@@ -102,25 +137,41 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
   const isToday = dateKey === getISTDateKey();
 
-  const shareTitle =
-    filterStatus === 'all'
-      ? 'All Staff'
-      : statusConfig[filterStatus].shareTitle;
+  const shareTitle = shareTitleForFilter(filterStatus);
 
   const sortedForShare = useMemo(
     () => [...filtered].sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
     [filtered],
   );
 
+  const handleDownloadImage = async () => {
+    const node = shareListRef.current;
+    if (!node) return;
+    setDownloading(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement('a');
+      link.download = `malcon-attendance-${dateKey}-${filterStatus}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('[attendance] image download failed:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">
       {/* Summary — tap a card to filter the table */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { id: 'all' as const, label: 'Total Staff', value: stats.total, icon: <Users className="h-4 w-4 text-gray-600" />, bg: 'bg-gray-50', activeRing: 'ring-gray-400' },
           { id: 'in' as const, label: 'Punched In', value: stats.in, icon: <LogIn className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50', activeRing: 'ring-emerald-500' },
           { id: 'out' as const, label: 'Punched Out', value: stats.out, icon: <LogOut className="h-4 w-4 text-blue-600" />, bg: 'bg-blue-50', activeRing: 'ring-blue-500' },
           { id: 'absent' as const, label: 'Absent', value: stats.absent, icon: <UserX className="h-4 w-4 text-gray-500" />, bg: 'bg-gray-50', activeRing: 'ring-gray-500' },
+          { id: 'unclosed' as const, label: 'Unclosed Shift', value: stats.unclosed, icon: <AlertTriangle className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50', activeRing: 'ring-amber-500' },
         ].map(({ id, label, value, icon, bg, activeRing }) => {
           const active = filterStatus === id;
           return (
@@ -198,7 +249,9 @@ export const EmployeeAttendancePanel: React.FC = () => {
                     ? 'bg-blue-600 text-white'
                     : id === 'absent'
                       ? 'bg-gray-700 text-white'
-                      : 'bg-gray-900 text-white'
+                      : id === 'unclosed'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -225,19 +278,33 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs text-gray-500">
-          Tap <strong>Punched In</strong> or <strong>Punched Out</strong>, then screenshot the simple list below for your group.
+          Pick a status, then <strong>Download image</strong> or screenshot the white list for your group.
         </p>
-        <button
-          type="button"
-          onClick={() => setSimpleView((v) => !v)}
-          className="text-xs font-medium text-indigo-600 hover:text-indigo-500 shrink-0"
-        >
-          {simpleView ? 'Show full table' : 'Show simple list'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {simpleView && filterStatus !== 'all' && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={downloading || sortedForShare.length === 0}
+              icon={downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              onClick={() => void handleDownloadImage()}
+            >
+              Download image
+            </Button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSimpleView((v) => !v)}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            {simpleView ? 'Show full table' : 'Show simple list'}
+          </button>
+        </div>
       </div>
 
       {simpleView && filterStatus !== 'all' && (
         <div
+          ref={shareListRef}
           className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-5 sm:p-6 shadow-sm max-w-lg"
           id="attendance-share-list"
         >
@@ -255,7 +322,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
           ) : (
             <ol className="space-y-2.5">
               {sortedForShare.map((row, i) => {
-                const detail = shareLine(row, row.status);
+                const details = shareDetailLines(row, filterStatus);
                 return (
                   <li
                     key={row.employeeId}
@@ -264,9 +331,16 @@ export const EmployeeAttendancePanel: React.FC = () => {
                     <span className="font-bold text-gray-400 w-6 shrink-0 tabular-nums">{i + 1}.</span>
                     <span className="min-w-0">
                       <span className="font-semibold text-gray-900">{row.employeeName}</span>
-                      {detail && (
-                        <span className="block text-sm text-gray-600 mt-0.5 tabular-nums">{detail}</span>
-                      )}
+                      {details.map((line) => (
+                        <span
+                          key={line}
+                          className={`block text-sm mt-0.5 tabular-nums ${
+                            line.startsWith('Unclosed') ? 'text-amber-700 font-medium' : 'text-gray-600'
+                          }`}
+                        >
+                          {line}
+                        </span>
+                      ))}
                     </span>
                   </li>
                 );
@@ -282,7 +356,8 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
       {simpleView && filterStatus === 'all' && (
         <p className="text-sm text-gray-500 text-center py-8 rounded-xl bg-gray-50 border border-gray-200">
-          Select <strong>Punched In</strong>, <strong>Punched Out</strong>, or <strong>Absent</strong> above to see the simple list for your group.
+          Select <strong>Punched In</strong>, <strong>Punched Out</strong>, <strong>Absent</strong>, or{' '}
+          <strong>Unclosed Shift</strong> above to see the simple list for your group.
         </p>
       )}
 
