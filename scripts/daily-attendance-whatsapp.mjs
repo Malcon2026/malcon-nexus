@@ -7,6 +7,7 @@
  *        VITE_SUPABASE_URL=https://your-project.supabase.co
  *        SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
  *        ATTENDANCE_WHATSAPP_GROUP_NAME=Your Exact WhatsApp Group Name
+ *        ATTENDANCE_WHATSAPP_GROUP_ID=120363012345678901@g.us   (optional — skips getChats)
  *        ATTENDANCE_WHATSAPP_SESSION_PATH=D:\MalconNexus\WhatsAppSession
  *        ATTENDANCE_REPORTS_DIR=D:\MalconNexus\AttendanceReports
  *        ATTENDANCE_REPORT_FILTER=in
@@ -47,6 +48,8 @@ const pngOnly = process.argv.includes('--png-only') || process.env.ATTENDANCE_SK
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const groupName = process.env.ATTENDANCE_WHATSAPP_GROUP_NAME?.trim();
+const groupIdEnv = process.env.ATTENDANCE_WHATSAPP_GROUP_ID?.trim();
+const whatsappWebVersion = process.env.ATTENDANCE_WHATSAPP_WEB_VERSION?.trim() || '2.3000.1017054665';
 const sessionPath = process.env.ATTENDANCE_WHATSAPP_SESSION_PATH
   ?? join('D:', 'MalconNexus', 'WhatsAppSession');
 const reportsDir = process.env.ATTENDANCE_REPORTS_DIR
@@ -57,8 +60,8 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
 }
-if (!pngOnly && !groupName) {
-  console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME in .env (exact group title from WhatsApp)');
+if (!pngOnly && !groupName && !groupIdEnv) {
+  console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME or ATTENDANCE_WHATSAPP_GROUP_ID in .env');
   process.exit(1);
 }
 
@@ -217,10 +220,14 @@ function buildShareHtml(dateKey, filter, rows) {
 
 async function htmlToPng(html, outPath) {
   const puppeteer = await import('puppeteer');
-  const browser = await puppeteer.default.launch({
+  const launchOpts = {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const browser = await puppeteer.default.launch(launchOpts);
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 760, height: 800, deviceScaleFactor: 2 });
@@ -233,20 +240,99 @@ async function htmlToPng(html, outPath) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeGroupId(id) {
+  const trimmed = id.trim();
+  if (trimmed.includes('@')) return trimmed;
+  return `${trimmed}@g.us`;
+}
+
+async function waitForWWebJS(client, timeoutMs = 90_000) {
+  if (!client.pupPage) throw new Error('WhatsApp browser page not ready');
+  await client.pupPage.waitForFunction(
+    () => typeof window.WWebJS !== 'undefined'
+      && typeof window.WWebJS.getChats === 'function',
+    { timeout: timeoutMs },
+  );
+}
+
+async function getChatsWithRetry(client, attempts = 3, delayMs = 10_000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await waitForWWebJS(client);
+      return await client.getChats();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[attendance-whatsapp] getChats attempt ${attempt}/${attempts} failed: ${msg}`);
+      if (attempt < attempts) {
+        console.log(`[attendance-whatsapp] waiting ${delayMs / 1000}s before retry…`);
+        await sleep(delayMs);
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function resolveGroupChatId(client) {
+  if (groupIdEnv) {
+    const id = normalizeGroupId(groupIdEnv);
+    console.log(`[attendance-whatsapp] using ATTENDANCE_WHATSAPP_GROUP_ID (${id})`);
+    return id;
+  }
+
+  const chats = await getChatsWithRetry(client);
+  const group = chats.find(
+    (c) => c.isGroup && c.name.trim().toLowerCase() === groupName.trim().toLowerCase(),
+  );
+  if (!group) {
+    const groupNames = chats.filter((c) => c.isGroup).map((c) => c.name).slice(0, 20);
+    throw new Error(
+      `WhatsApp group not found: "${groupName}". Groups seen: ${groupNames.join(', ') || '(none)'}. `
+      + 'Tip: set ATTENDANCE_WHATSAPP_GROUP_ID in .env to skip getChats.',
+    );
+  }
+  console.log(`[attendance-whatsapp] matched group "${group.name}" → ${group.id._serialized}`);
+  return group.id._serialized;
+}
+
+function buildWhatsAppClient(LocalAuth) {
+  mkdirSync(sessionPath, { recursive: true });
+
+  const puppeteerOpts = {
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  };
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    puppeteerOpts.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  return new Client({
+    authStrategy: new LocalAuth({ dataPath: sessionPath }),
+    webVersion: whatsappWebVersion,
+    webVersionCache: {
+      type: 'remote',
+      remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${whatsappWebVersion}.html`,
+    },
+    puppeteer: puppeteerOpts,
+  });
+}
+
 async function sendWhatsAppImage(pngPath, caption) {
   const { default: qrcode } = await import('qrcode-terminal');
   const wweb = await import('whatsapp-web.js');
   const { Client, LocalAuth, MessageMedia } = wweb.default ?? wweb;
 
-  mkdirSync(sessionPath, { recursive: true });
-
-  const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: sessionPath }),
-    puppeteer: {
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    },
-  });
+  const client = buildWhatsAppClient(LocalAuth);
 
   client.on('qr', (qr) => {
     console.log('\nScan this QR with WhatsApp → Linked devices → Link a device:\n');
@@ -259,19 +345,12 @@ async function sendWhatsAppImage(pngPath, caption) {
     client.initialize().catch(reject);
   });
 
-  const chats = await client.getChats();
-  const group = chats.find(
-    (c) => c.isGroup && c.name.trim().toLowerCase() === groupName.trim().toLowerCase(),
-  );
-  if (!group) {
-    const groupNames = chats.filter((c) => c.isGroup).map((c) => c.name).slice(0, 20);
-    throw new Error(
-      `WhatsApp group not found: "${groupName}". Groups seen: ${groupNames.join(', ') || '(none)'}`,
-    );
-  }
+  console.log('[attendance-whatsapp] WhatsApp ready — waiting 10s for chat store to sync…');
+  await sleep(10_000);
 
+  const targetGroupId = await resolveGroupChatId(client);
   const media = MessageMedia.fromFilePath(pngPath);
-  await client.sendMessage(group.id._serialized, media, { caption });
+  await client.sendMessage(targetGroupId, media, { caption });
   await client.destroy();
 }
 
@@ -303,7 +382,8 @@ async function main() {
   if (pngOnly) {
     console.log('[attendance-whatsapp] --png-only: skipped WhatsApp send');
   } else {
-    console.log(`[attendance-whatsapp] sending to group "${groupName}"…`);
+    const targetLabel = groupIdEnv ? groupIdEnv : groupName;
+    console.log(`[attendance-whatsapp] sending to group "${targetLabel}"…`);
     await sendWhatsAppImage(pngPath, caption);
     console.log('[attendance-whatsapp] sent to WhatsApp group');
   }
