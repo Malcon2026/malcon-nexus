@@ -44,5 +44,5 @@ Write-Host "Registered scheduled task: $taskName"
 Write-Host 'Sends: Punched In Today + Absent Today'
 Write-Host 'Log file: D:\MalconNexus\AttendanceReports\_whatsapp-noon-task.log'
 Write-Host ''
-Write-Host 'Test now (manual):'
-Write-Host '  node scripts\daily-attendance-whatsapp.mjs --filters=in,absent'
+Write-Host 'Test now (manual — use quotes in PowerShell):'
+Write-Host '  node scripts\daily-attendance-whatsapp.mjs "--filters=in,absent"'
