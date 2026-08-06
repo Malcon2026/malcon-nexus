@@ -16,11 +16,11 @@
  *   4. powershell -ExecutionPolicy Bypass -File scripts/setup-attendance-whatsapp-task.ps1
  *
  * Manual PNG only (no WhatsApp):  node scripts/daily-attendance-whatsapp.mjs --png-only
+ * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
  */
 
 import {
   mkdirSync,
-  existsSync,
   writeFileSync,
 } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
@@ -44,6 +44,7 @@ const root = resolve(__dirname, '..');
 loadEnv();
 
 const pngOnly = process.argv.includes('--png-only') || process.env.ATTENDANCE_SKIP_WHATSAPP === '1';
+const listGroups = process.argv.includes('--list-groups');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -60,7 +61,7 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
 }
-if (!pngOnly && !groupName && !groupIdEnv) {
+if (!pngOnly && !listGroups && !groupName && !groupIdEnv) {
   console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME or ATTENDANCE_WHATSAPP_GROUP_ID in .env');
   process.exit(1);
 }
@@ -250,25 +251,42 @@ function normalizeGroupId(id) {
   return `${trimmed}@g.us`;
 }
 
-async function waitForWWebJS(client, timeoutMs = 90_000) {
+async function waitForWhatsAppStore(client, timeoutMs = 90_000) {
   if (!client.pupPage) throw new Error('WhatsApp browser page not ready');
   await client.pupPage.waitForFunction(
-    () => typeof window.WWebJS !== 'undefined'
-      && typeof window.WWebJS.getChats === 'function',
+    () => {
+      try {
+        const collections = window.require('WAWebCollections');
+        return typeof collections?.Chat?.getModelsArray === 'function';
+      } catch {
+        return false;
+      }
+    },
     { timeout: timeoutMs },
   );
 }
 
-async function getChatsWithRetry(client, attempts = 3, delayMs = 10_000) {
+/** Bypass broken client.getChats() — read group ids directly from WhatsApp Web store. */
+async function listGroupsFromStore(client, attempts = 3, delayMs = 10_000) {
   let lastErr;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      await waitForWWebJS(client);
-      return await client.getChats();
+      await waitForWhatsAppStore(client);
+      const groups = await client.pupPage.evaluate(() => {
+        const chats = window.require('WAWebCollections').Chat.getModelsArray();
+        return chats
+          .filter((c) => c.groupMetadata)
+          .map((c) => ({
+            name: (c.formattedTitle || c.name || '').trim(),
+            id: c.id?._serialized ?? c.id?.$1 ?? null,
+          }))
+          .filter((g) => g.id && g.name);
+      });
+      return groups;
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[attendance-whatsapp] getChats attempt ${attempt}/${attempts} failed: ${msg}`);
+      console.warn(`[attendance-whatsapp] list groups attempt ${attempt}/${attempts} failed: ${msg}`);
       if (attempt < attempts) {
         console.log(`[attendance-whatsapp] waiting ${delayMs / 1000}s before retry…`);
         await sleep(delayMs);
@@ -285,19 +303,19 @@ async function resolveGroupChatId(client) {
     return id;
   }
 
-  const chats = await getChatsWithRetry(client);
-  const group = chats.find(
-    (c) => c.isGroup && c.name.trim().toLowerCase() === groupName.trim().toLowerCase(),
-  );
+  const groups = await listGroupsFromStore(client);
+  const target = groupName.trim().toLowerCase();
+  const group = groups.find((g) => g.name.trim().toLowerCase() === target);
   if (!group) {
-    const groupNames = chats.filter((c) => c.isGroup).map((c) => c.name).slice(0, 20);
+    const names = groups.map((g) => g.name).slice(0, 25);
     throw new Error(
-      `WhatsApp group not found: "${groupName}". Groups seen: ${groupNames.join(', ') || '(none)'}. `
-      + 'Tip: set ATTENDANCE_WHATSAPP_GROUP_ID in .env to skip getChats.',
+      `WhatsApp group not found: "${groupName}". Groups seen: ${names.join(', ') || '(none)'}. `
+      + 'Run: node scripts\\daily-attendance-whatsapp.mjs --list-groups '
+      + 'then set ATTENDANCE_WHATSAPP_GROUP_ID in .env',
     );
   }
-  console.log(`[attendance-whatsapp] matched group "${group.name}" → ${group.id._serialized}`);
-  return group.id._serialized;
+  console.log(`[attendance-whatsapp] matched group "${group.name}" → ${group.id}`);
+  return group.id;
 }
 
 function buildWhatsAppClient(LocalAuth, Client) {
@@ -327,7 +345,7 @@ function buildWhatsAppClient(LocalAuth, Client) {
   });
 }
 
-async function sendWhatsAppImage(pngPath, caption) {
+async function connectWhatsAppClient() {
   const { default: qrcode } = await import('qrcode-terminal');
   const wweb = await import('whatsapp-web.js');
   const { Client, LocalAuth, MessageMedia } = wweb.default ?? wweb;
@@ -348,13 +366,43 @@ async function sendWhatsAppImage(pngPath, caption) {
   console.log('[attendance-whatsapp] WhatsApp ready — waiting 10s for chat store to sync…');
   await sleep(10_000);
 
-  const targetGroupId = await resolveGroupChatId(client);
-  const media = MessageMedia.fromFilePath(pngPath);
-  await client.sendMessage(targetGroupId, media, { caption });
-  await client.destroy();
+  return { client, MessageMedia };
+}
+
+async function sendWhatsAppImage(pngPath, caption) {
+  const { client, MessageMedia } = await connectWhatsAppClient();
+  try {
+    const targetGroupId = await resolveGroupChatId(client);
+    const media = MessageMedia.fromFilePath(pngPath);
+    await client.sendMessage(targetGroupId, media, { caption });
+  } finally {
+    await client.destroy();
+  }
+}
+
+async function listGroupsCommand() {
+  const { client } = await connectWhatsAppClient();
+  try {
+    const groups = await listGroupsFromStore(client);
+    console.log('\n=== WhatsApp groups (copy id into ATTENDANCE_WHATSAPP_GROUP_ID) ===\n');
+    if (groups.length === 0) {
+      console.log('No groups found.');
+      return;
+    }
+    for (const g of groups.sort((a, b) => a.name.localeCompare(b.name))) {
+      console.log(`${g.name}\n  → ${g.id}\n`);
+    }
+  } finally {
+    await client.destroy();
+  }
 }
 
 async function main() {
+  if (listGroups) {
+    await listGroupsCommand();
+    return;
+  }
+
   const started = Date.now();
   const dateKey = getISTDateKey();
   console.log(`[attendance-whatsapp] date=${dateKey} filter=${filterStatus}`);
