@@ -273,12 +273,23 @@ async function listGroupsFromStore(client, attempts = 3, delayMs = 10_000) {
     try {
       await waitForWhatsAppStore(client);
       const groups = await client.pupPage.evaluate(() => {
+        function serializeChatId(id) {
+          if (!id) return null;
+          if (typeof id === 'string') return id;
+          if (typeof id._serialized === 'string') return id._serialized;
+          if (typeof id.toString === 'function') {
+            const s = id.toString();
+            if (s && s.includes('@')) return s;
+          }
+          if (id.user && id.server) return `${id.user}@${id.server}`;
+          return null;
+        }
         const chats = window.require('WAWebCollections').Chat.getModelsArray();
         return chats
           .filter((c) => c.groupMetadata)
           .map((c) => ({
             name: (c.formattedTitle || c.name || '').trim(),
-            id: c.id?._serialized ?? c.id?.$1 ?? null,
+            id: serializeChatId(c.id),
           }))
           .filter((g) => g.id && g.name);
       });
@@ -369,12 +380,117 @@ async function connectWhatsAppClient() {
   return { client, MessageMedia };
 }
 
+function logConnectedAccount(client) {
+  const info = client.info;
+  const phone = info?.wid?.user;
+  const name = info?.pushname?.trim();
+  if (phone) {
+    console.log(`[attendance-whatsapp] logged in as +${phone}${name ? ` (${name})` : ''}`);
+    console.log('[attendance-whatsapp] check this is the same phone you use to view the group');
+  }
+}
+
+/**
+ * Send via chat object in WhatsApp store — avoids broken getChat(id) round-trip
+ * and verifies server ACK before reporting success.
+ */
+async function sendImageViaStoreChat(client, targetGroupId, media, caption) {
+  const result = await client.pupPage.evaluate(
+    async ({ groupId, groupName, mediaPayload, captionText }) => {
+      function serializeChatId(id) {
+        if (!id) return null;
+        if (typeof id === 'string') return id;
+        if (typeof id._serialized === 'string') return id._serialized;
+        if (typeof id.toString === 'function') {
+          const s = id.toString();
+          if (s && s.includes('@')) return s;
+        }
+        if (id.user && id.server) return `${id.user}@${id.server}`;
+        return null;
+      }
+
+      const chats = window.require('WAWebCollections').Chat.getModelsArray();
+      let chat = null;
+      if (groupId) {
+        chat = chats.find((c) => c.groupMetadata && serializeChatId(c.id) === groupId);
+      }
+      if (!chat && groupName) {
+        const target = groupName.trim().toLowerCase();
+        chat = chats.find(
+          (c) => c.groupMetadata
+            && (c.formattedTitle || c.name || '').trim().toLowerCase() === target,
+        );
+      }
+      if (!chat) {
+        return { ok: false, error: `Group not found in WhatsApp store (id=${groupId || 'n/a'})` };
+      }
+
+      const chatId = serializeChatId(chat.id);
+      const msg = await window.WWebJS.sendMessage(chat, '', {
+        media: mediaPayload,
+        caption: captionText,
+        waitUntilMsgSent: true,
+      });
+
+      if (!msg) {
+        return { ok: false, error: 'WhatsApp rejected the message (sendMessage returned null)' };
+      }
+
+      const msgId = msg.id?._serialized ?? msg.id?.$1 ?? null;
+      let ack = msg.ack ?? 0;
+      for (let i = 0; i < 45 && ack < 1; i += 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const updated = msgId
+          ? window.require('WAWebCollections').Msg.get(msgId)
+          : null;
+        if (updated) ack = updated.ack ?? ack;
+        if (ack >= 1) break;
+      }
+
+      return {
+        ok: true,
+        chatId,
+        chatName: (chat.formattedTitle || chat.name || '').trim(),
+        msgId,
+        ack,
+      };
+    },
+    {
+      groupId: targetGroupId,
+      groupName: groupName || null,
+      mediaPayload: {
+        mimetype: media.mimetype,
+        data: media.data,
+        filename: media.filename || 'attendance.png',
+      },
+      captionText: caption,
+    },
+  );
+
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+
+  console.log(`[attendance-whatsapp] delivered to "${result.chatName}" (${result.chatId})`);
+  console.log(`[attendance-whatsapp] message ack=${result.ack} (need ≥1 for server tick)`);
+
+  if (result.ack < 1) {
+    throw new Error(
+      'WhatsApp did not confirm delivery (no server tick). '
+      + 'Delete D:\\MalconNexus\\WhatsAppSession, re-scan QR on the phone that owns the group, then retry.',
+    );
+  }
+}
+
 async function sendWhatsAppImage(pngPath, caption) {
   const { client, MessageMedia } = await connectWhatsAppClient();
   try {
+    logConnectedAccount(client);
     const targetGroupId = await resolveGroupChatId(client);
     const media = MessageMedia.fromFilePath(pngPath);
-    await client.sendMessage(targetGroupId, media, { caption });
+    const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
+    console.log(`[attendance-whatsapp] sending ${sizeKb}KB image…`);
+    await sendImageViaStoreChat(client, targetGroupId, media, caption);
   } finally {
     await client.destroy();
   }
