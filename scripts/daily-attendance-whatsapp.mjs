@@ -17,6 +17,7 @@
  *
  * Manual PNG only (no WhatsApp):  node scripts/daily-attendance-whatsapp.mjs --png-only
  * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
+ * Fresh start (delete session):    powershell -ExecutionPolicy Bypass -File scripts/reset-attendance-whatsapp.ps1
  */
 
 import {
