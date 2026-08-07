@@ -4,13 +4,14 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** Load `.env` from project root (and optional cwd). */
+/** Load `.env` from project root (and optional cwd). Later files override earlier keys. */
 export function loadEnv() {
   const candidates = [
     resolve(process.cwd(), '.env'),
     resolve(__dirname, '..', '..', '.env'),
     resolve(__dirname, '..', '.env'),
   ];
+  let loadedFrom = null;
   for (const envPath of candidates) {
     if (!existsSync(envPath)) continue;
     for (const line of readFileSync(envPath, 'utf8').split('\n')) {
@@ -19,7 +20,8 @@ export function loadEnv() {
       const i = t.indexOf('=');
       if (i > 0) process.env[t.slice(0, i).trim()] = t.slice(i + 1).trim();
     }
-    return envPath;
+    loadedFrom = envPath;
   }
-  return null;
+  if (loadedFrom) process.env._MALCON_ENV_PATH = loadedFrom;
+  return loadedFrom;
 }

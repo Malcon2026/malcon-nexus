@@ -21,7 +21,7 @@
  * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
  * Good morning group (daily):      node scripts/daily-attendance-whatsapp.mjs --good-morning-group
  * Good morning DM test (daily):    node scripts/daily-attendance-whatsapp.mjs --good-morning-dm
- * List DM chats for .env:          node scripts/daily-attendance-whatsapp.mjs --list-dms
+ * Boss copy test (DM only):       node scripts/daily-attendance-whatsapp.mjs --boss-test
  * Fresh start (delete session):    powershell -ExecutionPolicy Bypass -File scripts/reset-attendance-whatsapp.ps1
  *
  * Good morning group uses GM.png in repo root (override: ATTENDANCE_WHATSAPP_MORNING_IMAGE).
@@ -62,12 +62,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
 loadEnv();
+const envFile = process.env._MALCON_ENV_PATH ?? '(unknown)';
 
 const pngOnly = process.argv.includes('--png-only') || process.env.ATTENDANCE_SKIP_WHATSAPP === '1';
 const listGroups = process.argv.includes('--list-groups');
 const listDms = process.argv.includes('--list-dms');
 const goodMorningDm = process.argv.includes('--good-morning-dm');
 const goodMorningGroup = process.argv.includes('--good-morning-group');
+const bossTest = process.argv.includes('--boss-test');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -112,7 +114,7 @@ function parseReportFilters() {
   return [(process.env.ATTENDANCE_REPORT_FILTER ?? 'in').trim()];
 }
 
-const needsSupabase = !listGroups && !listDms && !goodMorningDm && !goodMorningGroup;
+const needsSupabase = !listGroups && !listDms && !goodMorningDm && !goodMorningGroup && !bossTest;
 
 if (needsSupabase && (!supabaseUrl || !supabaseKey)) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -122,7 +124,11 @@ if (goodMorningDm && !dmPhone && !dmContactName) {
   console.error('Missing ATTENDANCE_WHATSAPP_DM_PHONE or ATTENDANCE_WHATSAPP_DM_CONTACT in .env');
   process.exit(1);
 }
-if ((goodMorningGroup || (!pngOnly && !listGroups && !listDms && !goodMorningDm))
+if (bossTest && !bossPhone && !bossContactName) {
+  console.error('Missing ATTENDANCE_WHATSAPP_BOSS_PHONE or ATTENDANCE_WHATSAPP_BOSS_CONTACT in .env');
+  process.exit(1);
+}
+if ((goodMorningGroup || (!pngOnly && !listGroups && !listDms && !goodMorningDm && !bossTest))
     && !groupName && !groupIdEnv) {
   console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME or ATTENDANCE_WHATSAPP_GROUP_ID in .env');
   process.exit(1);
@@ -544,8 +550,9 @@ async function listDmsFromStore(client, attempts = 3, delayMs = 10_000) {
 }
 
 async function resolveDmChatId(client, options = {}) {
-  const phone = options.phone ?? dmPhone;
-  const contactName = options.contactName ?? dmContactName;
+  const useGlobalFallback = options.useGlobalFallback !== false;
+  const phone = options.phone ?? (useGlobalFallback ? dmPhone : null);
+  const contactName = options.contactName ?? (useGlobalFallback ? dmContactName : null);
 
   await waitForWhatsAppStore(client);
 
@@ -825,17 +832,27 @@ async function sendOneImageOnce(client, targetChatId, media, caption, label, loo
     before = { count: 0, lastTs: 0, lastCaption: '' };
   }
 
+  let usedFallback = false;
   try {
     await attemptStoreSend(client, targetChatId, media, caption, lookupName);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[attendance-whatsapp] ${label} store send error: ${msg} — checking chat anyway…`);
+    console.warn(`[attendance-whatsapp] ${label} store send failed: ${msg}`);
+    console.log(`[attendance-whatsapp] ${label} trying sendMessage fallback…`);
+    await client.sendMessage(targetChatId, media, { caption });
+    usedFallback = true;
+    console.log(`[attendance-whatsapp] ${label} sendMessage fallback OK`);
   }
 
   console.log(`[attendance-whatsapp] ${label} waiting for message in chat…`);
   const delivered = await waitForChatDelivery(client, targetChatId, before, caption);
   if (delivered) {
     console.log(`[attendance-whatsapp] ${label} confirmed ✓`);
+    return;
+  }
+
+  if (usedFallback) {
+    console.warn(`[attendance-whatsapp] ${label} fallback send done — confirmation skipped`);
     return;
   }
 
@@ -859,6 +876,7 @@ async function sendWhatsAppBatchToTargets(items, targets) {
         : await resolveDmChatId(client, {
           phone: target.phone ?? undefined,
           contactName: target.contactName ?? undefined,
+          useGlobalFallback: false,
         });
 
       console.log(`[attendance-whatsapp] → ${target.label}`);
@@ -1013,6 +1031,28 @@ async function goodMorningGroupMain() {
   console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
 }
 
+async function bossTestMain() {
+  const boss = getBossCopyTarget();
+  if (!boss) {
+    throw new Error('Set ATTENDANCE_WHATSAPP_BOSS_PHONE or ATTENDANCE_WHATSAPP_BOSS_CONTACT in .env');
+  }
+
+  const started = Date.now();
+  const dateKey = getISTDateKey();
+  console.log(`[attendance-whatsapp] boss-test date=${dateKey} target=${boss.label}`);
+
+  mkdirSync(reportsDir, { recursive: true });
+  const html = buildGoodMorningHtml(dateKey, 'Boss copy test — if you see this, personal DM works.');
+  const pngPath = join(reportsDir, `malcon-boss-test-${dateKey}.png`);
+  await htmlToPng(html, pngPath);
+  console.log(`[attendance-whatsapp] PNG saved: ${pngPath}`);
+
+  const caption = `Malcon Nexus · Boss copy test · ${formatShareDate(dateKey)}`;
+  await sendWhatsAppBatchToTargets([{ filter: 'boss-test', pngPath, caption }], [boss]);
+  console.log(`[attendance-whatsapp] boss test sent to ${boss.label}`);
+  console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
+}
+
 async function main() {
   if (listGroups) {
     await listGroupsCommand();
@@ -1034,6 +1074,11 @@ async function main() {
     return;
   }
 
+  if (bossTest) {
+    await bossTestMain();
+    return;
+  }
+
   const filters = parseReportFilters();
   for (const filter of filters) {
     if (!VALID_FILTERS.has(filter)) {
@@ -1045,8 +1090,9 @@ async function main() {
   const dateKey = getISTDateKey();
   const targets = getAttendanceSendTargets();
   console.log(`[attendance-whatsapp] date=${dateKey} filters=${filters.join(',')}`);
-  if (targets.length > 1) {
-    console.log(`[attendance-whatsapp] also copying to boss: ${targets[1].label}`);
+  console.log(`[attendance-whatsapp] destinations: ${targets.map((t) => t.label).join(' + ')}`);
+  if (!getBossCopyTarget()) {
+    console.warn('[attendance-whatsapp] boss copy OFF — add ATTENDANCE_WHATSAPP_BOSS_PHONE to .env on this PC');
   }
 
   mkdirSync(reportsDir, { recursive: true });
@@ -1073,7 +1119,7 @@ async function main() {
     const caption = `Malcon Nexus · ${shareTitleForFilter(filter)} · ${formatShareDate(dateKey)} · Total: ${rows.length}`;
     sendItems.push({ filter, pngPath, caption, count: rows.length });
 
-    const logLine = `[${new Date().toISOString()}] OK date=${dateKey} filter=${filter} count=${rows.length} png=${pngPath}\n`;
+    const logLine = `[${new Date().toISOString()}] OK date=${dateKey} filter=${filter} count=${rows.length} png=${pngPath} destinations=${targets.map((t) => t.label).join('+')}\n`;
     writeFileSync(join(reportsDir, '_whatsapp-task.log'), logLine, { flag: 'a' });
   }
 
