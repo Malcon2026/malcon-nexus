@@ -19,7 +19,18 @@
  * Manual PNG only (no WhatsApp):  node scripts/daily-attendance-whatsapp.mjs --png-only
  * Both in + absent now:           node scripts/daily-attendance-whatsapp.mjs --filters=in,absent
  * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
+ * Good morning group (daily):      node scripts/daily-attendance-whatsapp.mjs --good-morning-group
+ * Good morning DM test (daily):    node scripts/daily-attendance-whatsapp.mjs --good-morning-dm
+ * List DM chats for .env:          node scripts/daily-attendance-whatsapp.mjs --list-dms
  * Fresh start (delete session):    powershell -ExecutionPolicy Bypass -File scripts/reset-attendance-whatsapp.ps1
+ *
+ * Good morning group uses GM.png in repo root (override: ATTENDANCE_WHATSAPP_MORNING_IMAGE).
+ * Schedule: scripts/setup-good-morning-group-task.ps1  (default 9:00 AM)
+ *
+ * Good morning DM (.env):
+ *   ATTENDANCE_WHATSAPP_DM_PHONE=919876543210          (country code, no +)
+ *   ATTENDANCE_WHATSAPP_GOOD_MORNING_TEXT=Good morning!
+ * Schedule: scripts/setup-good-morning-dm-task.ps1
  */
 
 import {
@@ -49,11 +60,18 @@ loadEnv();
 
 const pngOnly = process.argv.includes('--png-only') || process.env.ATTENDANCE_SKIP_WHATSAPP === '1';
 const listGroups = process.argv.includes('--list-groups');
+const listDms = process.argv.includes('--list-dms');
+const goodMorningDm = process.argv.includes('--good-morning-dm');
+const goodMorningGroup = process.argv.includes('--good-morning-group');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const groupName = process.env.ATTENDANCE_WHATSAPP_GROUP_NAME?.trim();
 const groupIdEnv = process.env.ATTENDANCE_WHATSAPP_GROUP_ID?.trim();
+const dmPhone = process.env.ATTENDANCE_WHATSAPP_DM_PHONE?.trim();
+const dmContactName = process.env.ATTENDANCE_WHATSAPP_DM_CONTACT?.trim();
+const goodMorningText = process.env.ATTENDANCE_WHATSAPP_GOOD_MORNING_TEXT?.trim()
+  ?? 'Good morning! ☀️ Malcon Nexus is online and ready for the day.';
 const whatsappWebVersion = process.env.ATTENDANCE_WHATSAPP_WEB_VERSION?.trim() || '2.3000.1017054665';
 const sessionPath = process.env.ATTENDANCE_WHATSAPP_SESSION_PATH
   ?? join('D:', 'MalconNexus', 'WhatsAppSession');
@@ -87,13 +105,29 @@ function parseReportFilters() {
   return [(process.env.ATTENDANCE_REPORT_FILTER ?? 'in').trim()];
 }
 
-if (!supabaseUrl || !supabaseKey) {
+const needsSupabase = !listGroups && !listDms && !goodMorningDm && !goodMorningGroup;
+
+if (needsSupabase && (!supabaseUrl || !supabaseKey)) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
 }
-if (!pngOnly && !listGroups && !groupName && !groupIdEnv) {
+if (goodMorningDm && !dmPhone && !dmContactName) {
+  console.error('Missing ATTENDANCE_WHATSAPP_DM_PHONE or ATTENDANCE_WHATSAPP_DM_CONTACT in .env');
+  process.exit(1);
+}
+if ((goodMorningGroup || (!pngOnly && !listGroups && !listDms && !goodMorningDm))
+    && !groupName && !groupIdEnv) {
   console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME or ATTENDANCE_WHATSAPP_GROUP_ID in .env');
   process.exit(1);
+}
+
+function resolveMorningImagePath() {
+  const fromEnv = process.env.ATTENDANCE_WHATSAPP_MORNING_IMAGE?.trim();
+  const imagePath = fromEnv ? resolve(fromEnv) : join(root, 'GM.png');
+  if (!existsSync(imagePath)) {
+    throw new Error(`Morning image not found: ${imagePath} (add GM.png to repo root or set ATTENDANCE_WHATSAPP_MORNING_IMAGE)`);
+  }
+  return imagePath;
 }
 
 const sb = createClient(supabaseUrl, supabaseKey, {
@@ -299,6 +333,92 @@ function normalizeGroupId(id) {
   return `${trimmed}@g.us`;
 }
 
+function normalizeDmPhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) {
+    throw new Error(`Invalid ATTENDANCE_WHATSAPP_DM_PHONE: "${phone}" (use country code, no +)`);
+  }
+  if (digits.includes('@')) return digits;
+  return `${digits}@c.us`;
+}
+
+function buildGoodMorningHtml(dateKey, message) {
+  const dateLabel = formatShareDate(dateKey);
+  const updated = formatTimeIST(new Date());
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #fef3c7 0%, #fff 45%, #e0e7ff 100%);
+      color: #111827;
+      padding: 24px;
+      width: 520px;
+    }
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 20px;
+      padding: 28px 24px;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(67, 56, 202, 0.08);
+    }
+    .brand {
+      font-size: 11px;
+      font-weight: 600;
+      color: #4338ca;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .sun {
+      font-size: 42px;
+      margin: 12px 0 8px;
+      line-height: 1;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: #1f2937;
+      line-height: 1.2;
+    }
+    .date {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .message {
+      margin-top: 18px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #374151;
+      white-space: pre-wrap;
+    }
+    .footer {
+      font-size: 10px;
+      color: #9ca3af;
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid #f3f4f6;
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="share-list">
+    <p class="brand">Malcon Nexus</p>
+    <p class="sun">☀️</p>
+    <h1>Good Morning</h1>
+    <p class="date">${escapeHtml(dateLabel)}</p>
+    <p class="message">${escapeHtml(message)}</p>
+    <p class="footer">Test ping · Updated ${escapeHtml(updated)}</p>
+  </div>
+</body>
+</html>`;
+}
+
 async function waitForWhatsAppStore(client, timeoutMs = 90_000) {
   if (!client.pupPage) throw new Error('WhatsApp browser page not ready');
   await client.pupPage.waitForFunction(
@@ -353,6 +473,101 @@ async function listGroupsFromStore(client, attempts = 3, delayMs = 10_000) {
     }
   }
   throw lastErr;
+}
+
+/** List individual (non-group) chats from WhatsApp Web store. */
+async function listDmsFromStore(client, attempts = 3, delayMs = 10_000) {
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await waitForWhatsAppStore(client);
+      const dms = await client.pupPage.evaluate(() => {
+        function serializeChatId(id) {
+          if (!id) return null;
+          if (typeof id === 'string') return id;
+          if (typeof id._serialized === 'string') return id._serialized;
+          if (typeof id.toString === 'function') {
+            const s = id.toString();
+            if (s && s.includes('@')) return s;
+          }
+          if (id.user && id.server) return `${id.user}@${id.server}`;
+          return null;
+        }
+        const chats = window.require('WAWebCollections').Chat.getModelsArray();
+        return chats
+          .filter((c) => !c.groupMetadata)
+          .map((c) => ({
+            name: (c.formattedTitle || c.name || c.contact?.pushname || '').trim(),
+            id: serializeChatId(c.id),
+          }))
+          .filter((c) => c.id && c.id.endsWith('@c.us'));
+      });
+      return dms;
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[attendance-whatsapp] list DMs attempt ${attempt}/${attempts} failed: ${msg}`);
+      if (attempt < attempts) {
+        console.log(`[attendance-whatsapp] waiting ${delayMs / 1000}s before retry…`);
+        await sleep(delayMs);
+      }
+    }
+  }
+  throw lastErr;
+}
+
+async function resolveDmChatId(client) {
+  await waitForWhatsAppStore(client);
+
+  if (dmContactName) {
+    const dms = await listDmsFromStore(client, 1, 0);
+    const target = dmContactName.trim().toLowerCase();
+    const match = dms.find((c) => c.name.trim().toLowerCase() === target);
+    if (!match) {
+      const names = dms.map((c) => c.name).filter(Boolean).slice(0, 25);
+      throw new Error(
+        `WhatsApp contact not found: "${dmContactName}". Chats seen: ${names.join(', ') || '(none)'}. `
+        + 'Run: node scripts\\daily-attendance-whatsapp.mjs --list-dms',
+      );
+    }
+    console.log(`[attendance-whatsapp] matched contact "${match.name}" → ${match.id}`);
+    return match.id;
+  }
+
+  const chatId = normalizeDmPhone(dmPhone);
+  const existsInStore = await client.pupPage.evaluate((targetChatId) => {
+    function serializeChatId(id) {
+      if (!id) return null;
+      if (typeof id === 'string') return id;
+      if (typeof id._serialized === 'string') return id._serialized;
+      if (typeof id.toString === 'function') {
+        const s = id.toString();
+        if (s && s.includes('@')) return s;
+      }
+      if (id.user && id.server) return `${id.user}@${id.server}`;
+      return null;
+    }
+    const chats = window.require('WAWebCollections').Chat.getModelsArray();
+    return chats.some((c) => !c.groupMetadata && serializeChatId(c.id) === targetChatId);
+  }, chatId);
+
+  if (existsInStore) {
+    console.log(`[attendance-whatsapp] using ATTENDANCE_WHATSAPP_DM_PHONE (${chatId})`);
+    return chatId;
+  }
+
+  const digits = dmPhone.replace(/\D/g, '');
+  console.log(`[attendance-whatsapp] no existing chat for +${digits} — checking WhatsApp…`);
+  const numberId = await client.getNumberId(digits);
+  if (!numberId) {
+    throw new Error(
+      `Phone +${digits} is not on WhatsApp or is blocked. `
+      + 'Message this number once from the linked phone, then retry.',
+    );
+  }
+  const resolved = numberId._serialized ?? `${digits}@c.us`;
+  console.log(`[attendance-whatsapp] resolved DM target → ${resolved}`);
+  return resolved;
 }
 
 async function resolveGroupChatId(client) {
@@ -474,8 +689,8 @@ function logConnectedAccount(client) {
   }
 }
 
-async function getChatSnapshot(client, groupId) {
-  return client.pupPage.evaluate((targetGroupId) => {
+async function getChatSnapshot(client, chatId) {
+  return client.pupPage.evaluate((targetChatId) => {
     function serializeChatId(id) {
       if (!id) return null;
       if (typeof id === 'string') return id;
@@ -489,9 +704,7 @@ async function getChatSnapshot(client, groupId) {
     }
 
     const chats = window.require('WAWebCollections').Chat.getModelsArray();
-    const chat = chats.find(
-      (c) => c.groupMetadata && serializeChatId(c.id) === targetGroupId,
-    );
+    const chat = chats.find((c) => serializeChatId(c.id) === targetChatId);
     if (!chat) return null;
 
     const msgs = chat.msgs?.getModelsArray?.() ?? [];
@@ -502,15 +715,15 @@ async function getChatSnapshot(client, groupId) {
       lastTs: last?.t ?? 0,
       lastCaption: (last?.caption ?? last?.body ?? '').trim(),
     };
-  }, groupId);
+  }, chatId);
 }
 
-async function waitForChatDelivery(client, groupId, before, caption, timeoutMs = 90_000) {
+async function waitForChatDelivery(client, chatId, before, caption, timeoutMs = 90_000) {
   const captionNeedle = caption.slice(0, 30);
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    const after = await getChatSnapshot(client, groupId);
+    const after = await getChatSnapshot(client, chatId);
     if (after && (after.count > before.count || after.lastTs > before.lastTs)) {
       if (!captionNeedle || after.lastCaption.includes(captionNeedle) || after.lastCaption.includes('Malcon Nexus')) {
         return true;
@@ -527,9 +740,9 @@ async function waitForChatDelivery(client, groupId, before, caption, timeoutMs =
  * Fire one store send, then confirm in chat — never use a second send method.
  * (client.sendMessage often returns null even when the image was delivered.)
  */
-async function attemptStoreSend(client, targetGroupId, media, caption) {
+async function attemptStoreSend(client, targetChatId, media, caption, lookupName = null) {
   await client.pupPage.evaluate(
-    async ({ groupId, groupName, mediaPayload, captionText }) => {
+    async ({ chatId, chatName, mediaPayload, captionText }) => {
       function serializeChatId(id) {
         if (!id) return null;
         if (typeof id === 'string') return id;
@@ -543,15 +756,14 @@ async function attemptStoreSend(client, targetGroupId, media, caption) {
       }
 
       const chats = window.require('WAWebCollections').Chat.getModelsArray();
-      let chat = chats.find((c) => c.groupMetadata && serializeChatId(c.id) === groupId);
-      if (!chat && groupName) {
-        const target = groupName.trim().toLowerCase();
+      let chat = chats.find((c) => serializeChatId(c.id) === chatId);
+      if (!chat && chatName) {
+        const target = chatName.trim().toLowerCase();
         chat = chats.find(
-          (c) => c.groupMetadata
-            && (c.formattedTitle || c.name || '').trim().toLowerCase() === target,
+          (c) => (c.formattedTitle || c.name || '').trim().toLowerCase() === target,
         );
       }
-      if (!chat) throw new Error(`Group not found: ${groupId || groupName}`);
+      if (!chat) throw new Error(`Chat not found: ${chatId || chatName}`);
 
       await window.WWebJS.sendMessage(chat, '', {
         media: mediaPayload,
@@ -560,8 +772,8 @@ async function attemptStoreSend(client, targetGroupId, media, caption) {
       });
     },
     {
-      groupId: targetGroupId,
-      groupName: groupName || null,
+      chatId: targetChatId,
+      chatName: lookupName,
       mediaPayload: {
         mimetype: media.mimetype,
         data: media.data,
@@ -572,27 +784,28 @@ async function attemptStoreSend(client, targetGroupId, media, caption) {
   );
 }
 
-async function sendOneImageOnce(client, targetGroupId, media, caption, filter) {
-  const before = await getChatSnapshot(client, targetGroupId);
+async function sendOneImageOnce(client, targetChatId, media, caption, label, lookupName = null) {
+  let before = await getChatSnapshot(client, targetChatId);
   if (!before) {
-    throw new Error(`Group chat not loaded in WhatsApp store: ${targetGroupId}`);
+    console.log(`[attendance-whatsapp] ${label} chat not in store yet — sending to ${targetChatId}…`);
+    before = { count: 0, lastTs: 0, lastCaption: '' };
   }
 
   try {
-    await attemptStoreSend(client, targetGroupId, media, caption);
+    await attemptStoreSend(client, targetChatId, media, caption, lookupName);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[attendance-whatsapp] ${filter} store send error: ${msg} — checking chat anyway…`);
+    console.warn(`[attendance-whatsapp] ${label} store send error: ${msg} — checking chat anyway…`);
   }
 
-  console.log(`[attendance-whatsapp] ${filter} waiting for message in group chat…`);
-  const delivered = await waitForChatDelivery(client, targetGroupId, before, caption);
+  console.log(`[attendance-whatsapp] ${label} waiting for message in chat…`);
+  const delivered = await waitForChatDelivery(client, targetChatId, before, caption);
   if (delivered) {
-    console.log(`[attendance-whatsapp] ${filter} confirmed in group ✓`);
+    console.log(`[attendance-whatsapp] ${label} confirmed ✓`);
     return;
   }
 
-  throw new Error(`Failed to send ${filter} — message not seen in group chat`);
+  throw new Error(`Failed to send ${label} — message not seen in chat`);
 }
 
 async function sendWhatsAppBatch(items) {
@@ -609,13 +822,30 @@ async function sendWhatsAppBatch(items) {
       const media = MessageMedia.fromFilePath(pngPath);
       const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
       console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
-      await sendOneImageOnce(client, targetGroupId, media, caption, filter);
+      await sendOneImageOnce(client, targetGroupId, media, caption, filter, groupName || null);
 
       if (i < items.length - 1) {
         console.log('[attendance-whatsapp] waiting 12s before next image…');
         await sleep(12_000);
       }
     }
+  } finally {
+    await client.destroy();
+  }
+}
+
+async function sendWhatsAppDm(pngPath, caption) {
+  const targetLabel = dmContactName || `+${dmPhone.replace(/\D/g, '')}`;
+  console.log(`[attendance-whatsapp] sending DM image to "${targetLabel}"…`);
+
+  const { client, MessageMedia } = await connectWhatsAppClient();
+  try {
+    logConnectedAccount(client);
+    const targetChatId = await resolveDmChatId(client);
+    const media = MessageMedia.fromFilePath(pngPath);
+    const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
+    console.log(`[attendance-whatsapp] good-morning — ${sizeKb}KB…`);
+    await sendOneImageOnce(client, targetChatId, media, caption, 'good-morning', dmContactName || null);
   } finally {
     await client.destroy();
   }
@@ -638,9 +868,103 @@ async function listGroupsCommand() {
   }
 }
 
+async function listDmsCommand() {
+  const { client } = await connectWhatsAppClient();
+  try {
+    const dms = await listDmsFromStore(client);
+    console.log('\n=== WhatsApp DMs (copy phone digits into ATTENDANCE_WHATSAPP_DM_PHONE) ===\n');
+    if (dms.length === 0) {
+      console.log('No individual chats found.');
+      return;
+    }
+    for (const c of dms.sort((a, b) => a.name.localeCompare(b.name))) {
+      const phone = c.id.replace('@c.us', '');
+      console.log(`${c.name || '(no name)'}\n  phone: ${phone}\n  id: ${c.id}\n`);
+    }
+  } finally {
+    await client.destroy();
+  }
+}
+
+function goodMorningLogPath(mode) {
+  return join(reportsDir, mode === 'group' ? '_good-morning-group.log' : '_good-morning-dm.log');
+}
+
+async function goodMorningDmMain() {
+  const started = Date.now();
+  const dateKey = getISTDateKey();
+  console.log(`[attendance-whatsapp] good-morning DM date=${dateKey}`);
+
+  mkdirSync(reportsDir, { recursive: true });
+
+  const html = buildGoodMorningHtml(dateKey, goodMorningText);
+  const pngPath = join(reportsDir, `malcon-good-morning-${dateKey}.png`);
+  await htmlToPng(html, pngPath);
+  console.log(`[attendance-whatsapp] PNG saved: ${pngPath}`);
+
+  const caption = `Malcon Nexus · Good morning · ${formatShareDate(dateKey)}`;
+  const logPath = goodMorningLogPath('dm');
+
+  if (pngOnly) {
+    console.log('[attendance-whatsapp] --png-only: skipped WhatsApp DM send');
+  } else {
+    await sendWhatsAppDm(pngPath, caption);
+    console.log('[attendance-whatsapp] sent good-morning image via WhatsApp DM');
+    writeFileSync(
+      logPath,
+      `[${new Date().toISOString()}] OK date=${dateKey} png=${pngPath} to=${dmContactName || dmPhone}\n`,
+      { flag: 'a' },
+    );
+  }
+
+  console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
+}
+
+async function goodMorningGroupMain() {
+  const started = Date.now();
+  const dateKey = getISTDateKey();
+  const imagePath = resolveMorningImagePath();
+  console.log(`[attendance-whatsapp] good-morning group date=${dateKey} image=${imagePath}`);
+
+  mkdirSync(reportsDir, { recursive: true });
+
+  const caption = `${goodMorningText} · ${formatShareDate(dateKey)}`;
+  const sendItems = [{ filter: 'good-morning', pngPath: imagePath, caption }];
+  const logPath = goodMorningLogPath('group');
+
+  if (pngOnly) {
+    console.log('[attendance-whatsapp] --png-only: skipped WhatsApp group send');
+  } else {
+    await sendWhatsAppBatch(sendItems);
+    console.log('[attendance-whatsapp] sent good-morning image to WhatsApp group');
+    writeFileSync(
+      logPath,
+      `[${new Date().toISOString()}] OK date=${dateKey} png=${imagePath} group=${groupIdEnv || groupName}\n`,
+      { flag: 'a' },
+    );
+  }
+
+  console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
+}
+
 async function main() {
   if (listGroups) {
     await listGroupsCommand();
+    return;
+  }
+
+  if (listDms) {
+    await listDmsCommand();
+    return;
+  }
+
+  if (goodMorningDm) {
+    await goodMorningDmMain();
+    return;
+  }
+
+  if (goodMorningGroup) {
+    await goodMorningGroupMain();
     return;
   }
 
@@ -699,8 +1023,13 @@ main().catch((err) => {
   try {
     const reports = process.env.ATTENDANCE_REPORTS_DIR ?? join('D:', 'MalconNexus', 'AttendanceReports');
     mkdirSync(reports, { recursive: true });
+    const logFile = goodMorningGroup
+      ? join(reports, '_good-morning-group.log')
+      : goodMorningDm
+        ? join(reports, '_good-morning-dm.log')
+        : join(reports, '_whatsapp-task.log');
     writeFileSync(
-      join(reports, '_whatsapp-task.log'),
+      logFile,
       `[${new Date().toISOString()}] ERROR ${msg}\n`,
       { flag: 'a' },
     );
