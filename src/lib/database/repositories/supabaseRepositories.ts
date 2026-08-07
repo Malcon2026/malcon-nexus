@@ -617,6 +617,30 @@ export const sbAttendanceRepo = {
 
 // ─── ATTENDANCE APPROVAL REQUESTS ────────────────────────────
 
+// ─── ATTENDANCE APPROVAL REQUESTS ────────────────────────────
+
+function mapAttendanceApprovalRow(row: Record<string, unknown>): AttendanceApprovalRequest {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    punchType: row.punch_type as AttendanceApprovalRequest['punchType'],
+    requestedAt: row.requested_at as string,
+    latitude: row.latitude as number,
+    longitude: row.longitude as number,
+    accuracyM: row.accuracy_m as number,
+    distanceM: row.distance_m as number,
+    reason: row.reason as string,
+    status: row.status as AttendanceApprovalRequest['status'],
+    reviewedBy: row.reviewed_by as string | null,
+    reviewedById: row.reviewed_by_id as string | null,
+    reviewedAt: row.reviewed_at as string | null,
+    adminNotes: (row.admin_notes as string | null) ?? '',
+    attendanceRecordId: row.attendance_record_id as string | null,
+    selfieUrl: (row.selfie_url as string | null) ?? null,
+  };
+}
+
 export const sbAttendanceApprovalRepo = {
   async getAll(): Promise<AttendanceApprovalRequest[]> {
     const { data, error } = await supabase
@@ -624,24 +648,7 @@ export const sbAttendanceApprovalRepo = {
       .select('*')
       .order('requested_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      punchType: row.punch_type as AttendanceApprovalRequest['punchType'],
-      requestedAt: row.requested_at,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      accuracyM: row.accuracy_m,
-      distanceM: row.distance_m,
-      reason: row.reason,
-      status: row.status as AttendanceApprovalRequest['status'],
-      reviewedBy: row.reviewed_by,
-      reviewedById: row.reviewed_by_id,
-      reviewedAt: row.reviewed_at,
-      adminNotes: row.admin_notes ?? '',
-      attendanceRecordId: row.attendance_record_id,
-    }));
+    return (data ?? []).map((row) => mapAttendanceApprovalRow(row));
   },
 
   async getForEmployee(employeeId: string): Promise<AttendanceApprovalRequest[]> {
@@ -651,24 +658,7 @@ export const sbAttendanceApprovalRepo = {
       .eq('employee_id', employeeId)
       .order('requested_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      employeeId: row.employee_id,
-      employeeName: row.employee_name,
-      punchType: row.punch_type as AttendanceApprovalRequest['punchType'],
-      requestedAt: row.requested_at,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      accuracyM: row.accuracy_m,
-      distanceM: row.distance_m,
-      reason: row.reason,
-      status: row.status as AttendanceApprovalRequest['status'],
-      reviewedBy: row.reviewed_by,
-      reviewedById: row.reviewed_by_id,
-      reviewedAt: row.reviewed_at,
-      adminNotes: row.admin_notes ?? '',
-      attendanceRecordId: row.attendance_record_id,
-    }));
+    return (data ?? []).map((row) => mapAttendanceApprovalRow(row));
   },
 
   async insert(request: AttendanceApprovalRequest): Promise<void> {
@@ -689,6 +679,7 @@ export const sbAttendanceApprovalRepo = {
       reviewed_at: request.reviewedAt,
       admin_notes: request.adminNotes,
       attendance_record_id: request.attendanceRecordId,
+      selfie_url: request.selfieUrl,
     });
     if (error) throw error;
   },
@@ -701,11 +692,18 @@ export const sbAttendanceApprovalRepo = {
     if (updates.reviewedAt !== undefined) payload.reviewed_at = updates.reviewedAt;
     if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
     if (updates.attendanceRecordId !== undefined) payload.attendance_record_id = updates.attendanceRecordId;
+    if (updates.selfieUrl !== undefined) payload.selfie_url = updates.selfieUrl;
 
     const { error } = await supabase
       .from('attendance_approval_requests')
       .update(payload)
       .eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteByIds(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await supabase.from('attendance_approval_requests').delete().in('id', ids);
     if (error) throw error;
   },
 };

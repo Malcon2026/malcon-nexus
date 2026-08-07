@@ -17,6 +17,7 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
+import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -133,7 +134,12 @@ interface AppState {
   punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
   /** Punch out — no GPS or reason required. */
   punchOut: () => Promise<{ error: string | null }>;
-  submitOffsitePunchRequest: (punchType: PunchType, reason: string, position: GeoPosition) => Promise<{ error: string | null }>;
+  submitOffsitePunchRequest: (
+    punchType: PunchType,
+    reason: string,
+    position: GeoPosition,
+    selfieFile?: File | null,
+  ) => Promise<{ error: string | null }>;
   /** Admin-only: manually record punch in/out for any employee on a given date (YYYY-MM-DD, IST). */
   /** Admin-only: mark present for a day. Times optional — defaults to 09:00 / 18:00 IST. */
   addManualAttendance: (
@@ -2081,7 +2087,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  submitOffsitePunchRequest: async (punchType, reason, position) => {
+  submitOffsitePunchRequest: async (punchType, reason, position, selfieFile = null) => {
     if (punchType === 'out') {
       return get().punchOut();
     }
@@ -2090,6 +2096,9 @@ export const useStore = create<AppState>((set, get) => ({
     const trimmedReason = reason.trim();
     if (trimmedReason.length < 10) {
       return { error: 'Please provide a reason (at least 10 characters).' };
+    }
+    if (!selfieFile) {
+      return { error: 'Please take a selfie before submitting off-site punch in.' };
     }
 
     let openShift = hasOpenShift(attendanceRecords, currentUser.id);
@@ -2149,11 +2158,51 @@ export const useStore = create<AppState>((set, get) => ({
       reviewedAt: null,
       adminNotes: '',
       attendanceRecordId: null,
+      selfieUrl: null,
     };
 
     const persistResult = await persistAttendanceApprovalRequest(request);
     if (persistResult.error) {
       return { error: persistResult.error };
+    }
+
+    let selfieUrl: string;
+    try {
+      selfieUrl = await uploadAttendanceSelfie(
+        request.id,
+        selfieFile,
+        currentUser.name,
+        currentUser.id,
+      );
+    } catch (err) {
+      if (USE_SUPABASE) {
+        await sbAttendanceApprovalRepo.deleteByIds([request.id]).catch(() => {});
+      } else {
+        const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests')
+          .filter((r) => r.id !== request.id);
+        Database.saveAll('attendanceApprovalRequests', list);
+      }
+      set((s) => ({
+        attendanceApprovalRequests: s.attendanceApprovalRequests.filter((r) => r.id !== request.id),
+      }));
+      const message = err instanceof Error ? err.message : 'Selfie upload failed.';
+      return { error: message };
+    }
+
+    const requestWithSelfie = { ...request, selfieUrl };
+
+    if (USE_SUPABASE) {
+      const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+      setCache(
+        'attendanceApprovalRequests',
+        list.map((r) => (r.id === request.id ? requestWithSelfie : r)),
+      );
+    } else {
+      const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+      Database.saveAll(
+        'attendanceApprovalRequests',
+        list.map((r) => (r.id === request.id ? requestWithSelfie : r)),
+      );
     }
 
     const activity: ActivityEvent = {
@@ -2180,7 +2229,7 @@ export const useStore = create<AppState>((set, get) => ({
     persistNotification(notif);
 
     set((s) => ({
-      attendanceApprovalRequests: [request, ...s.attendanceApprovalRequests],
+      attendanceApprovalRequests: [requestWithSelfie, ...s.attendanceApprovalRequests.filter((r) => r.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));

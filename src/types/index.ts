@@ -240,6 +240,8 @@ export interface AttendanceApprovalRequest {
   reviewedAt: string | null;
   adminNotes: string;
   attendanceRecordId: string | null;
+  /** Stamped selfie URL (off-site punch in). */
+  selfieUrl: string | null;
 }
 
 export type LeaveType = 'Casual' | 'Sick' | 'Unpaid' | 'Comp Off';

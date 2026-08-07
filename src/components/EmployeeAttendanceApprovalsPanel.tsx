@@ -194,6 +194,26 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
                             <span>{request.distanceM}m from office · GPS ±{Math.round(request.accuracyM)}m</span>
                           </div>
 
+                          {request.selfieUrl && (
+                            <div className="mt-3">
+                              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                Selfie
+                              </p>
+                              <a
+                                href={request.selfieUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block max-w-[12rem] rounded-lg border border-gray-200 overflow-hidden hover:opacity-90"
+                              >
+                                <img
+                                  src={request.selfieUrl}
+                                  alt={`Selfie — ${request.employeeName}`}
+                                  className="w-full h-32 object-cover bg-gray-100"
+                                />
+                              </a>
+                            </div>
+                          )}
+
                           {request.status !== 'pending' && request.reviewedBy && (
                             <p className="text-xs text-gray-500 mt-2">
                               {request.status === 'approved' ? 'Approved' : 'Rejected'} by{' '}
@@ -277,6 +297,26 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Employee reason</p>
               <p className="text-sm text-gray-800">{reviewing.reason}</p>
             </div>
+
+            {reviewing.selfieUrl && (
+              <div>
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Selfie (stamped)
+                </p>
+                <a
+                  href={reviewing.selfieUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl border border-gray-200 overflow-hidden"
+                >
+                  <img
+                    src={reviewing.selfieUrl}
+                    alt={`Selfie — ${reviewing.employeeName}`}
+                    className="w-full max-h-72 object-contain bg-gray-100"
+                  />
+                </a>
+              </div>
+            )}
 
             {reviewAction === 'approve' ? (
               <p className="text-sm text-gray-600">

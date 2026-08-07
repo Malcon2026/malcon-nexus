@@ -30,6 +30,10 @@ import {
 } from '../lib/attendance';
 import { formatAttendanceError } from '../lib/attendanceBilingual';
 import { Bilingual, Te } from './BilingualText';
+import {
+  AttendanceSelfieCapture,
+  type CapturedSelfie,
+} from './AttendanceSelfieCapture';
 
 type LocationState =
   | { status: 'idle' }
@@ -73,6 +77,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<{ en: string; te: string | null } | null>(null);
   const [offsiteReason, setOffsiteReason] = useState('');
+  const [offsiteSelfie, setOffsiteSelfie] = useState<CapturedSelfie | null>(null);
 
   const firstName = currentUser.name.split(' ')[0];
 
@@ -107,6 +112,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setConfirmType(type);
     setSubmitError(null);
     setOffsiteReason('');
+    setOffsiteSelfie(null);
     setLocationState({ status: 'idle' });
     if (type === 'in') {
       void refreshLocation();
@@ -118,6 +124,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setConfirmType(null);
     setSubmitError(null);
     setOffsiteReason('');
+    setOffsiteSelfie(null);
     setLocationState({ status: 'idle' });
   };
 
@@ -165,7 +172,12 @@ export const EmployeeAttendanceHero: React.FC = () => {
     });
 
     if (!geofence.withinOffice) {
-      const result = await submitOffsitePunchRequest('in', offsiteReason, position);
+      if (!offsiteSelfie) {
+        setErrorFromMessage('Please take a selfie before submitting.');
+        setSubmitting(false);
+        return;
+      }
+      const result = await submitOffsitePunchRequest('in', offsiteReason, position, offsiteSelfie.file);
       setSubmitting(false);
       if (result.error) {
         setErrorFromMessage(result.error);
@@ -189,6 +201,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const closingPriorSession = confirmType === 'out' && priorDayOpenSession;
   const needsReason = confirmType === 'in' && isOffsitePunch;
   const reasonValid = offsiteReason.trim().length >= 10;
+  const selfieValid = !!offsiteSelfie;
 
   const statusTone = priorDayOpenSession
     ? 'warn'
@@ -438,10 +451,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
           <div>
             <p>
-              {OFFICE_LOCATION.address} · Punch In needs GPS · Out of office Punch In = admin OK
+              {OFFICE_LOCATION.address} · Punch In needs GPS · Out of office = selfie + admin OK
             </p>
             <Te className="text-gray-400 mb-0">
-              Punch In ki GPS avasaram · Office bayata Punch In ki admin OK · Punch Out simple ga
+              Punch In ki GPS avasaram · Office bayata selfie + admin OK · Punch Out simple ga
             </Te>
           </div>
         </div>
@@ -480,7 +493,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
               disabled={
                 submitting ||
                 (confirmType === 'in' && locationState.status === 'loading') ||
-                (needsReason && !reasonValid)
+                (needsReason && !reasonValid) ||
+                (needsReason && !selfieValid)
               }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             >
@@ -585,6 +599,14 @@ export const EmployeeAttendanceHero: React.FC = () => {
           )}
 
           {needsReason && (
+            <>
+              <AttendanceSelfieCapture
+                selfie={offsiteSelfie}
+                onSelfieChange={setOffsiteSelfie}
+                employeeName={currentUser.name}
+                employeeId={currentUser.id}
+                disabled={submitting}
+              />
             <div>
               <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
                 Why are you out of office?
@@ -601,6 +623,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <p className="text-[11px] text-gray-400 mt-1">At least 10 letters · Admin must approve</p>
               <Te className="text-gray-400 mb-0">10 letters minimum · admin approve cheyali</Te>
             </div>
+            </>
           )}
 
           {submitError && (
