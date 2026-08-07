@@ -22,6 +22,7 @@
  * Good morning group (daily):      node scripts/daily-attendance-whatsapp.mjs --good-morning-group
  * Good morning DM test (daily):    node scripts/daily-attendance-whatsapp.mjs --good-morning-dm
  * Boss copy test (DM only):       node scripts/daily-attendance-whatsapp.mjs --boss-test
+ * Real attendance to boss only:  node scripts/daily-attendance-whatsapp.mjs --boss-only --filters=in,absent
  * Fresh start (delete session):    powershell -ExecutionPolicy Bypass -File scripts/reset-attendance-whatsapp.ps1
  *
  * Good morning group uses GM.png in repo root (override: ATTENDANCE_WHATSAPP_MORNING_IMAGE).
@@ -70,6 +71,7 @@ const listDms = process.argv.includes('--list-dms');
 const goodMorningDm = process.argv.includes('--good-morning-dm');
 const goodMorningGroup = process.argv.includes('--good-morning-group');
 const bossTest = process.argv.includes('--boss-test');
+const bossOnly = process.argv.includes('--boss-only');
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -128,7 +130,11 @@ if (bossTest && !bossPhone && !bossContactName) {
   console.error('Missing ATTENDANCE_WHATSAPP_BOSS_PHONE or ATTENDANCE_WHATSAPP_BOSS_CONTACT in .env');
   process.exit(1);
 }
-if ((goodMorningGroup || (!pngOnly && !listGroups && !listDms && !goodMorningDm && !bossTest))
+if (bossOnly && !bossPhone && !bossContactName) {
+  console.error('Missing ATTENDANCE_WHATSAPP_BOSS_PHONE or ATTENDANCE_WHATSAPP_BOSS_CONTACT in .env');
+  process.exit(1);
+}
+if ((goodMorningGroup || (!pngOnly && !listGroups && !listDms && !goodMorningDm && !bossTest && !bossOnly))
     && !groupName && !groupIdEnv) {
   console.error('Missing ATTENDANCE_WHATSAPP_GROUP_NAME or ATTENDANCE_WHATSAPP_GROUP_ID in .env');
   process.exit(1);
@@ -365,7 +371,15 @@ function getBossCopyTarget() {
   };
 }
 
-function getAttendanceSendTargets() {
+function getAttendanceSendTargets(options = {}) {
+  if (options.bossOnly) {
+    const boss = getBossCopyTarget();
+    if (!boss) {
+      throw new Error('Set ATTENDANCE_WHATSAPP_BOSS_PHONE or ATTENDANCE_WHATSAPP_BOSS_CONTACT in .env');
+    }
+    return [boss];
+  }
+
   const targets = [{
     type: 'group',
     label: groupIdEnv || groupName,
@@ -1088,11 +1102,15 @@ async function main() {
 
   const started = Date.now();
   const dateKey = getISTDateKey();
-  const targets = getAttendanceSendTargets();
+  const targets = getAttendanceSendTargets({ bossOnly });
   console.log(`[attendance-whatsapp] date=${dateKey} filters=${filters.join(',')}`);
-  console.log(`[attendance-whatsapp] destinations: ${targets.map((t) => t.label).join(' + ')}`);
-  if (!getBossCopyTarget()) {
-    console.warn('[attendance-whatsapp] boss copy OFF — add ATTENDANCE_WHATSAPP_BOSS_PHONE to .env on this PC');
+  if (bossOnly) {
+    console.log(`[attendance-whatsapp] boss-only mode → ${targets[0].label}`);
+  } else {
+    console.log(`[attendance-whatsapp] destinations: ${targets.map((t) => t.label).join(' + ')}`);
+    if (!getBossCopyTarget()) {
+      console.warn('[attendance-whatsapp] boss copy OFF — add ATTENDANCE_WHATSAPP_BOSS_PHONE to .env on this PC');
+    }
   }
 
   mkdirSync(reportsDir, { recursive: true });
