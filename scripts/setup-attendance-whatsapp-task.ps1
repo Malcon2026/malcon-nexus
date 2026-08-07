@@ -42,3 +42,7 @@ Register-ScheduledTask `
 Write-Host "Registered scheduled task: $taskName"
 Write-Host 'Log file: D:\MalconNexus\AttendanceReports\_whatsapp-task.log'
 Write-Host 'Ensure .env has ATTENDANCE_WHATSAPP_GROUP_NAME and run the script once to scan QR.'
+Write-Host ''
+Write-Host 'Optional — also send attendance images to boss personal WhatsApp:'
+Write-Host '  ATTENDANCE_WHATSAPP_BOSS_PHONE=919876543210   (country code, no +)'
+Write-Host '  ATTENDANCE_WHATSAPP_BOSS_CONTACT=Boss Name     (optional — saved contact name)'

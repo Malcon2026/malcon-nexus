@@ -31,7 +31,11 @@
  *   ATTENDANCE_WHATSAPP_DM_PHONE=919876543210          (country code, no +)
  *   ATTENDANCE_WHATSAPP_GOOD_MORNING_TEXT=Good morning!
  * Schedule: scripts/setup-good-morning-dm-task.ps1
- */
+ *
+ * Also copy daily attendance reports to boss personal WhatsApp (.env):
+ *   ATTENDANCE_WHATSAPP_BOSS_PHONE=919876543210        (country code, no +)
+ *   ATTENDANCE_WHATSAPP_BOSS_CONTACT=Boss Name         (optional — match saved contact name)
+ * When BOSS_PHONE or BOSS_CONTACT is set, the same punched-in / absent images go to the group AND this number.
 
 import {
   existsSync,
@@ -70,6 +74,8 @@ const groupName = process.env.ATTENDANCE_WHATSAPP_GROUP_NAME?.trim();
 const groupIdEnv = process.env.ATTENDANCE_WHATSAPP_GROUP_ID?.trim();
 const dmPhone = process.env.ATTENDANCE_WHATSAPP_DM_PHONE?.trim();
 const dmContactName = process.env.ATTENDANCE_WHATSAPP_DM_CONTACT?.trim();
+const bossPhone = process.env.ATTENDANCE_WHATSAPP_BOSS_PHONE?.trim();
+const bossContactName = process.env.ATTENDANCE_WHATSAPP_BOSS_CONTACT?.trim();
 const goodMorningText = process.env.ATTENDANCE_WHATSAPP_GOOD_MORNING_TEXT?.trim()
   ?? 'Good morning! ☀️ Malcon Nexus is online and ready for the day.';
 const whatsappWebVersion = process.env.ATTENDANCE_WHATSAPP_WEB_VERSION?.trim() || '2.3000.1017054665';
@@ -333,13 +339,33 @@ function normalizeGroupId(id) {
   return `${trimmed}@g.us`;
 }
 
-function normalizeDmPhone(phone) {
+function normalizeDmPhone(phone, label = 'phone number') {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) {
-    throw new Error(`Invalid ATTENDANCE_WHATSAPP_DM_PHONE: "${phone}" (use country code, no +)`);
+    throw new Error(`Invalid ${label}: "${phone}" (use country code, no +)`);
   }
   if (digits.includes('@')) return digits;
   return `${digits}@c.us`;
+}
+
+function getBossCopyTarget() {
+  if (!bossPhone && !bossContactName) return null;
+  return {
+    type: 'dm',
+    phone: bossPhone || null,
+    contactName: bossContactName || null,
+    label: bossContactName || `+${(bossPhone ?? '').replace(/\D/g, '')}`,
+  };
+}
+
+function getAttendanceSendTargets() {
+  const targets = [{
+    type: 'group',
+    label: groupIdEnv || groupName,
+  }];
+  const boss = getBossCopyTarget();
+  if (boss) targets.push(boss);
+  return targets;
 }
 
 function buildGoodMorningHtml(dateKey, message) {
@@ -516,17 +542,20 @@ async function listDmsFromStore(client, attempts = 3, delayMs = 10_000) {
   throw lastErr;
 }
 
-async function resolveDmChatId(client) {
+async function resolveDmChatId(client, options = {}) {
+  const phone = options.phone ?? dmPhone;
+  const contactName = options.contactName ?? dmContactName;
+
   await waitForWhatsAppStore(client);
 
-  if (dmContactName) {
+  if (contactName) {
     const dms = await listDmsFromStore(client, 1, 0);
-    const target = dmContactName.trim().toLowerCase();
+    const target = contactName.trim().toLowerCase();
     const match = dms.find((c) => c.name.trim().toLowerCase() === target);
     if (!match) {
       const names = dms.map((c) => c.name).filter(Boolean).slice(0, 25);
       throw new Error(
-        `WhatsApp contact not found: "${dmContactName}". Chats seen: ${names.join(', ') || '(none)'}. `
+        `WhatsApp contact not found: "${contactName}". Chats seen: ${names.join(', ') || '(none)'}. `
         + 'Run: node scripts\\daily-attendance-whatsapp.mjs --list-dms',
       );
     }
@@ -534,7 +563,11 @@ async function resolveDmChatId(client) {
     return match.id;
   }
 
-  const chatId = normalizeDmPhone(dmPhone);
+  if (!phone) {
+    throw new Error('Missing phone or contact name for WhatsApp DM target.');
+  }
+
+  const chatId = normalizeDmPhone(phone, 'ATTENDANCE_WHATSAPP phone');
   const existsInStore = await client.pupPage.evaluate((targetChatId) => {
     function serializeChatId(id) {
       if (!id) return null;
@@ -552,11 +585,11 @@ async function resolveDmChatId(client) {
   }, chatId);
 
   if (existsInStore) {
-    console.log(`[attendance-whatsapp] using ATTENDANCE_WHATSAPP_DM_PHONE (${chatId})`);
+    console.log(`[attendance-whatsapp] using phone (${chatId})`);
     return chatId;
   }
 
-  const digits = dmPhone.replace(/\D/g, '');
+  const digits = phone.replace(/\D/g, '');
   console.log(`[attendance-whatsapp] no existing chat for +${digits} — checking WhatsApp…`);
   const numberId = await client.getNumberId(digits);
   if (!numberId) {
@@ -808,30 +841,62 @@ async function sendOneImageOnce(client, targetChatId, media, caption, label, loo
   throw new Error(`Failed to send ${label} — message not seen in chat`);
 }
 
-async function sendWhatsAppBatch(items) {
-  const targetLabel = groupIdEnv ? groupIdEnv : groupName;
-  console.log(`[attendance-whatsapp] sending ${items.length} image(s) to "${targetLabel}"…`);
+async function sendWhatsAppBatchToTargets(items, targets) {
+  console.log(
+    `[attendance-whatsapp] sending ${items.length} image(s) to ${targets.length} destination(s): `
+    + `${targets.map((t) => `"${t.label}"`).join(', ')}…`,
+  );
 
   const { client, MessageMedia } = await connectWhatsAppClient();
   try {
     logConnectedAccount(client);
-    const targetGroupId = await resolveGroupChatId(client);
 
-    for (let i = 0; i < items.length; i += 1) {
-      const { pngPath, caption, filter } = items[i];
-      const media = MessageMedia.fromFilePath(pngPath);
-      const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
-      console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
-      await sendOneImageOnce(client, targetGroupId, media, caption, filter, groupName || null);
+    for (let t = 0; t < targets.length; t += 1) {
+      const target = targets[t];
+      const targetChatId = target.type === 'group'
+        ? await resolveGroupChatId(client)
+        : await resolveDmChatId(client, {
+          phone: target.phone ?? undefined,
+          contactName: target.contactName ?? undefined,
+        });
 
-      if (i < items.length - 1) {
-        console.log('[attendance-whatsapp] waiting 12s before next image…');
-        await sleep(12_000);
+      console.log(`[attendance-whatsapp] → ${target.label}`);
+
+      for (let i = 0; i < items.length; i += 1) {
+        const { pngPath, caption, filter } = items[i];
+        const media = MessageMedia.fromFilePath(pngPath);
+        const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
+        console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
+        await sendOneImageOnce(
+          client,
+          targetChatId,
+          media,
+          caption,
+          `${target.label}:${filter}`,
+          target.contactName || null,
+        );
+
+        if (i < items.length - 1) {
+          console.log('[attendance-whatsapp] waiting 12s before next image…');
+          await sleep(12_000);
+        }
+      }
+
+      if (t < targets.length - 1) {
+        console.log('[attendance-whatsapp] waiting 8s before next destination…');
+        await sleep(8_000);
       }
     }
   } finally {
     await client.destroy();
   }
+}
+
+async function sendWhatsAppBatch(items) {
+  await sendWhatsAppBatchToTargets(items, [{
+    type: 'group',
+    label: groupIdEnv || groupName,
+  }]);
 }
 
 async function sendWhatsAppDm(pngPath, caption) {
@@ -872,7 +937,7 @@ async function listDmsCommand() {
   const { client } = await connectWhatsAppClient();
   try {
     const dms = await listDmsFromStore(client);
-    console.log('\n=== WhatsApp DMs (copy phone digits into ATTENDANCE_WHATSAPP_DM_PHONE) ===\n');
+    console.log('\n=== WhatsApp DMs (copy phone digits into ATTENDANCE_WHATSAPP_DM_PHONE or ATTENDANCE_WHATSAPP_BOSS_PHONE) ===\n');
     if (dms.length === 0) {
       console.log('No individual chats found.');
       return;
@@ -977,7 +1042,11 @@ async function main() {
 
   const started = Date.now();
   const dateKey = getISTDateKey();
+  const targets = getAttendanceSendTargets();
   console.log(`[attendance-whatsapp] date=${dateKey} filters=${filters.join(',')}`);
+  if (targets.length > 1) {
+    console.log(`[attendance-whatsapp] also copying to boss: ${targets[1].label}`);
+  }
 
   mkdirSync(reportsDir, { recursive: true });
 
@@ -1010,8 +1079,9 @@ async function main() {
   if (pngOnly) {
     console.log('[attendance-whatsapp] --png-only: skipped WhatsApp send');
   } else {
-    await sendWhatsAppBatch(sendItems);
-    console.log(`[attendance-whatsapp] sent ${sendItems.length} image(s) to WhatsApp group`);
+    await sendWhatsAppBatchToTargets(sendItems, targets);
+    const destSummary = targets.map((t) => t.label).join(' + ');
+    console.log(`[attendance-whatsapp] sent ${sendItems.length} image(s) to ${destSummary}`);
   }
 
   console.log(`[attendance-whatsapp] done in ${Math.round((Date.now() - started) / 1000)}s`);
