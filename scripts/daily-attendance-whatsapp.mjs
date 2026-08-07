@@ -875,16 +875,16 @@ async function sendOneImageOnce(client, targetChatId, media, caption, label, loo
 
 async function sendWhatsAppBatchToTargets(items, targets) {
   console.log(
-    `[attendance-whatsapp] sending ${items.length} image(s) to ${targets.length} destination(s): `
-    + `${targets.map((t) => `"${t.label}"`).join(', ')}…`,
+    `[attendance-whatsapp] sending ${items.length} report(s) to ${targets.length} destination(s): `
+    + `${targets.map((t) => `"${t.label}"`).join(', ')} (group + boss get each report together)…`,
   );
 
   const { client, MessageMedia } = await connectWhatsAppClient();
   try {
     logConnectedAccount(client);
 
-    for (let t = 0; t < targets.length; t += 1) {
-      const target = targets[t];
+    const resolvedTargets = [];
+    for (const target of targets) {
       const targetChatId = target.type === 'group'
         ? await resolveGroupChatId(client)
         : await resolveDmChatId(client, {
@@ -892,32 +892,37 @@ async function sendWhatsAppBatchToTargets(items, targets) {
           contactName: target.contactName ?? undefined,
           useGlobalFallback: false,
         });
+      resolvedTargets.push({ ...target, chatId: targetChatId });
+      console.log(`[attendance-whatsapp] ready → ${target.label}`);
+    }
 
-      console.log(`[attendance-whatsapp] → ${target.label}`);
+    for (let i = 0; i < items.length; i += 1) {
+      const { pngPath, caption, filter } = items[i];
+      const media = MessageMedia.fromFilePath(pngPath);
+      const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
+      console.log(`[attendance-whatsapp] report [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
 
-      for (let i = 0; i < items.length; i += 1) {
-        const { pngPath, caption, filter } = items[i];
-        const media = MessageMedia.fromFilePath(pngPath);
-        const sizeKb = Math.round((media.data?.length ?? 0) * 0.75 / 1024);
-        console.log(`[attendance-whatsapp] [${i + 1}/${items.length}] ${filter} — ${sizeKb}KB…`);
+      for (let t = 0; t < resolvedTargets.length; t += 1) {
+        const target = resolvedTargets[t];
+        console.log(`[attendance-whatsapp]   → ${target.label}`);
         await sendOneImageOnce(
           client,
-          targetChatId,
+          target.chatId,
           media,
           caption,
           `${target.label}:${filter}`,
           target.contactName || null,
         );
 
-        if (i < items.length - 1) {
-          console.log('[attendance-whatsapp] waiting 12s before next image…');
-          await sleep(12_000);
+        if (t < resolvedTargets.length - 1) {
+          console.log('[attendance-whatsapp]   waiting 5s before next destination…');
+          await sleep(5_000);
         }
       }
 
-      if (t < targets.length - 1) {
-        console.log('[attendance-whatsapp] waiting 8s before next destination…');
-        await sleep(8_000);
+      if (i < items.length - 1) {
+        console.log('[attendance-whatsapp] waiting 12s before next report…');
+        await sleep(12_000);
       }
     }
   } finally {
