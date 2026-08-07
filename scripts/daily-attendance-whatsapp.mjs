@@ -36,6 +36,7 @@
  *   ATTENDANCE_WHATSAPP_BOSS_PHONE=919876543210        (country code, no +)
  *   ATTENDANCE_WHATSAPP_BOSS_CONTACT=Boss Name         (optional — match saved contact name)
  * When BOSS_PHONE or BOSS_CONTACT is set, the same punched-in / absent images go to the group AND this number.
+ */
 
 import {
   existsSync,
