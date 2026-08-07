@@ -370,20 +370,6 @@ const clearManualDayEntries = async (
   return { error: null };
 };
 
-const applyManualDayClearLocal = (punchIds: string[], leaveIds: string[], newLeaves: LeaveRequest[]) => {
-  set((s) => ({
-    attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
-    leaveRequests: [
-      ...newLeaves,
-      ...s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
-    ],
-  }));
-  if (USE_SUPABASE) {
-    setCache('attendanceRecords', get().attendanceRecords);
-    setCache('leaveRequests', get().leaveRequests);
-  }
-};
-
 const persistAttendanceApprovalRequest = async (
   request: AttendanceApprovalRequest,
 ): Promise<{ error: string | null }> => {
@@ -458,27 +444,6 @@ const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: stri
   }
   const list = Database.getAll<LeaveRequest>('leaveRequests');
   Database.saveAll('leaveRequests', [request, ...list]);
-  return { error: null };
-};
-
-const deleteLeaveRequests = async (ids: string[]): Promise<{ error: string | null }> => {
-  if (ids.length === 0) return { error: null };
-  if (USE_SUPABASE) {
-    try {
-      await sbLeaveRepo.deleteByIds(ids);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete leave request';
-      console.error('[leave] delete failed:', err);
-      return { error: message };
-    }
-  } else {
-    const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !ids.includes(lr.id));
-    Database.saveAll('leaveRequests', list);
-  }
-  set((s) => ({
-    leaveRequests: s.leaveRequests.filter((lr) => !ids.includes(lr.id)),
-  }));
-  if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
   return { error: null };
 };
 
@@ -2821,3 +2786,43 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 }));
+
+/** Updates local store + cache after clearing punches/leave for manual re-mark. */
+const applyManualDayClearLocal = (
+  punchIds: string[],
+  leaveIds: string[],
+  newLeaves: LeaveRequest[],
+) => {
+  useStore.setState((s) => ({
+    attendanceRecords: s.attendanceRecords.filter((r) => !punchIds.includes(r.id)),
+    leaveRequests: [
+      ...newLeaves,
+      ...s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
+    ],
+  }));
+  if (USE_SUPABASE) {
+    setCache('attendanceRecords', useStore.getState().attendanceRecords);
+    setCache('leaveRequests', useStore.getState().leaveRequests);
+  }
+};
+
+const deleteLeaveRequests = async (ids: string[]): Promise<{ error: string | null }> => {
+  if (ids.length === 0) return { error: null };
+  if (USE_SUPABASE) {
+    try {
+      await sbLeaveRepo.deleteByIds(ids);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete leave request';
+      console.error('[leave] delete failed:', err);
+      return { error: message };
+    }
+  } else {
+    const list = Database.getAll<LeaveRequest>('leaveRequests').filter((lr) => !ids.includes(lr.id));
+    Database.saveAll('leaveRequests', list);
+  }
+  useStore.setState((s) => ({
+    leaveRequests: s.leaveRequests.filter((lr) => !ids.includes(lr.id)),
+  }));
+  if (USE_SUPABASE) setCache('leaveRequests', useStore.getState().leaveRequests);
+  return { error: null };
+};
