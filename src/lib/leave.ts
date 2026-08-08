@@ -198,10 +198,10 @@ export function splitLeaveByClSlQuota(
     const used = quotaUsed.get(cycleKey) ?? 0;
 
     if (used < CL_SL_QUOTA_PER_CYCLE) {
-      dayAssignments.push({ dateKey, leaveType: requestedType });
+      dayAssignments.push({ dateKey: dayKey, leaveType: requestedType });
       quotaUsed.set(cycleKey, used + 1);
     } else {
-      dayAssignments.push({ dateKey, leaveType: 'Unpaid' });
+      dayAssignments.push({ dateKey: dayKey, leaveType: 'Unpaid' });
     }
   }
 
