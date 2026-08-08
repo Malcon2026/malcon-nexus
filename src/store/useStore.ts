@@ -2420,6 +2420,10 @@ export const useStore = create<AppState>((set, get) => ({
       createdAt,
     );
 
+    if (requests.length === 0) {
+      return { error: 'Could not build leave request. Check your dates and try again.' };
+    }
+
     const inserted: LeaveRequest[] = [];
     for (const request of requests) {
       const persistResult = await persistLeaveRequest(request);

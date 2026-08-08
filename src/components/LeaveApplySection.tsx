@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  CalendarDays, Loader2, Send, XCircle, Clock, CheckCircle2,
+  CalendarDays, Send, XCircle, Clock, CheckCircle2,
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
@@ -53,21 +53,52 @@ export const LeaveApplySection: React.FC = () => {
     [leaveRequests, currentUser.id],
   );
 
+  const effectiveToDate = toDate || fromDate;
+
   const workingDays =
-    fromDate && toDate && fromDate <= toDate
-      ? countWorkingLeaveDays(fromDate, toDate)
+    fromDate && effectiveToDate && fromDate <= effectiveToDate
+      ? countWorkingLeaveDays(fromDate, effectiveToDate)
       : 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openForm = () => {
+    setShowForm(true);
     setError(null);
     setSuccess(null);
+    if (!fromDate) {
+      setFromDate(today);
+      setToDate(today);
+    }
+  };
+
+  const validateClient = (): string | null => {
+    if (!fromDate.trim()) return 'Please select From date.';
+    if (!effectiveToDate.trim()) return 'Please select To date.';
+    if (fromDate > effectiveToDate) return 'From date cannot be after To date.';
+    if (reason.trim().length < 10) {
+      return 'Please write a reason with at least 10 characters.';
+    }
+    if (leaveType === 'Comp Off' && !compOffWorkDate.trim()) {
+      return 'Please select the work day for Comp Off.';
+    }
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    setSuccess(null);
+
+    const clientError = validateClient();
+    if (clientError) {
+      setError(clientError);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await applyLeave(
         leaveType,
         fromDate,
-        toDate || fromDate,
+        effectiveToDate,
         reason,
         leaveType === 'Comp Off' ? compOffWorkDate : null,
       );
@@ -83,6 +114,10 @@ export const LeaveApplySection: React.FC = () => {
       setCompOffWorkDate('');
       setReason('');
       setShowForm(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setError(message);
+      console.error('[leave] submit failed:', err);
     } finally {
       setSubmitting(false);
     }
@@ -106,12 +141,17 @@ export const LeaveApplySection: React.FC = () => {
             </div>
           </div>
           <Button
+            type="button"
             variant={showForm ? 'outline' : 'primary'}
             size="sm"
             onClick={() => {
-              setShowForm((v) => !v);
-              setError(null);
-              setSuccess(null);
+              if (showForm) {
+                setShowForm(false);
+                setError(null);
+                setSuccess(null);
+              } else {
+                openForm();
+              }
             }}
           >
             {showForm ? 'Close' : 'Apply Leave'}
@@ -120,7 +160,14 @@ export const LeaveApplySection: React.FC = () => {
       </CardHeader>
       <CardBody className="space-y-4">
         {showForm && (
-          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSubmit();
+            }}
+            className="space-y-4 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Leave Type *</label>
@@ -156,7 +203,6 @@ export const LeaveApplySection: React.FC = () => {
                     setFromDate(e.target.value);
                     if (!toDate || toDate < e.target.value) setToDate(e.target.value);
                   }}
-                  required
                 />
               </div>
               <div>
@@ -167,7 +213,6 @@ export const LeaveApplySection: React.FC = () => {
                   min={fromDate || today}
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  required
                 />
               </div>
               {leaveType === 'Comp Off' && (
@@ -178,7 +223,6 @@ export const LeaveApplySection: React.FC = () => {
                     className={inputClass}
                     value={compOffWorkDate}
                     onChange={(e) => setCompOffWorkDate(e.target.value)}
-                    required
                   />
                   <p className="text-[11px] text-indigo-700/80 mt-1.5">
                     Pick the day you will work instead (often a Sunday).
@@ -193,14 +237,18 @@ export const LeaveApplySection: React.FC = () => {
                 placeholder="Why do you need leave? (at least 10 letters)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                required
+                minLength={10}
               />
+              <p className="text-[11px] text-gray-500 mt-1">
+                {reason.trim().length}/10 characters minimum
+              </p>
             </div>
             <Button
               type="submit"
               variant="primary"
               size="sm"
-              icon={submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              loading={submitting}
+              icon={!submitting ? <Send className="h-3.5 w-3.5" /> : undefined}
               disabled={submitting}
             >
               Send to Admin
@@ -208,7 +256,11 @@ export const LeaveApplySection: React.FC = () => {
           </form>
         )}
 
-        {error && <p className="text-xs text-red-600">{error}</p>}
+        {error && (
+          <p className="text-xs text-red-600 font-medium" role="alert">
+            {error}
+          </p>
+        )}
         {success && (
           <div>
             <p className="text-xs text-emerald-700">{success}</p>
