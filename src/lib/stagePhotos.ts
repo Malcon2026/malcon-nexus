@@ -8,6 +8,12 @@ const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 const MAX_PHOTOS_PER_SUBMISSION = 10;
+/** Raw camera/library files from iPhones can be large — we compress before upload. */
+export const MAX_RAW_PHOTO_BYTES = 25 * 1024 * 1024;
+/** After compress, keep under edge-function limit. */
+export const MAX_UPLOAD_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_EDGE = 1600;
+const TARGET_UPLOAD_BYTES = 550 * 1024;
 
 export { MAX_PHOTOS_PER_SUBMISSION };
 
@@ -64,6 +70,107 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+type DecodedImage = { width: number; height: number; draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void; close: () => void };
+
+async function decodeImageFile(file: File): Promise<DecodedImage> {
+  try {
+    const bitmap = await createImageBitmap(file, {
+      imageOrientation: 'from-image',
+    } as ImageBitmapOptions);
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      draw: (ctx, w, h) => ctx.drawImage(bitmap, 0, 0, w, h),
+      close: () => bitmap.close(),
+    };
+  } catch {
+    // Fallback for HEIC / odd formats some browsers can't bitmap-decode.
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('Could not read this photo. Try taking a new JPEG photo.'));
+        el.src = objectUrl;
+      });
+      return {
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+        draw: (ctx, w, h) => ctx.drawImage(img, 0, 0, w, h),
+        close: () => undefined,
+      };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+}
+
+function canvasToJpegBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) reject(new Error('Failed to compress photo'));
+        else resolve(blob);
+      },
+      'image/jpeg',
+      quality,
+    );
+  });
+}
+
+/** Resize + JPEG-compress for upload (iPhone HEIC/large photos). */
+export async function compressImageForUpload(
+  file: File,
+  options?: { maxEdge?: number; targetBytes?: number },
+): Promise<File> {
+  const maxEdge = options?.maxEdge ?? MAX_IMAGE_EDGE;
+  const targetBytes = options?.targetBytes ?? TARGET_UPLOAD_BYTES;
+
+  const decoded = await decodeImageFile(file);
+  try {
+    const scale = Math.min(1, maxEdge / Math.max(decoded.width, decoded.height));
+    const width = Math.max(1, Math.round(decoded.width * scale));
+    const height = Math.max(1, Math.round(decoded.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not prepare photo');
+
+    decoded.draw(ctx, width, height);
+
+    let quality = 0.82;
+    let blob = await canvasToJpegBlob(canvas, quality);
+
+    // Step quality down until under target (or floor).
+    while (blob.size > targetBytes && quality > 0.55) {
+      quality = Math.round((quality - 0.08) * 100) / 100;
+      blob = await canvasToJpegBlob(canvas, quality);
+    }
+
+    // Still huge → shrink dimensions once more.
+    if (blob.size > MAX_UPLOAD_PHOTO_BYTES) {
+      const shrink = 0.75;
+      canvas.width = Math.max(1, Math.round(width * shrink));
+      canvas.height = Math.max(1, Math.round(height * shrink));
+      const ctx2 = canvas.getContext('2d');
+      if (!ctx2) throw new Error('Could not prepare photo');
+      decoded.draw(ctx2, canvas.width, canvas.height);
+      blob = await canvasToJpegBlob(canvas, 0.7);
+    }
+
+    if (blob.size > MAX_UPLOAD_PHOTO_BYTES) {
+      throw new Error('Photo is still too large after compression. Please take a simpler photo and try again.');
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'photo';
+    return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+  } finally {
+    decoded.close();
+  }
+}
+
 function drawPhotoStamp(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -103,42 +210,56 @@ function drawPhotoStamp(
   }
 }
 
-/** Burn employee name, ID, date & time onto the photo before upload. */
+/** Compress (iPhone-friendly) then burn employee name, ID, date & time onto the photo. */
 export async function stampPhotoForUpload(
   file: File,
   stamp: PhotoStampInfo,
 ): Promise<File> {
   const capturedAt = stamp.capturedAt ?? new Date();
 
+  const decoded = await decodeImageFile(file);
   try {
-    const bitmap = await createImageBitmap(file);
-    const maxEdge = 1920;
-    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(decoded.width, decoded.height));
+    const width = Math.max(1, Math.round(decoded.width * scale));
+    const height = Math.max(1, Math.round(decoded.height * scale));
 
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      bitmap.close();
-      return file;
-    }
+    if (!ctx) throw new Error('Could not prepare photo');
 
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    bitmap.close();
+    decoded.draw(ctx, width, height);
     drawPhotoStamp(ctx, width, height, stamp, capturedAt);
 
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, 'image/jpeg', 0.88);
-    });
-    if (!blob) return file;
+    let quality = 0.82;
+    let blob = await canvasToJpegBlob(canvas, quality);
+    while (blob.size > TARGET_UPLOAD_BYTES && quality > 0.55) {
+      quality = Math.round((quality - 0.08) * 100) / 100;
+      blob = await canvasToJpegBlob(canvas, quality);
+    }
+
+    if (blob.size > MAX_UPLOAD_PHOTO_BYTES) {
+      const shrink = 0.75;
+      const sw = Math.max(1, Math.round(width * shrink));
+      const sh = Math.max(1, Math.round(height * shrink));
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx2 = canvas.getContext('2d');
+      if (!ctx2) throw new Error('Could not prepare photo');
+      decoded.draw(ctx2, sw, sh);
+      drawPhotoStamp(ctx2, sw, sh, stamp, capturedAt);
+      blob = await canvasToJpegBlob(canvas, 0.7);
+    }
+
+    if (blob.size > MAX_UPLOAD_PHOTO_BYTES) {
+      throw new Error('Photo is still too large after compression. Please take a simpler photo and try again.');
+    }
 
     const baseName = file.name.replace(/\.[^.]+$/, '') || 'stage-photo';
     return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
-  } catch {
-    return file;
+  } finally {
+    decoded.close();
   }
 }
 

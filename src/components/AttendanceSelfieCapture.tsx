@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Camera, Loader2, X } from 'lucide-react';
-import { stampPhotoForUpload } from '../lib/stagePhotos';
+import { stampPhotoForUpload, MAX_RAW_PHOTO_BYTES } from '../lib/stagePhotos';
 
 export interface CapturedSelfie {
   file: File;
@@ -41,8 +41,8 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Selfie must be under 5 MB.');
+    if (file.size > MAX_RAW_PHOTO_BYTES) {
+      setError('Photo is too large to process. Take a new selfie and try again.');
       return;
     }
 
@@ -62,8 +62,8 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
         previewUrl: URL.createObjectURL(stamped),
         capturedAt: capturedAt.toISOString(),
       });
-    } catch {
-      setError('Failed to prepare selfie. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to prepare selfie. Please try again.');
     } finally {
       setProcessing(false);
       if (inputRef.current) inputRef.current.value = '';

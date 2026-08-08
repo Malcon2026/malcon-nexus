@@ -1,7 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { Camera, ImageIcon, Loader2, Plus, X } from 'lucide-react';
 import { Button } from './ui/Button';
-import { MAX_PHOTOS_PER_SUBMISSION, stampPhotoForUpload } from '../lib/stagePhotos';
+import {
+  MAX_PHOTOS_PER_SUBMISSION,
+  MAX_RAW_PHOTO_BYTES,
+  stampPhotoForUpload,
+} from '../lib/stagePhotos';
 
 export interface CapturedPhoto {
   id: string;
@@ -52,8 +56,8 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
         continue;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Each photo must be under 5 MB.');
+      if (file.size > MAX_RAW_PHOTO_BYTES) {
+        setError('Photo is too large to process (max 25 MB). Take a new photo and try again.');
         continue;
       }
 
@@ -83,8 +87,8 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
       }
 
       onPhotosChange([...photos, ...stampedPhotos]);
-    } catch {
-      setError('Failed to prepare photo. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to prepare photo. Please try again.');
     } finally {
       setProcessing(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -106,7 +110,7 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
     <div className="space-y-3">
       <label className="block text-xs font-medium text-gray-700">{label}</label>
       <p className="text-xs text-gray-500 -mt-1">
-        Add at least one photo (up to {maxPhotos}). Your name, employee ID, date and time are stamped automatically on each photo.
+        Add at least one photo (up to {maxPhotos}). Large iPhone photos are compressed automatically.
       </p>
 
       <input
