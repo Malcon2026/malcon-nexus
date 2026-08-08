@@ -56,8 +56,8 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const { bootstrapEssential } = await import('../lib/database/bootstrap');
-      await bootstrapEssential('admin');
+      const { refreshApprovalQueues } = await import('../lib/database/bootstrap');
+      await refreshApprovalQueues();
       reloadFromDatabase();
     } finally {
       setRefreshing(false);

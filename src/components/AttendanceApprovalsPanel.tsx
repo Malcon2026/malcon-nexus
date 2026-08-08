@@ -1,18 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EmployeeLeaveApprovalsPanel } from './EmployeeLeaveApprovalsPanel';
 import { EmployeeAttendanceApprovalsPanel } from './EmployeeAttendanceApprovalsPanel';
 import { useStore } from '../store/useStore';
 
 type ApprovalFilter = 'all' | 'leave' | 'offsite';
-
-function initialApprovalFilter(
-  pendingLeave: number,
-  pendingOffsite: number,
-): ApprovalFilter {
-  if (pendingLeave > 0 && pendingOffsite === 0) return 'leave';
-  if (pendingOffsite > 0 && pendingLeave === 0) return 'offsite';
-  return 'all';
-}
 
 export const AttendanceApprovalsPanel: React.FC = () => {
   const pendingLeaveCount = useStore((s) =>
@@ -21,9 +12,25 @@ export const AttendanceApprovalsPanel: React.FC = () => {
   const pendingOffsiteCount = useStore((s) =>
     s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
   );
-  const [filter, setFilter] = useState<ApprovalFilter>(() =>
-    initialApprovalFilter(pendingLeaveCount, pendingOffsiteCount),
-  );
+  const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
+  const [filter, setFilter] = useState<ApprovalFilter>('all');
+  const [loadingApprovals, setLoadingApprovals] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { refreshApprovalQueues } = await import('../lib/database/bootstrap');
+        await refreshApprovalQueues();
+        if (!cancelled) reloadFromDatabase();
+      } finally {
+        if (!cancelled) setLoadingApprovals(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadFromDatabase]);
 
   const tabs: { id: ApprovalFilter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: pendingLeaveCount + pendingOffsiteCount },
@@ -33,6 +40,9 @@ export const AttendanceApprovalsPanel: React.FC = () => {
 
   return (
     <div className="space-y-6 min-w-0 w-full max-w-full">
+      {loadingApprovals && (
+        <p className="text-xs text-gray-500">Loading pending approvals…</p>
+      )}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
         {tabs.map(({ id, label, count }) => (
           <button

@@ -2475,6 +2475,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
 
     return {
       error: null,
@@ -2586,6 +2587,7 @@ export const useStore = create<AppState>((set, get) => ({
           leaveRequests: [...inserted, ...s.leaveRequests.filter((r) => r.id !== requestId)],
           activityLog: [activity, ...s.activityLog],
         }));
+        if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
 
         return { error: null };
       }
@@ -2639,6 +2641,7 @@ export const useStore = create<AppState>((set, get) => ({
       ),
       activityLog: [activity, ...s.activityLog],
     }));
+    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
 
     return { error: null };
   },
@@ -2684,6 +2687,7 @@ export const useStore = create<AppState>((set, get) => ({
       ),
       activityLog: [activity, ...s.activityLog],
     }));
+    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
 
     return { error: null };
   },

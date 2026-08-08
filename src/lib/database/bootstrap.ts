@@ -158,7 +158,10 @@ function shouldSkipEssentialFetch(
   options: BootstrapOptions | undefined,
   runOptions?: BootstrapRunOptions,
 ): boolean {
-  if (runOptions?.force || !options?.employeeId) return false;
+  if (runOptions?.force) return false;
+  // Admins must always load fresh leave / off-site approval queues.
+  if (role === 'admin') return false;
+  if (!options?.employeeId) return false;
   return isBootstrapCacheFresh(options.employeeId);
 }
 
@@ -256,6 +259,17 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
   } catch {
     // sessionStorage full — ignore
   }
+}
+
+/** Fresh fetch for admin approval queues (leave + off-site punch). */
+export async function refreshApprovalQueues(): Promise<void> {
+  await runBootstrapTasks(
+    [
+      { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+      { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+    ],
+    'approvals',
+  );
 }
 
 /** Load data needed for the first interactive screen (attendance, leave). Returns false when skipped (fresh cache). */
