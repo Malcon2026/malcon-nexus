@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Clock, CheckCircle2, AlertCircle, Send, FileText, Bell
+  CheckCircle2, AlertCircle, Send, FileText, Bell,
+  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -18,6 +19,8 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
 
+type EmployeePage = 'home' | 'cases' | 'leaves' | 'register' | 'alerts';
+
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
 );
@@ -27,32 +30,119 @@ function useMyCases(employee: Pick<import('../types').Employee, 'id' | 'email'>)
   return cases.filter((c) => isCaseAssignedToEmployee(c, employee));
 }
 
-const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void }> = ({
+  title,
+  titleTe,
+  onBack,
+}) => (
+  <div className="flex items-center gap-2 mb-4">
+    <button
+      type="button"
+      onClick={onBack}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+      aria-label="Back"
+    >
+      <ChevronLeft className="h-5 w-5" />
+    </button>
+    <div className="min-w-0">
+      <h2 className="text-lg font-bold text-gray-900 leading-tight">{title}</h2>
+      {titleTe && <Te className="text-gray-500 mb-0">{titleTe}</Te>}
+    </div>
+  </div>
+);
+
+const HomeNavTiles: React.FC<{
+  employee: Pick<import('../types').Employee, 'id' | 'email'>;
+  onOpen: (page: EmployeePage) => void;
+}> = ({ employee, onOpen }) => {
+  const myCases = useMyCases(employee);
+  const pendingLeaveCount = useStore(
+    (s) => s.leaveRequests.filter((lr) => lr.employeeId === employee.id && lr.status === 'pending').length,
+  );
+  const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
+
+  const activeCases = myCases.filter((c) => c.status === 'Active').length;
+  const waitingCases = myCases.filter((c) => c.status === 'Waiting For Approval').length;
+
+  const tiles: {
+    id: EmployeePage;
+    title: string;
+    titleTe: string;
+    hint: string;
+    icon: React.ReactNode;
+    iconBg: string;
+    badge?: number;
+  }[] = [
+    {
+      id: 'cases',
+      title: 'Cases',
+      titleTe: 'Cases',
+      hint: waitingCases > 0 ? `${waitingCases} waiting admin` : `${activeCases} active`,
+      icon: <Briefcase className="h-5 w-5 text-indigo-600" />,
+      iconBg: 'bg-indigo-50',
+      badge: activeCases + waitingCases || undefined,
+    },
+    {
+      id: 'leaves',
+      title: 'Leaves',
+      titleTe: 'Leave',
+      hint: pendingLeaveCount > 0 ? `${pendingLeaveCount} pending` : 'Apply / history',
+      icon: <CalendarDays className="h-5 w-5 text-emerald-600" />,
+      iconBg: 'bg-emerald-50',
+      badge: pendingLeaveCount || undefined,
+    },
+    {
+      id: 'register',
+      title: 'Register',
+      titleTe: 'Attendance register',
+      hint: 'P · CL · UL · WO',
+      icon: <ClipboardList className="h-5 w-5 text-sky-600" />,
+      iconBg: 'bg-sky-50',
+    },
+    {
+      id: 'alerts',
+      title: 'Alerts',
+      titleTe: 'Notifications',
+      hint: unreadNotifCount > 0 ? `${unreadNotifCount} new` : 'No new alerts',
+      icon: <Bell className="h-5 w-5 text-amber-600" />,
+      iconBg: 'bg-amber-50',
+      badge: unreadNotifCount || undefined,
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-2">
+      {tiles.map((tile) => (
+        <button
+          key={tile.id}
+          type="button"
+          onClick={() => onOpen(tile.id)}
+          className="relative text-left rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-200 hover:shadow transition-all active:scale-[0.98]"
+        >
+          {tile.badge != null && tile.badge > 0 && (
+            <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              {tile.badge > 99 ? '99+' : tile.badge}
+            </span>
+          )}
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tile.iconBg} mb-3`}>
+            {tile.icon}
+          </div>
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-sm font-bold text-gray-900">{tile.title}</p>
+            <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
+          </div>
+          <Te className="text-gray-500 mb-0.5">{tile.titleTe}</Te>
+          <p className="text-[11px] text-gray-500 mt-0.5">{tile.hint}</p>
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
 
   useEffect(() => {
-    const node = containerRef.current;
-    if (!node || visible) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '240px 0px' },
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [visible]);
-
-  // When the register scrolls into view, make sure attendance history is loaded.
-  useEffect(() => {
-    if (!visible) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -66,53 +156,14 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
     return () => {
       cancelled = true;
     };
-  }, [visible, employeeId, reloadFromDatabase]);
+  }, [employeeId, reloadFromDatabase]);
 
   return (
-    <div ref={containerRef} className="mb-6 min-w-0 w-full max-w-full">
-      {visible ? (
-        <AttendanceRegisterPanel
-          employeeId={employeeId}
-          title="My Attendance"
-          subtitle="P = Present · UL = Unpaid · WO = Sunday off"
-        />
-      ) : (
-        <Card className="p-8 text-center">
-          <p className="text-sm text-gray-400">Scroll down to see your attendance</p>
-          <Te className="text-gray-400 mb-0">Attendance chudadaniki kindaki scroll cheyandi</Te>
-        </Card>
-      )}
-    </div>
-  );
-};
-
-const EmployeeQuickStats: React.FC<{ employee: Pick<import('../types').Employee, 'id' | 'email'> }> = ({ employee }) => {
-  const myCases = useMyCases(employee);
-  const unreadNotifCount = useStore(
-    (s) => s.notifications.filter((n) => !n.read).length,
-  );
-
-  const activeCases = myCases.filter((c) => c.status === 'Active').length;
-  const submittedCases = myCases.filter((c) => c.status === 'Waiting For Approval').length;
-  const completedCases = myCases.filter((c) =>
-    c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
-  ).length;
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-      {[
-        { label: 'Active Cases', value: activeCases, icon: <Clock className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50' },
-        { label: 'Waiting for Admin', value: submittedCases, icon: <AlertCircle className="h-5 w-5 text-amber-600" />, bg: 'bg-amber-50' },
-        { label: 'Done', value: completedCases, icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />, bg: 'bg-emerald-50' },
-        { label: 'Alerts', value: unreadNotifCount, icon: <Bell className="h-5 w-5 text-purple-600" />, bg: 'bg-purple-50' },
-      ].map(({ label, value, icon, bg }) => (
-        <Card key={label} className="p-5">
-          <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${bg} mb-3`}>{icon}</div>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          <p className="text-sm text-gray-500 mt-0.5">{label}</p>
-        </Card>
-      ))}
-    </div>
+    <AttendanceRegisterPanel
+      employeeId={employeeId}
+      title="My Attendance"
+      subtitle="P = Present · UL = Unpaid · WO = Sunday off"
+    />
   );
 };
 
@@ -130,7 +181,7 @@ const EmployeeCasesPanel: React.FC<{
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <h2 className="text-sm font-bold text-gray-900">My Cases</h2>
+        <h2 className="text-sm font-bold text-gray-900 sm:hidden">My Cases</h2>
 
         {myCases.length === 0 ? (
           <Card className="p-12 text-center">
@@ -213,57 +264,7 @@ const EmployeeCasesPanel: React.FC<{
         )}
       </div>
 
-      <EmployeeSidebar completedCases={completedCases} />
-    </div>
-  );
-};
-
-const EmployeeSidebar: React.FC<{
-  completedCases: ImplantCase[];
-}> = ({ completedCases }) => {
-  const notifications = useStore((s) => s.notifications);
-  const myNotifs = useMemo(
-    () => notifications.filter((n) => !n.read).slice(0, 5),
-    [notifications],
-  );
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Alerts</h3>
-            {myNotifs.length > 0 && (
-              <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium">{myNotifs.length}</span>
-            )}
-          </div>
-        </CardHeader>
-        <CardBody className="p-0">
-          {myNotifs.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">
-              <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-xs">No new alerts</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {myNotifs.map((n) => (
-                <div key={n.id} className="px-5 py-3">
-                  <div className="flex items-start gap-2">
-                    <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${n.type === 'warning' ? 'bg-amber-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                    <div>
-                      <p className="text-xs font-semibold text-gray-900">{n.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(n.timestamp)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card>
+      <Card className="hidden lg:block h-fit">
         <CardHeader><h3 className="text-sm font-semibold text-gray-900">Recently Done</h3></CardHeader>
         <CardBody className="p-0">
           {completedCases.length === 0 ? (
@@ -291,8 +292,55 @@ const EmployeeSidebar: React.FC<{
   );
 };
 
+const EmployeeAlertsPage: React.FC = () => {
+  const notifications = useStore((s) => s.notifications);
+  const myNotifs = useMemo(
+    () => [...notifications].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 30),
+    [notifications],
+  );
+
+  return (
+    <Card>
+      <CardBody className="p-0">
+        {myNotifs.length === 0 ? (
+          <div className="py-12 text-center text-gray-400">
+            <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No alerts</p>
+            <Te className="text-gray-400 mb-0">Alerts levu</Te>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {myNotifs.map((n) => (
+              <div key={n.id} className="px-4 py-3.5">
+                <div className="flex items-start gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${
+                      n.type === 'warning' ? 'bg-amber-500' : n.type === 'success' ? 'bg-emerald-500' : 'bg-blue-500'
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                      {!n.read && (
+                        <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">New</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.timestamp)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+};
+
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
+  const [page, setPage] = useState<EmployeePage>('home');
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
 
@@ -306,20 +354,50 @@ export const EmployeeDashboard: React.FC = () => {
         <SubmitModal isOpen={true} onClose={() => setSubmitCase(null)} case={submitCase} />
       )}
 
-      <NoticeBoard />
+      {page === 'home' && (
+        <>
+          <NoticeBoard />
+          <EmployeeAttendanceHero />
+          <div className="pt-1 pb-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-0.5">
+              Menu
+            </p>
+            <HomeNavTiles employee={currentUser} onOpen={setPage} />
+          </div>
+        </>
+      )}
 
-      <EmployeeAttendanceHero />
+      {page === 'cases' && (
+        <>
+          <PageHeader title="Cases" titleTe="Naa cases" onBack={() => setPage('home')} />
+          <EmployeeCasesPanel
+            employee={currentUser}
+            onViewCase={setViewCase}
+            onSubmitCase={setSubmitCase}
+          />
+        </>
+      )}
 
-      <div className="space-y-6 pt-2 border-t border-gray-200">
-        <LeaveApplySection />
-        <LazyEmployeeRegister employeeId={currentUser.id} />
-        <EmployeeQuickStats employee={currentUser} />
-        <EmployeeCasesPanel
-          employee={currentUser}
-          onViewCase={setViewCase}
-          onSubmitCase={setSubmitCase}
-        />
-      </div>
+      {page === 'leaves' && (
+        <>
+          <PageHeader title="Leaves" titleTe="Leave apply" onBack={() => setPage('home')} />
+          <LeaveApplySection />
+        </>
+      )}
+
+      {page === 'register' && (
+        <>
+          <PageHeader title="Register" titleTe="Attendance register" onBack={() => setPage('home')} />
+          <EmployeeRegisterPage employeeId={currentUser.id} />
+        </>
+      )}
+
+      {page === 'alerts' && (
+        <>
+          <PageHeader title="Alerts" titleTe="Notifications" onBack={() => setPage('home')} />
+          <EmployeeAlertsPage />
+        </>
+      )}
     </div>
   );
 };
