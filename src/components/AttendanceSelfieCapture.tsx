@@ -81,9 +81,6 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
       <label className="block text-xs font-semibold text-gray-900">
         Selfie *
       </label>
-      <p className="text-[11px] text-gray-500">
-        Front camera required. Your name, employee ID, and time are stamped on the photo (same as case photos).
-      </p>
 
       <input
         ref={inputRef}
@@ -104,14 +101,13 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
         >
           <Camera className="h-9 w-9" />
           <span className="text-sm font-semibold">Take Selfie</span>
-          <span className="text-xs text-indigo-500">Tap to open front camera</span>
         </button>
       ) : (
         <div className="space-y-2">
           {processing && (
             <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-              <span>Adding name, ID, date &amp; time to selfie…</span>
+              <span>Please wait…</span>
             </div>
           )}
 
@@ -131,9 +127,6 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
               >
                 <X className="h-4 w-4" />
               </button>
-              <div className="px-2 py-1.5 bg-white border-t border-gray-100 text-[10px] text-emerald-700 font-medium">
-                Selfie ready — stamped with name &amp; time
-              </div>
             </div>
           )}
 
@@ -144,7 +137,7 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
               onClick={() => inputRef.current?.click()}
               className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
             >
-              Retake selfie
+              Retake
             </button>
           )}
         </div>
