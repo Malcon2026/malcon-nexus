@@ -93,6 +93,10 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const [selfieIndex, setSelfieIndex] = useState<number | null>(null);
   const shareListRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setSelfieIndex(null);
+  }, [filterStatus, dateKey]);
+
   const report = useMemo(
     () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey),
     [employees, attendanceRecords, dateKey],
@@ -140,9 +144,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   );
 
   const selfieItems = useMemo((): SelfieItem[] => {
-    if (filterStatus !== 'in' && filterStatus !== 'out' && filterStatus !== 'unclosed') {
-      return [];
-    }
+    if (filterStatus !== 'in') return [];
     return sortedForShare
       .filter((row) => !!row.punchIn?.selfieUrl)
       .map((row) => ({
@@ -374,7 +376,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
         </div>
       )}
 
-      {filterStatus !== 'all' && filterStatus !== 'absent' && selfieItems.length === 0 && sortedForShare.length > 0 && (
+      {filterStatus === 'in' && selfieItems.length === 0 && sortedForShare.length > 0 && (
         <p className="text-xs text-gray-500 max-w-3xl">
           No punch-in selfies for this list yet (older punches before selfie was required).
         </p>
