@@ -83,7 +83,7 @@ const bossPhone = process.env.ATTENDANCE_WHATSAPP_BOSS_PHONE?.trim();
 const bossContactName = process.env.ATTENDANCE_WHATSAPP_BOSS_CONTACT?.trim();
 const goodMorningText = process.env.ATTENDANCE_WHATSAPP_GOOD_MORNING_TEXT?.trim()
   ?? 'Good morning! ☀️ Malcon Nexus is online and ready for the day.';
-const whatsappWebVersion = process.env.ATTENDANCE_WHATSAPP_WEB_VERSION?.trim() || '2.3000.1017054665';
+const whatsappWebVersion = process.env.ATTENDANCE_WHATSAPP_WEB_VERSION?.trim() || '2.3000.1044624456';
 const sessionPath = process.env.ATTENDANCE_WHATSAPP_SESSION_PATH
   ?? join('D:', 'MalconNexus', 'WhatsAppSession');
 const reportsDir = process.env.ATTENDANCE_REPORTS_DIR
@@ -683,7 +683,12 @@ async function connectWhatsAppClient() {
   const { Client, LocalAuth, MessageMedia } = wweb.default ?? wweb;
 
   const client = buildWhatsAppClient(LocalAuth, Client);
-  const readyTimeoutMs = 180_000;
+  const readyTimeoutMs = 240_000;
+
+  let finished = false;
+  let sawAuthenticated = false;
+  let maxLoadingPercent = 0;
+  let storeFallbackStarted = false;
 
   client.on('qr', (qr) => {
     console.log('\nScan this QR with WhatsApp → Linked devices → Link a device:\n');
@@ -692,10 +697,12 @@ async function connectWhatsAppClient() {
   });
 
   client.on('authenticated', () => {
+    sawAuthenticated = true;
     console.log('[attendance-whatsapp] phone linked — loading WhatsApp Web (can take 1–2 min)…');
   });
 
   client.on('loading_screen', (percent, message) => {
+    maxLoadingPercent = Math.max(maxLoadingPercent, Number(percent) || 0);
     console.log(`[attendance-whatsapp] loading ${percent}%${message ? ` — ${message}` : ''}`);
   });
 
@@ -704,27 +711,66 @@ async function connectWhatsAppClient() {
   });
 
   await new Promise((resolvePromise, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(
-        'WhatsApp did not finish loading within 3 minutes after scan. '
-        + 'Phone shows linked but PC is stuck — press Ctrl+C, run reset script, and try again. '
-        + 'Or set ATTENDANCE_WHATSAPP_HEADLESS=0 in .env to see the browser window.',
-      ));
-    }, readyTimeoutMs);
+    let timeout;
 
-    const done = () => {
+    const finish = (source) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
+      if (source !== 'ready event') {
+        console.log(`[attendance-whatsapp] proceeding via ${source} (ready event did not fire)`);
+      }
       resolvePromise();
     };
 
-    client.on('ready', done);
-    client.on('auth_failure', (msg) => {
-      clearTimeout(timeout);
-      reject(new Error(`WhatsApp auth failed: ${msg}`));
-    });
-    client.initialize().catch((err) => {
+    const fail = (err) => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timeout);
       reject(err);
+    };
+
+    async function tryStoreReadyFallback() {
+      if (storeFallbackStarted || finished) return;
+      storeFallbackStarted = true;
+      console.log('[attendance-whatsapp] stuck at high loading % — waiting for WhatsApp store…');
+      for (let attempt = 1; attempt <= 30; attempt += 1) {
+        if (finished) return;
+        try {
+          await waitForWhatsAppStore(client, 15_000);
+          finish('WhatsApp store');
+          return;
+        } catch {
+          console.log(`[attendance-whatsapp] store not ready yet (${attempt}/30)…`);
+          await sleep(5000);
+        }
+      }
+      if (!finished) {
+        fail(new Error(
+          'WhatsApp loaded in browser but store never became ready. '
+          + 'Run reset-attendance-whatsapp.ps1, ensure only one script runs at a time, then retry.',
+        ));
+      }
+    }
+
+    client.on('loading_screen', (percent) => {
+      const pct = Number(percent) || 0;
+      if (sawAuthenticated && pct >= 99 && !storeFallbackStarted) {
+        setTimeout(() => { tryStoreReadyFallback(); }, 20_000);
+      }
+    });
+
+    timeout = setTimeout(() => {
+      if (finished) return;
+      tryStoreReadyFallback().catch((err) => fail(err));
+    }, readyTimeoutMs);
+
+    client.on('ready', () => finish('ready event'));
+    client.on('auth_failure', (msg) => {
+      fail(new Error(`WhatsApp auth failed: ${msg}`));
+    });
+    client.initialize().catch((err) => {
+      fail(err);
     });
   });
 
