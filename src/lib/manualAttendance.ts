@@ -131,5 +131,6 @@ export function buildAutoCloseOutRecord(
     distanceM: 0,
     withinOffice: true,
     officeAddress: `Auto-closed unclosed shift before manual entry by ${adminName}`,
+    selfieUrl: null,
   };
 }

@@ -8,6 +8,10 @@ const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 
+export type AttendanceSelfieTarget =
+  | { kind: 'approval'; requestId: string }
+  | { kind: 'record'; recordId: string };
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
@@ -36,9 +40,9 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-/** Stamp name/ID/time onto selfie (same as case photos) and upload for an approval request. */
+/** Stamp name/ID/time onto selfie and upload for an approval request or punch-in record. */
 export async function uploadAttendanceSelfie(
-  requestId: string,
+  target: AttendanceSelfieTarget,
   file: File,
   employeeName: string,
   employeeId: string,
@@ -64,7 +68,11 @@ export async function uploadAttendanceSelfie(
   }
 
   const form = new FormData();
-  form.append('requestId', requestId);
+  if (target.kind === 'approval') {
+    form.append('requestId', target.requestId);
+  } else {
+    form.append('recordId', target.recordId);
+  }
   form.append('photo', stamped, stamped.name || 'selfie.jpg');
 
   const res = await fetchWithTimeout(FUNCTIONS_URL, {

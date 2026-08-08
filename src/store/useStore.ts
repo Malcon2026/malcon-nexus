@@ -131,7 +131,11 @@ interface AppState {
   markAllNotificationsRead: () => void;
 
   // Attendance
-  punchAttendance: (punchType: PunchType, position: GeoPosition) => Promise<{ error: string | null }>;
+  punchAttendance: (
+    punchType: PunchType,
+    position: GeoPosition,
+    selfieFile?: File | null,
+  ) => Promise<{ error: string | null }>;
   /** Punch out — no GPS or reason required. */
   punchOut: () => Promise<{ error: string | null }>;
   submitOffsitePunchRequest: (
@@ -330,6 +334,7 @@ function attendanceRecordFromOffsiteRequest(request: AttendanceApprovalRequest):
     distanceM: request.distanceM,
     withinOffice: false,
     officeAddress: OFFICE_LOCATION.address,
+    selfieUrl: request.punchType === 'in' ? request.selfieUrl : null,
   };
 }
 
@@ -1562,9 +1567,13 @@ export const useStore = create<AppState>((set, get) => ({
     return summarizeLiveAttendance(attendanceRecords, currentUser.id);
   },
 
-  punchAttendance: async (punchType, position) => {
+  punchAttendance: async (punchType, position, selfieFile = null) => {
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
     let openShift = hasOpenShift(attendanceRecords, currentUser.id);
+
+    if (punchType === 'in' && !selfieFile) {
+      return { error: 'Please take a selfie before punch in.' };
+    }
 
     // Prior-day off-site out may still be pending approval — apply it so today punch-in works.
     if (punchType === 'in' && openShift) {
@@ -1614,11 +1623,52 @@ export const useStore = create<AppState>((set, get) => ({
       distanceM: geofence.distanceM,
       withinOffice: geofence.withinOffice,
       officeAddress: OFFICE_LOCATION.address,
+      selfieUrl: null,
     };
 
     const persistResult = await persistAttendance(record);
     if (persistResult.error) {
       return { error: persistResult.error };
+    }
+
+    if (punchType === 'in' && selfieFile) {
+      try {
+        const selfieUrl = await uploadAttendanceSelfie(
+          { kind: 'record', recordId: record.id },
+          selfieFile,
+          currentUser.name,
+          currentUser.id,
+        );
+        record.selfieUrl = selfieUrl;
+        if (USE_SUPABASE) {
+          await sbAttendanceRepo.update(record.id, { selfieUrl });
+          const list = Database.getAll<AttendanceRecord>('attendanceRecords');
+          setCache(
+            'attendanceRecords',
+            list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r)),
+          );
+        } else {
+          const list = Database.getAll<AttendanceRecord>('attendanceRecords');
+          Database.saveAll(
+            'attendanceRecords',
+            list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r)),
+          );
+        }
+      } catch (err) {
+        if (USE_SUPABASE) {
+          await sbAttendanceRepo.deleteByIds([record.id]).catch(() => {});
+        }
+        const list = Database.getAll<AttendanceRecord>('attendanceRecords').filter(
+          (r) => r.id !== record.id,
+        );
+        if (USE_SUPABASE) {
+          setCache('attendanceRecords', list);
+        } else {
+          Database.saveAll('attendanceRecords', list);
+        }
+        const message = err instanceof Error ? err.message : 'Selfie upload failed.';
+        return { error: message };
+      }
     }
 
     const label = punchType === 'in' ? 'Punch In' : 'Punch Out';
@@ -1662,6 +1712,7 @@ export const useStore = create<AppState>((set, get) => ({
       distanceM: 0,
       withinOffice: false,
       officeAddress: OFFICE_LOCATION.address,
+      selfieUrl: null,
     };
 
     const persistResult = await persistAttendance(record);
@@ -1748,8 +1799,8 @@ export const useStore = create<AppState>((set, get) => ({
       officeAddress: `Manual entry by ${state.currentUser.name}`,
     };
     const newRecords: AttendanceRecord[] = [
-      { ...base, id: newId(), punchType: 'in' as const, punchedAt: punchedInAt },
-      { ...base, id: newId(), punchType: 'out' as const, punchedAt: punchedOutAt },
+      { ...base, id: newId(), punchType: 'in' as const, punchedAt: punchedInAt, selfieUrl: null },
+      { ...base, id: newId(), punchType: 'out' as const, punchedAt: punchedOutAt, selfieUrl: null },
     ];
 
     const insertedIds: string[] = [];
@@ -2169,7 +2220,7 @@ export const useStore = create<AppState>((set, get) => ({
     let selfieUrl: string;
     try {
       selfieUrl = await uploadAttendanceSelfie(
-        request.id,
+        { kind: 'approval', requestId: request.id },
         selfieFile,
         currentUser.name,
         currentUser.id,

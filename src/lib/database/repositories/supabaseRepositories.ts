@@ -72,6 +72,7 @@ function rowToAttendance(row: Record<string, unknown>): AttendanceRecord {
     distanceM: row.distance_m as number,
     withinOffice: row.within_office as boolean,
     officeAddress: row.office_address as string,
+    selfieUrl: (row.selfie_url as string | null) ?? null,
   };
 }
 
@@ -603,7 +604,16 @@ export const sbAttendanceRepo = {
       distance_m: record.distanceM,
       within_office: record.withinOffice,
       office_address: record.officeAddress,
+      selfie_url: record.selfieUrl,
     });
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<AttendanceRecord>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    if (updates.selfieUrl !== undefined) payload.selfie_url = updates.selfieUrl;
+    if (Object.keys(payload).length === 0) return;
+    const { error } = await supabase.from('attendance_records').update(payload).eq('id', id);
     if (error) throw error;
   },
 

@@ -219,6 +219,8 @@ export interface AttendanceRecord {
   distanceM: number;
   withinOffice: boolean;
   officeAddress: string;
+  /** Stamped selfie URL (punch in only). */
+  selfieUrl: string | null;
 }
 
 export type AttendanceApprovalStatus = 'pending' | 'approved' | 'rejected';

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
-  Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users, AlertTriangle, Download, Loader2,
+  Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users, AlertTriangle, Download, Loader2, Camera,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -283,6 +283,17 @@ export const EmployeeAttendancePanel: React.FC = () => {
                         {line}
                       </p>
                     ))}
+                    {row.punchIn?.selfieUrl && (filterStatus === 'in' || filterStatus === 'out' || filterStatus === 'unclosed') && (
+                      <a
+                        href={row.punchIn.selfieUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1 text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
+                      >
+                        <Camera className="h-3 w-3 shrink-0" />
+                        Punch-in selfie
+                      </a>
+                    )}
                   </li>
                 );
               })}

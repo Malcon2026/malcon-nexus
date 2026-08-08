@@ -38,10 +38,11 @@ Deno.serve(async (req) => {
 
     const form = await req.formData();
     const requestId = String(form.get('requestId') ?? '');
+    const recordId = String(form.get('recordId') ?? '');
     const file = form.get('photo');
 
-    if (!requestId || !(file instanceof File)) {
-      return jsonResponse({ error: 'requestId and photo are required' }, 400);
+    if (!(file instanceof File) || (!requestId && !recordId) || (requestId && recordId)) {
+      return jsonResponse({ error: 'Provide requestId or recordId (not both) and photo' }, 400);
     }
 
     const fileName = file.name || 'selfie.jpg';
@@ -67,23 +68,57 @@ Deno.serve(async (req) => {
 
     if (!caller) return jsonResponse({ error: 'Employee profile not found' }, 403);
 
-    const { data: approvalRow } = await admin
-      .from('attendance_approval_requests')
-      .select('id, employee_id, punch_type, status')
-      .eq('id', requestId)
-      .maybeSingle();
+    let employeeId: string;
+    let storageKey: string;
+    let updateTable: 'attendance_approval_requests' | 'attendance_records';
+    let updateId: string;
 
-    if (!approvalRow) return jsonResponse({ error: 'Approval request not found' }, 404);
+    if (requestId) {
+      const { data: approvalRow } = await admin
+        .from('attendance_approval_requests')
+        .select('id, employee_id, punch_type, status')
+        .eq('id', requestId)
+        .maybeSingle();
 
-    const isAdmin = caller.role === 'admin';
-    const isOwner = approvalRow.employee_id === caller.id;
-    if (!isAdmin && !isOwner) {
-      return jsonResponse({ error: 'Not allowed to upload for this request' }, 403);
+      if (!approvalRow) return jsonResponse({ error: 'Approval request not found' }, 404);
+
+      const isAdmin = caller.role === 'admin';
+      const isOwner = approvalRow.employee_id === caller.id;
+      if (!isAdmin && !isOwner) {
+        return jsonResponse({ error: 'Not allowed to upload for this request' }, 403);
+      }
+
+      employeeId = approvalRow.employee_id as string;
+      storageKey = requestId;
+      updateTable = 'attendance_approval_requests';
+      updateId = requestId;
+    } else {
+      const { data: recordRow } = await admin
+        .from('attendance_records')
+        .select('id, employee_id, punch_type')
+        .eq('id', recordId)
+        .maybeSingle();
+
+      if (!recordRow) return jsonResponse({ error: 'Attendance record not found' }, 404);
+      if (recordRow.punch_type !== 'in') {
+        return jsonResponse({ error: 'Selfie is only for punch in' }, 400);
+      }
+
+      const isAdmin = caller.role === 'admin';
+      const isOwner = recordRow.employee_id === caller.id;
+      if (!isAdmin && !isOwner) {
+        return jsonResponse({ error: 'Not allowed to upload for this record' }, 403);
+      }
+
+      employeeId = recordRow.employee_id as string;
+      storageKey = recordId;
+      updateTable = 'attendance_records';
+      updateId = recordId;
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'].includes(ext) ? ext : 'jpg';
-    const path = `${approvalRow.employee_id}/${requestId}.${safeExt}`;
+    const path = `${employeeId}/${storageKey}.${safeExt}`;
 
     const buffer = await file.arrayBuffer();
     const { error: uploadError } = await admin.storage
@@ -102,9 +137,9 @@ Deno.serve(async (req) => {
     const selfieUrl = urlData.publicUrl;
 
     const { error: updateError } = await admin
-      .from('attendance_approval_requests')
+      .from(updateTable)
       .update({ selfie_url: selfieUrl })
-      .eq('id', requestId);
+      .eq('id', updateId);
 
     if (updateError) {
       console.error('[upload-attendance-selfie] db update', updateError.message);

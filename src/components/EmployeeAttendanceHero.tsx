@@ -77,7 +77,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<{ en: string; te: string | null } | null>(null);
   const [offsiteReason, setOffsiteReason] = useState('');
-  const [offsiteSelfie, setOffsiteSelfie] = useState<CapturedSelfie | null>(null);
+  const [punchInSelfie, setPunchInSelfie] = useState<CapturedSelfie | null>(null);
 
   const firstName = currentUser.name.split(' ')[0];
 
@@ -112,7 +112,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setConfirmType(type);
     setSubmitError(null);
     setOffsiteReason('');
-    setOffsiteSelfie(null);
+    setPunchInSelfie(null);
     setLocationState({ status: 'idle' });
     if (type === 'in') {
       void refreshLocation();
@@ -124,7 +124,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     setConfirmType(null);
     setSubmitError(null);
     setOffsiteReason('');
-    setOffsiteSelfie(null);
+    setPunchInSelfie(null);
     setLocationState({ status: 'idle' });
   };
 
@@ -172,12 +172,12 @@ export const EmployeeAttendanceHero: React.FC = () => {
     });
 
     if (!geofence.withinOffice) {
-      if (!offsiteSelfie) {
+      if (!punchInSelfie) {
         setErrorFromMessage('Please take a selfie before submitting.');
         setSubmitting(false);
         return;
       }
-      const result = await submitOffsitePunchRequest('in', offsiteReason, position, offsiteSelfie.file);
+      const result = await submitOffsitePunchRequest('in', offsiteReason, position, punchInSelfie.file);
       setSubmitting(false);
       if (result.error) {
         setErrorFromMessage(result.error);
@@ -187,7 +187,13 @@ export const EmployeeAttendanceHero: React.FC = () => {
       return;
     }
 
-    const result = await punchAttendance('in', position);
+    if (!punchInSelfie) {
+      setErrorFromMessage('Please take a selfie before punch in.');
+      setSubmitting(false);
+      return;
+    }
+
+    const result = await punchAttendance('in', position, punchInSelfie.file);
     setSubmitting(false);
 
     if (result.error) {
@@ -199,9 +205,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
   };
 
   const closingPriorSession = confirmType === 'out' && priorDayOpenSession;
+  const needsSelfie = confirmType === 'in';
   const needsReason = confirmType === 'in' && isOffsitePunch;
   const reasonValid = offsiteReason.trim().length >= 10;
-  const selfieValid = !!offsiteSelfie;
+  const selfieValid = !!punchInSelfie;
 
   const statusTone = priorDayOpenSession
     ? 'warn'
@@ -360,14 +367,14 @@ export const EmployeeAttendanceHero: React.FC = () => {
               {punchInDisabled && priorDayOpenSession
                 ? 'Punch Out yesterday first'
                 : punchInActive
-                  ? 'Tap here · GPS on'
+                  ? 'Tap here · GPS + selfie'
                   : 'Not available'}
             </span>
             <span className="attendance-punch-hint-te">
               {punchInDisabled && priorDayOpenSession
                 ? 'ముందు Punch Out cheyandi'
                 : punchInActive
-                  ? 'GPS on · ikkada tap cheyandi'
+                  ? 'GPS + selfie · ikkada tap cheyandi'
                   : 'available ledu'}
             </span>
           </button>
@@ -451,10 +458,10 @@ export const EmployeeAttendanceHero: React.FC = () => {
           <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
           <div>
             <p>
-              {OFFICE_LOCATION.address} · Punch In needs GPS · Out of office = selfie + admin OK
+              {OFFICE_LOCATION.address} · Punch In needs GPS + selfie · Out of office = reason + admin OK
             </p>
             <Te className="text-gray-400 mb-0">
-              Punch In ki GPS avasaram · Office bayata selfie + admin OK · Punch Out simple ga
+              Punch In ki GPS + selfie avasaram · Office bayata reason + admin OK · Punch Out simple ga
             </Te>
           </div>
         </div>
@@ -478,8 +485,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
             : confirmType === 'out'
               ? 'Tap Yes to finish your day.'
               : isOffsitePunch
-                ? 'Write reason. Admin must approve.'
-                : 'You are at office. OK to Punch In?'
+                ? 'Write reason + selfie. Admin must approve.'
+                : 'Take selfie + GPS. OK to Punch In?'
         }
         size="md"
         footer={
@@ -494,7 +501,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 submitting ||
                 (confirmType === 'in' && locationState.status === 'loading') ||
                 (needsReason && !reasonValid) ||
-                (needsReason && !selfieValid)
+                (needsSelfie && !selfieValid)
               }
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
             >
@@ -519,8 +526,8 @@ export const EmployeeAttendanceHero: React.FC = () => {
                 : confirmType === 'out'
                   ? 'Ready to Punch Out? Tap Yes.'
                   : isOffsitePunch
-                    ? 'You are out of office. Admin must approve Punch In.'
-                    : 'You are at office. Punch In now?'}
+                    ? 'You are out of office. Selfie + reason sent to admin.'
+                    : 'You are at office. Selfie required to Punch In.'}
             </p>
             {closingPriorSession ? (
               <Te className="text-amber-800/90">
@@ -529,9 +536,9 @@ export const EmployeeAttendanceHero: React.FC = () => {
             ) : confirmType === 'out' ? (
               <Te className="text-amber-800/90">Punch Out cheyadaniki Yes ani press cheyandi.</Te>
             ) : isOffsitePunch ? (
-              <Te className="text-amber-800/90">Office bayata unnaru. Admin approve cheyali.</Te>
+              <Te className="text-amber-800/90">Office bayata unnaru. Selfie + reason admin ki pothundi.</Te>
             ) : (
-              <Te className="text-amber-800/90">Office lo unnaru. Punch In cheyala?</Te>
+              <Te className="text-amber-800/90">Office lo unnaru. Selfie teesukoni Punch In cheyandi.</Te>
             )}
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Time now: {formatTimeIST(now)}</p>
           </div>
@@ -598,15 +605,17 @@ export const EmployeeAttendanceHero: React.FC = () => {
           </div>
           )}
 
+          {needsSelfie && (
+            <AttendanceSelfieCapture
+              selfie={punchInSelfie}
+              onSelfieChange={setPunchInSelfie}
+              employeeName={currentUser.name}
+              employeeId={currentUser.id}
+              disabled={submitting}
+            />
+          )}
+
           {needsReason && (
-            <>
-              <AttendanceSelfieCapture
-                selfie={offsiteSelfie}
-                onSelfieChange={setOffsiteSelfie}
-                employeeName={currentUser.name}
-                employeeId={currentUser.id}
-                disabled={submitting}
-              />
             <div>
               <label htmlFor="punch-reason" className="block text-xs font-semibold text-gray-900 mb-1.5">
                 Why are you out of office?
@@ -623,7 +632,6 @@ export const EmployeeAttendanceHero: React.FC = () => {
               <p className="text-[11px] text-gray-400 mt-1">At least 10 letters · Admin must approve</p>
               <Te className="text-gray-400 mb-0">10 letters minimum · admin approve cheyali</Te>
             </div>
-            </>
           )}
 
           {submitError && (
