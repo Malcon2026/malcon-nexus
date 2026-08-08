@@ -69,7 +69,7 @@ const LazyEmployeeRegister: React.FC<{ employeeId: string }> = ({ employeeId }) 
   }, [visible, employeeId, reloadFromDatabase]);
 
   return (
-    <div ref={containerRef} className="mb-6 min-w-0 w-full max-w-full overflow-hidden">
+    <div ref={containerRef} className="mb-6 min-w-0 w-full max-w-full">
       {visible ? (
         <AttendanceRegisterPanel
           employeeId={employeeId}

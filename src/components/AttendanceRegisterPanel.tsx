@@ -253,6 +253,45 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     return code;
   };
 
+  const openCell = (
+    row: { employeeId: string; employeeName: string; department: string; cells: RegisterCellDetail[] },
+    dayIndex: number,
+  ) => {
+    const day = register.days[dayIndex];
+    const cell = row.cells[dayIndex];
+    if (!day || !cell) return;
+    setSelectedCell({
+      employeeId: row.employeeId,
+      employeeName: row.employeeName,
+      department: row.department,
+      day,
+      cell,
+    });
+  };
+
+  const employeeRow = employeeId ? register.rows[0] ?? null : null;
+
+  const employeeWeekSections = useMemo(() => {
+    if (!employeeRow) return [];
+    const sections: {
+      week: number;
+      days: RegisterDayColumn[];
+      cells: RegisterCellDetail[];
+      startIndex: number;
+    }[] = [];
+    let startIndex = 0;
+    for (const band of weekBands) {
+      sections.push({
+        week: band.week,
+        days: register.days.slice(startIndex, startIndex + band.span),
+        cells: employeeRow.cells.slice(startIndex, startIndex + band.span),
+        startIndex,
+      });
+      startIndex += band.span;
+    }
+    return sections;
+  }, [employeeRow, weekBands, register.days]);
+
   return (
     <div className="space-y-4 min-w-0 w-full max-w-full">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -367,23 +406,75 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         </div>
       </details>
 
+      {employeeRow ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <p className="text-sm font-semibold text-gray-800 truncate">{employeeRow.employeeName}</p>
+            <p className="text-sm font-bold text-gray-900 tabular-nums shrink-0">
+              Pay {employeeRow.payDays}
+              <span className="text-gray-400 font-medium">/{register.payableDaysCap}</span>
+            </p>
+          </div>
+
+          {employeeWeekSections.map((section) => (
+            <Card key={`week-${section.week}`} className="overflow-hidden">
+              <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/80">
+                <p className="text-xs font-semibold text-gray-600">Week {section.week}</p>
+              </div>
+              <div className="p-3 grid grid-cols-7 gap-1.5 sm:gap-2">
+                {section.days.map((day, i) => {
+                  const cell = section.cells[i];
+                  const style = REGISTER_CELL_STYLES[cell.code];
+                  const dayIndex = section.startIndex + i;
+                  return (
+                    <button
+                      key={day.dateKey}
+                      type="button"
+                      onClick={() => openCell(employeeRow, dayIndex)}
+                      className={`flex flex-col items-center justify-center gap-0.5 min-h-[3.5rem] sm:min-h-[4rem] rounded-xl border border-gray-300/70 px-0.5 py-1.5 ${style.bg} ${style.text} ${
+                        day.isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''
+                      } active:scale-[0.97] transition-transform`}
+                      title={cell.label}
+                    >
+                      <span className="text-[10px] font-medium opacity-70 leading-none">
+                        {day.weekday.slice(0, 2)}
+                      </span>
+                      <span
+                        className={`text-xs font-semibold leading-none ${
+                          day.isToday ? 'text-indigo-800' : ''
+                        }`}
+                      >
+                        {day.day}
+                      </span>
+                      <span className="text-sm sm:text-base font-bold leading-none mt-0.5">
+                        {displayCode(cell.code)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
       <Card className="min-w-0 w-full max-w-full overflow-hidden">
-        <div className="w-full max-w-full overflow-x-auto overscroll-x-contain">
+        <p className="sm:hidden px-3 pt-2 text-[11px] text-gray-500">
+          Swipe sideways to see all days →
+        </p>
+        <div className="w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x pb-2 -mx-0">
           <table
             className="w-full border-collapse text-xs table-fixed"
             style={{
-              minWidth: employeeId
-                ? `${140 + register.days.length * 28 + 52}px`
-                : `${250 + register.days.length * 28 + 52}px`,
+              minWidth: `${250 + register.days.length * 36 + 56}px`,
             }}
           >
             <colgroup>
               <col style={{ width: 140 }} />
-              {!employeeId && <col style={{ width: 110 }} />}
+              <col style={{ width: 110 }} />
               {register.days.map((day) => (
-                <col key={day.dateKey} />
+                <col key={day.dateKey} style={{ width: 36 }} />
               ))}
-              <col style={{ width: 52 }} />
+              <col style={{ width: 56 }} />
             </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -393,14 +484,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 >
                   Employee
                 </th>
-                {!employeeId && (
-                  <th
-                    rowSpan={2}
-                    className="sticky left-[140px] z-20 bg-gray-50 border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 min-w-[100px]"
-                  >
-                    Dept
-                  </th>
-                )}
+                <th
+                  rowSpan={2}
+                  className="sticky left-[140px] z-20 bg-gray-50 border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 min-w-[100px]"
+                >
+                  Dept
+                </th>
                 {weekBands.map(({ week, span }) => (
                   <th
                     key={`w${week}`}
@@ -412,7 +501,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 ))}
                 <th
                   rowSpan={2}
-                  className="sticky right-0 z-20 bg-gray-50 border-l border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[52px]"
+                  className="sticky right-0 z-20 bg-gray-50 border-l border-gray-200 px-2 py-2 text-center font-semibold text-gray-700 min-w-[56px]"
                 >
                   Pay
                 </th>
@@ -421,7 +510,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                 {register.days.map((day) => (
                   <th
                     key={day.dateKey}
-                    className={`border-r border-gray-100 px-0.5 py-1 text-center ${
+                    className={`border-r border-gray-100 px-0.5 py-1.5 text-center ${
                       day.isToday
                         ? 'bg-indigo-50'
                         : day.isWeeklyOff
@@ -434,7 +523,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       <div className="text-[8px] text-gray-400 font-medium leading-none mb-0.5">{day.monthShort}</div>
                     )}
                     <div
-                      className={`font-semibold ${
+                      className={`font-semibold text-[11px] ${
                         day.isToday ? 'text-indigo-700' : 'text-gray-700'
                       }`}
                     >
@@ -451,7 +540,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               {register.rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={register.days.length + (employeeId ? 2 : 3)}
+                    colSpan={register.days.length + 3}
                     className="px-4 py-12 text-center text-gray-400"
                   >
                     No employees to display
@@ -460,38 +549,28 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               ) : (
                 register.rows.map((row) => (
                   <tr key={row.employeeId} className="border-b border-gray-100 hover:bg-gray-50/50">
-                    <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
+                    <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
                       {row.employeeName}
                     </td>
-                    {!employeeId && (
-                      <td className="sticky left-[140px] z-10 bg-white border-r border-gray-200 px-2 py-2">
-                        <Badge className={`${departmentColors[row.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
-                          {row.department}
-                        </Badge>
-                      </td>
-                    )}
+                    <td className="sticky left-[140px] z-10 bg-white border-r border-gray-200 px-2 py-2.5">
+                      <Badge className={`${departmentColors[row.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
+                        {row.department}
+                      </Badge>
+                    </td>
                     {row.cells.map((cell, idx) => {
                       const day = register.days[idx];
                       const style = REGISTER_CELL_STYLES[cell.code];
                       return (
                         <td
                           key={`${row.employeeId}-${day.dateKey}`}
-                          className={`border-r border-gray-50 px-0.5 py-1 text-center ${
+                          className={`border-r border-gray-50 px-0.5 py-1.5 text-center ${
                             day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''
                           }`}
                         >
                           <button
                             type="button"
-                            onClick={() =>
-                              setSelectedCell({
-                                employeeId: row.employeeId,
-                                employeeName: row.employeeName,
-                                department: row.department,
-                                day,
-                                cell,
-                              })
-                            }
-                            className={`inline-flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded font-bold text-[9px] sm:text-[10px] border border-gray-400/60 ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
+                            onClick={() => openCell(row, idx)}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-md font-bold text-[11px] border border-gray-400/60 ${style.bg} ${style.text} hover:opacity-80 transition-opacity`}
                             title={cell.label}
                           >
                             {displayCode(cell.code)}
@@ -499,7 +578,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         </td>
                       );
                     })}
-                    <td className="sticky right-0 z-10 bg-white border-l border-gray-200 px-2 py-2 text-center font-semibold text-gray-800">
+                    <td className="sticky right-0 z-10 bg-white border-l border-gray-200 px-2 py-2.5 text-center font-semibold text-gray-800">
                       {row.payDays}
                       <span className="text-gray-400 font-normal">/{register.payableDaysCap}</span>
                     </td>
@@ -510,6 +589,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           </table>
         </div>
       </Card>
+      )}
 
       <details className="text-[10px] text-gray-500">
         <summary className="cursor-pointer flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 select-none">
