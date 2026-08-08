@@ -15,7 +15,8 @@
     "attendance:whatsapp:groups": "node scripts/daily-attendance-whatsapp.mjs --list-groups",
     "attendance:whatsapp:noon": "node scripts/daily-attendance-whatsapp.mjs --filters=in,absent,unclosed",
     "attendance:whatsapp:boss-test": "node scripts/daily-attendance-whatsapp.mjs --boss-test",
-    "attendance:whatsapp:boss-report": "node scripts/daily-attendance-whatsapp.mjs --boss-only --filters=in,absent"
+    "attendance:whatsapp:boss-report": "node scripts/daily-attendance-whatsapp.mjs --boss-only --filters=in,absent",
+    "selfies:archive": "node scripts/archive-punch-in-selfies.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

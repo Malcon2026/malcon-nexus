@@ -349,7 +349,12 @@ export const EmployeeAttendancePanel: React.FC = () => {
               Punch-in selfies ({selfieItems.length})
             </h3>
           </div>
-          <p className="text-xs text-gray-500 mb-3">Tap a photo to enlarge. Use arrows to next / previous.</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Tap a photo to enlarge. Cloud keeps these ~24 hours; older copies stay on the office PC
+            {' '}
+            <span className="font-mono text-[11px]">D:\MalconNexus\PunchInSelfies</span>
+            .
+          </p>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
             {selfieItems.map((item, index) => (
               <button
@@ -378,7 +383,10 @@ export const EmployeeAttendancePanel: React.FC = () => {
 
       {filterStatus === 'in' && selfieItems.length === 0 && sortedForShare.length > 0 && (
         <p className="text-xs text-gray-500 max-w-3xl">
-          No punch-in selfies for this list yet (older punches before selfie was required).
+          No punch-in selfies in cloud for this list. Cloud keeps selfies ~24 hours; older photos are archived on the office PC
+          {' '}
+          <span className="font-mono text-[11px]">D:\MalconNexus\PunchInSelfies</span>
+          .
         </p>
       )}
 
