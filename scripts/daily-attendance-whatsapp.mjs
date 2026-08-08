@@ -11,13 +11,13 @@
  *        ATTENDANCE_WHATSAPP_SESSION_PATH=D:\MalconNexus\WhatsAppSession
  *        ATTENDANCE_REPORTS_DIR=D:\MalconNexus\AttendanceReports
  *        ATTENDANCE_REPORT_FILTER=in
- *        ATTENDANCE_REPORT_FILTERS=in,absent   (multiple — noon job)
+ *        ATTENDANCE_REPORT_FILTERS=in,absent,unclosed   (multiple — noon job)
  *   2. npm install
  *   3. node scripts/daily-attendance-whatsapp.mjs   (scan QR on first run)
  *   4. powershell -ExecutionPolicy Bypass -File scripts/setup-attendance-whatsapp-noon-task.ps1
  *
  * Manual PNG only (no WhatsApp):  node scripts/daily-attendance-whatsapp.mjs --png-only
- * Both in + absent now:           node scripts/daily-attendance-whatsapp.mjs --filters=in,absent
+ * Both in + absent + unclosed now: node scripts/daily-attendance-whatsapp.mjs --filters=in,absent,unclosed
  * List group IDs for .env:         node scripts/daily-attendance-whatsapp.mjs --list-groups
  * Good morning group (daily):      node scripts/daily-attendance-whatsapp.mjs --good-morning-group
  * Good morning DM test (daily):    node scripts/daily-attendance-whatsapp.mjs --good-morning-dm
