@@ -1,4 +1,4 @@
-import type { Employee, ImplantCase, WorkflowStage } from '../types';
+import type { Department, Employee, ImplantCase, WorkflowStage } from '../types';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation',
@@ -10,6 +10,33 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Bill Submission',
   'Completed',
 ];
+
+/** Stages that need an employee when creating a case. */
+export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] = [
+  'Kit Preparation',
+  'Delivery',
+  'Surgery',
+  'Cleaning',
+  'Audit',
+  'Billing',
+  'Bill Submission',
+];
+
+export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
+  'Kit Preparation': 'Stores',
+  'Delivery': 'Delivery',
+  'Surgery': 'Scrub Person',
+  'Cleaning': 'Cleaning Department',
+  'Audit': 'Stores Audit',
+  'Billing': 'Accounts',
+  'Bill Submission': 'Bill Submission',
+  'Completed': null,
+};
+
+export type StageAssignments = Record<
+  (typeof ASSIGNABLE_WORKFLOW_STAGES)[number],
+  Employee
+>;
 
 export function getStageIndex(stage: WorkflowStage): number {
   return WORKFLOW_STAGES.indexOf(stage);

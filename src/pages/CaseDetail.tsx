@@ -14,7 +14,7 @@ import { SubmitStageModal } from '../components/SubmitStageModal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, Employee, WorkflowStage } from '../types';
+import type { ImplantCase, Employee, WorkflowStage, Priority } from '../types';
 import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
@@ -44,9 +44,16 @@ interface ApprovalModalProps {
 }
 
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
-  const { approveStage, rejectStage, requestChanges } = useStore();
+  const { approveStage, rejectStage, requestChanges, cases } = useStore();
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const implantCase = cases.find((x) => x.id === caseId);
+  const stageIdx = implantCase ? WORKFLOW_STAGES.indexOf(implantCase.currentStage) : -1;
+  const nextStage = stageIdx >= 0 ? WORKFLOW_STAGES[stageIdx + 1] : undefined;
+  const nextAssignee =
+    nextStage && nextStage !== 'Completed'
+      ? implantCase?.stages.find((s) => s.stage === nextStage)?.assignedEmployee
+      : null;
 
   const config = {
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
@@ -91,6 +98,20 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
           value={notes}
           onChange={e => setNotes(e.target.value)}
         />
+        {type === 'approve' && nextStage === 'Completed' && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium">
+              This is the final stage — approving will mark the case as Completed and close it.
+            </p>
+          </div>
+        )}
+        {type === 'approve' && nextAssignee && nextStage && nextStage !== 'Completed' && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+            <p className="text-xs text-blue-700 font-medium">
+              Next: <strong>{nextStage}</strong> will activate for <strong>{nextAssignee.name}</strong> automatically.
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -301,7 +322,7 @@ interface CaseDetailProps {
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
-  const { viewMode, currentUser, updateCase, hospitals, doctors, closeCase, reactivateAssignedCase } = useStore();
+  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
@@ -387,8 +408,21 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               {c.status === 'Draft' && (
                 <Button variant="primary" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>Assign Employee</Button>
               )}
-              {isApproved && nextStage && nextStage !== 'Completed' && (
+              {isApproved && nextStage && nextStage !== 'Completed' && !c.stages.find((s) => s.stage === nextStage)?.assignedEmployee && (
                 <Button variant="primary" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(nextStage)}>Assign Next Stage</Button>
+              )}
+              {isApproved && nextStage && nextStage !== 'Completed' && !!c.stages.find((s) => s.stage === nextStage)?.assignedEmployee && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<User className="h-4 w-4" />}
+                  onClick={() => {
+                    const emp = c.stages.find((s) => s.stage === nextStage)?.assignedEmployee;
+                    if (emp) void assignEmployee(c.id, emp, nextStage);
+                  }}
+                >
+                  Activate {nextStage}
+                </Button>
               )}
               {isActive && c.currentStage !== 'Completed' && (
                 <Button variant="outline" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>Reassign</Button>
@@ -615,12 +649,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                             {stage.approvedAt && <span>Approved: {formatDate(stage.approvedAt)}</span>}
                           </div>
                         </div>
-                        {stage.assignedEmployee && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Avatar name={stage.assignedEmployee.name} size="xs" />
-                            <span className="text-xs text-gray-600">{stage.assignedEmployee.name}</span>
-                            <Badge className={`${departmentColors[stage.assignedEmployee.department]} text-[10px]`}>{stage.assignedEmployee.department}</Badge>
-                          </div>
+                        {stage.stage !== 'Completed' && (
+                          stage.assignedEmployee ? (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Avatar name={stage.assignedEmployee.name} size="xs" />
+                              <span className="text-xs text-gray-600">{stage.assignedEmployee.name}</span>
+                              <Badge className={`${departmentColors[stage.assignedEmployee.department]} text-[10px]`}>{stage.assignedEmployee.department}</Badge>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-amber-600 mt-2">No employee assigned yet</p>
+                          )
                         )}
                         {stage.notes && (
                           <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100">

@@ -10,11 +10,15 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Department } from '../types';
+import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Employee } from '../types';
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
-import { ASSIGN_DEPARTMENTS } from '../components/EmployeeAssignPicker';
+import {
+  ASSIGNABLE_WORKFLOW_STAGES,
+  STAGE_DEPARTMENT_MAP,
+  type StageAssignments,
+} from '../lib/caseWorkflow';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -22,6 +26,12 @@ type SortDir = 'asc' | 'desc';
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'];
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
+
+const emptyStageIds = (): Record<(typeof ASSIGNABLE_WORKFLOW_STAGES)[number], string> =>
+  Object.fromEntries(ASSIGNABLE_WORKFLOW_STAGES.map((s) => [s, ''])) as Record<
+    (typeof ASSIGNABLE_WORKFLOW_STAGES)[number],
+    string
+  >;
 
 const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { createCase, hospitals, employees } = useStore();
@@ -34,27 +44,51 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     implantType: '',
     priority: 'Medium' as Priority,
     remarks: '',
-    department: 'Stores' as Department,
-    employeeId: '',
-    employeeDeptFilter: 'All' as Department | 'All',
+    stageEmployeeIds: emptyStageIds(),
   });
 
-  const assignableEmployees = useMemo(() => {
-    const active = employees.filter((e) => e.role === 'employee' && e.status === 'Active');
-    if (form.employeeDeptFilter === 'All') return active;
-    return active.filter((e) => e.department === form.employeeDeptFilter);
-  }, [employees, form.employeeDeptFilter]);
+  const activeEmployees = useMemo(
+    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
+    [employees],
+  );
+
+  const employeesForStage = (stage: (typeof ASSIGNABLE_WORKFLOW_STAGES)[number]): Employee[] => {
+    const preferredDept = STAGE_DEPARTMENT_MAP[stage];
+    if (!preferredDept) return activeEmployees;
+    const preferred = activeEmployees.filter((e) => e.department === preferredDept);
+    const others = activeEmployees.filter((e) => e.department !== preferredDept);
+    return [...preferred, ...others];
+  };
+
+  const resetForm = () => {
+    setForm({
+      hospitalId: '',
+      doctorName: '',
+      surgeryDate: '',
+      implantRequired: '',
+      implantType: '',
+      priority: 'Medium',
+      remarks: '',
+      stageEmployeeIds: emptyStageIds(),
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.hospitalId || !form.doctorName || !form.surgeryDate || !form.implantRequired) {
-      alert("Please fill in all required fields marked with an asterisk (*).");
+      alert('Please fill in all required fields marked with an asterisk (*).');
       return;
     }
-    const hospital = hospitals.find(h => h.id === form.hospitalId);
+
+    const missing = ASSIGNABLE_WORKFLOW_STAGES.filter((s) => !form.stageEmployeeIds[s]);
+    if (missing.length > 0) {
+      alert(`Please assign an employee for every stage. Missing: ${missing.join(', ')}`);
+      return;
+    }
+
+    const hospital = hospitals.find((h) => h.id === form.hospitalId);
     if (!hospital) return;
 
-    // Create a dynamic, inline Doctor object
     const doctor = {
       id: `doc-${Date.now()}`,
       name: form.doctorName.trim(),
@@ -63,7 +97,15 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       phone: '',
     };
 
-    const assignedEmployee = employees.find(e => e.id === form.employeeId) || null;
+    const stageAssignments = {} as StageAssignments;
+    for (const stage of ASSIGNABLE_WORKFLOW_STAGES) {
+      const emp = employees.find((e) => e.id === form.stageEmployeeIds[stage]);
+      if (!emp) {
+        alert(`Could not find employee for ${stage}. Please reselect.`);
+        return;
+      }
+      stageAssignments[stage] = emp;
+    }
 
     setSubmitting(true);
     try {
@@ -76,22 +118,10 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         priority: form.priority,
         remarks: form.remarks,
         dueDate: form.surgeryDate,
-        currentDepartment: form.department,
-        assignedEmployee,
+        stageAssignments,
       });
       onClose();
-      setForm({
-        hospitalId: '',
-        doctorName: '',
-        surgeryDate: '',
-        implantRequired: '',
-        implantType: '',
-        priority: 'Medium',
-        remarks: '',
-        department: 'Stores',
-        employeeId: '',
-        employeeDeptFilter: 'All',
-      });
+      resetForm();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to create case. Please try again.');
     } finally {
@@ -99,11 +129,16 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     }
   };
 
-  const inputClass = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400";
-  const labelClass = "block text-xs font-medium text-gray-700 mb-1.5";
+  const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400';
+  const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create New Implant Case" subtitle="Fill in the case details to begin the workflow" size="lg"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New Implant Case"
+      subtitle="Fill in case details and assign the team for every stage"
+      size="xl"
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
@@ -117,9 +152,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Hospital *</label>
-            <select className={inputClass} value={form.hospitalId} onChange={e => setForm({...form, hospitalId: e.target.value, doctorName: ''})}>
+            <select className={inputClass} value={form.hospitalId} onChange={(e) => setForm({ ...form, hospitalId: e.target.value, doctorName: '' })}>
               <option value="">Select hospital...</option>
-              {hospitals.map(h => (
+              {hospitals.map((h) => (
                 <option key={h.id} value={h.id}>
                   {h.branch ? `${h.name} — ${h.branch}` : h.name}
                 </option>
@@ -133,7 +168,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
               placeholder="Enter doctor's name"
               className={inputClass}
               value={form.doctorName}
-              onChange={e => setForm({...form, doctorName: e.target.value})}
+              onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
               disabled={!form.hospitalId}
             />
           </div>
@@ -141,56 +176,67 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Surgery Date *</label>
-            <input type="date" className={inputClass} value={form.surgeryDate} onChange={e => setForm({...form, surgeryDate: e.target.value})} />
+            <input type="date" className={inputClass} value={form.surgeryDate} onChange={(e) => setForm({ ...form, surgeryDate: e.target.value })} />
           </div>
           <div>
             <label className={labelClass}>Priority</label>
-            <select className={inputClass} value={form.priority} onChange={e => setForm({...form, priority: e.target.value as Priority})}>
-              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Initial Department</label>
-            <select className={inputClass} value={form.department} onChange={e => setForm({...form, department: e.target.value as Department})}>
-              {ASSIGN_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Filter assignee by department</label>
-            <select
-              className={inputClass}
-              value={form.employeeDeptFilter}
-              onChange={(e) => setForm({ ...form, employeeDeptFilter: e.target.value as Department | 'All', employeeId: '' })}
-            >
-              <option value="All">All departments</option>
-              {ASSIGN_DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
+            <select className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
           </div>
         </div>
         <div>
-          <label className={labelClass}>Assign Employee</label>
-          <select className={inputClass} value={form.employeeId} onChange={e => setForm({...form, employeeId: e.target.value})}>
-            <option value="">Do not assign yet (Draft)</option>
-            {assignableEmployees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.name} — {emp.department}</option>
-            ))}
-          </select>
-        </div>
-        <div>
           <label className={labelClass}>Implant Required *</label>
-          <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement System" value={form.implantRequired} onChange={e => setForm({...form, implantRequired: e.target.value})} />
+          <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement System" value={form.implantRequired} onChange={(e) => setForm({ ...form, implantRequired: e.target.value })} />
         </div>
         <div>
           <label className={labelClass}>Implant Type</label>
-          <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={e => setForm({...form, implantType: e.target.value})} />
+          <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={(e) => setForm({ ...form, implantType: e.target.value })} />
         </div>
         <div>
           <label className={labelClass}>Remarks</label>
-          <textarea className={`${inputClass} resize-none`} rows={3} placeholder="Any special instructions or notes..." value={form.remarks} onChange={e => setForm({...form, remarks: e.target.value})} />
+          <textarea className={`${inputClass} resize-none`} rows={3} placeholder="Any special instructions or notes..." value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Assign team (all stages) *</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Pick one employee per stage. The case starts at Kit Preparation; later stages activate automatically after each approval.
+          </p>
+          <div className="space-y-3">
+            {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => {
+              const deptHint = STAGE_DEPARTMENT_MAP[stage];
+              const options = employeesForStage(stage);
+              return (
+                <div key={stage} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 sm:gap-3 items-start sm:items-center">
+                  <div>
+                    <p className="text-xs font-medium text-gray-800">{stage}</p>
+                    {deptHint && <p className="text-[11px] text-gray-400">{deptHint}</p>}
+                  </div>
+                  <select
+                    className={inputClass}
+                    value={form.stageEmployeeIds[stage]}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: e.target.value },
+                      })
+                    }
+                    required
+                  >
+                    <option value="">Select employee...</option>
+                    {options.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} — {emp.department}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </form>
     </Modal>

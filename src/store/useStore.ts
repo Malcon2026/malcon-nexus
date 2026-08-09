@@ -26,7 +26,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments } from '../lib/caseWorkflow';
 import {
   validateCompOffWorkDate,
   validateLeaveApplication,
@@ -82,7 +82,9 @@ interface AppState {
   setActiveTab: (tab: string) => void;
 
   // Case Actions
-  createCase: (caseData: Partial<ImplantCase>) => Promise<void>;
+  createCase: (
+    caseData: Partial<ImplantCase> & { stageAssignments: StageAssignments },
+  ) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
   approveStageAndAssign: (
@@ -598,23 +600,19 @@ export const useStore = create<AppState>((set, get) => ({
   createCase: async (caseData) => {
     const state = get();
     const caseId = newId();
-    const targetDept = caseData.currentDepartment || 'Stores';
-    const targetEmp = caseData.assignedEmployee || null;
-    const isAssigned = !!targetEmp;
+    const assignments = caseData.stageAssignments;
+    if (!assignments) {
+      throw new Error('Please assign an employee for every stage.');
+    }
 
-    const DEPT_TO_STAGE: Record<string, WorkflowStage> = {
-      'Stores': 'Kit Preparation',
-      'Delivery': 'Delivery',
-      'Scrub Person': 'Surgery',
-      'Cleaning Department': 'Cleaning',
-      'Stores Audit': 'Audit',
-      'Accounts': 'Billing',
-      'Bill Submission': 'Bill Submission',
-      'Admin': 'Completed',
-    };
+    const kitEmp = assignments['Kit Preparation'];
+    if (!kitEmp) {
+      throw new Error('Kit Preparation assignee is required.');
+    }
 
-    const targetStage = DEPT_TO_STAGE[targetDept] || 'Kit Preparation';
+    const now = new Date().toISOString();
     const caseNumber = await taskRepository.getNextCaseNumber();
+    const kitDept = getDepartmentForStage('Kit Preparation') ?? 'Stores';
 
     const newCase: ImplantCase = {
       id: caseId,
@@ -625,25 +623,40 @@ export const useStore = create<AppState>((set, get) => ({
       implantRequired: caseData.implantRequired || '',
       implantType: caseData.implantType || '',
       priority: caseData.priority || 'Medium',
-      status: isAssigned ? 'Active' : 'Draft',
-      currentStage: targetStage,
-      currentDepartment: targetDept,
-      assignedEmployee: targetEmp,
+      status: 'Active',
+      currentStage: 'Kit Preparation',
+      currentDepartment: kitDept,
+      assignedEmployee: kitEmp,
       createdBy: state.currentUser.name,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       dueDate: caseData.dueDate || caseData.surgeryDate || '',
       remarks: caseData.remarks || '',
       stages: WORKFLOW_STAGES.map((stage) => {
-        const isTarget = stage === targetStage;
+        if (stage === 'Completed') {
+          return {
+            stage,
+            department: 'Admin' as Department,
+            assignedEmployee: null,
+            assignedAt: null,
+            submittedAt: null,
+            approvedAt: null,
+            status: 'Pending' as const,
+            notes: '',
+            adminNotes: '',
+            documents: [],
+          };
+        }
+        const emp = assignments[stage as keyof typeof assignments];
+        const isKit = stage === 'Kit Preparation';
         return {
           stage,
-          department: getDepartmentForStage(stage) as Department,
-          assignedEmployee: isTarget ? targetEmp : null,
-          assignedAt: isTarget && targetEmp ? new Date().toISOString() : null,
+          department: (getDepartmentForStage(stage) ?? 'Stores') as Department,
+          assignedEmployee: emp,
+          assignedAt: emp ? now : null,
           submittedAt: null,
           approvedAt: null,
-          status: isTarget && targetEmp ? ('Assigned' as const) : ('Pending' as const),
+          status: isKit ? ('Assigned' as const) : ('Pending' as const),
           notes: '',
           adminNotes: '',
           documents: [],
@@ -656,10 +669,8 @@ export const useStore = create<AppState>((set, get) => ({
           action: 'Case Created',
           performedBy: state.currentUser.name,
           performedByRole: state.currentUser.role,
-          timestamp: new Date().toISOString(),
-          details: isAssigned
-            ? `New implant case created for ${caseData.hospital?.name} and assigned to ${targetEmp.name} (${targetDept}).`
-            : `New implant case created for ${caseData.hospital?.name}.`,
+          timestamp: now,
+          details: `New implant case created for ${caseData.hospital?.name}. Team assigned for all stages; started with ${kitEmp.name} (Kit Preparation).`,
         },
       ],
       comments: [],
@@ -680,19 +691,28 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error(message || 'Failed to create case.');
     }
 
-    let updatedEmployees = state.employees;
-    if (targetEmp) {
-      const updated = await employeeRepository.update(targetEmp.id, {
-        casesActive: targetEmp.casesActive + 1,
-      });
-      updatedEmployees = state.employees.map(e => (e.id === targetEmp.id ? updated : e));
-    }
+    const updated = await employeeRepository.update(kitEmp.id, {
+      casesActive: kitEmp.casesActive + 1,
+    });
+    const updatedEmployees = state.employees.map((e) => (e.id === kitEmp.id ? updated : e));
 
-    // Activity + Notification
-    const activity = createActivityEvent('Case Created', 'case', caseId, newCase.caseNumber, state.currentUser.name, state.currentUser.role, isAssigned ? `New case created and assigned to ${targetEmp.name}.` : `New implant case created.`);
+    const activity = createActivityEvent(
+      'Case Created',
+      'case',
+      caseId,
+      newCase.caseNumber,
+      state.currentUser.name,
+      state.currentUser.role,
+      `New case created and assigned to ${kitEmp.name} (Kit Preparation). Full stage team set.`,
+    );
     persistActivity(activity);
 
-    const notif = createNotification('New Case Created', `Case ${newCase.caseNumber} created for ${caseData.hospital?.name}.`, 'info', caseId);
+    const notif = createNotification(
+      'New Case Created',
+      `Case ${newCase.caseNumber} created for ${caseData.hospital?.name}.`,
+      'info',
+      caseId,
+    );
     persistNotification(notif);
 
     set((s) => ({
@@ -702,9 +722,7 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [notif, ...s.notifications],
     }));
 
-    if (targetEmp) {
-      void notifyCaseAssignment(caseId, targetEmp.id);
-    }
+    void notifyCaseAssignment(caseId, kitEmp.id);
   },
 
   updateCase: async (id, updates) => {
@@ -718,6 +736,17 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
+
+    const next = getNextStage(c.currentStage);
+    // New cases pre-assign every stage — activate the next person automatically.
+    if (next && next !== 'Completed') {
+      const nextIdx = WORKFLOW_STAGES.indexOf(next);
+      const nextEmp = c.stages[nextIdx]?.assignedEmployee;
+      if (nextEmp) {
+        await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next);
+        return;
+      }
+    }
 
     const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
     const updatedStages = c.stages.map((s, i) =>
@@ -764,7 +793,7 @@ export const useStore = create<AppState>((set, get) => ({
     // 'Bill Submission' is the last real stage -- there is no next stage to
     // assign, so approving it means the case is done. Auto-close instead of
     // leaving it stuck at status 'Approved' with nowhere to go.
-    if (getNextStage(c.currentStage) === 'Completed') {
+    if (next === 'Completed') {
       await get().closeCase(caseId);
     }
   },

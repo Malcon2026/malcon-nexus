@@ -54,6 +54,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
   const nextStage = getNextStage(c.currentStage);
   const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
+  const nextStageRecord = nextStage ? c.stages.find((s) => s.stage === nextStage) : undefined;
+  const preAssignedNext = nextStageRecord?.assignedEmployee ?? null;
+  const needsManualAssign = Boolean(nextStage && !isFinalStage && !preAssignedNext);
 
   const config = {
     approve: {
@@ -77,11 +80,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   const handleAction = async () => {
     if (type === 'approve') {
-      // Only detour through the "assign next stage" step when there is a real
-      // next stage to staff. 'Completed' is terminal -- approving the final
-      // stage (Bill Submission) should close the case, not ask to "assign"
-      // an employee to a stage that doesn't exist.
-      if (nextStage && !isFinalStage && step === 'action') {
+      // Only ask to pick the next person when that stage has no pre-assigned
+      // employee (legacy cases). New cases already have the full team set.
+      if (needsManualAssign && step === 'action') {
         setStep('assign');
         return;
       }
@@ -90,8 +91,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
         if (selectedEmp && nextStage && !isFinalStage) {
           await approveStageAndAssign(c.id, notes, selectedEmp, nextStage);
         } else {
-          // approveStage auto-closes the case internally when there's no
-          // next stage to assign (i.e. this was Bill Submission).
+          // approveStage auto-activates the next pre-assigned employee, or
+          // closes the case when this was Bill Submission.
           await approveStage(c.id, notes);
         }
         resetAndClose();
@@ -162,7 +163,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
                 <p className="text-xs text-blue-700 font-medium">
                   {isFinalStage
                     ? 'This is the final stage — approving will mark the case as Completed and close it.'
-                    : <>Next step: You'll be asked to assign an employee for <strong>{nextStage}</strong></>}
+                    : preAssignedNext
+                      ? <>Next: <strong>{nextStage}</strong> will activate for <strong>{preAssignedNext.name}</strong> automatically.</>
+                      : <>Next step: You'll be asked to assign an employee for <strong>{nextStage}</strong></>}
                 </p>
               </div>
             )}
