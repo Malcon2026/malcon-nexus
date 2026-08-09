@@ -5,18 +5,17 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
-import { priorityColors, stageColors, formatDate } from '../utils/helpers';
+import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
 
 const KANBAN_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
+  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
   'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
   'Delivery': { title: 'Delivery', desc: 'Delivery dept' },
   'Surgery': { title: 'Surgery', desc: 'Scrub person' },
-  'Cleaning': { title: 'Cleaning', desc: 'Cleaning & Audit' },
-  'Audit': { title: 'Audit', desc: 'Cleaning & Audit' },
+  'Cleaning & Audit': { title: 'Cleaning & Audit', desc: 'Cleaning & Audit dept' },
   'Billing': { title: 'Billing', desc: 'Accounts' },
   'Bill Submission': { title: 'Bill Submission', desc: 'Bill submission team' },
   'Completed': { title: 'Completed', desc: 'Case closed' },
@@ -46,7 +45,7 @@ export const WorkflowBoard: React.FC = () => {
   }, []);
 
   const getCasesForStage = (stage: WorkflowStage) =>
-    cases.filter(c => c.currentStage === stage);
+    cases.filter((c) => normalizeWorkflowStage(c.currentStage) === stage);
 
   return (
     <div className="p-4 sm:p-6 h-full flex flex-col max-w-[1800px] mx-auto w-full min-w-0">

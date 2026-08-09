@@ -14,7 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
+import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { filterAttendanceStaff } from '../lib/staff';
 
 const fadeUp = {
@@ -94,7 +94,7 @@ export const Dashboard: React.FC = () => {
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval');
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval');
   const surgeryCases = cases.filter(c => c.currentStage === 'Surgery');
-  const cleaningQueue = cases.filter(c => c.currentStage === 'Cleaning');
+  const cleaningQueue = cases.filter(c => normalizeWorkflowStage(c.currentStage) === 'Cleaning & Audit');
   const billingPending = cases.filter(c => c.currentStage === 'Billing');
   const billSubmissionPending = cases.filter(c => c.currentStage === 'Bill Submission');
   const completedCases = cases.filter(c => c.status === 'Completed');
@@ -138,7 +138,7 @@ export const Dashboard: React.FC = () => {
         <KPICard label="Active Cases" value={activeCases.length} icon={<FolderOpen className="h-4 w-4 text-indigo-600" />} iconBg="bg-indigo-50" subtitle={`${cases.length} total`} />
         <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" subtitle="Awaiting review" />
         <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" subtitle="Active surgeries" />
-        <KPICard label="Cleaning Queue" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" subtitle="Pending sterilize" />
+        <KPICard label="Cleaning & Audit" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" subtitle="Pending clean/audit" />
         <KPICard label="Billing Pending" value={billingPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" subtitle="Invoice generation" />
         <KPICard label="Bill Submission" value={billSubmissionPending.length} icon={<Wallet className="h-4 w-4 text-orange-600" />} iconBg="bg-orange-50" subtitle="Pending bill submission" />
         <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" subtitle={`${filterAttendanceStaff(employees).length} staff`} />

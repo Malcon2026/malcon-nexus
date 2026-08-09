@@ -15,6 +15,7 @@ import type {
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
 import { normalizeDepartment } from '../../../constants/departments';
+import { normalizeCaseStages } from '../../caseWorkflow';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -321,19 +322,6 @@ function parseAssignedEmployee(row: Record<string, unknown>): ImplantCase['assig
   return { ...base, department: dept };
 }
 
-function normalizeStageRecords(stages: ImplantCase['stages']): ImplantCase['stages'] {
-  return stages.map((s) => ({
-    ...s,
-    department: (normalizeDepartment(s.department) ?? s.department) as ImplantCase['stages'][number]['department'],
-    assignedEmployee: s.assignedEmployee
-      ? {
-          ...s.assignedEmployee,
-          department: normalizeDepartment(s.assignedEmployee.department) ?? s.assignedEmployee.department,
-        }
-      : null,
-  }));
-}
-
 function rowToCase(row: Record<string, unknown>): ImplantCase {
   const rawDept = row.current_department as string | null | undefined;
   return {
@@ -360,7 +348,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     updatedAt: row.updated_at as string,
     dueDate: row.due_date as string,
     remarks: row.remarks as string,
-    stages: normalizeStageRecords((row.stages as ImplantCase['stages']) ?? []),
+    stages: normalizeCaseStages((row.stages as ImplantCase['stages']) ?? []),
     activityLogs: (row.activity_logs as ImplantCase['activityLogs']) ?? [],
     comments: (row.comments as ImplantCase['comments']) ?? [],
     invoiceAmount: row.invoice_amount as number | undefined,

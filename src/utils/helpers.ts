@@ -29,8 +29,7 @@ export const stageColors: Record<WorkflowStage, { bg: string; text: string; bord
   'Kit Preparation': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-500' },
   'Delivery': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
   'Surgery': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
-  'Cleaning': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
-  'Audit': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' },
+  'Cleaning & Audit': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
   'Billing': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
   'Bill Submission': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
   'Completed': { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: 'bg-green-500' },
@@ -46,8 +45,7 @@ const defaultStageStyle = {
 /** Safe lookup — legacy DB values like "Collection" won't crash the UI. */
 export function getStageStyle(stage: string | null | undefined) {
   if (!stage) return defaultStageStyle;
-  const normalized = stage === 'Collection' ? 'Bill Submission' : stage;
-  return stageColors[normalized as WorkflowStage] ?? defaultStageStyle;
+  return stageColors[normalizeWorkflowStage(stage)] ?? defaultStageStyle;
 }
 
 export function getPriorityStyle(priority: string | null | undefined) {
@@ -57,6 +55,9 @@ export function getPriorityStyle(priority: string | null | undefined) {
 
 export function normalizeWorkflowStage(stage: string | null | undefined): WorkflowStage {
   if (stage === 'Collection') return 'Bill Submission';
+  if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
+    return 'Cleaning & Audit';
+  }
   if (stage && stage in stageColors) return stage as WorkflowStage;
   return 'Kit Preparation';
 }
@@ -133,9 +134,9 @@ export const timeAgo = (dateStr: string) => {
 
 export const getStageIndex = (stage: WorkflowStage): number => {
   const stages: WorkflowStage[] = [
-    'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'
+    'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'
   ];
-  return stages.indexOf(stage);
+  return stages.indexOf(normalizeWorkflowStage(stage));
 };
 
 export const isOverdue = (dueDate: string): boolean => {

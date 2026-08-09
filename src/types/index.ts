@@ -14,8 +14,7 @@ export type WorkflowStage =
   | 'Kit Preparation'
   | 'Delivery'
   | 'Surgery'
-  | 'Cleaning'
-  | 'Audit'
+  | 'Cleaning & Audit'
   | 'Billing'
   | 'Bill Submission'
   | 'Completed';

@@ -41,7 +41,7 @@ import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed',
+  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed',
 ];
 
 /** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
@@ -231,8 +231,7 @@ const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
     'Kit Preparation': 'Stores',
     'Delivery': 'Delivery',
     'Surgery': 'Scrub Person',
-    'Cleaning': 'Cleaning & Audit',
-    'Audit': 'Cleaning & Audit',
+    'Cleaning & Audit': 'Cleaning & Audit',
     'Billing': 'Accounts',
     'Bill Submission': 'Bill Submission',
     'Completed': null,
@@ -2855,13 +2854,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   getStageDistribution: () => {
     const cases = get().cases;
-    const stages: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Cleaning', 'Audit', 'Billing', 'Bill Submission', 'Completed'];
+    const stages: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'];
     const colors: Record<WorkflowStage, string> = {
       'Kit Preparation': '#6366f1',
       'Delivery': '#f43f5e',
       'Surgery': '#8b5cf6',
-      'Cleaning': '#06b6d4',
-      'Audit': '#f59e0b',
+      'Cleaning & Audit': '#06b6d4',
       'Billing': '#10b981',
       'Bill Submission': '#f97316',
       'Completed': '#22c55e',
