@@ -71,8 +71,7 @@ export const initDB = () => {
     { id: 'dept-2c', name: 'Drivers', description: 'Vehicle drivers for case and kit transport.', color: 'bg-teal-100 text-teal-800' },
     { id: 'dept-2d', name: 'Office Staff', description: 'Office and administrative support staff.', color: 'bg-slate-100 text-slate-800' },
     { id: 'dept-2b', name: 'Scrub Person', description: 'Assisting surgeons during the implant operation.', color: 'bg-blue-100 text-blue-800' },
-    { id: 'dept-3', name: 'Cleaning Department', description: 'Sterilization and cleaning of surgical kits.', color: 'bg-cyan-100 text-cyan-800' },
-    { id: 'dept-4', name: 'Stores Audit', description: 'Audit of items, materials, and kit completeness.', color: 'bg-amber-100 text-amber-800' },
+    { id: 'dept-3', name: 'Cleaning & Audit', description: 'Sterilization, cleaning, and audit of surgical kits.', color: 'bg-cyan-100 text-cyan-800' },
     { id: 'dept-5', name: 'Accounts', description: 'Billing and invoicing for surgical procedures.', color: 'bg-emerald-100 text-emerald-800' },
     { id: 'dept-6', name: 'Bill Submission', description: 'Bill submission to hospitals.', color: 'bg-orange-100 text-orange-800' },
   ];

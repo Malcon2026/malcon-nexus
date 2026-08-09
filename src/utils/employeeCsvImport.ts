@@ -1,27 +1,18 @@
 import type { Department } from '../types';
 import { parseCsvObjects } from './csv';
+import { DEPARTMENTS, normalizeDepartment as mapDepartment } from '../constants/departments';
 
-const VALID_DEPARTMENTS = new Set<Department>([
-  'Stores',
-  'Delivery',
-  'Drivers',
-  'Scrub Person',
-  'Cleaning Department',
-  'Stores Audit',
-  'Accounts',
-  'Bill Submission',
-  'Office Staff',
-  'Admin',
-]);
+const VALID_DEPARTMENTS = new Set<Department>(DEPARTMENTS);
 
 const DEPARTMENT_ALIASES: Record<string, Department> = {
   scrub: 'Scrub Person',
   'scrub person': 'Scrub Person',
   scrubbing: 'Scrub Person',
-  cleaning: 'Cleaning Department',
-  'cleaning department': 'Cleaning Department',
-  audit: 'Stores Audit',
-  'stores audit': 'Stores Audit',
+  cleaning: 'Cleaning & Audit',
+  'cleaning department': 'Cleaning & Audit',
+  'cleaning & audit': 'Cleaning & Audit',
+  audit: 'Cleaning & Audit',
+  'stores audit': 'Cleaning & Audit',
   accounts: 'Accounts',
   collection: 'Bill Submission',
   'collection executive': 'Bill Submission',
@@ -49,11 +40,13 @@ export interface EmployeeCsvRow {
 
 function normalizeDepartment(value: string, line: number): Department {
   const trimmed = value.trim();
+  const mapped = mapDepartment(trimmed);
+  if (mapped) return mapped;
+  const alias = DEPARTMENT_ALIASES[trimmed.toLowerCase()];
+  if (alias) return alias;
   if (VALID_DEPARTMENTS.has(trimmed as Department)) {
     return trimmed as Department;
   }
-  const alias = DEPARTMENT_ALIASES[trimmed.toLowerCase()];
-  if (alias) return alias;
   throw new Error(
     `Row ${line}: invalid department "${value}". Use: ${[...VALID_DEPARTMENTS].join(', ')}`,
   );
@@ -105,5 +98,5 @@ export function parseEmployeeCsv(text: string): EmployeeCsvRow[] {
 export const EMPLOYEE_CSV_TEMPLATE = [
   'name,email,password,department,role,phone,employee_code',
   'Bindhu,bindhu@malconnexus.com,Test@0011,Stores,employee,8019971125,0138',
-  'Ramakanth,ramakanth@malconnexus.com,Test@0011,Stores Audit,employee,8019971125,0161',
+  'Ramakanth,ramakanth@malconnexus.com,Test@0011,Cleaning & Audit,employee,8019971125,0161',
 ].join('\n');

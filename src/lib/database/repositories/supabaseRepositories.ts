@@ -14,6 +14,7 @@ import type {
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
+import { normalizeDepartment } from '../../../constants/departments';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -79,11 +80,12 @@ function rowToAttendance(row: Record<string, unknown>): AttendanceRecord {
 // ─── EMPLOYEES ───────────────────────────────────────────────
 
 function rowToEmployee(row: Record<string, unknown>): Employee {
+  const rawDept = String(row.department ?? '');
   return {
     id: row.id as string,
     name: row.name as string,
     email: row.email as string,
-    department: row.department as Employee['department'],
+    department: normalizeDepartment(rawDept) ?? (rawDept as Employee['department']),
     role: row.role as Employee['role'],
     status: row.status as Employee['status'],
     avatar: row.avatar as string,
@@ -313,13 +315,27 @@ function parseAssignedEmployee(row: Record<string, unknown>): ImplantCase['assig
   const snapshot = row.assigned_employee_snapshot as ImplantCase['assignedEmployee'] | null | undefined;
   const assignedId = row.assigned_employee_id as string | null | undefined;
   if (!snapshot && !assignedId) return null;
-  if (snapshot && assignedId) {
-    return { ...snapshot, id: assignedId };
-  }
-  return snapshot ?? null;
+  const base = snapshot && assignedId ? { ...snapshot, id: assignedId } : (snapshot ?? null);
+  if (!base) return null;
+  const dept = normalizeDepartment(base.department) ?? base.department;
+  return { ...base, department: dept };
+}
+
+function normalizeStageRecords(stages: ImplantCase['stages']): ImplantCase['stages'] {
+  return stages.map((s) => ({
+    ...s,
+    department: (normalizeDepartment(s.department) ?? s.department) as ImplantCase['stages'][number]['department'],
+    assignedEmployee: s.assignedEmployee
+      ? {
+          ...s.assignedEmployee,
+          department: normalizeDepartment(s.assignedEmployee.department) ?? s.assignedEmployee.department,
+        }
+      : null,
+  }));
 }
 
 function rowToCase(row: Record<string, unknown>): ImplantCase {
+  const rawDept = row.current_department as string | null | undefined;
   return {
     id: row.id as string,
     caseNumber: row.case_number as string,
@@ -337,14 +353,14 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     priority: row.priority as ImplantCase['priority'],
     status: row.status as ImplantCase['status'],
     currentStage: normalizeWorkflowStage(row.current_stage as string),
-    currentDepartment: row.current_department as ImplantCase['currentDepartment'],
+    currentDepartment: normalizeDepartment(rawDept) ?? (rawDept as ImplantCase['currentDepartment']),
     assignedEmployee: parseAssignedEmployee(row),
     createdBy: row.created_by as string,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     dueDate: row.due_date as string,
     remarks: row.remarks as string,
-    stages: (row.stages as ImplantCase['stages']) ?? [],
+    stages: normalizeStageRecords((row.stages as ImplantCase['stages']) ?? []),
     activityLogs: (row.activity_logs as ImplantCase['activityLogs']) ?? [],
     comments: (row.comments as ImplantCase['comments']) ?? [],
     invoiceAmount: row.invoice_amount as number | undefined,

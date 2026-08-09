@@ -46,7 +46,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
       ['name', 'email', 'password', 'department', 'role', 'phone', 'employee_code'],
       [
         ['Bindhu', 'bindhu@malconnexus.com', 'Test@0011', 'Stores', 'employee', '8019971125', '0138'],
-        ['Ramakanth', 'ramakanth@malconnexus.com', 'Test@0011', 'Stores Audit', 'employee', '8019971125', '0161'],
+        ['Ramakanth', 'ramakanth@malconnexus.com', 'Test@0011', 'Cleaning & Audit', 'employee', '8019971125', '0161'],
       ],
     );
   };
@@ -137,7 +137,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
         <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-800 space-y-1">
           <p className="font-semibold">Required columns</p>
           <p>name, email, password, department, role, phone (optional), employee_code (optional)</p>
-          <p className="text-blue-700">Departments: Stores, Delivery, Drivers, Scrub Person, Cleaning Department, Stores Audit, Accounts, Bill Submission, Office Staff, Admin</p>
+          <p className="text-blue-700">Departments: Stores, Delivery, Drivers, Scrub Person, Cleaning & Audit, Accounts, Bill Submission, Office Staff, Admin</p>
         </div>
 
         <input

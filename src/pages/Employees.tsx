@@ -11,10 +11,9 @@ import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { filterAttendanceStaff } from '../lib/staff';
+import { DEPARTMENTS_WITH_ALL } from '../constants/departments';
 
-const DEPARTMENTS: (Department | 'All')[] = [
-  'All', 'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin',
-];
+const DEPARTMENTS = DEPARTMENTS_WITH_ALL;
 
 const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';

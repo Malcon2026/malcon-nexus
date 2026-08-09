@@ -27,6 +27,7 @@ import {
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation, type StageAssignments } from '../lib/caseWorkflow';
+import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
   validateLeaveApplication,
@@ -230,8 +231,8 @@ const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
     'Kit Preparation': 'Stores',
     'Delivery': 'Delivery',
     'Surgery': 'Scrub Person',
-    'Cleaning': 'Cleaning Department',
-    'Audit': 'Stores Audit',
+    'Cleaning': 'Cleaning & Audit',
+    'Audit': 'Cleaning & Audit',
     'Billing': 'Accounts',
     'Bill Submission': 'Bill Submission',
     'Completed': null,
@@ -2810,7 +2811,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   getDepartmentPerformance: () => {
     const cases = get().cases;
-    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department', 'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff'];
+    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit', 'Accounts', 'Bill Submission', 'Office Staff'];
 
     return departments.map(dept => {
       let casesHandled = 0;
@@ -2819,7 +2820,7 @@ export const useStore = create<AppState>((set, get) => ({
       let onTimeCount = 0;
 
       cases.forEach(c => {
-        const stage = c.stages.find(s => s.department === dept);
+        const stage = c.stages.find(s => normalizeDepartment(s.department) === dept);
         if (stage && (stage.status === 'Approved' || stage.assignedAt)) {
           casesHandled++;
           if (stage.status === 'Approved' && stage.assignedAt && stage.approvedAt) {
@@ -2843,11 +2844,8 @@ export const useStore = create<AppState>((set, get) => ({
         ? Math.round((onTimeCount / approvedCount) * 100)
         : 100;
 
-      let displayDept = dept as string;
-      if (displayDept === 'Cleaning Department') displayDept = 'Cleaning';
-
       return {
-        department: displayDept,
+        department: dept,
         avgTime: avgTimeDays || 1.0,
         casesHandled,
         onTime: onTimeRate,

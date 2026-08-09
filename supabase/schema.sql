@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS employees (
   name         TEXT NOT NULL,
   email        TEXT NOT NULL UNIQUE,
   department   TEXT NOT NULL CHECK (department IN (
-    'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department',
-    'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
+    'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit',
+    'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
   )),
   role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
   status       TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
@@ -79,8 +79,8 @@ CREATE INDEX IF NOT EXISTS idx_doctors_hospital_id ON doctors(hospital_id);
 CREATE TABLE IF NOT EXISTS departments (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name        TEXT NOT NULL UNIQUE CHECK (name IN (
-    'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning Department',
-    'Stores Audit', 'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
+    'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit',
+    'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
   )),
   description TEXT NOT NULL DEFAULT '',
   color       TEXT NOT NULL DEFAULT 'bg-gray-100 text-gray-800'
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS cases (
     'Kit Preparation','Delivery','Surgery','Cleaning','Audit','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
-    'Stores','Delivery','Drivers','Scrub Person','Cleaning Department','Stores Audit',
+    'Stores','Delivery','Drivers','Scrub Person','Cleaning & Audit',
     'Accounts','Bill Submission','Office Staff','Admin'
   )),
   assigned_employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
@@ -264,8 +264,7 @@ INSERT INTO departments (id, name, description, color) VALUES
   ('11111111-0001-0001-0001-000000000008', 'Drivers',              'Vehicle drivers for case and kit transport.',     'bg-teal-100 text-teal-800'),
   ('11111111-0001-0001-0001-000000000009', 'Office Staff',         'Office and administrative support staff.',       'bg-slate-100 text-slate-800'),
   ('11111111-0001-0001-0001-000000000002', 'Scrub Person',         'Assisting surgeons during the implant operation.',  'bg-blue-100 text-blue-800'),
-  ('11111111-0001-0001-0001-000000000003', 'Cleaning Department',  'Sterilization and cleaning of surgical kits.',      'bg-cyan-100 text-cyan-800'),
-  ('11111111-0001-0001-0001-000000000004', 'Stores Audit',         'Audit of items, materials, and kit completeness.', 'bg-amber-100 text-amber-800'),
+  ('11111111-0001-0001-0001-000000000003', 'Cleaning & Audit',     'Sterilization, cleaning, and audit of surgical kits.', 'bg-cyan-100 text-cyan-800'),
   ('11111111-0001-0001-0001-000000000005', 'Accounts',             'Billing and invoicing for surgical procedures.',    'bg-emerald-100 text-emerald-800'),
   ('11111111-0001-0001-0001-000000000006', 'Bill Submission', 'Bill submission to hospitals.',     'bg-orange-100 text-orange-800')
 ON CONFLICT (name) DO NOTHING;

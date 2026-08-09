@@ -2,10 +2,15 @@ import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
 import { sbEmployeeRepo } from './supabaseRepositories';
 import type { Employee } from '../../../types';
+import { normalizeDepartment } from '../../../constants/departments';
 
 export const employeeRepository = {
   async getAll(): Promise<Employee[]> {
-    return Database.getAll<Employee>('employees');
+    const list = Database.getAll<Employee>('employees');
+    return list.map((e) => ({
+      ...e,
+      department: normalizeDepartment(e.department) ?? e.department,
+    }));
   },
 
   async getById(id: string): Promise<Employee | null> {
