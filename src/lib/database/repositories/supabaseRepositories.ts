@@ -410,13 +410,35 @@ export const sbCaseRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
+    // Primary: current assignee FK (required for RLS).
     const { data, error } = await supabase
       .from('cases')
       .select('*')
       .eq('assigned_employee_id', employeeId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
+
+    const byId = new Map<string, ImplantCase>();
+    for (const row of data ?? []) {
+      const c = rowToCase(row as Record<string, unknown>);
+      byId.set(c.id, c);
+    }
+
+    // Fallback: snapshot id match (older rows where FK was null but snapshot
+    // still had the assignee — RLS may hide these; try anyway).
+    const { data: snapshotRows, error: snapshotError } = await supabase
+      .from('cases')
+      .select('*')
+      .filter('assigned_employee_snapshot->>id', 'eq', employeeId)
+      .order('created_at', { ascending: false });
+    if (!snapshotError) {
+      for (const row of snapshotRows ?? []) {
+        const c = rowToCase(row as Record<string, unknown>);
+        byId.set(c.id, c);
+      }
+    }
+
+    return [...byId.values()];
   },
 
   async getById(id: string): Promise<ImplantCase | null> {
@@ -430,7 +452,12 @@ export const sbCaseRepo = {
     if (!row.hospital_id) {
       throw new Error('Hospital must be saved in the database before creating a case. Re-add the hospital and try again.');
     }
-    const { error } = await supabase.from('cases').insert(caseToRow(c) as never);
+    if (c.assignedEmployee && !row.assigned_employee_id) {
+      throw new Error(
+        `Cannot create case: assignee "${c.assignedEmployee.name}" has an invalid id. Refresh and select employees again.`,
+      );
+    }
+    const { error } = await supabase.from('cases').insert(row as never);
     if (error) throw error;
     return c;
   },

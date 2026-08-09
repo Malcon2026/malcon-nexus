@@ -26,7 +26,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -219,7 +219,7 @@ interface AppState {
 // --- Helpers ---
 
 const getNextStage = (current: WorkflowStage): WorkflowStage | null => {
-  const idx = WORKFLOW_STAGES.indexOf(current);
+  const idx = WORKFLOW_STAGES.indexOf(normalizeWorkflowStageName(current));
   if (idx >= 0 && idx < WORKFLOW_STAGES.length - 1) {
     return WORKFLOW_STAGES[idx + 1];
   }
@@ -609,10 +609,51 @@ export const useStore = create<AppState>((set, get) => ({
     if (!kitEmp) {
       throw new Error('Kit Preparation assignee is required.');
     }
+    if (!kitEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(kitEmp.id)) {
+      throw new Error(`Cannot assign ${kitEmp.name}: missing employee id. Refresh the page and pick employees again.`);
+    }
+
+    for (const stage of Object.keys(assignments) as (keyof StageAssignments)[]) {
+      const emp = assignments[stage];
+      if (!emp?.id) {
+        throw new Error(`Cannot assign ${stage}: missing employee id. Refresh and try again.`);
+      }
+    }
 
     const now = new Date().toISOString();
     const caseNumber = await taskRepository.getNextCaseNumber();
     const kitDept = getDepartmentForStage('Kit Preparation') ?? 'Stores';
+
+    const rawStages = WORKFLOW_STAGES.map((stage) => {
+      if (stage === 'Completed') {
+        return {
+          stage,
+          department: 'Admin' as Department,
+          assignedEmployee: null,
+          assignedAt: null,
+          submittedAt: null,
+          approvedAt: null,
+          status: 'Pending' as const,
+          notes: '',
+          adminNotes: '',
+          documents: [],
+        };
+      }
+      const emp = assignments[stage as keyof typeof assignments];
+      const isKit = stage === 'Kit Preparation';
+      return {
+        stage,
+        department: (getDepartmentForStage(stage) ?? 'Stores') as Department,
+        assignedEmployee: emp,
+        assignedAt: emp ? now : null,
+        submittedAt: null,
+        approvedAt: null,
+        status: isKit ? ('Assigned' as const) : ('Pending' as const),
+        notes: '',
+        adminNotes: '',
+        documents: [],
+      };
+    });
 
     const newCase: ImplantCase = {
       id: caseId,
@@ -632,36 +673,7 @@ export const useStore = create<AppState>((set, get) => ({
       updatedAt: now,
       dueDate: caseData.dueDate || caseData.surgeryDate || '',
       remarks: caseData.remarks || '',
-      stages: WORKFLOW_STAGES.map((stage) => {
-        if (stage === 'Completed') {
-          return {
-            stage,
-            department: 'Admin' as Department,
-            assignedEmployee: null,
-            assignedAt: null,
-            submittedAt: null,
-            approvedAt: null,
-            status: 'Pending' as const,
-            notes: '',
-            adminNotes: '',
-            documents: [],
-          };
-        }
-        const emp = assignments[stage as keyof typeof assignments];
-        const isKit = stage === 'Kit Preparation';
-        return {
-          stage,
-          department: (getDepartmentForStage(stage) ?? 'Stores') as Department,
-          assignedEmployee: emp,
-          assignedAt: emp ? now : null,
-          submittedAt: null,
-          approvedAt: null,
-          status: isKit ? ('Assigned' as const) : ('Pending' as const),
-          notes: '',
-          adminNotes: '',
-          documents: [],
-        };
-      }),
+      stages: normalizeCaseStages(rawStages),
       activityLogs: [
         {
           id: `log-${Date.now()}`,
@@ -740,19 +752,20 @@ export const useStore = create<AppState>((set, get) => ({
     const next = getNextStage(c.currentStage);
     // New cases pre-assign every stage — activate the next person automatically.
     if (next && next !== 'Completed') {
-      const nextIdx = WORKFLOW_STAGES.indexOf(next);
-      const nextEmp = c.stages[nextIdx]?.assignedEmployee;
+      const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
       if (nextEmp) {
         await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next);
         return;
       }
     }
 
-    const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
-    const updatedStages = c.stages.map((s, i) =>
-      i === stageIdx
-        ? { ...s, status: 'Approved' as const, approvedAt: new Date().toISOString(), adminNotes }
-        : s
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === currentName
+          ? { ...s, status: 'Approved' as const, approvedAt: new Date().toISOString(), adminNotes }
+          : s
+      ),
     );
     const newLog = {
       id: `log-${Date.now()}`,
@@ -802,26 +815,33 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
+    if (!employee?.id) {
+      throw new Error('Cannot assign next stage: employee is missing an id.');
+    }
 
-    const approvedStageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
-    const assignStageIdx = WORKFLOW_STAGES.indexOf(nextStage);
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const nextName = normalizeWorkflowStageName(nextStage);
     const approvedAt = new Date().toISOString();
     const assignedAt = approvedAt;
 
-    const updatedStages = c.stages.map((s, i) => {
-      if (i === approvedStageIdx) {
-        return { ...s, status: 'Approved' as const, approvedAt, adminNotes };
-      }
-      if (i === assignStageIdx) {
-        return {
-          ...s,
-          assignedEmployee: employee,
-          assignedAt,
-          status: 'Assigned' as const,
-        };
-      }
-      return s;
-    });
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) => {
+        const name = normalizeWorkflowStageName(s.stage);
+        if (name === currentName) {
+          return { ...s, status: 'Approved' as const, approvedAt, adminNotes };
+        }
+        if (name === nextName) {
+          return {
+            ...s,
+            stage: nextName,
+            assignedEmployee: employee,
+            assignedAt,
+            status: 'Assigned' as const,
+          };
+        }
+        return s;
+      }),
+    );
 
     const approveLog = {
       id: `log-${Date.now()}`,
@@ -840,7 +860,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       department: employee.department,
       timestamp: assignedAt,
-      details: `${employee.name} assigned to ${nextStage} stage.`,
+      details: `${employee.name} assigned to ${nextName} stage.`,
     };
 
     await updateCaseApproval(caseId, c.currentStage, {
@@ -851,8 +871,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
-      currentStage: nextStage,
-      currentDepartment: employee.department,
+      currentStage: nextName,
+      currentDepartment: normalizeDepartment(employee.department) ?? employee.department,
       assignedEmployee: employee,
       status: 'Active',
       activityLogs: [...c.activityLogs, approveLog, assignLog],
@@ -1010,13 +1030,18 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
+    if (!employee?.id) {
+      throw new Error('Cannot assign: employee is missing an id.');
+    }
 
-    const targetStage = nextStage || getNextStage(c.currentStage) || c.currentStage;
-    const stageIdx = WORKFLOW_STAGES.indexOf(targetStage);
-    const updatedStages = c.stages.map((s, i) =>
-      i === stageIdx
-        ? { ...s, assignedEmployee: employee, assignedAt: new Date().toISOString(), status: 'Assigned' as const }
-        : s
+    const targetStage = normalizeWorkflowStageName(nextStage || getNextStage(c.currentStage) || c.currentStage);
+    const assignedAt = new Date().toISOString();
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === targetStage
+          ? { ...s, stage: targetStage, assignedEmployee: employee, assignedAt, status: 'Assigned' as const }
+          : s
+      ),
     );
     const newLog = {
       id: `log-${Date.now()}`,
@@ -1025,13 +1050,13 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       department: employee.department,
-      timestamp: new Date().toISOString(),
+      timestamp: assignedAt,
       details: `${employee.name} assigned to ${targetStage} stage.`,
     };
 
     const updatedCase = await taskRepository.update(caseId, {
       currentStage: targetStage,
-      currentDepartment: employee.department,
+      currentDepartment: normalizeDepartment(employee.department) ?? employee.department,
       assignedEmployee: employee,
       status: 'Active',
       stages: updatedStages,

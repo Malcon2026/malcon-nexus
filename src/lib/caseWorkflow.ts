@@ -117,6 +117,14 @@ export function normalizeCaseStages(stages: StageRecord[] | null | undefined): S
   return WORKFLOW_STAGES.map((stage) => byStage.get(stage) ?? emptyStage(stage));
 }
 
+export function findStageRecord(
+  stages: StageRecord[] | null | undefined,
+  stage: WorkflowStage | string,
+): StageRecord | undefined {
+  const target = normalizeWorkflowStageName(stage);
+  return (stages ?? []).find((s) => normalizeWorkflowStageName(s.stage) === target);
+}
+
 export function getStageIndex(stage: WorkflowStage): number {
   return WORKFLOW_STAGES.indexOf(normalizeWorkflowStageName(stage));
 }

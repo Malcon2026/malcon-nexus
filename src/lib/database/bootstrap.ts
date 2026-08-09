@@ -35,7 +35,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v5';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v6';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
@@ -94,6 +94,10 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
       key: 'attendanceApprovalRequests',
       run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
     },
+    // Cases must load on login — otherwise My Cases stays empty until a late
+    // deferred fetch (or stale session cache) finishes.
+    { key: 'cases', run: () => sbCaseRepo.getForEmployee(employeeId) },
+    { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
   ];
 }
 
@@ -107,8 +111,6 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
       // Not read by any employee-facing screen today; still loaded in the
       // background in case something needs it, just never blocking.
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
-      { key: 'cases', run: () => sbCaseRepo.getForEmployee(employeeId) },
-      { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
     ];
   }
 
