@@ -40,6 +40,7 @@ export interface RegisterDayColumn {
 
 export interface RegisterEmployeeRow {
   employeeId: string;
+  employeeCode: string;
   employeeName: string;
   department: string;
   cells: RegisterCellDetail[];
@@ -482,8 +483,38 @@ export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColum
   return Math.min(count, PAYABLE_DAYS_PER_CYCLE);
 }
 
+export function compareEmployeeCode(a: string, b: string): number {
+  const digitsA = a.replace(/\D/g, '');
+  const digitsB = b.replace(/\D/g, '');
+  if (digitsA && digitsB) {
+    const na = Number(digitsA);
+    const nb = Number(digitsB);
+    if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+  }
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+export type RegisterSortBy = 'employeeCode' | 'name';
+
+export function sortRegisterRows(
+  rows: RegisterEmployeeRow[],
+  sortBy: RegisterSortBy,
+): RegisterEmployeeRow[] {
+  const sorted = [...rows];
+  if (sortBy === 'employeeCode') {
+    sorted.sort((a, b) => {
+      const byCode = compareEmployeeCode(a.employeeCode || '9999', b.employeeCode || '9999');
+      if (byCode !== 0) return byCode;
+      return a.employeeName.localeCompare(b.employeeName);
+    });
+  } else {
+    sorted.sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+  }
+  return sorted;
+}
+
 export function buildAttendanceRegister(
-  employees: { id: string; name: string; department: string; role: string; status: string }[],
+  employees: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string }[],
   records: AttendanceRecord[],
   leaveRequests: LeaveRequest[],
   year: number,
@@ -491,12 +522,12 @@ export function buildAttendanceRegister(
   options?: {
     employeeId?: string;
     /** Used when viewing a single employee whose profile isn't in `employees` yet. */
-    selfEmployee?: { id: string; name: string; department: string; role: string; status: string } | null;
+    selfEmployee?: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string } | null;
   },
 ): AttendanceRegisterData {
   const days = buildSalaryCycleDayColumns(year, month);
 
-  let staff: { id: string; name: string; department: string; role: string; status: string }[];
+  let staff: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string }[];
   if (options?.employeeId) {
     // Own register: always show the employee row (don't require Active roster filter).
     const self =
@@ -505,7 +536,10 @@ export function buildAttendanceRegister(
     staff = self ? [self] : [];
   } else {
     // Admins are staff too — they just don't punch via geofence by default.
-    staff = filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name));
+    // Default order is employee ID; the panel can re-sort by name.
+    staff = filterAttendanceStaff(employees).sort((a, b) =>
+      compareEmployeeCode(a.employeeCode || '9999', b.employeeCode || '9999'),
+    );
   }
 
   const dayIndex = buildEmployeeDayAttendanceIndex(records);
@@ -525,6 +559,7 @@ export function buildAttendanceRegister(
     const cells = applyRegisterPayrollRules(rawCells, days);
     return {
       employeeId: employee.id,
+      employeeCode: (employee.employeeCode ?? '').trim(),
       employeeName: employee.name,
       department: employee.department,
       cells,
@@ -575,6 +610,7 @@ export function countLeaveDays(fromDate: string, toDate: string): number {
 
 export function exportRegisterCsv(data: AttendanceRegisterData): string {
   const header = [
+    'Employee ID',
     'Employee',
     'Department',
     ...data.days.map((d) => formatShortDate(d.dateKey)),
@@ -585,6 +621,7 @@ export function exportRegisterCsv(data: AttendanceRegisterData): string {
   for (const row of data.rows) {
     lines.push(
       [
+        `"${(row.employeeCode || '').replace(/"/g, '""')}"`,
         `"${row.employeeName.replace(/"/g, '""')}"`,
         `"${row.department.replace(/"/g, '""')}"`,
         ...row.cells.map((c) => c.code),

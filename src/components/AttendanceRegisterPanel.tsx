@@ -16,8 +16,10 @@ import {
   formatYearMonth,
   parseYearMonth,
   downloadRegisterCsv,
+  sortRegisterRows,
   type RegisterCellDetail,
   type RegisterDayColumn,
+  type RegisterSortBy,
 } from '../lib/attendanceRegister';
 import { getISTDateKey, summarizeDayAttendance } from '../lib/attendance';
 import { LEAVE_TYPES } from '../lib/leave';
@@ -60,9 +62,11 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const now = new Date();
   const [monthValue, setMonthValue] = useState(formatYearMonth(now.getFullYear(), now.getMonth() + 1));
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
+  const [sortBy, setSortBy] = useState<RegisterSortBy>('employeeCode');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     employeeId: string;
+    employeeCode: string;
     employeeName: string;
     department: string;
     day: RegisterDayColumn;
@@ -201,12 +205,15 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           }
         : undefined,
     );
-    if (filterDept === 'All' || employeeId) return data;
+    const filtered =
+      filterDept === 'All' || employeeId
+        ? data.rows
+        : data.rows.filter((r) => r.department === filterDept);
     return {
       ...data,
-      rows: data.rows.filter((r) => r.department === filterDept),
+      rows: employeeId ? filtered : sortRegisterRows(filtered, sortBy),
     };
-  }, [employees, currentUser, attendanceRecords, leaveRequests, year, month, employeeId, filterDept]);
+  }, [employees, currentUser, attendanceRecords, leaveRequests, year, month, employeeId, filterDept, sortBy]);
 
   const weekBands = useMemo(() => {
     const bands: { week: number; span: number }[] = [];
@@ -254,7 +261,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   };
 
   const openCell = (
-    row: { employeeId: string; employeeName: string; department: string; cells: RegisterCellDetail[] },
+    row: { employeeId: string; employeeCode: string; employeeName: string; department: string; cells: RegisterCellDetail[] },
     dayIndex: number,
   ) => {
     const day = register.days[dayIndex];
@@ -262,6 +269,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
     if (!day || !cell) return;
     setSelectedCell({
       employeeId: row.employeeId,
+      employeeCode: row.employeeCode,
       employeeName: row.employeeName,
       department: row.department,
       day,
@@ -361,22 +369,38 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       </div>
 
       {!employeeId && (
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="register-dept-filter" className="text-xs font-medium text-gray-500">
-            Department
-          </label>
-          <select
-            id="register-dept-filter"
-            value={filterDept}
-            onChange={(e) => setFilterDept(e.target.value as Department | 'All')}
-            className={`${departmentSelectClass} min-w-[11rem]`}
-          >
-            {DEPARTMENTS_WITH_ALL.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept === 'All' ? 'All departments' : dept}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="register-dept-filter" className="text-xs font-medium text-gray-500">
+              Department
+            </label>
+            <select
+              id="register-dept-filter"
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value as Department | 'All')}
+              className={`${departmentSelectClass} min-w-[11rem]`}
+            >
+              {DEPARTMENTS_WITH_ALL.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept === 'All' ? 'All departments' : dept}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="register-sort" className="text-xs font-medium text-gray-500">
+              Sort by
+            </label>
+            <select
+              id="register-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as RegisterSortBy)}
+              className={`${departmentSelectClass} min-w-[10rem]`}
+            >
+              <option value="employeeCode">Employee ID</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -409,7 +433,12 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
       {employeeRow ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 px-1">
-            <p className="text-sm font-semibold text-gray-800 truncate">{employeeRow.employeeName}</p>
+            <p className="text-sm font-semibold text-gray-800 truncate">
+              {employeeRow.employeeCode ? (
+                <span className="font-mono text-indigo-700 mr-1.5">{employeeRow.employeeCode}</span>
+              ) : null}
+              {employeeRow.employeeName}
+            </p>
             <p className="text-sm font-bold text-gray-900 tabular-nums shrink-0">
               Pay {employeeRow.payDays}
               <span className="text-gray-400 font-medium">/{register.payableDaysCap}</span>
@@ -465,11 +494,11 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           <table
             className="w-full border-collapse text-xs table-fixed"
             style={{
-              minWidth: `${250 + register.days.length * 36 + 56}px`,
+              minWidth: `${278 + register.days.length * 36 + 56}px`,
             }}
           >
             <colgroup>
-              <col style={{ width: 140 }} />
+              <col style={{ width: 168 }} />
               <col style={{ width: 110 }} />
               {register.days.map((day) => (
                 <col key={day.dateKey} style={{ width: 36 }} />
@@ -480,13 +509,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th
                   rowSpan={2}
-                  className="sticky left-0 z-20 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[140px]"
+                  className="sticky left-0 z-20 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-700 min-w-[168px]"
                 >
-                  Employee
+                  ID / Employee
                 </th>
                 <th
                   rowSpan={2}
-                  className="sticky left-[140px] z-20 bg-gray-50 border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 min-w-[100px]"
+                  className="sticky left-[168px] z-20 bg-gray-50 border-r border-gray-200 px-2 py-2 text-left font-semibold text-gray-600 min-w-[100px]"
                 >
                   Dept
                 </th>
@@ -549,10 +578,17 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
               ) : (
                 register.rows.map((row) => (
                   <tr key={row.employeeId} className="border-b border-gray-100 hover:bg-gray-50/50">
-                    <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2.5 font-medium text-gray-900 whitespace-nowrap">
-                      {row.employeeName}
+                    <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2.5 whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <span className="font-mono text-[11px] font-semibold text-indigo-700 tabular-nums leading-none">
+                          {row.employeeCode || '—'}
+                        </span>
+                        <span className="font-medium text-gray-900 text-[11px] leading-tight truncate max-w-[150px]">
+                          {row.employeeName}
+                        </span>
+                      </div>
                     </td>
-                    <td className="sticky left-[140px] z-10 bg-white border-r border-gray-200 px-2 py-2.5">
+                    <td className="sticky left-[168px] z-10 bg-white border-r border-gray-200 px-2 py-2.5">
                       <Badge className={`${departmentColors[row.department as Department] ?? 'bg-gray-100 text-gray-700'} text-[10px]`}>
                         {row.department}
                       </Badge>
@@ -606,7 +642,11 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         <Modal
           isOpen
           onClose={() => !manualSaving && setSelectedCell(null)}
-          title={selectedCell.employeeName}
+          title={
+            selectedCell.employeeCode
+              ? `${selectedCell.employeeCode} · ${selectedCell.employeeName}`
+              : selectedCell.employeeName
+          }
           subtitle={formatCellDate(selectedCell.day.dateKey, selectedCell.day.weekday)}
           size="sm"
           footer={
