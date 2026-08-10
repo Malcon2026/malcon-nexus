@@ -44,9 +44,11 @@ console.log('OPTION C — Manual CLI:');
 console.log(`  cd ${root} && npx vercel login && npm run build && npx vercel deploy --prod\n`);
 console.log('Supabase (already done if edge test passes below):');
 console.log(`  GALLERY_TOKEN=${token}`);
-console.log('\nBoss gallery link — paste in Safari/Chrome address bar:');
+console.log('\nBoss gallery link (opens in any browser):');
+console.log(`  https://malcon2026.github.io/malcon-nexus/?token=${token}`);
+console.log('\nShort redirect link (same gallery):');
 console.log(`  https://${projectRef}.supabase.co/functions/v1/gallery?token=${token}`);
-console.log('\nDo NOT open in "HTML Online Viewer" — that shows source code, not the page.\n');
+console.log('\nIf GitHub Pages is blank, enable once: GitHub repo → Settings → Pages → branch gh-pages → /root\n');
 
 const testUrl = `${supabaseUrl}/functions/v1/gallery-feed?token=${token}`;
 

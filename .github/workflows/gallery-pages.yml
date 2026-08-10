@@ -1,0 +1,29 @@
+name: Deploy Gallery to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/gallery/**'
+      - '.github/workflows/gallery-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gallery-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy gallery to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public/gallery
+          commit_message: 'Deploy Malcon boss gallery'
