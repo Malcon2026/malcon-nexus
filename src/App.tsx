@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { BrowserRouter } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
@@ -16,6 +17,7 @@ import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { Login } from './pages/Login';
+import { GalleryPage } from './pages/GalleryPage';
 import { AppBootScreen } from './components/AppBootScreen';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { useStore } from './store/useStore';
@@ -42,7 +44,23 @@ function DataHydrationBar({ active }: { active: boolean }) {
   );
 }
 
+function isGalleryPath(): boolean {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  return path === '/gallery';
+}
+
 function App() {
+  if (isGalleryPath()) {
+    return (
+      <BrowserRouter>
+        <GalleryPage />
+      </BrowserRouter>
+    );
+  }
+  return <MainApp />;
+}
+
+function MainApp() {
   const { activeTab, viewMode, setCurrentUser, reloadFromDatabase } = useStore();
 
   const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
