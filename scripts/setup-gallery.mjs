@@ -30,20 +30,24 @@ const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
 const projectRef = supabaseUrl?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? 'urupxpfydfrvjlkpqlvi';
 
 console.log('\n=== Malcon Gallery Setup ===\n');
-console.log('1. Set Supabase secret (run in terminal):');
-console.log(`   npx supabase login`);
-console.log(`   npx supabase secrets set GALLERY_TOKEN=${token} --project-ref ${projectRef}`);
-console.log(`   npx supabase functions deploy gallery-feed --project-ref ${projectRef}`);
-console.log('\n2. Deploy to Vercel (if git auto-deploy is stuck):');
-console.log(`   cd ${root}`);
-console.log(`   npm run build`);
-console.log(`   npx vercel deploy --prod`);
-console.log('\n3. Boss gallery link:');
-console.log(`   https://malcon-nexus.vercel.app/gallery?token=${token}`);
-console.log('\n4. Test edge function:');
+console.log('Git → Vercel is NOT connected (no GitHub webhook). Use ONE of these:\n');
+console.log('OPTION A — GitHub Actions (recommended):');
+console.log('  1. Create token: https://vercel.com/account/tokens');
+console.log('  2. Vercel → malcon-nexus → Settings → General → copy Project ID');
+console.log('  3. Vercel → Team Settings → General → copy Team/Org ID');
+console.log('  4. GitHub → Malcon2026/malcon-nexus → Settings → Secrets → Actions:');
+console.log('       VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID');
+console.log('  5. Push to main — workflow deploy-vercel.yml runs automatically\n');
+console.log('OPTION B — Connect Vercel Git:');
+console.log('  Vercel → malcon-nexus → Settings → Git → Connect Malcon2026/malcon-nexus\n');
+console.log('OPTION C — Manual CLI:');
+console.log(`  cd ${root} && npx vercel login && npm run build && npx vercel deploy --prod\n`);
+console.log('Supabase (already done if edge test passes below):');
+console.log(`  GALLERY_TOKEN=${token}`);
+console.log('\nBoss gallery link:');
+console.log(`  https://malcon-nexus.vercel.app/gallery?token=${token}`);
+
 const testUrl = `${supabaseUrl}/functions/v1/gallery-feed?token=${token}`;
-console.log(`   curl "${testUrl}"`);
-console.log('');
 
 async function testFeed() {
   if (!supabaseUrl) return;
