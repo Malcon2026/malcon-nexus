@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.upload-stage-photo]
 verify_jwt = true
+
+[functions.gallery-feed]
+verify_jwt = false
