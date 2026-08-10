@@ -17,7 +17,8 @@
     "attendance:whatsapp:boss-test": "node scripts/daily-attendance-whatsapp.mjs --boss-test",
     "attendance:whatsapp:boss-report": "node scripts/daily-attendance-whatsapp.mjs --boss-only --filters=in,absent",
     "selfies:archive": "node scripts/archive-punch-in-selfies.mjs",
-    "gallery:setup": "node scripts/setup-gallery.mjs"
+    "gallery:setup": "node scripts/setup-gallery.mjs",
+    "gallery:publish": "node scripts/publish-gallery-site.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

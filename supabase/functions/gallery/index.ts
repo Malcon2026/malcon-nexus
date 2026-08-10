@@ -185,6 +185,8 @@ Deno.serve(async (req) => {
     headers: {
       ...corsHeaders,
       'Content-Type': 'text/html; charset=utf-8',
+      'Content-Disposition': 'inline; filename="gallery.html"',
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'no-store',
     },
   });
