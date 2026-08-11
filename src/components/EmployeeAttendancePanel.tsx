@@ -97,6 +97,26 @@ export const EmployeeAttendancePanel: React.FC = () => {
     setSelfieIndex(null);
   }, [filterStatus, dateKey]);
 
+  const refreshAttendance = async (force = false) => {
+    setRefreshing(true);
+    try {
+      const { bootstrapEssential } = await import('../lib/database/bootstrap');
+      await bootstrapEssential('admin', undefined, force ? { force: true } : undefined);
+      reloadFromDatabase();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Keep admin punch-in list + selfies in sync when staff punch in on their phones.
+  useEffect(() => {
+    if (dateKey !== getISTDateKey()) return;
+    void refreshAttendance(true);
+    const onFocus = () => void refreshAttendance(true);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [dateKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const report = useMemo(
     () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey),
     [employees, attendanceRecords, dateKey],
@@ -123,14 +143,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   }), [report]);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const { bootstrapEssential } = await import('../lib/database/bootstrap');
-      await bootstrapEssential('admin');
-      reloadFromDatabase();
-    } finally {
-      setRefreshing(false);
-    }
+    await refreshAttendance(true);
   };
 
   const isToday = dateKey === getISTDateKey();

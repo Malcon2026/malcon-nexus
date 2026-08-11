@@ -244,10 +244,8 @@ export function buildEmployeeDayAttendanceIndex(
     const byDate = new Map<string, TodayAttendanceSummary>();
     for (const pair of pairs) {
       const dateKey = getISTDateKey(pair.punchIn.punchedAt);
-      // First pair for a day wins (matches previous find() behavior).
-      if (!byDate.has(dateKey)) {
-        byDate.set(dateKey, summaryFromPair(pair, open, nowMs));
-      }
+      // Latest pair for a day wins (supports multiple in/out cycles same day).
+      byDate.set(dateKey, summaryFromPair(pair, open, nowMs));
     }
     index.set(employeeId, byDate);
   }
@@ -427,9 +425,25 @@ export function buildEmployeeAttendanceReport(
   dateKey = getISTDateKey(),
 ): EmployeeAttendanceRow[] {
   const dayIndex = buildEmployeeDayAttendanceIndex(records);
+  const todayKey = getISTDateKey();
+  const useLiveToday = dateKey === todayKey;
+
   return filterAttendanceStaff(employees)
     .map((employee) => {
-      const summary = dayIndex.get(employee.id)?.get(dateKey) ?? EMPTY_DAY_SUMMARY;
+      let summary: TodayAttendanceSummary;
+      if (useLiveToday) {
+        const live = summarizeLiveAttendance(records, employee.id);
+        const punchedInToday =
+          live.punchIn !== null && getISTDateKey(live.punchIn.punchedAt) === todayKey;
+        // Open shift from a prior day is not "punched in today" on the admin board.
+        if (live.isPunchedIn && !punchedInToday) {
+          summary = EMPTY_DAY_SUMMARY;
+        } else {
+          summary = live;
+        }
+      } else {
+        summary = dayIndex.get(employee.id)?.get(dateKey) ?? EMPTY_DAY_SUMMARY;
+      }
       const unclosedFrom = getUnclosedShiftFromDateKey(records, employee.id, dateKey);
       return {
         employeeId: employee.id,

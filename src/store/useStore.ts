@@ -1686,28 +1686,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     if (punchType === 'in' && selfieFile) {
+      let selfieUrl: string;
       try {
-        const selfieUrl = await uploadAttendanceSelfie(
+        selfieUrl = await uploadAttendanceSelfie(
           { kind: 'record', recordId: record.id },
           selfieFile,
           currentUser.name,
           currentUser.id,
         );
-        record.selfieUrl = selfieUrl;
-        if (USE_SUPABASE) {
-          await sbAttendanceRepo.update(record.id, { selfieUrl });
-          const list = Database.getAll<AttendanceRecord>('attendanceRecords');
-          setCache(
-            'attendanceRecords',
-            list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r)),
-          );
-        } else {
-          const list = Database.getAll<AttendanceRecord>('attendanceRecords');
-          Database.saveAll(
-            'attendanceRecords',
-            list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r)),
-          );
-        }
       } catch (err) {
         if (USE_SUPABASE) {
           await sbAttendanceRepo.deleteByIds([record.id]).catch(() => {});
@@ -1722,6 +1708,23 @@ export const useStore = create<AppState>((set, get) => ({
         }
         const message = err instanceof Error ? err.message : 'Selfie upload failed.';
         return { error: message };
+      }
+
+      record.selfieUrl = selfieUrl;
+      // Edge function already writes selfie_url; keep local cache in sync (never roll back punch on this).
+      try {
+        if (USE_SUPABASE) {
+          await sbAttendanceRepo.update(record.id, { selfieUrl }).catch(() => {});
+        }
+        const list = Database.getAll<AttendanceRecord>('attendanceRecords');
+        const next = list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r));
+        if (USE_SUPABASE) {
+          setCache('attendanceRecords', next);
+        } else {
+          Database.saveAll('attendanceRecords', next);
+        }
+      } catch (err) {
+        console.warn('[attendance] selfie saved but local cache sync failed:', err);
       }
     }
 
@@ -1740,7 +1743,10 @@ export const useStore = create<AppState>((set, get) => ({
     persistActivity(activity);
 
     set((s) => ({
-      attendanceRecords: [record, ...s.attendanceRecords],
+      attendanceRecords: [
+        record,
+        ...s.attendanceRecords.filter((r) => r.id !== record.id),
+      ],
       activityLog: [activity, ...s.activityLog],
     }));
 
