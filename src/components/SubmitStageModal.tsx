@@ -5,7 +5,7 @@ import { Modal } from './ui/Modal';
 import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, RestockOutcome, WorkflowStage } from '../types';
-import { RESTOCK_OUTCOMES } from '../lib/restock';
+import { normalizeWorkflowStage } from '../utils/helpers';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
@@ -13,7 +13,7 @@ const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Mark Pickup Completed',
   'Cleaning & Audit': 'Mark Cleaning & Audit Completed',
-  'Restock': 'Mark Restock Completed',
+  'Restock': 'Restock',
   'Billing': 'Invoice Generated',
   'Bill Submission': 'Bill Submission Completed',
   'Completed': 'Close Case',
@@ -28,11 +28,12 @@ interface SubmitStageModalProps {
 export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   isOpen,
   onClose,
-  implantCase: c,
+  implantCase: initialCase,
 }) => {
-  const { submitStage, currentUser } = useStore();
+  const { submitStage, currentUser, cases } = useStore();
+  const c = cases.find((x) => x.id === initialCase.id) ?? initialCase;
+
   const [notes, setNotes] = useState('');
-  const [restockOutcome, setRestockOutcome] = useState<RestockOutcome | null>(null);
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
@@ -41,33 +42,24 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setNotes('');
-      setRestockOutcome(null);
       setPhotos([]);
       setUploadProgress(null);
       setError(null);
     }
   }, [isOpen, c.id]);
 
-  const isRestock = c.currentStage === 'Restock';
-  const title = isRestock
-    ? 'Restock — what happened?'
-    : STAGE_ACTIONS[c.currentStage] || 'Submit Work';
-  const needsRestockChoice = isRestock && restockOutcome === null;
-  const canSubmit =
-    notes.trim().length > 0 && photos.length > 0 && !submitting && !needsRestockChoice;
+  const stage = normalizeWorkflowStage(c.currentStage);
+  const isRestock = stage === 'Restock';
+  const title = isRestock ? 'Restock' : STAGE_ACTIONS[stage] || 'Submit Work';
+  const formReady = notes.trim().length > 0 && photos.length > 0 && !submitting;
 
   const notesPlaceholder = isRestock
-    ? restockOutcome === 'order'
-      ? 'Order details — what was ordered, supplier, expected date…'
-      : restockOutcome === 'restocked'
-        ? 'What was refilled, kit condition, any empty slots left…'
-        : 'Pick Restocked or Order first, then add details…'
+    ? 'Restocked: what was refilled. Order: what was ordered, supplier, follow-up…'
     : 'Describe what was completed, any issues found, items used, observations...';
 
   const resetForm = () => {
     photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
     setNotes('');
-    setRestockOutcome(null);
     setPhotos([]);
     setUploadProgress(null);
     setError(null);
@@ -79,7 +71,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
     onClose();
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (restockOutcome?: RestockOutcome) => {
     if (photos.length === 0) {
       setError('Please add at least one photo before submitting.');
       return;
@@ -88,9 +80,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       setError('Please add completion notes.');
       return;
     }
-
     if (isRestock && !restockOutcome) {
-      setError('Please choose Restocked or Order.');
+      setError('Tap Restocked or Order to submit.');
       return;
     }
 
@@ -104,7 +95,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         notes.trim(),
         photos.map((p) => p.file),
         (done, total) => setUploadProgress({ done, total }),
-        isRestock ? restockOutcome ?? undefined : undefined,
+        restockOutcome,
       );
 
       if (result.error) {
@@ -122,13 +113,12 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
     }
   };
 
-  const submitLabel = (() => {
-    if (!submitting) return 'Submit to Admin';
-    if (uploadProgress && uploadProgress.total > 0 && uploadProgress.done < uploadProgress.total) {
-      return `Uploading photo ${uploadProgress.done}/${uploadProgress.total}…`;
-    }
-    return 'Saving submission…';
-  })();
+  const busyLabel =
+    submitting && uploadProgress && uploadProgress.total > 0 && uploadProgress.done < uploadProgress.total
+      ? `Uploading ${uploadProgress.done}/${uploadProgress.total}…`
+      : submitting
+        ? 'Saving…'
+        : null;
 
   return (
     <Modal
@@ -137,28 +127,51 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       title={title}
       subtitle={
         isRestock
-          ? 'Choose Restocked or Order, then add photos and notes'
+          ? 'Add photo + notes, then tap Restocked or Order'
           : 'Photos + notes required — admin will review before the next stage'
       }
-      size="md"
+      size={isRestock ? 'lg' : 'md'}
       footer={
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          >
-            {submitLabel}
-          </Button>
+          {isRestock ? (
+            <>
+              <Button
+                variant="success"
+                size="sm"
+                onClick={() => void handleSubmit('restocked')}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+              >
+                {busyLabel ?? 'Restocked'}
+              </Button>
+              <Button
+                variant="warning"
+                size="sm"
+                onClick={() => void handleSubmit('order')}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+              >
+                {busyLabel ?? 'Order'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => void handleSubmit()}
+              disabled={!formReady}
+              icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            >
+              {busyLabel ?? 'Submit to Admin'}
+            </Button>
+          )}
         </div>
       }
     >
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-5">
         <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg space-y-1">
           <div className="flex justify-between text-xs">
             <span className="text-gray-500">Case</span>
@@ -170,42 +183,25 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-gray-500">Stage</span>
-            <span className="font-medium text-gray-800">{c.currentStage}</span>
+            <span className="font-medium text-gray-800">{stage}</span>
           </div>
         </div>
 
         {isRestock && (
-          <div>
-            <p className="block text-xs font-medium text-gray-700 mb-2">Stock status *</p>
-            <div className="grid grid-cols-2 gap-3">
-              {RESTOCK_OUTCOMES.map(({ id, title: optionTitle, hint }) => {
-                const selected = restockOutcome === id;
-                const Icon = id === 'restocked' ? Package : ShoppingCart;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => {
-                      setRestockOutcome(id);
-                      setError(null);
-                    }}
-                    className={`rounded-xl border-2 px-3 py-3 text-left transition-colors ${
-                      selected
-                        ? id === 'restocked'
-                          ? 'border-lime-500 bg-lime-50'
-                          : 'border-amber-500 bg-amber-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <Icon
-                      className={`h-5 w-5 mb-1.5 ${selected ? (id === 'restocked' ? 'text-lime-700' : 'text-amber-700') : 'text-gray-400'}`}
-                    />
-                    <p className="text-sm font-semibold text-gray-900">{optionTitle}</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{hint}</p>
-                  </button>
-                );
-              })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-xl border-2 border-lime-200 bg-lime-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-lime-800 font-semibold text-sm">
+                <Package className="h-4 w-4 shrink-0" />
+                Restocked
+              </div>
+              <p className="text-xs text-lime-700/90 mt-1">Empty slots refilled from stock</p>
+            </div>
+            <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
+                <ShoppingCart className="h-4 w-4 shrink-0" />
+                Order
+              </div>
+              <p className="text-xs text-amber-700/90 mt-1">Stock not available — order placed</p>
             </div>
           </div>
         )}
@@ -237,9 +233,15 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
         )}
 
-        <p className="text-xs text-gray-400">
-          Your photos and notes will be visible to the admin in the Approval Queue.
-        </p>
+        {isRestock ? (
+          <p className="text-xs text-gray-500">
+            After photo + notes, use the <strong>Restocked</strong> or <strong>Order</strong> button below.
+          </p>
+        ) : (
+          <p className="text-xs text-gray-400">
+            Your photos and notes will be visible to the admin in the Approval Queue.
+          </p>
+        )}
       </div>
     </Modal>
   );

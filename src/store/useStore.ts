@@ -19,6 +19,7 @@ import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { restockOutcomeLabel } from '../lib/restock';
+import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
@@ -1160,12 +1161,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (photos.length === 0) {
       return { error: 'At least one photo is required.' };
     }
-    if (c.currentStage === 'Restock' && !restockOutcome) {
+    if (normalizeWorkflowStage(c.currentStage) === 'Restock' && !restockOutcome) {
       return { error: 'Please choose Restocked or Order.' };
     }
 
     const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
     const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
+    const atRestock = normalizeWorkflowStage(c.currentStage) === 'Restock';
 
     try {
       const stageDocuments = await uploadStagePhotos(
@@ -1184,7 +1186,7 @@ export const useStore = create<AppState>((set, get) => ({
               status: 'Submitted' as const,
               submittedAt: new Date().toISOString(),
               notes,
-              ...(c.currentStage === 'Restock' && restockOutcome ? { restockOutcome } : {}),
+              ...(atRestock && restockOutcome ? { restockOutcome } : {}),
               documents: [...s.documents, ...stageDocuments],
             }
           : s
