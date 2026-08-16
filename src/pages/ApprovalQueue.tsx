@@ -10,6 +10,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
+import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
@@ -322,6 +323,11 @@ export const ApprovalQueue: React.FC = () => {
                         </div>
 
                         {/* Employee notes */}
+                        {currentStageRecord?.restockOutcome && (
+                          <div className="mt-3">
+                            <RestockOutcomeBadge outcome={currentStageRecord.restockOutcome} />
+                          </div>
+                        )}
                         {currentStageRecord?.notes && (
                           <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded-lg">
                             <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">

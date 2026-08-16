@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Loader2, Package, ShoppingCart } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, WorkflowStage } from '../types';
+import type { ImplantCase, RestockOutcome, WorkflowStage } from '../types';
+import { RESTOCK_OUTCOMES } from '../lib/restock';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
@@ -31,17 +32,42 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 }) => {
   const { submitStage, currentUser } = useStore();
   const [notes, setNotes] = useState('');
+  const [restockOutcome, setRestockOutcome] = useState<RestockOutcome | null>(null);
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const title = STAGE_ACTIONS[c.currentStage] || 'Submit Work';
-  const canSubmit = notes.trim().length > 0 && photos.length > 0 && !submitting;
+  useEffect(() => {
+    if (isOpen) {
+      setNotes('');
+      setRestockOutcome(null);
+      setPhotos([]);
+      setUploadProgress(null);
+      setError(null);
+    }
+  }, [isOpen, c.id]);
+
+  const isRestock = c.currentStage === 'Restock';
+  const title = isRestock
+    ? 'Restock — what happened?'
+    : STAGE_ACTIONS[c.currentStage] || 'Submit Work';
+  const needsRestockChoice = isRestock && restockOutcome === null;
+  const canSubmit =
+    notes.trim().length > 0 && photos.length > 0 && !submitting && !needsRestockChoice;
+
+  const notesPlaceholder = isRestock
+    ? restockOutcome === 'order'
+      ? 'Order details — what was ordered, supplier, expected date…'
+      : restockOutcome === 'restocked'
+        ? 'What was refilled, kit condition, any empty slots left…'
+        : 'Pick Restocked or Order first, then add details…'
+    : 'Describe what was completed, any issues found, items used, observations...';
 
   const resetForm = () => {
     photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
     setNotes('');
+    setRestockOutcome(null);
     setPhotos([]);
     setUploadProgress(null);
     setError(null);
@@ -63,6 +89,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       return;
     }
 
+    if (isRestock && !restockOutcome) {
+      setError('Please choose Restocked or Order.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     setUploadProgress({ done: 0, total: photos.length });
@@ -73,6 +104,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         notes.trim(),
         photos.map((p) => p.file),
         (done, total) => setUploadProgress({ done, total }),
+        isRestock ? restockOutcome ?? undefined : undefined,
       );
 
       if (result.error) {
@@ -103,7 +135,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={title}
-      subtitle="Photos + notes required — admin will review before the next stage"
+      subtitle={
+        isRestock
+          ? 'Choose Restocked or Order, then add photos and notes'
+          : 'Photos + notes required — admin will review before the next stage'
+      }
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -138,6 +174,42 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           </div>
         </div>
 
+        {isRestock && (
+          <div>
+            <p className="block text-xs font-medium text-gray-700 mb-2">Stock status *</p>
+            <div className="grid grid-cols-2 gap-3">
+              {RESTOCK_OUTCOMES.map(({ id, title: optionTitle, hint }) => {
+                const selected = restockOutcome === id;
+                const Icon = id === 'restocked' ? Package : ShoppingCart;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => {
+                      setRestockOutcome(id);
+                      setError(null);
+                    }}
+                    className={`rounded-xl border-2 px-3 py-3 text-left transition-colors ${
+                      selected
+                        ? id === 'restocked'
+                          ? 'border-lime-500 bg-lime-50'
+                          : 'border-amber-500 bg-amber-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon
+                      className={`h-5 w-5 mb-1.5 ${selected ? (id === 'restocked' ? 'text-lime-700' : 'text-amber-700') : 'text-gray-400'}`}
+                    />
+                    <p className="text-sm font-semibold text-gray-900">{optionTitle}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <StagePhotoCapture
           photos={photos}
           onPhotosChange={(next) => {
@@ -154,7 +226,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           <textarea
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
             rows={4}
-            placeholder="Describe what was completed, any issues found, items used, observations..."
+            placeholder={notesPlaceholder}
             value={notes}
             disabled={submitting}
             onChange={(e) => setNotes(e.target.value)}

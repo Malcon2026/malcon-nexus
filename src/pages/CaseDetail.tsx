@@ -14,6 +14,7 @@ import { SubmitStageModal } from '../components/SubmitStageModal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { EditCaseModal } from '../components/EditCaseModal';
+import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import {
@@ -540,6 +541,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                           ) : (
                             <p className="text-xs text-amber-600 mt-2">No employee assigned yet</p>
                           )
+                        )}
+                        {stage.restockOutcome && (
+                          <div className="mt-2">
+                            <RestockOutcomeBadge outcome={stage.restockOutcome} />
+                          </div>
                         )}
                         {stage.notes && (
                           <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100">

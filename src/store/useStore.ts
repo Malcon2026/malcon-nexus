@@ -5,6 +5,7 @@ import type {
   AttendanceApprovalRequest,
   LeaveRequest, LeaveType,
   DailyExpense,
+  RestockOutcome,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -17,6 +18,7 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
+import { restockOutcomeLabel } from '../lib/restock';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
@@ -104,6 +106,7 @@ interface AppState {
     notes: string,
     photos: File[],
     onUploadProgress?: (completed: number, total: number) => void,
+    restockOutcome?: RestockOutcome,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   deleteCase: (id: string) => void;
@@ -1147,7 +1150,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  submitStage: async (caseId, notes, photos, onUploadProgress) => {
+  submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
@@ -1157,8 +1160,12 @@ export const useStore = create<AppState>((set, get) => ({
     if (photos.length === 0) {
       return { error: 'At least one photo is required.' };
     }
+    if (c.currentStage === 'Restock' && !restockOutcome) {
+      return { error: 'Please choose Restocked or Order.' };
+    }
 
     const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
+    const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
 
     try {
       const stageDocuments = await uploadStagePhotos(
@@ -1177,11 +1184,13 @@ export const useStore = create<AppState>((set, get) => ({
               status: 'Submitted' as const,
               submittedAt: new Date().toISOString(),
               notes,
+              ...(c.currentStage === 'Restock' && restockOutcome ? { restockOutcome } : {}),
               documents: [...s.documents, ...stageDocuments],
             }
           : s
       );
       const photoLabel = stageDocuments.length === 1 ? 'photo' : `${stageDocuments.length} photos`;
+      const outcomeDetail = restockLabel ? ` Outcome: ${restockLabel}.` : '';
       const newLog = {
         id: `log-${Date.now()}`,
         caseId,
@@ -1189,7 +1198,7 @@ export const useStore = create<AppState>((set, get) => ({
         performedBy: uploadedBy,
         performedByRole: 'employee' as const,
         timestamp: new Date().toISOString(),
-        details: `Stage ${c.currentStage} submitted with ${photoLabel}. Notes: ${notes}`,
+        details: `Stage ${c.currentStage} submitted with ${photoLabel}.${outcomeDetail} Notes: ${notes}`,
       };
 
       const updatedCase = await taskRepository.update(caseId, {
@@ -1226,7 +1235,9 @@ export const useStore = create<AppState>((set, get) => ({
 
       const notif = createNotification(
         'Approval Required',
-        `Case ${c.caseNumber} ${c.currentStage} submitted for review.`,
+        restockLabel
+          ? `Case ${c.caseNumber} Restock: ${restockLabel} — submitted for review.`
+          : `Case ${c.caseNumber} ${c.currentStage} submitted for review.`,
         'warning',
         caseId,
       );

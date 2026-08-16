@@ -21,6 +21,8 @@ export type WorkflowStage =
   | 'Bill Submission'
   | 'Completed';
 
+export type RestockOutcome = 'restocked' | 'order';
+
 export type Department =
   | 'Stores'
   | 'Delivery'
@@ -79,6 +81,8 @@ export interface StageRecord {
   notes: string;
   adminNotes: string;
   documents: Document[];
+  /** Restock stage only — kit refilled vs order placed when stock unavailable. */
+  restockOutcome?: RestockOutcome;
 }
 
 export interface Document {
