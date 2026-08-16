@@ -40,6 +40,7 @@ const STAGES: WorkflowStage[] = [
   'Surgery',
   'Pickup from Hospital',
   'Cleaning & Audit',
+  'Restock',
   'Billing',
   'Bill Submission',
   'Completed',

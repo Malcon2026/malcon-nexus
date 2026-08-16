@@ -26,7 +26,7 @@ type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'pri
 type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
-const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'];
+const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 const emptyStageIds = (): Record<(typeof ASSIGNABLE_WORKFLOW_STAGES)[number], string> =>

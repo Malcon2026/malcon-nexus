@@ -14,7 +14,7 @@ import { priorityColors, stageColors, formatDate, formatCurrency } from '../util
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Billing', 'Bill Submission',
+  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission',
 ];
 
 const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = {

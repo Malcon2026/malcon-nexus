@@ -7,6 +7,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Surgery',
   'Pickup from Hospital',
   'Cleaning & Audit',
+  'Restock',
   'Billing',
   'Bill Submission',
   'Completed',
@@ -19,6 +20,7 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
   'Surgery',
   'Pickup from Hospital',
   'Cleaning & Audit',
+  'Restock',
   'Billing',
   'Bill Submission',
 ];
@@ -29,6 +31,7 @@ export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
   'Cleaning & Audit': CLEANING_AUDIT_DEPARTMENT,
+  'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
   'Completed': null,
