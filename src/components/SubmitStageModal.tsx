@@ -10,6 +10,7 @@ const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
   'Delivery': 'Mark Delivery Completed',
   'Surgery': 'Mark Surgery Completed',
+  'Pickup from Hospital': 'Mark Pickup Completed',
   'Cleaning & Audit': 'Mark Cleaning & Audit Completed',
   'Billing': 'Invoice Generated',
   'Bill Submission': 'Bill Submission Completed',

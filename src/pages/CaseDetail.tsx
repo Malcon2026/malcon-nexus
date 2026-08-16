@@ -22,13 +22,14 @@ import {
 import { canEmployeeSubmitCase, needsAssignmentReactivation } from '../lib/caseWorkflow';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'
+  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
   'Delivery': 'Delivery Completed',
   'Surgery': 'Surgery Completed',
+  'Pickup from Hospital': 'Pickup Completed',
   'Cleaning & Audit': 'Cleaning & Audit Completed',
   'Billing': 'Invoice Generated',
   'Bill Submission': 'Bill Submission Completed',
@@ -120,6 +121,7 @@ const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Stores',
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
+  'Pickup from Hospital': 'Delivery',
   'Cleaning & Audit': 'Cleaning & Audit',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
