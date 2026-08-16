@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Cases } from './pages/Cases';
+import { LiveCases } from './pages/LiveCases';
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
@@ -172,17 +173,19 @@ function MainApp() {
   const renderPage = () => {
     if (viewMode === 'employee') {
       switch (activeTab) {
-        case 'dashboard': return <EmployeeDashboard />;
-        case 'cases':     return <Cases />;
-        case 'workflow':  return <WorkflowBoard />;
-        case 'settings':  return <Settings />;
-        default:          return <EmployeeDashboard />;
+        case 'dashboard':   return <EmployeeDashboard />;
+        case 'cases':       return <Cases />;
+        case 'live-cases':  return <LiveCases />;
+        case 'workflow':    return <WorkflowBoard />;
+        case 'settings':    return <Settings />;
+        default:            return <EmployeeDashboard />;
       }
     }
 
     switch (activeTab) {
       case 'dashboard':  return <Dashboard />;
       case 'cases':      return <Cases />;
+      case 'live-cases': return <LiveCases />;
       case 'workflow':   return <WorkflowBoard />;
       case 'approvals':  return <ApprovalQueue />;
       case 'employees':  return <Employees />;

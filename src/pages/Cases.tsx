@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Download, Plus, ChevronUp, ChevronDown,
-  Eye, MoreHorizontal, Calendar, Building2, User, ArrowUpDown, X, Trash2
+  Eye, MoreHorizontal, Calendar, Building2, User, ArrowUpDown, X, Trash2, Edit3
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -14,9 +14,11 @@ import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Employee } from 
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
+import { EditCaseModal } from '../components/EditCaseModal';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
+  isCaseAssignedToEmployee,
   type StageAssignments,
 } from '../lib/caseWorkflow';
 
@@ -244,7 +246,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 };
 
 export const Cases: React.FC = () => {
-  const { cases, selectedCaseId, setSelectedCase, viewMode, deleteCase } = useStore();
+  const { cases, selectedCaseId, setSelectedCase, viewMode, currentUser, deleteCase } = useStore();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('caseNumber');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -255,7 +257,10 @@ export const Cases: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [editCaseId, setEditCaseId] = useState<string | null>(null);
   const PAGE_SIZE = 8;
+
+  const canEdit = (c: ImplantCase) => viewMode === 'admin' || isCaseAssignedToEmployee(c, currentUser);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -455,6 +460,15 @@ export const Cases: React.FC = () => {
                   >
                     <Eye className="h-4 w-4" />
                   </button>
+                  {canEdit(c) && (
+                    <button
+                      onClick={() => setEditCaseId(c.id)}
+                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                      title="Edit"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </button>
+                  )}
                   {viewMode === 'admin' && (
                     <button
                       onClick={() => {
@@ -603,6 +617,15 @@ export const Cases: React.FC = () => {
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
+                        {canEdit(c) && (
+                          <button
+                            onClick={() => setEditCaseId(c.id)}
+                            className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                            title="Edit Case"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {viewMode === 'admin' && (
                           <button
                             onClick={() => {
@@ -674,6 +697,13 @@ export const Cases: React.FC = () => {
           </div>
         </div>
       )}
+
+      {editCaseId && (() => {
+        const editingCase = cases.find(c => c.id === editCaseId);
+        return editingCase ? (
+          <EditCaseModal isOpen={true} onClose={() => setEditCaseId(null)} case={editingCase} />
+        ) : null;
+      })()}
     </div>
   );
 };
