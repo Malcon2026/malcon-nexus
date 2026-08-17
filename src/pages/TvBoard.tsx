@@ -34,9 +34,7 @@ const PRIORITY_DOT: Record<Priority, string> = {
   Low: 'bg-sky-400',
 };
 
-const GRID_COLS = 'grid-cols-[100px_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1fr)_170px_120px]';
-
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 5;
 const ROTATE_MS = 60000;
 const REFRESH_MS = 30000;
 
@@ -89,33 +87,49 @@ function useAutoScroll<T extends HTMLElement>() {
   return ref;
 }
 
+function Detail({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: INK_DIM }}>{label}</p>
+      <p className="text-base font-semibold truncate" style={{ color: muted ? INK_MUTED : INK }}>{value}</p>
+    </div>
+  );
+}
+
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const stageClass = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
   const isOverdue = new Date(c.surgeryDate) < new Date();
 
   return (
     <div
-      className={`grid ${GRID_COLS} items-center gap-3 px-5 py-3.5 rounded-lg`}
+      className="rounded-xl px-5 py-3.5"
       style={{ background: zebra ? 'rgba(255,255,255,0.05)' : 'transparent' }}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${PRIORITY_DOT[c.priority]}`} />
-        <span className="text-lg font-bold truncate" style={{ color: INK }}>{c.caseNumber}</span>
+      <div className="flex items-center justify-between gap-3 mb-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${PRIORITY_DOT[c.priority]}`} />
+          <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
+          <span className="text-xs font-medium shrink-0" style={{ color: INK_DIM }}>{c.caseNumber}</span>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-sm font-semibold" style={{ color: isOverdue ? '#f87171' : INK_MUTED }}>
+            {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
+          </span>
+          <span
+            className={`px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
+            style={{ color: '#ffffff' }}
+          >
+            {c.currentStage}
+          </span>
+        </div>
       </div>
-      <span className="text-lg font-semibold truncate" style={{ color: INK }}>{c.hospital.name}</span>
-      <span className="text-lg truncate" style={{ color: INK_MUTED }}>Dr. {c.doctor.name}</span>
-      <span className="text-base truncate" style={{ color: c.assignedEmployee ? INK_MUTED : INK_DIM }}>
-        {c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'}
-      </span>
-      <span className="text-sm font-semibold" style={{ color: isOverdue ? '#f87171' : INK_DIM }}>
-        {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
-      </span>
-      <span
-        className={`justify-self-end px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide text-center leading-tight`}
-        style={{ color: '#ffffff' }}
-      >
-        {c.currentStage}
-      </span>
+      <div className="grid grid-cols-5 gap-4">
+        <Detail label="Surgery" value={c.implantRequired || '—'} />
+        <Detail label="Product" value={c.implantType || '—'} muted />
+        <Detail label="Company" value={c.implantCompany || '—'} muted />
+        <Detail label="Doctor" value={`Dr. ${c.doctor.name}`} muted />
+        <Detail label="Assigned" value={c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'} />
+      </div>
     </div>
   );
 }
@@ -124,26 +138,13 @@ function CasesSlide({ cases, page }: { cases: ImplantCase[]; page: number }) {
   const visible = cases.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className={`grid ${GRID_COLS} gap-3 px-8 pb-2 shrink-0`}>
-        {['Case', 'Hospital', 'Doctor', 'Assigned', 'Date', ''].map((h, i) => (
-          <span
-            key={i}
-            className={`text-xs font-semibold uppercase tracking-wider ${i === 5 ? 'justify-self-end' : ''}`}
-            style={{ color: INK_DIM }}
-          >
-            {h}
-          </span>
-        ))}
-      </div>
-      <div className="flex-1 px-6 flex flex-col overflow-hidden">
-        {visible.length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
-          </div>
-        )}
-        {visible.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
-      </div>
+    <div className="flex-1 px-6 flex flex-col gap-2 overflow-hidden">
+      {visible.length === 0 && (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
+        </div>
+      )}
+      {visible.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
     </div>
   );
 }
