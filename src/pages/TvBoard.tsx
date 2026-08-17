@@ -99,15 +99,16 @@ function Detail({ label, value, muted }: { label: string; value: string; muted?:
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const stageClass = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
   const isOverdue = new Date(c.surgeryDate) < new Date();
+  const isHot = c.priority === 'Critical' || isOverdue;
 
   return (
     <div
-      className="rounded-xl px-5 py-3.5"
-      style={{ background: zebra ? 'rgba(255,255,255,0.05)' : 'transparent' }}
+      className={`rounded-xl px-5 py-3.5 ${isHot ? 'tv-case-pulse-hot' : 'tv-case-pulse'}`}
+      style={{ background: zebra ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.03)' }}
     >
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${PRIORITY_DOT[c.priority]}`} />
+          <span className={`h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse ${PRIORITY_DOT[c.priority]}`} />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           <span className="text-xs font-medium shrink-0" style={{ color: INK_DIM }}>{c.caseNumber}</span>
         </div>
@@ -116,7 +117,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
           </span>
           <span
-            className={`px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
+            className={`tv-stage-pulse px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
             style={{ color: '#ffffff' }}
           >
             {c.currentStage}
