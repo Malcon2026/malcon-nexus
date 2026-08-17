@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -42,7 +42,7 @@ const STAGE_ACTIONS: Record<WorkflowStage, string> = {
 interface ApprovalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'approve' | 'reject' | 'changes';
+  type: 'approve' | 'reject' | 'changes' | 'force';
   caseId: string;
 }
 
@@ -62,12 +62,23 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
     reject: { title: 'Reject Stage', subtitle: 'Provide rejection reason', color: 'danger' as const, label: 'Reject' },
     changes: { title: 'Request Changes', subtitle: 'Describe the changes needed', color: 'warning' as const, label: 'Request Changes' },
+    force: {
+      title: 'Force Advance Stage',
+      subtitle: `${implantCase?.assignedEmployee?.name ?? 'The employee'} hasn't submitted this stage yet`,
+      color: 'warning' as const,
+      label: 'Force Advance',
+    },
   };
 
+  const notesRequired = type === 'force';
+  const canSubmit = !notesRequired || notes.trim().length > 0;
+
   const handleSubmit = async () => {
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
       if (type === 'approve') await approveStage(caseId, notes);
+      else if (type === 'force') await approveStage(caseId, `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`);
       else if (type === 'reject') await rejectStage(caseId, notes);
       else await requestChanges(caseId, notes);
       setNotes('');
@@ -86,29 +97,44 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button variant={c.color} size="sm" onClick={() => void handleSubmit()} disabled={submitting}>
+          <Button variant={c.color} size="sm" onClick={() => void handleSubmit()} disabled={submitting || !canSubmit}>
             {submitting ? 'Saving...' : c.label}
           </Button>
         </div>
       }
     >
       <div className="p-6">
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Notes</label>
+        {type === 'force' && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700">
+              This skips the employee's submission for <strong>{implantCase?.currentStage}</strong> and moves the
+              case forward as if it were approved. Use this only when the employee forgot to submit or can't
+              access the app — it's logged in the case's activity history.
+            </p>
+          </div>
+        )}
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+          {notesRequired ? 'Reason (required)' : 'Notes'}
+        </label>
         <textarea
           className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
           rows={4}
-          placeholder="Add your notes here..."
+          placeholder={notesRequired ? 'Why are you advancing this manually?' : 'Add your notes here...'}
           value={notes}
           onChange={e => setNotes(e.target.value)}
         />
-        {type === 'approve' && nextStage === 'Completed' && (
+        {notesRequired && !canSubmit && (
+          <p className="text-xs text-amber-600 mt-1">A reason is required so there's a record of why this was overridden.</p>
+        )}
+        {(type === 'approve' || type === 'force') && nextStage === 'Completed' && (
           <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             <p className="text-xs text-blue-700 font-medium">
               This is the final stage — approving will mark the case as Completed and close it.
             </p>
           </div>
         )}
-        {type === 'approve' && nextAssignee && nextStage && nextStage !== 'Completed' && (
+        {(type === 'approve' || type === 'force') && nextAssignee && nextStage && nextStage !== 'Completed' && (
           <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             <p className="text-xs text-blue-700 font-medium">
               Next: <strong>{nextStage}</strong> will activate for <strong>{nextAssignee.name}</strong> automatically.
@@ -205,7 +231,7 @@ interface CaseDetailProps {
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
   const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
-  const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | null>(null);
+  const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -308,6 +334,17 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               )}
               {isActive && c.currentStage !== 'Completed' && (
                 <Button variant="outline" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>Reassign</Button>
+              )}
+              {isActive && c.currentStage !== 'Completed' && (
+                <Button
+                  variant="warning"
+                  size="sm"
+                  icon={<FastForward className="h-4 w-4" />}
+                  onClick={() => setApprovalModal('force')}
+                  title="Move this case forward even though the employee hasn't submitted"
+                >
+                  Force Advance
+                </Button>
               )}
               {isApproved && nextStage === 'Completed' && (
                 <Button variant="success" size="sm" icon={<CheckCircle className="h-4 w-4" />} onClick={() => closeCase(c.id)}>Close Case</Button>
