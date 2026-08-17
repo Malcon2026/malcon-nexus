@@ -13,16 +13,12 @@ import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
+import { getNextWorkflowStage } from '../lib/caseWorkflow';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
 
-const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
-];
-
-const getNextStage = (current: WorkflowStage): WorkflowStage | null => {
-  const idx = WORKFLOW_STAGES.indexOf(current);
-  return idx < WORKFLOW_STAGES.length - 1 ? WORKFLOW_STAGES[idx + 1] : null;
+const getNextStage = (c: ImplantCase): WorkflowStage | null => {
+  return getNextWorkflowStage(c.currentStage, { skipBilling: Boolean(c.cancelReason) });
 };
 
 const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
@@ -53,7 +49,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
   const [step, setStep] = useState<'action' | 'assign'>('action');
   const [submitting, setSubmitting] = useState(false);
 
-  const nextStage = getNextStage(c.currentStage);
+  const nextStage = getNextStage(c);
   const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
   const nextStageRecord = nextStage ? c.stages.find((s) => s.stage === nextStage) : undefined;
@@ -247,7 +243,7 @@ export const ApprovalQueue: React.FC = () => {
             const sc = stageColors[c.currentStage];
             const pc = priorityColors[c.priority];
             const currentStageRecord = c.stages.find(s => s.stage === c.currentStage);
-            const nextStage = getNextStage(c.currentStage);
+            const nextStage = getNextStage(c);
 
             return (
               <motion.div

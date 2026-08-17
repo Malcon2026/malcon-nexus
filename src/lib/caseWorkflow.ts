@@ -140,6 +140,35 @@ export function getStageIndex(stage: WorkflowStage): number {
   return WORKFLOW_STAGES.indexOf(normalizeWorkflowStageName(stage));
 }
 
+/** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
+export function getNextWorkflowStage(
+  current: WorkflowStage,
+  options?: { skipBilling?: boolean },
+): WorkflowStage | null {
+  const idx = getStageIndex(current);
+  if (idx < 0 || idx >= WORKFLOW_STAGES.length - 1) return null;
+  const next = WORKFLOW_STAGES[idx + 1];
+  if (options?.skipBilling && (next === 'Billing' || next === 'Bill Submission')) {
+    return 'Completed';
+  }
+  return next;
+}
+
+/**
+ * After a surgery cancel (no implants used), unused kits still need to come back.
+ * Returns the stage to jump to, or null if the case can close immediately
+ * (kit never left Stores, or Restock is already done).
+ */
+export function returnStageAfterCancel(current: WorkflowStage): WorkflowStage | null {
+  const idx = getStageIndex(current);
+  const kitIdx = getStageIndex('Kit Preparation');
+  const pickupIdx = getStageIndex('Pickup from Hospital');
+  const restockIdx = getStageIndex('Restock');
+  if (idx > kitIdx && idx < pickupIdx) return 'Pickup from Hospital';
+  if (idx >= pickupIdx && idx <= restockIdx) return normalizeWorkflowStageName(current);
+  return null;
+}
+
 export function isCaseAssignedToEmployee(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email'>,

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage } from '../lib/caseWorkflow';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -223,6 +223,67 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, implantCase 
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={implantCase} />
 );
 
+const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: string; currentStage: WorkflowStage }> = ({
+  isOpen, onClose, caseId, currentStage,
+}) => {
+  const { cancelCase } = useStore();
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const canSubmit = reason.trim().length > 0;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await cancelCase(caseId, reason);
+      setReason('');
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to cancel case.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Cancel Case — Unused Implants"
+      subtitle="Surgery not done. Kit comes back; billing is skipped."
+      size="md"
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Keep Case</Button>
+          <Button variant="danger" size="sm" onClick={() => void handleSubmit()} disabled={submitting || !canSubmit}>
+            {submitting ? 'Cancelling...' : 'Cancel Case'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="p-6">
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700">
+            Use this when the surgery did not happen and <strong>no implants were used</strong>.
+            If the kit already left Stores (currently <strong>{currentStage}</strong>), the case
+            moves to Pickup → Cleaning & Audit → Restock so unused implants come back.
+            Billing and Bill Submission are skipped.
+          </p>
+        </div>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">Reason (required)</label>
+        <textarea
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+          rows={4}
+          placeholder="e.g. Patient postponed. Kit unused at Apollo — returning to Stores."
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </div>
+    </Modal>
+  );
+};
+
 interface CaseDetailProps {
   case: ImplantCase;
   onBack: () => void;
@@ -235,6 +296,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
   const currentStageIdx = getStageIndex(c.currentStage);
@@ -242,10 +304,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const pc = priorityColors[c.priority];
   const stc = statusColors[c.status];
 
-  const nextStage = WORKFLOW_STAGES[currentStageIdx + 1] as WorkflowStage | undefined;
+  const nextStage = (getNextWorkflowStage(c.currentStage, { skipBilling: Boolean(c.cancelReason) }) ?? undefined) as WorkflowStage | undefined;
   const isWaitingApproval = c.status === 'Waiting For Approval';
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
+  const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
+  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseAssignedToEmployee(c, currentUser);
 
@@ -286,6 +350,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       )}
       {showEdit && (
         <EditCaseModal isOpen={showEdit} onClose={() => setShowEdit(false)} case={c} />
+      )}
+      {showCancel && (
+        <CancelCaseModal isOpen={true} onClose={() => setShowCancel(false)} caseId={c.id} currentStage={c.currentStage} />
       )}
 
       {/* Header */}
@@ -347,7 +414,14 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                 </Button>
               )}
               {isApproved && nextStage === 'Completed' && (
-                <Button variant="success" size="sm" icon={<CheckCircle className="h-4 w-4" />} onClick={() => closeCase(c.id)}>Close Case</Button>
+                <Button variant="success" size="sm" icon={<CheckCircle className="h-4 w-4" />} onClick={() => closeCase(c.id)}>
+                  {c.cancelReason ? 'Close as Cancelled' : 'Close Case'}
+                </Button>
+              )}
+              {canCancel && (
+                <Button variant="outline" size="sm" icon={<Ban className="h-4 w-4" />} onClick={() => setShowCancel(true)}>
+                  Cancel Case
+                </Button>
               )}
             </>
           )}
@@ -376,6 +450,19 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           )}
         </div>
       </div>
+
+      {returningUnused && (
+        <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
+          <Ban className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">Surgery cancelled — unused implants returning</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              No implants were used. Kit comes back through Pickup → Cleaning & Audit → Restock. Billing is skipped.
+              {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="mb-6 max-w-full overflow-x-auto pb-1">
@@ -434,6 +521,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       { label: 'Due Date', value: formatDate(c.dueDate) },
                       { label: 'Created By', value: c.createdBy },
                       { label: 'Created At', value: formatDate(c.createdAt) },
+                      ...(c.cancelReason ? [{ label: 'Cancel Reason', value: c.cancelReason }] : []),
                     ].map(({ label, value }) => (
                       <div key={label}>
                         <p className="text-xs text-gray-500">{label}</p>

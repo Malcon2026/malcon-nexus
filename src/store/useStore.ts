@@ -29,7 +29,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel } from '../lib/caseWorkflow';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -114,6 +114,7 @@ interface AppState {
     restockOutcome?: RestockOutcome,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
+  cancelCase: (caseId: string, reason: string) => Promise<void>;
   deleteCase: (id: string) => void;
 
   // Employee Actions
@@ -226,12 +227,8 @@ interface AppState {
 
 // --- Helpers ---
 
-const getNextStage = (current: WorkflowStage): WorkflowStage | null => {
-  const idx = WORKFLOW_STAGES.indexOf(normalizeWorkflowStageName(current));
-  if (idx >= 0 && idx < WORKFLOW_STAGES.length - 1) {
-    return WORKFLOW_STAGES[idx + 1];
-  }
-  return null;
+const getNextStage = (current: WorkflowStage, skipBilling = false): WorkflowStage | null => {
+  return getNextWorkflowStage(current, { skipBilling });
 };
 
 const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
@@ -709,6 +706,7 @@ export const useStore = create<AppState>((set, get) => ({
       comments: [],
       invoiceAmount: 0,
       paymentStatus: 'Pending',
+      cancelReason: '',
     };
 
     try {
@@ -777,7 +775,7 @@ export const useStore = create<AppState>((set, get) => ({
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
-    const next = getNextStage(c.currentStage);
+    const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
     // New cases pre-assign every stage — activate the next person automatically.
     if (next && next !== 'Completed') {
       const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
@@ -1062,7 +1060,7 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error('Cannot assign: employee is missing an id.');
     }
 
-    const targetStage = normalizeWorkflowStageName(nextStage || getNextStage(c.currentStage) || c.currentStage);
+    const targetStage = normalizeWorkflowStageName(nextStage || getNextStage(c.currentStage, Boolean(c.cancelReason)) || c.currentStage);
     const assignedAt = new Date().toISOString();
     const updatedStages = normalizeCaseStages(
       c.stages.map((s) =>
@@ -1286,18 +1284,21 @@ export const useStore = create<AppState>((set, get) => ({
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
+    const cancelled = Boolean(c.cancelReason);
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
-      action: 'Case Closed',
+      action: cancelled ? 'Case Cancelled' : 'Case Closed',
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: new Date().toISOString(),
-      details: 'Admin closed the case. All stages complete.',
+      details: cancelled
+        ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
+        : 'Admin closed the case. All stages complete.',
     };
 
     const updatedCase = await taskRepository.update(caseId, {
-      status: 'Completed',
+      status: cancelled ? 'Cancelled' : 'Completed',
       currentStage: 'Completed',
       currentDepartment: null,
       assignedEmployee: null,
@@ -1311,16 +1312,33 @@ export const useStore = create<AppState>((set, get) => ({
       if (target) {
         const updated = await employeeRepository.update(assignedEmp.id, {
           casesActive: Math.max(0, target.casesActive - 1),
-          casesCompleted: target.casesCompleted + 1,
+          casesCompleted: cancelled ? target.casesCompleted : target.casesCompleted + 1,
         });
         updatedEmployees = state.employees.map(e => (e.id === assignedEmp.id ? updated : e));
       }
     }
 
-    const activity = createActivityEvent('Case Closed', 'case', caseId, c.caseNumber, state.currentUser.name, 'admin', `Case ${c.caseNumber} completed and closed.`);
+    const activity = createActivityEvent(
+      cancelled ? 'Case Cancelled' : 'Case Closed',
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      cancelled
+        ? `Case ${c.caseNumber} cancelled — unused implants returned.`
+        : `Case ${c.caseNumber} completed and closed.`,
+    );
     persistActivity(activity);
 
-    const notif = createNotification('Case Completed', `Case ${c.caseNumber} has been completed.`, 'success', caseId);
+    const notif = createNotification(
+      cancelled ? 'Case Cancelled' : 'Case Completed',
+      cancelled
+        ? `Case ${c.caseNumber} cancelled. Unused implants restocked.`
+        : `Case ${c.caseNumber} has been completed.`,
+      cancelled ? 'warning' : 'success',
+      caseId,
+    );
     persistNotification(notif);
 
     set((s) => ({
@@ -1329,6 +1347,145 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+  },
+
+  cancelCase: async (caseId, reason) => {
+    const trimmed = reason.trim();
+    if (!trimmed) throw new Error('Please enter a reason for cancelling.');
+
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return;
+    if (c.status === 'Completed' || c.status === 'Cancelled') {
+      throw new Error('This case is already closed.');
+    }
+
+    const now = new Date().toISOString();
+    const skipNote = `Skipped — case cancelled, no implants used. ${trimmed}`;
+    const cancelNote = `Cancelled — no implants used. ${trimmed}`;
+    const returnStage = returnStageAfterCancel(c.currentStage);
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const billing = new Set<WorkflowStage>(['Billing', 'Bill Submission']);
+
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) => {
+        const name = normalizeWorkflowStageName(s.stage);
+        if (name === 'Completed') return s;
+        if (billing.has(name)) {
+          return { ...s, status: 'Approved' as const, approvedAt: now, adminNotes: skipNote };
+        }
+        if (!returnStage && s.status !== 'Approved') {
+          return { ...s, status: 'Approved' as const, approvedAt: now, adminNotes: skipNote };
+        }
+        if (returnStage && name === 'Surgery' && currentName === 'Delivery') {
+          return { ...s, status: 'Approved' as const, approvedAt: now, adminNotes: skipNote };
+        }
+        if (returnStage && name === currentName && name !== returnStage) {
+          return { ...s, status: 'Approved' as const, approvedAt: now, adminNotes: cancelNote };
+        }
+        return s;
+      }),
+    );
+
+    const cancelLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: 'Case Cancelled',
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: now,
+      details: returnStage
+        ? `Surgery cancelled — no implants used. Unused kit will return via ${returnStage} → Cleaning & Audit → Restock. Billing skipped. Reason: ${trimmed}`
+        : `Surgery cancelled — no implants used. Case closed. Reason: ${trimmed}`,
+    };
+
+    if (!returnStage) {
+      const updatedCase = await taskRepository.update(caseId, {
+        cancelReason: trimmed,
+        stages: updatedStages,
+        activityLogs: [...c.activityLogs, cancelLog],
+      });
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed } : x)),
+      }));
+      await get().closeCase(caseId);
+      return;
+    }
+
+    const returnRecord = findStageRecord(updatedStages, returnStage);
+    const nextEmp = returnRecord?.assignedEmployee ?? null;
+    const stagesWithReturn = normalizeCaseStages(
+      updatedStages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === returnStage
+          ? {
+              ...s,
+              status: nextEmp ? ('Assigned' as const) : ('Pending' as const),
+              assignedAt: nextEmp ? now : s.assignedAt,
+            }
+          : s,
+      ),
+    );
+
+    const updatedCase = await taskRepository.update(caseId, {
+      cancelReason: trimmed,
+      currentStage: returnStage,
+      currentDepartment: getDepartmentForStage(returnStage),
+      assignedEmployee: nextEmp,
+      status: 'Active',
+      stages: stagesWithReturn,
+      activityLogs: [...c.activityLogs, cancelLog],
+    });
+
+    let updatedEmployees = state.employees;
+    const prev = c.assignedEmployee;
+    if (prev && prev.id !== nextEmp?.id) {
+      const target = updatedEmployees.find((e) => e.id === prev.id);
+      if (target) {
+        const updated = await employeeRepository.update(prev.id, {
+          casesActive: Math.max(0, target.casesActive - 1),
+        });
+        updatedEmployees = updatedEmployees.map((e) => (e.id === prev.id ? updated : e));
+      }
+    }
+    if (nextEmp && nextEmp.id !== prev?.id) {
+      const target = updatedEmployees.find((e) => e.id === nextEmp.id);
+      if (target) {
+        const updated = await employeeRepository.update(nextEmp.id, {
+          casesActive: target.casesActive + 1,
+        });
+        updatedEmployees = updatedEmployees.map((e) => (e.id === nextEmp.id ? updated : e));
+      }
+    }
+
+    const activity = createActivityEvent(
+      'Case Cancelled',
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `Case ${c.caseNumber} cancelled. Unused implants returning via ${returnStage}.`,
+    );
+    persistActivity(activity);
+
+    const notif = createNotification(
+      'Case Cancelled — Return Kit',
+      `${c.caseNumber}: unused implants coming back via ${returnStage}. Billing skipped.`,
+      'warning',
+      caseId,
+    );
+    persistNotification(notif);
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed } : x)),
+      employees: updatedEmployees,
+      activityLog: [activity, ...s.activityLog],
+      notifications: [notif, ...s.notifications],
+    }));
+
+    if (nextEmp) {
+      void notifyCaseAssignment(caseId, nextEmp.id);
+    }
   },
 
   deleteCase: async (id) => {

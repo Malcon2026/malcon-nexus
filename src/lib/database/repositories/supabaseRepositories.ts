@@ -355,6 +355,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     invoiceAmount: row.invoice_amount as number | undefined,
     collectedAmount: row.collected_amount as number | undefined,
     paymentStatus: row.payment_status as ImplantCase['paymentStatus'],
+    cancelReason: (row.cancel_reason as string) ?? '',
   };
 }
 
@@ -385,6 +386,7 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
     invoice_amount: c.invoiceAmount ?? null,
     collected_amount: c.collectedAmount ?? null,
     payment_status: c.paymentStatus ?? null,
+    cancel_reason: c.cancelReason ?? '',
   };
 }
 

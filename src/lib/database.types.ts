@@ -117,6 +117,7 @@ export interface Database {
           invoice_amount: number | null;
           collected_amount: number | null;
           payment_status: 'Pending' | 'Partial' | 'Collected' | null;
+          cancel_reason: string;
           created_at: string;
           updated_at: string;
         };

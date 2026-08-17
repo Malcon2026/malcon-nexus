@@ -143,6 +143,11 @@ export interface ImplantCase {
   invoiceAmount?: number;
   collectedAmount?: number;
   paymentStatus?: 'Pending' | 'Partial' | 'Collected';
+  /**
+   * Set when surgery is cancelled and unused implants must come back.
+   * Case stays live through Pickup → Cleaning → Restock, then closes as Cancelled (no billing).
+   */
+  cancelReason?: string;
 }
 
 export interface Notification {

@@ -110,6 +110,11 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
           <span className={`h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse ${PRIORITY_DOT[c.priority]}`} />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           <span className="text-xs font-medium shrink-0" style={{ color: INK_DIM }}>{c.caseNumber}</span>
+          {c.cancelReason ? (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#f59e0b', color: '#111' }}>
+              Return kit
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm font-semibold" style={{ color: isOverdue ? '#f87171' : INK_MUTED }}>
