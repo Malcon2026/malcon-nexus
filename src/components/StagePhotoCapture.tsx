@@ -33,7 +33,8 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
   disabled = false,
   maxPhotos = MAX_PHOTOS_PER_SUBMISSION,
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -91,7 +92,8 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to prepare photo. Please try again.');
     } finally {
       setProcessing(false);
-      if (inputRef.current) inputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
     }
   };
 
@@ -102,22 +104,36 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
     setError(null);
   };
 
-  const openPicker = () => {
-    if (!disabled && canAddMore) inputRef.current?.click();
+  const openCamera = () => {
+    if (!disabled && canAddMore) cameraInputRef.current?.click();
+  };
+
+  const openGallery = () => {
+    if (!disabled && canAddMore) galleryInputRef.current?.click();
   };
 
   return (
     <div className="space-y-3">
       <label className="block text-xs font-medium text-gray-700">{label}</label>
       <p className="text-xs text-gray-500 -mt-1">
-        Add at least one photo (up to {maxPhotos}). Large iPhone photos are compressed automatically.
+        Take a photo or pick from gallery (up to {maxPhotos}). Large iPhone photos are compressed automatically.
       </p>
 
+      {/* Camera — capture forces the rear camera on phones */}
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        disabled={disabled || !canAddMore}
+        onChange={(e) => void handleFiles(e.target.files)}
+      />
+      {/* Gallery — no capture attribute, so the phone photo library opens */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         multiple={maxPhotos > 1}
         className="hidden"
         disabled={disabled || !canAddMore}
@@ -125,16 +141,28 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
       />
 
       {photos.length === 0 && !processing ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={openPicker}
-          className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-8 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 transition-colors disabled:opacity-50"
-        >
-          <Camera className="h-10 w-10" />
-          <span className="text-sm font-semibold">Take / Add Photo</span>
-          <span className="text-xs text-indigo-500">Tap to open camera or gallery</span>
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={openCamera}
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 px-3 py-7 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 transition-colors disabled:opacity-50"
+          >
+            <Camera className="h-9 w-9" />
+            <span className="text-sm font-semibold">Take Photo</span>
+            <span className="text-[11px] text-indigo-500">Open camera</span>
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={openGallery}
+            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/50 px-3 py-7 text-violet-700 hover:bg-violet-50 hover:border-violet-300 transition-colors disabled:opacity-50"
+          >
+            <ImageIcon className="h-9 w-9" />
+            <span className="text-sm font-semibold">Pick from Gallery</span>
+            <span className="text-[11px] text-violet-500">Choose existing photos</span>
+          </button>
+        </div>
       ) : (
         <div className="space-y-3">
           {processing && (
@@ -174,15 +202,26 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
           )}
 
           {canAddMore && (
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Plus className="h-3.5 w-3.5" />}
-              onClick={openPicker}
-              disabled={disabled}
-            >
-              Add another photo ({photos.length}/{maxPhotos})
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Camera className="h-3.5 w-3.5" />}
+                onClick={openCamera}
+                disabled={disabled}
+              >
+                Take another ({photos.length}/{maxPhotos})
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                onClick={openGallery}
+                disabled={disabled}
+              >
+                Add from gallery
+              </Button>
+            </div>
           )}
 
           {photos.length > 0 && (

@@ -128,7 +128,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       subtitle={
         isRestock
           ? 'Add photo + notes, then tap Restocked or Order'
-          : 'Photos + notes required — admin will review before the next stage'
+          : 'Photo from camera or gallery + notes — admin will review before the next stage'
       }
       size={isRestock ? 'lg' : 'md'}
       footer={
