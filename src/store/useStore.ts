@@ -88,7 +88,7 @@ interface AppState {
   // Case Actions
   createCase: (
     caseData: Partial<ImplantCase> & {
-      stageAssignments: StageAssignments;
+      stageAssignments?: StageAssignments;
       /** Case can begin at any stage; earlier stages are marked skipped. */
       startStage?: WorkflowStage;
     },
@@ -610,10 +610,7 @@ export const useStore = create<AppState>((set, get) => ({
   createCase: async (caseData) => {
     const state = get();
     const caseId = newId();
-    const assignments = caseData.stageAssignments;
-    if (!assignments) {
-      throw new Error('Please assign an employee for every stage.');
-    }
+    const assignments = caseData.stageAssignments ?? {};
 
     const startStage = normalizeWorkflowStageName(caseData.startStage ?? 'Kit Preparation');
     if (startStage === 'Completed') {
@@ -621,11 +618,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
     const startIdx = WORKFLOW_STAGES.indexOf(startStage);
 
-    const startEmp = assignments[startStage as keyof StageAssignments];
-    if (!startEmp) {
-      throw new Error(`${startStage} assignee is required.`);
-    }
-    if (!startEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(startEmp.id)) {
+    const startEmp = assignments[startStage as keyof StageAssignments] ?? null;
+    if (startEmp && (!startEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(startEmp.id))) {
       throw new Error(`Cannot assign ${startEmp.name}: missing employee id. Refresh the page and pick employees again.`);
     }
 
@@ -669,7 +663,7 @@ export const useStore = create<AppState>((set, get) => ({
         approvedAt: isSkipped ? now : null,
         status: isSkipped
           ? ('Approved' as const)
-          : isStart
+          : isStart && emp
             ? ('Assigned' as const)
             : ('Pending' as const),
         notes: '',
@@ -688,7 +682,7 @@ export const useStore = create<AppState>((set, get) => ({
       implantType: caseData.implantType || '',
       implantCompany: caseData.implantCompany || '',
       priority: caseData.priority || 'Medium',
-      status: 'Active',
+      status: startEmp ? 'Active' : 'Draft',
       currentStage: startStage,
       currentDepartment: startDept,
       assignedEmployee: startEmp,
@@ -708,8 +702,8 @@ export const useStore = create<AppState>((set, get) => ({
           timestamp: now,
           details:
             startIdx > 0
-              ? `New implant case created for ${caseData.hospital?.name}. Started at ${startStage} with ${startEmp.name}; earlier stages marked skipped.`
-              : `New implant case created for ${caseData.hospital?.name}. Team assigned for all stages; started with ${startEmp.name} (Kit Preparation).`,
+              ? `New implant case created for ${caseData.hospital?.name}. Started at ${startStage}${startEmp ? ` with ${startEmp.name}` : ''}; earlier stages marked skipped.`
+              : `New implant case created for ${caseData.hospital?.name}${startEmp ? `. Started with ${startEmp.name} (Kit Preparation)` : ''}.`,
         },
       ],
       comments: [],
@@ -730,10 +724,13 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error(message || 'Failed to create case.');
     }
 
-    const updated = await employeeRepository.update(startEmp.id, {
-      casesActive: startEmp.casesActive + 1,
-    });
-    const updatedEmployees = state.employees.map((e) => (e.id === startEmp.id ? updated : e));
+    let updatedEmployees = state.employees;
+    if (startEmp) {
+      const updated = await employeeRepository.update(startEmp.id, {
+        casesActive: startEmp.casesActive + 1,
+      });
+      updatedEmployees = state.employees.map((e) => (e.id === startEmp.id ? updated : e));
+    }
 
     const activity = createActivityEvent(
       'Case Created',
@@ -742,7 +739,9 @@ export const useStore = create<AppState>((set, get) => ({
       newCase.caseNumber,
       state.currentUser.name,
       state.currentUser.role,
-      `New case created and assigned to ${startEmp.name} (${startStage}). Stage team set.`,
+      startEmp
+        ? `New case created and assigned to ${startEmp.name} (${startStage}).`
+        : `New case created at ${startStage}. Staff can be assigned later.`,
     );
     persistActivity(activity);
 
@@ -761,7 +760,9 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [notif, ...s.notifications],
     }));
 
-    void notifyCaseAssignment(caseId, startEmp.id);
+    if (startEmp) {
+      void notifyCaseAssignment(caseId, startEmp.id);
+    }
   },
 
   updateCase: async (id, updates) => {

@@ -91,12 +91,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       return;
     }
 
-    const missing = activeStages.filter((s) => !form.stageEmployeeIds[s]);
-    if (missing.length > 0) {
-      alert(`Please assign an employee for every remaining stage. Missing: ${missing.join(', ')}`);
-      return;
-    }
-
     const hospital = hospitals.find((h) => h.id === form.hospitalId);
     if (!hospital) return;
 
@@ -110,7 +104,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 
     const stageAssignments: StageAssignments = {};
     for (const stage of activeStages) {
-      const emp = employees.find((e) => e.id === form.stageEmployeeIds[stage]);
+      const empId = form.stageEmployeeIds[stage];
+      if (!empId) continue;
+      const emp = employees.find((e) => e.id === empId);
       if (!emp) {
         alert(`Could not find employee for ${stage}. Please reselect.`);
         return;
@@ -150,7 +146,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       isOpen={isOpen}
       onClose={onClose}
       title="Create New Implant Case"
-      subtitle="Fill in case details and assign the team for every stage"
+      subtitle="Fill in case details. Assign staff now or later."
       size="xl"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -252,11 +248,11 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 
         <div className="border-t border-gray-100 pt-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-1">
-            Assign team ({activeStages.length} stage{activeStages.length === 1 ? '' : 's'}) *
+            Assign team (optional)
           </h3>
           <p className="text-xs text-gray-500 mb-3">
-            Pick one employee per remaining stage. The case starts at {form.startStage}; later
-            stages activate automatically after each approval.
+            Assign now if you know who is handling each stage. Leave blank and add people
+            later from the case page.
           </p>
           <div className="space-y-3">
             {activeStages.map((stage) => {
@@ -284,9 +280,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                         stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: e.target.value },
                       })
                     }
-                    required
                   >
-                    <option value="">Select employee...</option>
+                    <option value="">Assign later...</option>
                     {options.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.name} — {emp.department}
