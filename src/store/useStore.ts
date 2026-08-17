@@ -87,7 +87,11 @@ interface AppState {
 
   // Case Actions
   createCase: (
-    caseData: Partial<ImplantCase> & { stageAssignments: StageAssignments },
+    caseData: Partial<ImplantCase> & {
+      stageAssignments: StageAssignments;
+      /** Case can begin at any stage; earlier stages are marked skipped. */
+      startStage?: WorkflowStage;
+    },
   ) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
@@ -611,24 +615,31 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error('Please assign an employee for every stage.');
     }
 
-    const kitEmp = assignments['Kit Preparation'];
-    if (!kitEmp) {
-      throw new Error('Kit Preparation assignee is required.');
+    const startStage = normalizeWorkflowStageName(caseData.startStage ?? 'Kit Preparation');
+    if (startStage === 'Completed') {
+      throw new Error('A case cannot start at Completed. Pick a work stage.');
     }
-    if (!kitEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(kitEmp.id)) {
-      throw new Error(`Cannot assign ${kitEmp.name}: missing employee id. Refresh the page and pick employees again.`);
+    const startIdx = WORKFLOW_STAGES.indexOf(startStage);
+
+    const startEmp = assignments[startStage as keyof StageAssignments];
+    if (!startEmp) {
+      throw new Error(`${startStage} assignee is required.`);
+    }
+    if (!startEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(startEmp.id)) {
+      throw new Error(`Cannot assign ${startEmp.name}: missing employee id. Refresh the page and pick employees again.`);
     }
 
     for (const stage of Object.keys(assignments) as (keyof StageAssignments)[]) {
       const emp = assignments[stage];
-      if (!emp?.id) {
+      if (emp && !emp.id) {
         throw new Error(`Cannot assign ${stage}: missing employee id. Refresh and try again.`);
       }
     }
 
     const now = new Date().toISOString();
     const caseNumber = await taskRepository.getNextCaseNumber();
-    const kitDept = getDepartmentForStage('Kit Preparation') ?? 'Stores';
+    const startDept = getDepartmentForStage(startStage) ?? 'Stores';
+    const skippedNote = `Skipped — case started at ${startStage}.`;
 
     const rawStages = WORKFLOW_STAGES.map((stage) => {
       if (stage === 'Completed') {
@@ -645,18 +656,24 @@ export const useStore = create<AppState>((set, get) => ({
           documents: [],
         };
       }
-      const emp = assignments[stage as keyof typeof assignments];
-      const isKit = stage === 'Kit Preparation';
+      const emp = assignments[stage as keyof typeof assignments] ?? null;
+      const stageIdx = WORKFLOW_STAGES.indexOf(stage);
+      const isSkipped = stageIdx < startIdx;
+      const isStart = stageIdx === startIdx;
       return {
         stage,
         department: (getDepartmentForStage(stage) ?? 'Stores') as Department,
         assignedEmployee: emp,
         assignedAt: emp ? now : null,
         submittedAt: null,
-        approvedAt: null,
-        status: isKit ? ('Assigned' as const) : ('Pending' as const),
+        approvedAt: isSkipped ? now : null,
+        status: isSkipped
+          ? ('Approved' as const)
+          : isStart
+            ? ('Assigned' as const)
+            : ('Pending' as const),
         notes: '',
-        adminNotes: '',
+        adminNotes: isSkipped ? skippedNote : '',
         documents: [],
       };
     });
@@ -671,9 +688,9 @@ export const useStore = create<AppState>((set, get) => ({
       implantType: caseData.implantType || '',
       priority: caseData.priority || 'Medium',
       status: 'Active',
-      currentStage: 'Kit Preparation',
-      currentDepartment: kitDept,
-      assignedEmployee: kitEmp,
+      currentStage: startStage,
+      currentDepartment: startDept,
+      assignedEmployee: startEmp,
       createdBy: state.currentUser.name,
       createdAt: now,
       updatedAt: now,
@@ -688,7 +705,10 @@ export const useStore = create<AppState>((set, get) => ({
           performedBy: state.currentUser.name,
           performedByRole: state.currentUser.role,
           timestamp: now,
-          details: `New implant case created for ${caseData.hospital?.name}. Team assigned for all stages; started with ${kitEmp.name} (Kit Preparation).`,
+          details:
+            startIdx > 0
+              ? `New implant case created for ${caseData.hospital?.name}. Started at ${startStage} with ${startEmp.name}; earlier stages marked skipped.`
+              : `New implant case created for ${caseData.hospital?.name}. Team assigned for all stages; started with ${startEmp.name} (Kit Preparation).`,
         },
       ],
       comments: [],
@@ -709,10 +729,10 @@ export const useStore = create<AppState>((set, get) => ({
       throw new Error(message || 'Failed to create case.');
     }
 
-    const updated = await employeeRepository.update(kitEmp.id, {
-      casesActive: kitEmp.casesActive + 1,
+    const updated = await employeeRepository.update(startEmp.id, {
+      casesActive: startEmp.casesActive + 1,
     });
-    const updatedEmployees = state.employees.map((e) => (e.id === kitEmp.id ? updated : e));
+    const updatedEmployees = state.employees.map((e) => (e.id === startEmp.id ? updated : e));
 
     const activity = createActivityEvent(
       'Case Created',
@@ -721,7 +741,7 @@ export const useStore = create<AppState>((set, get) => ({
       newCase.caseNumber,
       state.currentUser.name,
       state.currentUser.role,
-      `New case created and assigned to ${kitEmp.name} (Kit Preparation). Full stage team set.`,
+      `New case created and assigned to ${startEmp.name} (${startStage}). Stage team set.`,
     );
     persistActivity(activity);
 
@@ -740,7 +760,7 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [notif, ...s.notifications],
     }));
 
-    void notifyCaseAssignment(caseId, kitEmp.id);
+    void notifyCaseAssignment(caseId, startEmp.id);
   },
 
   updateCase: async (id, updates) => {

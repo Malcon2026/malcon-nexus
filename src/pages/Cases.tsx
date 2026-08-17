@@ -19,6 +19,7 @@ import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
   isCaseAssignedToEmployee,
+  type AssignableStage,
   type StageAssignments,
 } from '../lib/caseWorkflow';
 
@@ -29,9 +30,9 @@ const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
-const emptyStageIds = (): Record<(typeof ASSIGNABLE_WORKFLOW_STAGES)[number], string> =>
+const emptyStageIds = (): Record<AssignableStage, string> =>
   Object.fromEntries(ASSIGNABLE_WORKFLOW_STAGES.map((s) => [s, ''])) as Record<
-    (typeof ASSIGNABLE_WORKFLOW_STAGES)[number],
+    AssignableStage,
     string
   >;
 
@@ -46,15 +47,20 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     implantType: '',
     priority: 'Medium' as Priority,
     remarks: '',
+    startStage: 'Kit Preparation' as AssignableStage,
     stageEmployeeIds: emptyStageIds(),
   });
+
+  const startIdx = ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage);
+  const activeStages = ASSIGNABLE_WORKFLOW_STAGES.slice(startIdx);
+  const skippedStages = ASSIGNABLE_WORKFLOW_STAGES.slice(0, startIdx);
 
   const activeEmployees = useMemo(
     () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
     [employees],
   );
 
-  const employeesForStage = (stage: (typeof ASSIGNABLE_WORKFLOW_STAGES)[number]): Employee[] => {
+  const employeesForStage = (stage: AssignableStage): Employee[] => {
     const preferredDept = STAGE_DEPARTMENT_MAP[stage];
     if (!preferredDept) return activeEmployees;
     const preferred = activeEmployees.filter((e) => e.department === preferredDept);
@@ -71,6 +77,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       implantType: '',
       priority: 'Medium',
       remarks: '',
+      startStage: 'Kit Preparation',
       stageEmployeeIds: emptyStageIds(),
     });
   };
@@ -82,9 +89,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       return;
     }
 
-    const missing = ASSIGNABLE_WORKFLOW_STAGES.filter((s) => !form.stageEmployeeIds[s]);
+    const missing = activeStages.filter((s) => !form.stageEmployeeIds[s]);
     if (missing.length > 0) {
-      alert(`Please assign an employee for every stage. Missing: ${missing.join(', ')}`);
+      alert(`Please assign an employee for every remaining stage. Missing: ${missing.join(', ')}`);
       return;
     }
 
@@ -99,8 +106,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       phone: '',
     };
 
-    const stageAssignments = {} as StageAssignments;
-    for (const stage of ASSIGNABLE_WORKFLOW_STAGES) {
+    const stageAssignments: StageAssignments = {};
+    for (const stage of activeStages) {
       const emp = employees.find((e) => e.id === form.stageEmployeeIds[stage]);
       if (!emp) {
         alert(`Could not find employee for ${stage}. Please reselect.`);
@@ -120,6 +127,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         priority: form.priority,
         remarks: form.remarks,
         dueDate: form.surgeryDate,
+        startStage: form.startStage,
         stageAssignments,
       });
       onClose();
@@ -203,18 +211,59 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         </div>
 
         <div className="border-t border-gray-100 pt-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">Assign team (all stages) *</h3>
+          <label className={labelClass}>Start case at stage *</label>
+          <select
+            className={inputClass}
+            value={form.startStage}
+            onChange={(e) => setForm({ ...form, startStage: e.target.value as AssignableStage })}
+          >
+            {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => (
+              <option key={stage} value={stage}>
+                {stage}
+                {stage === 'Kit Preparation' ? ' (normal start)' : ''}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-gray-500 mt-1.5">
+            Use this when work already happened outside the app — for example a kit is
+            already at the hospital, so start at Surgery.
+          </p>
+        </div>
+
+        {skippedStages.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <p className="text-xs font-semibold text-amber-900">
+              Skipped: {skippedStages.join(', ')}
+            </p>
+            <p className="text-[11px] text-amber-800/90 mt-0.5">
+              These stages are marked done automatically and need no employee.
+            </p>
+          </div>
+        )}
+
+        <div className="border-t border-gray-100 pt-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">
+            Assign team ({activeStages.length} stage{activeStages.length === 1 ? '' : 's'}) *
+          </h3>
           <p className="text-xs text-gray-500 mb-3">
-            Pick one employee per stage. The case starts at Kit Preparation; later stages activate automatically after each approval.
+            Pick one employee per remaining stage. The case starts at {form.startStage}; later
+            stages activate automatically after each approval.
           </p>
           <div className="space-y-3">
-            {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => {
+            {activeStages.map((stage) => {
               const deptHint = STAGE_DEPARTMENT_MAP[stage];
               const options = employeesForStage(stage);
               return (
                 <div key={stage} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 sm:gap-3 items-start sm:items-center">
                   <div>
-                    <p className="text-xs font-medium text-gray-800">{stage}</p>
+                    <p className="text-xs font-medium text-gray-800">
+                      {stage}
+                      {stage === form.startStage && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5">
+                          Starts here
+                        </span>
+                      )}
+                    </p>
                     {deptHint && <p className="text-[11px] text-gray-400">{deptHint}</p>}
                   </div>
                   <select

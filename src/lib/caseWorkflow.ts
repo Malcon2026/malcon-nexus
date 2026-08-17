@@ -37,10 +37,15 @@ export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Completed': null,
 };
 
-export type StageAssignments = Record<
-  (typeof ASSIGNABLE_WORKFLOW_STAGES)[number],
-  Employee
+/**
+ * Stage → employee picked at case creation. Partial because a case can start at
+ * a later stage, and the skipped stages before it never need an assignee.
+ */
+export type StageAssignments = Partial<
+  Record<(typeof ASSIGNABLE_WORKFLOW_STAGES)[number], Employee>
 >;
+
+export type AssignableStage = (typeof ASSIGNABLE_WORKFLOW_STAGES)[number];
 
 const STAGE_STATUS_RANK: Record<string, number> = {
   Pending: 0,
