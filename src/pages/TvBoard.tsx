@@ -4,23 +4,34 @@ import { useStore } from '../store/useStore';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST } from '../lib/attendance';
 
-const STAGE_STYLE: Record<WorkflowStage, { bg: string; text: string }> = {
-  'Kit Preparation': { bg: 'bg-violet-600', text: 'text-white' },
-  'Delivery': { bg: 'bg-rose-600', text: 'text-white' },
-  'Surgery': { bg: 'bg-blue-600', text: 'text-white' },
-  'Pickup from Hospital': { bg: 'bg-pink-600', text: 'text-white' },
-  'Cleaning & Audit': { bg: 'bg-cyan-600', text: 'text-white' },
-  'Restock': { bg: 'bg-lime-600', text: 'text-white' },
-  'Billing': { bg: 'bg-emerald-600', text: 'text-white' },
-  'Bill Submission': { bg: 'bg-orange-600', text: 'text-white' },
-  'Completed': { bg: 'bg-green-600', text: 'text-white' },
+/*
+ * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
+ * tokens. The app's global theme (src/index.css) remaps those to dark navy colors so
+ * existing light-mode-styled components render dark — which means `text-white` here
+ * would resolve to near-black and vanish against this page's dark background. Explicit
+ * hex values below sidestep that remap entirely.
+ */
+const INK = '#f4f6fb';
+const INK_MUTED = '#9aa5b8';
+const INK_DIM = '#5b6478';
+
+const STAGE_STYLE: Record<WorkflowStage, string> = {
+  'Kit Preparation': 'bg-violet-600',
+  'Delivery': 'bg-rose-600',
+  'Surgery': 'bg-blue-600',
+  'Pickup from Hospital': 'bg-pink-600',
+  'Cleaning & Audit': 'bg-cyan-600',
+  'Restock': 'bg-lime-600',
+  'Billing': 'bg-emerald-600',
+  'Bill Submission': 'bg-orange-600',
+  'Completed': 'bg-green-600',
 };
 
-const PRIORITY_STYLE: Record<Priority, { dot: string; label: string }> = {
-  Critical: { dot: 'bg-red-500', label: 'text-red-400' },
-  High: { dot: 'bg-orange-400', label: 'text-orange-300' },
-  Medium: { dot: 'bg-yellow-400', label: 'text-yellow-300' },
-  Low: { dot: 'bg-sky-400', label: 'text-sky-300' },
+const PRIORITY_DOT: Record<Priority, string> = {
+  Critical: 'bg-red-500',
+  High: 'bg-orange-400',
+  Medium: 'bg-yellow-400',
+  Low: 'bg-sky-400',
 };
 
 const GRID_COLS = 'grid-cols-[100px_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1fr)_170px_120px]';
@@ -30,28 +41,29 @@ const ROTATE_MS = 10000;
 const REFRESH_MS = 30000;
 
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
-  const stage = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
-  const priority = PRIORITY_STYLE[c.priority];
+  const stageClass = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
   const isOverdue = new Date(c.surgeryDate) < new Date();
 
   return (
     <div
-      className={`grid ${GRID_COLS} items-center gap-3 px-5 py-3.5 rounded-lg ${zebra ? 'bg-white/[0.04]' : ''}`}
+      className={`grid ${GRID_COLS} items-center gap-3 px-5 py-3.5 rounded-lg`}
+      style={{ background: zebra ? 'rgba(255,255,255,0.05)' : 'transparent' }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${priority.dot}`} />
-        <span className="text-lg font-bold text-white truncate">{c.caseNumber}</span>
+        <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${PRIORITY_DOT[c.priority]}`} />
+        <span className="text-lg font-bold truncate" style={{ color: INK }}>{c.caseNumber}</span>
       </div>
-      <span className="text-lg font-semibold text-slate-100 truncate">{c.hospital.name}</span>
-      <span className="text-lg text-slate-300 truncate">Dr. {c.doctor.name}</span>
-      <span className="text-base text-slate-300 truncate">
-        {c.assignedEmployee?.name.split(' ')[0] ?? <span className="text-slate-500">Unassigned</span>}
+      <span className="text-lg font-semibold truncate" style={{ color: INK }}>{c.hospital.name}</span>
+      <span className="text-lg truncate" style={{ color: INK_MUTED }}>Dr. {c.doctor.name}</span>
+      <span className="text-base truncate" style={{ color: c.assignedEmployee ? INK_MUTED : INK_DIM }}>
+        {c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'}
       </span>
-      <span className={`text-sm font-semibold ${isOverdue ? 'text-red-400' : 'text-slate-400'}`}>
+      <span className="text-sm font-semibold" style={{ color: isOverdue ? '#f87171' : INK_DIM }}>
         {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
       </span>
       <span
-        className={`justify-self-end px-3 py-1.5 rounded-md ${stage.bg} ${stage.text} text-xs font-bold uppercase tracking-wide text-center leading-tight`}
+        className={`justify-self-end px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide text-center leading-tight`}
+        style={{ color: '#ffffff' }}
       >
         {c.currentStage}
       </span>
@@ -117,39 +129,40 @@ export const TvBoard: React.FC = () => {
   const critical = liveCases.filter((c) => c.priority === 'Critical').length;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0a0d14] text-white flex flex-col overflow-hidden select-none">
+    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden select-none" style={{ background: '#0a0d14', color: INK }}>
       <button
         onClick={() => setActiveTab('dashboard')}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
+        className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors"
+        style={{ background: 'rgba(255,255,255,0.1)', color: INK_MUTED }}
         aria-label="Exit TV board"
       >
         <X className="h-5 w-5" />
       </button>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-8 pt-6 pb-4 shrink-0 border-b border-white/10">
+      <div className="flex items-center justify-between px-8 pt-6 pb-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div>
-          <p className="text-xs font-semibold text-indigo-400 tracking-widest uppercase">Malcon Nexus</p>
-          <h1 className="text-2xl font-bold tracking-tight mt-0.5">Live Case Board</h1>
+          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9a8cff' }}>Malcon Nexus</p>
+          <h1 className="text-2xl font-bold tracking-tight mt-0.5" style={{ color: INK }}>Live Case Board</h1>
         </div>
 
         <div className="flex items-center gap-8">
           <div className="text-center">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Live</p>
-            <p className="text-2xl font-extrabold mt-0.5">{liveCases.length}</p>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Live</p>
+            <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{liveCases.length}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Today</p>
-            <p className="text-2xl font-extrabold mt-0.5">{surgeryToday}</p>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Today</p>
+            <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{surgeryToday}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs font-medium text-red-400 uppercase tracking-wide">Critical</p>
-            <p className="text-2xl font-extrabold mt-0.5 text-red-400">{critical}</p>
+            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#f87171' }}>Critical</p>
+            <p className="text-2xl font-extrabold mt-0.5" style={{ color: '#f87171' }}>{critical}</p>
           </div>
 
-          <div className="text-right pl-6 border-l border-white/10">
-            <p className="text-3xl font-black tabular-nums tracking-tight leading-none">{formatTimeIST(now)}</p>
-            <p className="text-sm font-medium text-slate-400 mt-1">{formatDateIST(now)}</p>
+          <div className="text-right pl-6" style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+            <p className="text-3xl font-black tabular-nums tracking-tight leading-none" style={{ color: INK }}>{formatTimeIST(now)}</p>
+            <p className="text-sm font-medium mt-1" style={{ color: INK_MUTED }}>{formatDateIST(now)}</p>
           </div>
         </div>
       </div>
@@ -157,7 +170,11 @@ export const TvBoard: React.FC = () => {
       {/* Column headers */}
       <div className={`grid ${GRID_COLS} gap-3 px-8 mt-4 pb-2 shrink-0`}>
         {['Case', 'Hospital', 'Doctor', 'Assigned', 'Date', ''].map((h, i) => (
-          <span key={i} className={`text-xs font-semibold text-slate-500 uppercase tracking-wider ${i === 5 ? 'justify-self-end' : ''}`}>
+          <span
+            key={i}
+            className={`text-xs font-semibold uppercase tracking-wider ${i === 5 ? 'justify-self-end' : ''}`}
+            style={{ color: INK_DIM }}
+          >
             {h}
           </span>
         ))}
@@ -167,7 +184,7 @@ export const TvBoard: React.FC = () => {
       <div className="flex-1 px-6 pb-4 flex flex-col overflow-hidden">
         {visibleCases.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-2xl font-semibold text-slate-500">No live cases right now</p>
+            <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
           </div>
         )}
         {visibleCases.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
@@ -179,7 +196,11 @@ export const TvBoard: React.FC = () => {
           {Array.from({ length: pageCount }).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 rounded-full transition-all ${i === page ? 'w-6 bg-indigo-400' : 'w-1.5 bg-white/20'}`}
+              className="h-1.5 rounded-full transition-all"
+              style={{
+                width: i === page ? '1.5rem' : '0.375rem',
+                background: i === page ? '#9a8cff' : 'rgba(255,255,255,0.2)',
+              }}
             />
           ))}
         </div>
