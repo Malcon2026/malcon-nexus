@@ -5,6 +5,7 @@ import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Cases } from './pages/Cases';
 import { LiveCases } from './pages/LiveCases';
+import { TvBoard } from './pages/TvBoard';
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
@@ -210,6 +211,14 @@ function MainApp() {
       <div className="w-full min-w-0 overflow-x-hidden">
         <Login onLoginSuccess={handleLoginSuccess} />
       </div>
+    );
+  }
+
+  if (activeTab === 'tv-board') {
+    return (
+      <AppErrorBoundary>
+        <TvBoard />
+      </AppErrorBoundary>
     );
   }
 
