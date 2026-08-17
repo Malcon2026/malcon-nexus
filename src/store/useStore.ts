@@ -786,47 +786,89 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const currentName = normalizeWorkflowStageName(c.currentStage);
+    const approvedAt = new Date().toISOString();
     const updatedStages = normalizeCaseStages(
       c.stages.map((s) =>
         normalizeWorkflowStageName(s.stage) === currentName
-          ? { ...s, status: 'Approved' as const, approvedAt: new Date().toISOString(), adminNotes }
+          ? { ...s, status: 'Approved' as const, approvedAt, adminNotes }
           : s
       ),
     );
+    // Next stage has no employee: still move forward so admin can skip
+    // unassigned stages (kit already gone, surgery already done, etc.).
+    const advancingUnassigned = Boolean(next && next !== 'Completed');
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
-      action: `Stage Approved: ${c.currentStage}`,
+      action: advancingUnassigned ? `Stage Advanced: ${c.currentStage}` : `Stage Approved: ${c.currentStage}`,
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
-      timestamp: new Date().toISOString(),
-      details: `Admin approved ${c.currentStage} stage. ${adminNotes}`,
+      timestamp: approvedAt,
+      details: advancingUnassigned
+        ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}. ${adminNotes}`
+        : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
     };
 
     // Update approvals table
     await updateCaseApproval(caseId, c.currentStage, {
       status: 'Approved',
-      approvedAt: new Date().toISOString(),
+      approvedAt,
       adminNotes,
     });
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
-      status: 'Approved',
+      status: advancingUnassigned ? 'Draft' : 'Approved',
+      ...(advancingUnassigned && next
+        ? {
+            currentStage: next,
+            currentDepartment: getDepartmentForStage(next),
+            assignedEmployee: null,
+          }
+        : {}),
       activityLogs: [...c.activityLogs, newLog],
     });
 
+    let updatedEmployees = state.employees;
+    if (advancingUnassigned && c.assignedEmployee) {
+      const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
+      if (prev) {
+        const updated = await employeeRepository.update(prev.id, {
+          casesActive: Math.max(0, prev.casesActive - 1),
+        });
+        updatedEmployees = state.employees.map((e) => (e.id === prev.id ? updated : e));
+      }
+    }
+
     // Activity + Notification
-    const activity = createActivityEvent(`Stage Approved: ${c.currentStage}`, 'case', caseId, c.caseNumber, state.currentUser.name, 'admin', `${c.currentStage} stage approved. ${adminNotes}`);
+    const activity = createActivityEvent(
+      advancingUnassigned ? `Stage Advanced: ${c.currentStage}` : `Stage Approved: ${c.currentStage}`,
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      advancingUnassigned
+        ? `${c.currentStage} skipped / advanced with no assignee → ${next}. ${adminNotes}`
+        : `${c.currentStage} stage approved. ${adminNotes}`,
+    );
     persistActivity(activity);
 
-    const notif = createNotification('Stage Approved', `${c.caseNumber} ${c.currentStage} approved by admin.`, 'success', caseId);
+    const notif = createNotification(
+      advancingUnassigned ? 'Stage Advanced' : 'Stage Approved',
+      advancingUnassigned
+        ? `${c.caseNumber} moved from ${c.currentStage} to ${next} (unassigned).`
+        : `${c.caseNumber} ${c.currentStage} approved by admin.`,
+      'success',
+      caseId,
+    );
     persistNotification(notif);
 
     set((s) => ({
       cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
+      employees: updatedEmployees,
     }));
 
     // 'Bill Submission' is the last real stage -- there is no next stage to

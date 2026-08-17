@@ -64,7 +64,9 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     changes: { title: 'Request Changes', subtitle: 'Describe the changes needed', color: 'warning' as const, label: 'Request Changes' },
     force: {
       title: 'Force Advance Stage',
-      subtitle: `${implantCase?.assignedEmployee?.name ?? 'The employee'} hasn't submitted this stage yet`,
+      subtitle: implantCase?.assignedEmployee
+        ? `${implantCase.assignedEmployee.name} hasn't submitted this stage yet`
+        : 'No employee is assigned — this will skip the current stage anyway',
       color: 'warning' as const,
       label: 'Force Advance',
     },
@@ -108,9 +110,9 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
           <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-700">
-              This skips the employee's submission for <strong>{implantCase?.currentStage}</strong> and moves the
-              case forward as if it were approved. Use this only when the employee forgot to submit or can't
-              access the app — it's logged in the case's activity history.
+              This skips <strong>{implantCase?.currentStage}</strong> and moves the case to the next stage,
+              even if nobody is assigned. Use it when work already happened outside the app, or the
+              employee forgot to submit. It is logged in the case activity history.
             </p>
           </div>
         )}
@@ -310,6 +312,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
   const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
+  const canForceAdvance =
+    viewMode === 'admin' &&
+    c.currentStage !== 'Completed' &&
+    c.status !== 'Completed' &&
+    c.status !== 'Cancelled' &&
+    c.status !== 'Waiting For Approval';
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseAssignedToEmployee(c, currentUser);
 
@@ -402,13 +410,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               {isActive && c.currentStage !== 'Completed' && (
                 <Button variant="outline" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>Reassign</Button>
               )}
-              {isActive && c.currentStage !== 'Completed' && (
+              {canForceAdvance && (
                 <Button
                   variant="warning"
                   size="sm"
                   icon={<FastForward className="h-4 w-4" />}
                   onClick={() => setApprovalModal('force')}
-                  title="Move this case forward even though the employee hasn't submitted"
+                  title="Move this case forward even if nobody is assigned or the employee hasn't submitted"
                 >
                   Force Advance
                 </Button>
@@ -568,7 +576,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">No employee assigned</p>
-                        <p className="text-xs text-gray-400">Admin needs to assign an employee to continue</p>
+                        <p className="text-xs text-gray-400">Assign someone, or Force Advance to skip this stage</p>
                       </div>
                     </div>
                   )}
