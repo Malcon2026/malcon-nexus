@@ -88,13 +88,23 @@ function useAutoScroll<T extends HTMLElement>() {
   return ref;
 }
 
-function Detail({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+function Detail({ label, value, muted, color }: { label: string; value: string; muted?: boolean; color?: string }) {
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: INK_DIM }}>{label}</p>
-      <p className="text-base font-semibold truncate" style={{ color: muted ? INK_MUTED : INK }}>{value}</p>
+      <p className="text-base font-semibold truncate" style={{ color: color ?? (muted ? INK_MUTED : INK) }}>{value}</p>
     </div>
   );
+}
+
+function tvBillingStatus(c: ImplantCase): 'Done' | 'Pending' {
+  if (c.paymentStatus === 'Collected') return 'Done';
+  if (c.status === 'Completed') return 'Done';
+  const billed = c.stages.some(
+    (s) =>
+      (s.stage === 'Billing' || s.stage === 'Bill Submission') && s.status === 'Approved',
+  );
+  return billed ? 'Done' : 'Pending';
 }
 
 function isTodayIST(value: string | undefined): boolean {
@@ -116,6 +126,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
   const isOverdue = !closedCancelled && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);
+  const billing = tvBillingStatus(c);
 
   return (
     <div
@@ -150,12 +161,17 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
           </span>
         </div>
       </div>
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         <Detail label="Surgery" value={c.implantRequired || '—'} />
         <Detail label="Product" value={c.implantType || '—'} muted />
         <Detail label="Company" value={c.implantCompany || '—'} muted />
         <Detail label="Doctor" value={`Dr. ${c.doctor.name}`} muted />
         <Detail label="Assigned" value={c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'} />
+        <Detail
+          label="Billing"
+          value={billing}
+          color={billing === 'Done' ? '#34d399' : '#fbbf24'}
+        />
       </div>
       {remark ? (
         <p className="text-sm font-semibold mt-2 truncate" style={{ color: '#fbbf24' }}>
