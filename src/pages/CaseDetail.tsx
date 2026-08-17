@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -229,7 +229,7 @@ interface CaseDetailProps {
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
-  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee } = useStore();
+  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
@@ -359,6 +359,20 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>
           {(viewMode === 'admin' || canEmployeeEdit) && (
             <Button variant="outline" size="sm" icon={<Edit3 className="h-4 w-4" />} onClick={() => setShowEdit(true)}>Edit</Button>
+          )}
+          {viewMode === 'admin' && (
+            <Button
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="h-4 w-4" />}
+              onClick={() => {
+                if (!confirm(`Delete case ${c.caseNumber}? This cannot be undone.`)) return;
+                void deleteCase(c.id);
+                onBack();
+              }}
+            >
+              Delete
+            </Button>
           )}
         </div>
       </div>

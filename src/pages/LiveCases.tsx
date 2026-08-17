@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, RefreshCw, Building2, User, Calendar, Eye, Edit3,
-  AlertTriangle, IndianRupee, X,
+  AlertTriangle, IndianRupee, X, Trash2,
 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
@@ -24,7 +24,7 @@ const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = 
 };
 
 export const LiveCases: React.FC = () => {
-  const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
+  const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase, deleteCase } = useStore();
   const [search, setSearch] = useState('');
   const [filterStage, setFilterStage] = useState<WorkflowStage | ''>('');
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
@@ -224,6 +224,18 @@ export const LiveCases: React.FC = () => {
                       className="flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-md hover:bg-indigo-50"
                     >
                       <Edit3 className="h-3 w-3" /> Edit
+                    </button>
+                  )}
+                  {viewMode === 'admin' && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete case ${c.caseNumber}? This cannot be undone.`)) {
+                          void deleteCase(c.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-[11px] font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded-md hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" /> Delete
                     </button>
                   )}
                 </div>
