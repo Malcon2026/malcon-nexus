@@ -16,16 +16,16 @@ const INK = '#f4f6fb';
 const INK_MUTED = '#9aa5b8';
 const INK_DIM = '#5b6478';
 
-const STAGE_STYLE: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'bg-violet-600',
-  'Delivery': 'bg-rose-600',
-  'Surgery': 'bg-blue-600',
-  'Pickup from Hospital': 'bg-pink-600',
-  'Cleaning & Audit': 'bg-cyan-600',
-  'Restock': 'bg-lime-600',
-  'Billing': 'bg-emerald-600',
-  'Bill Submission': 'bg-orange-600',
-  'Completed': 'bg-green-600',
+const STAGE_COLOR: Record<WorkflowStage, string> = {
+  'Kit Preparation': '#7c3aed',
+  'Delivery': '#e11d48',
+  'Surgery': '#2563eb',
+  'Pickup from Hospital': '#db2777',
+  'Cleaning & Audit': '#0891b2',
+  'Restock': '#65a30d',
+  'Billing': '#059669',
+  'Bill Submission': '#ea580c',
+  'Completed': '#16a34a',
 };
 
 const PRIORITY_DOT: Record<Priority, string> = {
@@ -122,7 +122,7 @@ function tvRemark(c: ImplantCase): string {
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const closedCancelled = c.status === 'Cancelled';
   const returning = Boolean(c.cancelReason) && !closedCancelled;
-  const stageClass = closedCancelled ? 'bg-amber-600' : (STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation']);
+  const stageColor = closedCancelled ? '#d97706' : (STAGE_COLOR[c.currentStage] ?? STAGE_COLOR['Kit Preparation']);
   const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
   const isOverdue = !closedCancelled && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);
@@ -154,8 +154,8 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
           </span>
           <span
-            className={`px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
-            style={{ color: '#ffffff' }}
+            className="tv-stage-blink px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide whitespace-nowrap"
+            style={{ ['--tv-stage' as string]: stageColor }}
           >
             {stageLabel}
           </span>
