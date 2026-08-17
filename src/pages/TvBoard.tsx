@@ -37,8 +37,57 @@ const PRIORITY_DOT: Record<Priority, string> = {
 const GRID_COLS = 'grid-cols-[100px_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1fr)_170px_120px]';
 
 const PAGE_SIZE = 9;
-const ROTATE_MS = 10000;
+const ROTATE_MS = 60000;
 const REFRESH_MS = 30000;
+
+/** Auto-scrolls an overflowing list up and down, pausing at each end — no user input needed on a TV. */
+function useAutoScroll<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const SPEED_PX_PER_SEC = 26;
+    const PAUSE_MS = 2200;
+    let raf = 0;
+    let last = performance.now();
+    let phase: 'down' | 'pause-bottom' | 'pause-top' = 'down';
+    let pauseUntil = 0;
+
+    const tick = (t: number) => {
+      const dt = (t - last) / 1000;
+      last = t;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+
+      if (maxScroll <= 1) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+
+      if (phase === 'down') {
+        el.scrollTop = Math.min(maxScroll, el.scrollTop + SPEED_PX_PER_SEC * dt);
+        if (el.scrollTop >= maxScroll - 0.5) {
+          phase = 'pause-bottom';
+          pauseUntil = t + PAUSE_MS;
+        }
+      } else if (phase === 'pause-bottom' && t >= pauseUntil) {
+        el.scrollTop = 0;
+        phase = 'pause-top';
+        pauseUntil = t + PAUSE_MS;
+      } else if (phase === 'pause-top' && t >= pauseUntil) {
+        phase = 'down';
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return ref;
+}
 
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const stageClass = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
@@ -118,6 +167,9 @@ function EmployeeCard({ name, department, sub, busy }: { name: string; departmen
 }
 
 function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; employees: Employee[] }) {
+  const busyScrollRef = useAutoScroll<HTMLDivElement>();
+  const idleScrollRef = useAutoScroll<HTMLDivElement>();
+
   const { busy, idle } = useMemo(() => {
     const busyByEmployee = new Map<string, ImplantCase>();
     for (const c of cases) {
@@ -142,7 +194,7 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
           <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>On A Case</p>
           <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({busy.length})</span>
         </div>
-        <div className="flex-1 flex flex-col gap-2 overflow-hidden">
+        <div ref={busyScrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden">
           {busy.length === 0 && (
             <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Nobody is on a case right now.</p>
           )}
@@ -164,7 +216,7 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
           <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>Idle / Available</p>
           <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({idle.length})</span>
         </div>
-        <div className="flex-1 flex flex-col gap-2 overflow-hidden">
+        <div ref={idleScrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden">
           {idle.length === 0 && (
             <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Everyone is currently on a case.</p>
           )}
