@@ -154,6 +154,16 @@ export function getNextWorkflowStage(
   return next;
 }
 
+/** Standard case remark when surgery is cancelled and no implants were used. */
+export const UNUSED_IMPLANTS_REMARK = 'Implants unused';
+
+export function withUnusedImplantsRemark(existing: string | undefined): string {
+  const t = (existing ?? '').trim();
+  if (!t) return UNUSED_IMPLANTS_REMARK;
+  if (/implants\s+uns[eu]d/i.test(t)) return t;
+  return `${t}\n${UNUSED_IMPLANTS_REMARK}`;
+}
+
 /**
  * After a surgery cancel (no implants used), unused kits still need to come back.
  * Returns the stage to jump to, or null if the case can close immediately

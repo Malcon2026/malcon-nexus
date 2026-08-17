@@ -29,7 +29,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark } from '../lib/caseWorkflow';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -1441,14 +1441,17 @@ export const useStore = create<AppState>((set, get) => ({
         : `Surgery cancelled — no implants used. Case closed. Reason: ${trimmed}`,
     };
 
+    const remarks = withUnusedImplantsRemark(c.remarks);
+
     if (!returnStage) {
       const updatedCase = await taskRepository.update(caseId, {
         cancelReason: trimmed,
+        remarks,
         stages: updatedStages,
         activityLogs: [...c.activityLogs, cancelLog],
       });
       set((s) => ({
-        cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed } : x)),
+        cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed, remarks } : x)),
       }));
       await get().closeCase(caseId);
       return;
@@ -1470,6 +1473,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const updatedCase = await taskRepository.update(caseId, {
       cancelReason: trimmed,
+      remarks,
       currentStage: returnStage,
       currentDepartment: getDepartmentForStage(returnStage),
       assignedEmployee: nextEmp,
@@ -1519,7 +1523,7 @@ export const useStore = create<AppState>((set, get) => ({
     persistNotification(notif);
 
     set((s) => ({
-      cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed } : x)),
+      cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed, remarks } : x)),
       employees: updatedEmployees,
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],

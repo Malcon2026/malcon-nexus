@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
-import { formatTimeIST, formatDateIST } from '../lib/attendance';
+import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
+import { UNUSED_IMPLANTS_REMARK } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -96,9 +97,25 @@ function Detail({ label, value, muted }: { label: string; value: string; muted?:
   );
 }
 
+function isTodayIST(value: string | undefined): boolean {
+  if (!value) return false;
+  return getISTDateKey(value) === getISTDateKey();
+}
+
+function tvRemark(c: ImplantCase): string {
+  const remarks = (c.remarks ?? '').trim();
+  if (remarks) return remarks;
+  if (c.cancelReason || c.status === 'Cancelled') return UNUSED_IMPLANTS_REMARK;
+  return '';
+}
+
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
-  const stageClass = STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation'];
-  const isOverdue = new Date(c.surgeryDate) < new Date();
+  const closedCancelled = c.status === 'Cancelled';
+  const returning = Boolean(c.cancelReason) && !closedCancelled;
+  const stageClass = closedCancelled ? 'bg-amber-600' : (STAGE_STYLE[c.currentStage] ?? STAGE_STYLE['Kit Preparation']);
+  const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
+  const isOverdue = !closedCancelled && new Date(c.surgeryDate) < new Date();
+  const remark = tvRemark(c);
 
   return (
     <div
@@ -110,9 +127,14 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
           <span className={`h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse ${PRIORITY_DOT[c.priority]}`} />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           <span className="text-xs font-medium shrink-0" style={{ color: INK_DIM }}>{c.caseNumber}</span>
-          {c.cancelReason ? (
+          {returning ? (
             <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#f59e0b', color: '#111' }}>
               Return kit
+            </span>
+          ) : null}
+          {closedCancelled ? (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#f59e0b', color: '#111' }}>
+              Implants unused
             </span>
           ) : null}
         </div>
@@ -124,7 +146,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             className={`px-3 py-1.5 rounded-md ${stageClass} text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
             style={{ color: '#ffffff' }}
           >
-            {c.currentStage}
+            {stageLabel}
           </span>
         </div>
       </div>
@@ -135,6 +157,11 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
         <Detail label="Doctor" value={`Dr. ${c.doctor.name}`} muted />
         <Detail label="Assigned" value={c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'} />
       </div>
+      {remark ? (
+        <p className="text-sm font-semibold mt-2 truncate" style={{ color: '#fbbf24' }}>
+          Remark: {remark}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -266,18 +293,29 @@ export const TvBoard: React.FC = () => {
     return () => clearInterval(t);
   }, [viewMode, currentUser.id, reloadFromDatabase]);
 
-  const liveCases = useMemo(() => {
+  const { openCases, boardCases } = useMemo(() => {
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
-    return cases
-      .filter((c) => c.status !== 'Completed' && c.status !== 'Cancelled' && c.currentStage !== 'Completed')
-      .sort((a, b) => {
-        const p = priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (p !== 0) return p;
-        return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
-      });
+    const sortFn = (a: ImplantCase, b: ImplantCase) => {
+      const closed = Number(a.status === 'Cancelled') - Number(b.status === 'Cancelled');
+      if (closed !== 0) return closed;
+      const p = priorityOrder[a.priority] - priorityOrder[b.priority];
+      if (p !== 0) return p;
+      return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
+    };
+    const open = cases.filter(
+      (c) => c.status !== 'Completed' && c.status !== 'Cancelled' && c.currentStage !== 'Completed',
+    );
+    const cancelledToday = cases.filter(
+      (c) => c.status === 'Cancelled' && (isTodayIST(c.surgeryDate) || isTodayIST(c.updatedAt)),
+    );
+    return {
+      openCases: [...open].sort(sortFn),
+      boardCases: [...open, ...cancelledToday].sort(sortFn),
+    };
   }, [cases]);
+  const liveCases = openCases;
 
-  const caseTagCount = Math.max(1, Math.ceil(liveCases.length / PAGE_SIZE));
+  const caseTagCount = Math.max(1, Math.ceil(boardCases.length / PAGE_SIZE));
   // Slides = one per case page, plus one final slide for employee status.
   const totalSlides = caseTagCount + 1;
 
@@ -312,7 +350,7 @@ export const TvBoard: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [slide, goToSlide, setActiveTab]);
 
-  const surgeryToday = liveCases.filter((c) => {
+  const surgeryToday = boardCases.filter((c) => {
     const d = new Date(c.surgeryDate);
     const t = new Date();
     return d.toDateString() === t.toDateString();
@@ -394,7 +432,7 @@ export const TvBoard: React.FC = () => {
         {isEmployeeSlide ? (
           <EmployeeStatusSlide cases={liveCases} employees={employees} />
         ) : (
-          <CasesSlide cases={liveCases} page={Math.min(slide, caseTagCount - 1)} />
+          <CasesSlide cases={boardCases} page={Math.min(slide, caseTagCount - 1)} />
         )}
       </div>
 
