@@ -121,6 +121,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const isOverdue = !closedCancelled && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);
   const billing = tvBillingStatus(c);
+  const isLiveActive = c.status === 'Active';
 
   return (
     <div
@@ -129,7 +130,10 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
     >
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse" />
+          <span
+            className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLiveActive ? 'tv-dot-pulse' : ''}`}
+            style={isLiveActive ? undefined : { background: INK_DIM }}
+          />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           {c.hospital.branch ? (
             <span className="text-sm font-medium truncate shrink-0" style={{ color: INK_MUTED }}>{c.hospital.branch}</span>
@@ -156,8 +160,12 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
           </span>
           <span
-            className="tv-stage-blink px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide whitespace-nowrap"
-            style={{ ['--tv-stage' as string]: stageColor }}
+            className={`${isLiveActive ? 'tv-stage-blink' : ''} px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
+            style={
+              isLiveActive
+                ? { ['--tv-stage' as string]: stageColor }
+                : { backgroundColor: stageColor, color: '#ffffff' }
+            }
           >
             {stageLabel}
           </span>

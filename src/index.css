@@ -574,19 +574,16 @@ textarea {
 .tv-dot-pulse {
   animation: tv-dot-ambulance 0.4s step-end infinite;
   background-color: #ef4444;
-  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.85);
 }
 
 @keyframes tv-dot-ambulance {
   0%,
   49% {
     background-color: #ef4444;
-    box-shadow: 0 0 10px 3px rgba(239, 68, 68, 0.95);
   }
   50%,
   100% {
     background-color: #2563eb;
-    box-shadow: 0 0 10px 3px rgba(37, 99, 235, 0.95);
   }
 }
 
