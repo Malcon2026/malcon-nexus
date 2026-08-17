@@ -116,6 +116,7 @@ function tvRemark(c: ImplantCase): string {
   const remarks = (c.remarks ?? '').trim();
   if (remarks) return remarks;
   if (c.cancelReason || c.status === 'Cancelled') return UNUSED_IMPLANTS_REMARK;
+  if (c.postponeReason) return `Postponed${c.surgeryDate ? ` to ${c.surgeryDate}` : ''}`;
   return '';
 }
 
@@ -146,6 +147,11 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
           {closedCancelled ? (
             <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#f59e0b', color: '#111' }}>
               Implants unused
+            </span>
+          ) : null}
+          {c.postponeReason && !closedCancelled && !returning ? (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#38bdf8', color: '#0f172a' }}>
+              Postponed
             </span>
           ) : null}
         </div>

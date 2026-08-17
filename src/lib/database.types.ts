@@ -118,6 +118,8 @@ export interface Database {
           collected_amount: number | null;
           payment_status: 'Pending' | 'Partial' | 'Collected' | null;
           cancel_reason: string;
+          postpone_reason: string;
+          postponed_from: string | null;
           created_at: string;
           updated_at: string;
         };

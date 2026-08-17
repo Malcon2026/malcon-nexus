@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban, CalendarClock
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -286,6 +286,80 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
   );
 };
 
+const PostponeCaseModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  caseId: string;
+  currentStage: WorkflowStage;
+  surgeryDate: string;
+}> = ({ isOpen, onClose, caseId, currentStage, surgeryDate }) => {
+  const { postponeCase } = useStore();
+  const [newDate, setNewDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const canSubmit = newDate.length > 0 && newDate !== surgeryDate && reason.trim().length > 0;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await postponeCase(caseId, newDate, reason);
+      setNewDate('');
+      setReason('');
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to postpone case.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Postpone Case"
+      subtitle="Surgery moves to a later date. Kit stays where it is."
+      size="md"
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Keep Date</Button>
+          <Button variant="warning" size="sm" onClick={() => void handleSubmit()} disabled={submitting || !canSubmit}>
+            {submitting ? 'Saving...' : 'Postpone Case'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="p-6">
+        <div className="mb-4 p-3 bg-sky-50 border border-sky-100 rounded-lg flex items-start gap-2">
+          <CalendarClock className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-sky-700">
+            Use this when surgery is delayed, not cancelled. The case stays live at{' '}
+            <strong>{currentStage}</strong>. Billing still happens after the new surgery date.
+            If implants will not be used at all, use Cancel Case instead.
+          </p>
+        </div>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">New surgery date *</label>
+        <input
+          type="date"
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 mb-4"
+          value={newDate}
+          min={surgeryDate || undefined}
+          onChange={(e) => setNewDate(e.target.value)}
+        />
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">Reason (required)</label>
+        <textarea
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+          rows={3}
+          placeholder="e.g. Patient unwell. Surgery moved to next week. Kit stays at hospital."
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </div>
+    </Modal>
+  );
+};
+
 interface CaseDetailProps {
   case: ImplantCase;
   onBack: () => void;
@@ -299,6 +373,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [showPostpone, setShowPostpone] = useState(false);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
   const currentStageIdx = getStageIndex(c.currentStage);
@@ -312,6 +387,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
   const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
+  const canPostpone =
+    viewMode === 'admin' &&
+    c.status !== 'Completed' &&
+    c.status !== 'Cancelled' &&
+    !c.cancelReason;
   const canForceAdvance =
     viewMode === 'admin' &&
     c.currentStage !== 'Completed' &&
@@ -361,6 +441,15 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       )}
       {showCancel && (
         <CancelCaseModal isOpen={true} onClose={() => setShowCancel(false)} caseId={c.id} currentStage={c.currentStage} />
+      )}
+      {showPostpone && (
+        <PostponeCaseModal
+          isOpen={true}
+          onClose={() => setShowPostpone(false)}
+          caseId={c.id}
+          currentStage={c.currentStage}
+          surgeryDate={c.surgeryDate}
+        />
       )}
 
       {/* Header */}
@@ -426,6 +515,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                   {c.cancelReason ? 'Close as Cancelled' : 'Close Case'}
                 </Button>
               )}
+              {canPostpone && (
+                <Button variant="outline" size="sm" icon={<CalendarClock className="h-4 w-4" />} onClick={() => setShowPostpone(true)}>
+                  Postpone
+                </Button>
+              )}
               {canCancel && (
                 <Button variant="outline" size="sm" icon={<Ban className="h-4 w-4" />} onClick={() => setShowCancel(true)}>
                   Cancel Case
@@ -467,6 +561,20 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
             <p className="text-xs text-amber-800 mt-0.5">
               No implants were used. Kit comes back through Pickup → Cleaning & Audit → Restock. Billing is skipped.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {Boolean(c.postponeReason) && !returningUnused && c.status !== 'Cancelled' && (
+        <div className="mb-6 p-3 rounded-xl bg-sky-50 border border-sky-200 flex items-start gap-2">
+          <CalendarClock className="h-4 w-4 text-sky-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-sky-900">Surgery postponed</p>
+            <p className="text-xs text-sky-800 mt-0.5">
+              New date: {formatDate(c.surgeryDate)}
+              {c.postponedFrom ? ` (was ${formatDate(c.postponedFrom)})` : ''}.
+              Kit stays at {c.currentStage}. Reason: {c.postponeReason}
             </p>
           </div>
         </div>
@@ -530,6 +638,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       { label: 'Created By', value: c.createdBy },
                       { label: 'Created At', value: formatDate(c.createdAt) },
                       ...(c.cancelReason ? [{ label: 'Cancel Reason', value: c.cancelReason }] : []),
+                      ...(c.postponeReason ? [
+                        { label: 'Postpone Reason', value: c.postponeReason },
+                        ...(c.postponedFrom ? [{ label: 'Original Surgery Date', value: formatDate(c.postponedFrom) }] : []),
+                      ] : []),
                     ].map(({ label, value }) => (
                       <div key={label}>
                         <p className="text-xs text-gray-500">{label}</p>

@@ -178,6 +178,12 @@ export const LiveCases: React.FC = () => {
                     </div>
                   )}
 
+                  {c.postponeReason && !c.cancelReason && (
+                    <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-sky-50 border border-sky-100 rounded-lg">
+                      <span className="text-[10px] text-sky-800 font-medium">Postponed</span>
+                    </div>
+                  )}
+
                   {isWaiting && (
                     <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
                       <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />

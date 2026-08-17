@@ -148,6 +148,10 @@ export interface ImplantCase {
    * Case stays live through Pickup → Cleaning → Restock, then closes as Cancelled (no billing).
    */
   cancelReason?: string;
+  /** Set when surgery is postponed to a later date. Case stays live at the current stage. */
+  postponeReason?: string;
+  /** Surgery date before the latest postpone. */
+  postponedFrom?: string;
 }
 
 export interface Notification {

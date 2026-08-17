@@ -115,6 +115,7 @@ interface AppState {
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   cancelCase: (caseId: string, reason: string) => Promise<void>;
+  postponeCase: (caseId: string, newSurgeryDate: string, reason: string) => Promise<void>;
   deleteCase: (id: string) => void;
 
   // Employee Actions
@@ -707,6 +708,8 @@ export const useStore = create<AppState>((set, get) => ({
       invoiceAmount: 0,
       paymentStatus: 'Pending',
       cancelReason: '',
+      postponeReason: '',
+      postponedFrom: '',
     };
 
     try {
@@ -1532,6 +1535,83 @@ export const useStore = create<AppState>((set, get) => ({
     if (nextEmp) {
       void notifyCaseAssignment(caseId, nextEmp.id);
     }
+  },
+
+  postponeCase: async (caseId, newSurgeryDate, reason) => {
+    const trimmed = reason.trim();
+    const nextDate = newSurgeryDate.trim();
+    if (!trimmed) throw new Error('Please enter a reason for postponing.');
+    if (!nextDate) throw new Error('Please pick the new surgery date.');
+
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return;
+    if (c.status === 'Completed' || c.status === 'Cancelled') {
+      throw new Error('This case is already closed.');
+    }
+    if (c.cancelReason) {
+      throw new Error('This case is cancelled. Unused implants are returning — it cannot be postponed.');
+    }
+    if (nextDate === c.surgeryDate) {
+      throw new Error('Pick a different surgery date.');
+    }
+
+    const now = new Date().toISOString();
+    const previousDate = c.surgeryDate;
+    const postponeLine = `Postponed to ${nextDate}`;
+    const existingRemarks = (c.remarks ?? '').trim();
+    const remarks = /postponed to/i.test(existingRemarks)
+      ? existingRemarks.replace(/postponed to \S+/i, postponeLine)
+      : [existingRemarks, postponeLine].filter(Boolean).join('\n');
+    const postponedFrom = c.postponedFrom || previousDate || '';
+
+    const postponeLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: 'Case Postponed',
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: now,
+      details: `Surgery postponed from ${previousDate || 'unscheduled'} to ${nextDate}. Kit stays at ${c.currentStage}. Reason: ${trimmed}`,
+    };
+
+    const updatedCase = await taskRepository.update(caseId, {
+      surgeryDate: nextDate,
+      dueDate: nextDate,
+      postponeReason: trimmed,
+      postponedFrom,
+      remarks,
+      activityLogs: [...c.activityLogs, postponeLog],
+    });
+
+    const activity = createActivityEvent(
+      'Case Postponed',
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `Case ${c.caseNumber} postponed to ${nextDate}.`,
+    );
+    persistActivity(activity);
+
+    const notif = createNotification(
+      'Case Postponed',
+      `${c.caseNumber} postponed to ${nextDate}. Kit stays at ${c.currentStage}.`,
+      'warning',
+      caseId,
+    );
+    persistNotification(notif);
+
+    set((s) => ({
+      cases: s.cases.map((x) =>
+        x.id === caseId
+          ? { ...updatedCase, postponeReason: trimmed, postponedFrom, remarks }
+          : x,
+      ),
+      activityLog: [activity, ...s.activityLog],
+      notifications: [notif, ...s.notifications],
+    }));
   },
 
   deleteCase: async (id) => {

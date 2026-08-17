@@ -58,6 +58,7 @@ export const CASE_EXPORT_HEADERS = [
   'Payment Status',
   'Remarks',
   'Cancel Reason',
+  'Postpone Reason',
 ];
 
 export function caseToExportRow(c: ImplantCase): unknown[] {
@@ -82,6 +83,7 @@ export function caseToExportRow(c: ImplantCase): unknown[] {
     c.paymentStatus ?? 'Pending',
     c.remarks ?? '',
     c.cancelReason ?? '',
+    c.postponeReason ?? '',
   ];
 }
 
