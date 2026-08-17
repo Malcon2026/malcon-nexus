@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, Priority, WorkflowStage } from '../types';
+import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST } from '../lib/attendance';
 
 /*
@@ -71,10 +71,123 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   );
 }
 
+function CasesSlide({ cases, page }: { cases: ImplantCase[]; page: number }) {
+  const visible = cases.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`grid ${GRID_COLS} gap-3 px-8 pb-2 shrink-0`}>
+        {['Case', 'Hospital', 'Doctor', 'Assigned', 'Date', ''].map((h, i) => (
+          <span
+            key={i}
+            className={`text-xs font-semibold uppercase tracking-wider ${i === 5 ? 'justify-self-end' : ''}`}
+            style={{ color: INK_DIM }}
+          >
+            {h}
+          </span>
+        ))}
+      </div>
+      <div className="flex-1 px-6 flex flex-col overflow-hidden">
+        {visible.length === 0 && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
+          </div>
+        )}
+        {visible.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
+      </div>
+    </div>
+  );
+}
+
+function EmployeeCard({ name, department, sub, busy }: { name: string; department: string; sub: string; busy: boolean }) {
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-3 rounded-lg"
+      style={{ background: 'rgba(255,255,255,0.05)' }}
+    >
+      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: busy ? '#fb923c' : '#34d399' }} />
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-bold truncate" style={{ color: INK }}>{name}</p>
+        <p className="text-sm truncate" style={{ color: INK_MUTED }}>{department}</p>
+      </div>
+      <p className="text-sm font-semibold text-right shrink-0 max-w-[45%] truncate" style={{ color: busy ? '#fdba74' : '#6ee7b7' }}>
+        {sub}
+      </p>
+    </div>
+  );
+}
+
+function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; employees: Employee[] }) {
+  const { busy, idle } = useMemo(() => {
+    const busyByEmployee = new Map<string, ImplantCase>();
+    for (const c of cases) {
+      if (c.assignedEmployee) busyByEmployee.set(c.assignedEmployee.id, c);
+    }
+    const active = employees.filter((e) => e.status === 'Active');
+    const busyList = active
+      .filter((e) => busyByEmployee.has(e.id))
+      .map((e) => ({ employee: e, case: busyByEmployee.get(e.id)! }))
+      .sort((a, b) => a.employee.name.localeCompare(b.employee.name));
+    const idleList = active
+      .filter((e) => !busyByEmployee.has(e.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { busy: busyList, idle: idleList };
+  }, [cases, employees]);
+
+  return (
+    <div className="flex-1 grid grid-cols-2 gap-6 px-8 pb-4 overflow-hidden">
+      <div className="flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 pb-3 shrink-0">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#fb923c' }} />
+          <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>On A Case</p>
+          <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({busy.length})</span>
+        </div>
+        <div className="flex-1 flex flex-col gap-2 overflow-hidden">
+          {busy.length === 0 && (
+            <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Nobody is on a case right now.</p>
+          )}
+          {busy.map(({ employee, case: c }) => (
+            <EmployeeCard
+              key={employee.id}
+              name={employee.name}
+              department={employee.department}
+              sub={`${c.caseNumber} · ${c.currentStage}`}
+              busy
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 pb-3 shrink-0">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: '#34d399' }} />
+          <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>Idle / Available</p>
+          <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({idle.length})</span>
+        </div>
+        <div className="flex-1 flex flex-col gap-2 overflow-hidden">
+          {idle.length === 0 && (
+            <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Everyone is currently on a case.</p>
+          )}
+          {idle.map((employee) => (
+            <EmployeeCard
+              key={employee.id}
+              name={employee.name}
+              department={employee.department}
+              sub="Available"
+              busy={false}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const TvBoard: React.FC = () => {
-  const { cases, setActiveTab, reloadFromDatabase, viewMode, currentUser } = useStore();
+  const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser } = useStore();
   const [now, setNow] = useState(new Date());
-  const [page, setPage] = useState(0);
+  const [slide, setSlide] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -106,19 +219,40 @@ export const TvBoard: React.FC = () => {
       });
   }, [cases]);
 
-  const pageCount = Math.max(1, Math.ceil(liveCases.length / PAGE_SIZE));
+  const caseTagCount = Math.max(1, Math.ceil(liveCases.length / PAGE_SIZE));
+  // Slides = one per case page, plus one final slide for employee status.
+  const totalSlides = caseTagCount + 1;
+
+  const restartTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setSlide((s) => (s + 1) % totalSlides);
+    }, ROTATE_MS);
+  }, [totalSlides]);
 
   useEffect(() => {
-    if (pageCount <= 1) { setPage(0); return; }
-    const t = setInterval(() => setPage((p) => (p + 1) % pageCount), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [pageCount]);
+    restartTimer();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [restartTimer]);
 
   useEffect(() => {
-    if (page >= pageCount) setPage(0);
-  }, [pageCount, page]);
+    if (slide >= totalSlides) setSlide(0);
+  }, [totalSlides, slide]);
 
-  const visibleCases = liveCases.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const goToSlide = useCallback((next: number) => {
+    setSlide(((next % totalSlides) + totalSlides) % totalSlides);
+    restartTimer();
+  }, [totalSlides, restartTimer]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') goToSlide(slide + 1);
+      if (e.key === 'ArrowLeft') goToSlide(slide - 1);
+      if (e.key === 'Escape') setActiveTab('dashboard');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [slide, goToSlide, setActiveTab]);
 
   const surgeryToday = liveCases.filter((c) => {
     const d = new Date(c.surgeryDate);
@@ -127,38 +261,69 @@ export const TvBoard: React.FC = () => {
   }).length;
 
   const critical = liveCases.filter((c) => c.priority === 'Critical').length;
+  const isEmployeeSlide = slide === totalSlides - 1;
+  const activeEmployeeCount = employees.filter((e) => e.status === 'Active').length;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden select-none" style={{ background: '#0a0d14', color: INK }}>
       <button
         onClick={() => setActiveTab('dashboard')}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full transition-colors"
+        className="absolute top-4 right-4 z-20 p-2 rounded-full transition-colors"
         style={{ background: 'rgba(255,255,255,0.1)', color: INK_MUTED }}
         aria-label="Exit TV board"
       >
         <X className="h-5 w-5" />
       </button>
 
+      {/* Manual nav arrows */}
+      <button
+        onClick={() => goToSlide(slide - 1)}
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full transition-colors"
+        style={{ background: 'rgba(255,255,255,0.08)', color: INK_MUTED }}
+        aria-label="Previous slide"
+      >
+        <ChevronLeft className="h-6 w-6" />
+      </button>
+      <button
+        onClick={() => goToSlide(slide + 1)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full transition-colors"
+        style={{ background: 'rgba(255,255,255,0.08)', color: INK_MUTED }}
+        aria-label="Next slide"
+      >
+        <ChevronRight className="h-6 w-6" />
+      </button>
+
       {/* Header */}
       <div className="flex items-center justify-between px-8 pt-6 pb-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div>
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9a8cff' }}>Malcon Nexus</p>
-          <h1 className="text-2xl font-bold tracking-tight mt-0.5" style={{ color: INK }}>Live Case Board</h1>
+          <h1 className="text-2xl font-bold tracking-tight mt-0.5" style={{ color: INK }}>
+            {isEmployeeSlide ? 'Team Status' : 'Live Case Board'}
+          </h1>
         </div>
 
         <div className="flex items-center gap-8">
-          <div className="text-center">
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Live</p>
-            <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{liveCases.length}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Today</p>
-            <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{surgeryToday}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#f87171' }}>Critical</p>
-            <p className="text-2xl font-extrabold mt-0.5" style={{ color: '#f87171' }}>{critical}</p>
-          </div>
+          {isEmployeeSlide ? (
+            <div className="text-center">
+              <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>On Duty</p>
+              <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{activeEmployeeCount}</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Live</p>
+                <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{liveCases.length}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Today</p>
+                <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{surgeryToday}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#f87171' }}>Critical</p>
+                <p className="text-2xl font-extrabold mt-0.5" style={{ color: '#f87171' }}>{critical}</p>
+              </div>
+            </>
+          )}
 
           <div className="text-right pl-6" style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
             <p className="text-3xl font-black tabular-nums tracking-tight leading-none" style={{ color: INK }}>{formatTimeIST(now)}</p>
@@ -167,42 +332,33 @@ export const TvBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* Column headers */}
-      <div className={`grid ${GRID_COLS} gap-3 px-8 mt-4 pb-2 shrink-0`}>
-        {['Case', 'Hospital', 'Doctor', 'Assigned', 'Date', ''].map((h, i) => (
-          <span
-            key={i}
-            className={`text-xs font-semibold uppercase tracking-wider ${i === 5 ? 'justify-self-end' : ''}`}
-            style={{ color: INK_DIM }}
-          >
-            {h}
-          </span>
-        ))}
-      </div>
-
-      {/* Cases list */}
-      <div className="flex-1 px-6 pb-4 flex flex-col overflow-hidden">
-        {visibleCases.length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
-          </div>
+      <div className="flex-1 flex flex-col overflow-hidden pt-4">
+        {isEmployeeSlide ? (
+          <EmployeeStatusSlide cases={liveCases} employees={employees} />
+        ) : (
+          <CasesSlide cases={liveCases} page={Math.min(slide, caseTagCount - 1)} />
         )}
-        {visibleCases.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
       </div>
 
-      {/* Pagination dots */}
-      {pageCount > 1 && (
+      {/* Slide dots */}
+      {totalSlides > 1 && (
         <div className="flex items-center justify-center gap-2 pb-4 shrink-0">
-          {Array.from({ length: pageCount }).map((_, i) => (
-            <div
-              key={i}
-              className="h-1.5 rounded-full transition-all"
-              style={{
-                width: i === page ? '1.5rem' : '0.375rem',
-                background: i === page ? '#9a8cff' : 'rgba(255,255,255,0.2)',
-              }}
-            />
-          ))}
+          {Array.from({ length: totalSlides }).map((_, i) => {
+            const isLast = i === totalSlides - 1;
+            const isCurrent = i === slide;
+            return (
+              <button
+                key={i}
+                onClick={() => goToSlide(i)}
+                aria-label={isLast ? 'Team status slide' : `Cases page ${i + 1}`}
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  width: isCurrent ? '1.5rem' : '0.375rem',
+                  background: isCurrent ? (isLast ? '#fb923c' : '#9a8cff') : 'rgba(255,255,255,0.2)',
+                }}
+              />
+            );
+          })}
         </div>
       )}
     </div>
