@@ -1,4 +1,4 @@
-name: Deploy to Vercel
+name: Build
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: vercel-production
+  group: app-build
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,11 +30,3 @@ jobs:
         run: |
           test -f dist/gallery.html
           grep -q "Malcon Gallery" dist/gallery.html
-
-      - name: Deploy to Vercel Production
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: --prod
