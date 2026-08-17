@@ -122,8 +122,11 @@ export interface ImplantCase {
   hospital: Hospital;
   doctor: Doctor;
   surgeryDate: string;
+  /** Surgery / procedure name, e.g. "Total Knee Replacement". */
   implantRequired: string;
   implantType: string;
+  /** Manufacturer / brand supplying the implant, e.g. "Zimmer Biomet". */
+  implantCompany: string;
   priority: Priority;
   status: CaseStatus;
   currentStage: WorkflowStage;

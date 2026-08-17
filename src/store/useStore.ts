@@ -686,6 +686,7 @@ export const useStore = create<AppState>((set, get) => ({
       surgeryDate: caseData.surgeryDate || '',
       implantRequired: caseData.implantRequired || '',
       implantType: caseData.implantType || '',
+      implantCompany: caseData.implantCompany || '',
       priority: caseData.priority || 'Medium',
       status: 'Active',
       currentStage: startStage,

@@ -101,6 +101,7 @@ export interface Database {
           surgery_date: string | null;
           implant_required: string;
           implant_type: string;
+          implant_company: string;
           priority: 'Critical' | 'High' | 'Medium' | 'Low';
           status: string;
           current_stage: string;

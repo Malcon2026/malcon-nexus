@@ -292,7 +292,7 @@ export const ApprovalQueue: React.FC = () => {
                             <p className="text-sm font-medium text-gray-800 truncate">{c.doctor.name}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-400">Implant</p>
+                            <p className="text-xs text-gray-400">Surgery</p>
                             <p className="text-sm font-medium text-gray-800 truncate">{c.implantRequired}</p>
                           </div>
                           <div>

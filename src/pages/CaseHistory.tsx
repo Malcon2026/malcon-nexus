@@ -109,6 +109,7 @@ export const CaseHistory: React.FC = () => {
           c.hospital.name.toLowerCase().includes(q) ||
           c.doctor.name.toLowerCase().includes(q) ||
           c.implantRequired.toLowerCase().includes(q) ||
+          (c.implantCompany?.toLowerCase().includes(q) ?? false) ||
           (c.assignedEmployee?.name.toLowerCase().includes(q) ?? false),
       );
     }

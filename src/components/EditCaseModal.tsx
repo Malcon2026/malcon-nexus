@@ -23,6 +23,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     surgeryDate: c.surgeryDate,
     implantRequired: c.implantRequired,
     implantType: c.implantType,
+    implantCompany: c.implantCompany || '',
     priority: c.priority,
     remarks: c.remarks || '',
     invoiceAmount: c.invoiceAmount != null ? String(c.invoiceAmount) : '',
@@ -78,6 +79,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
         surgeryDate: form.surgeryDate,
         implantRequired: form.implantRequired,
         implantType: form.implantType,
+        implantCompany: form.implantCompany,
         priority: form.priority,
         remarks: form.remarks,
         dueDate: form.surgeryDate,
@@ -181,14 +183,19 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               </div>
             </div>
 
+            <div>
+              <label className={labelClass}>Surgery *</label>
+              <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement" value={form.implantRequired} onChange={e => setForm({...form, implantRequired: e.target.value})} />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={labelClass}>Implant Required *</label>
-                <input type="text" className={inputClass} placeholder="e.g. Knee Implant" value={form.implantRequired} onChange={e => setForm({...form, implantRequired: e.target.value})} />
+                <label className={labelClass}>Implant Type</label>
+                <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={e => setForm({...form, implantType: e.target.value})} />
               </div>
               <div>
-                <label className={labelClass}>Implant Type</label>
-                <input type="text" className={inputClass} placeholder="e.g. Kneeed" value={form.implantType} onChange={e => setForm({...form, implantType: e.target.value})} />
+                <label className={labelClass}>Implant Company</label>
+                <input type="text" className={inputClass} placeholder="e.g. Zimmer Biomet, Stryker" value={form.implantCompany} onChange={e => setForm({...form, implantCompany: e.target.value})} />
               </div>
             </div>
 

@@ -45,6 +45,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     surgeryDate: '',
     implantRequired: '',
     implantType: '',
+    implantCompany: '',
     priority: 'Medium' as Priority,
     remarks: '',
     startStage: 'Kit Preparation' as AssignableStage,
@@ -75,6 +76,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       surgeryDate: '',
       implantRequired: '',
       implantType: '',
+      implantCompany: '',
       priority: 'Medium',
       remarks: '',
       startStage: 'Kit Preparation',
@@ -124,6 +126,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         surgeryDate: form.surgeryDate,
         implantRequired: form.implantRequired,
         implantType: form.implantType,
+        implantCompany: form.implantCompany,
         priority: form.priority,
         remarks: form.remarks,
         dueDate: form.surgeryDate,
@@ -198,12 +201,18 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
           </div>
         </div>
         <div>
-          <label className={labelClass}>Implant Required *</label>
-          <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement System" value={form.implantRequired} onChange={(e) => setForm({ ...form, implantRequired: e.target.value })} />
+          <label className={labelClass}>Surgery *</label>
+          <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement" value={form.implantRequired} onChange={(e) => setForm({ ...form, implantRequired: e.target.value })} />
         </div>
-        <div>
-          <label className={labelClass}>Implant Type</label>
-          <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={(e) => setForm({ ...form, implantType: e.target.value })} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Implant Type</label>
+            <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={(e) => setForm({ ...form, implantType: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>Implant Company</label>
+            <input type="text" className={inputClass} placeholder="e.g. Zimmer Biomet, Stryker" value={form.implantCompany} onChange={(e) => setForm({ ...form, implantCompany: e.target.value })} />
+          </div>
         </div>
         <div>
           <label className={labelClass}>Remarks</label>
@@ -324,7 +333,8 @@ export const Cases: React.FC = () => {
         c.caseNumber.toLowerCase().includes(q) ||
         c.hospital.name.toLowerCase().includes(q) ||
         c.doctor.name.toLowerCase().includes(q) ||
-        c.implantRequired.toLowerCase().includes(q)
+        c.implantRequired.toLowerCase().includes(q) ||
+        (c.implantCompany?.toLowerCase().includes(q) ?? false)
       );
     }
     if (filterPriority) result = result.filter(c => c.priority === filterPriority);

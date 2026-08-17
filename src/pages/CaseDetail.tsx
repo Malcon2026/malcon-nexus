@@ -413,8 +413,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                     {[
                       { label: 'Case Number', value: c.caseNumber },
                       { label: 'Surgery Date', value: formatDate(c.surgeryDate) },
-                      { label: 'Implant Required', value: c.implantRequired },
+                      { label: 'Surgery', value: c.implantRequired },
                       { label: 'Implant Type', value: c.implantType || '—' },
+                      { label: 'Implant Company', value: c.implantCompany || '—' },
                       { label: 'Priority', value: c.priority },
                       { label: 'Due Date', value: formatDate(c.dueDate) },
                       { label: 'Created By', value: c.createdBy },
