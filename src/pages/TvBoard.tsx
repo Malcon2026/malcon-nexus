@@ -28,13 +28,6 @@ const STAGE_COLOR: Record<WorkflowStage, string> = {
   'Completed': '#16a34a',
 };
 
-const PRIORITY_DOT: Record<Priority, string> = {
-  Critical: 'bg-red-500',
-  High: 'bg-orange-400',
-  Medium: 'bg-yellow-400',
-  Low: 'bg-sky-400',
-};
-
 const PAGE_SIZE = 5;
 const ROTATE_MS = 60000;
 const REFRESH_MS = 30000;
@@ -136,7 +129,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
     >
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse ${PRIORITY_DOT[c.priority]}`} />
+          <span className="h-2.5 w-2.5 rounded-full shrink-0 tv-dot-pulse" />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           {c.hospital.branch ? (
             <span className="text-sm font-medium truncate shrink-0" style={{ color: INK_MUTED }}>{c.hospital.branch}</span>
