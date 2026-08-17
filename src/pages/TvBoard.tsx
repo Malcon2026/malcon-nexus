@@ -131,7 +131,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
-            className={`h-2.5 w-2.5 rounded-full shrink-0 ${isLiveActive ? 'tv-dot-pulse' : ''}`}
+            className={`h-2.5 w-2.5 rounded-full shrink-0 overflow-hidden ${isLiveActive ? 'tv-dot-pulse' : ''}`}
             style={isLiveActive ? undefined : { background: INK_DIM }}
           />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>

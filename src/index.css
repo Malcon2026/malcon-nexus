@@ -574,6 +574,12 @@ textarea {
 .tv-dot-pulse {
   animation: tv-dot-ambulance 0.4s step-end infinite;
   background-color: #ef4444;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  outline: none;
+  /* Opaque ring in the board background so anti-alias / TV bloom cannot show as a halo */
+  box-shadow: 0 0 0 2px #0a0d14 !important;
 }
 
 @keyframes tv-dot-ambulance {
