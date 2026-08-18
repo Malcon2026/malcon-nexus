@@ -9,6 +9,7 @@ import type { PetrolRequest, PetrolRequestStatus } from '../types';
 import { petrolStatusLabel, canManagePetrol } from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
+import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -153,9 +154,13 @@ export const PetrolDashboard: React.FC = () => {
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Issue book and token numbers. From the second request, the boy attaches last fill bill and kms photos.
+            Request petrol yourself, or issue book and token numbers for the team.
           </p>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <EmployeePetrolSection title="Request petrol" />
       </div>
 
       {isMainAdmin && (

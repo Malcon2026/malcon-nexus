@@ -28,7 +28,7 @@ const statusBadge: Record<PetrolRequest['status'], string> = {
   cancelled: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
-export const EmployeePetrolSection: React.FC = () => {
+export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'Petrol' }) => {
   const currentUser = useStore((s) => s.currentUser);
   const petrolRequests = useStore((s) => s.petrolRequests);
   const requestPetrol = useStore((s) => s.requestPetrol);
@@ -139,7 +139,7 @@ export const EmployeePetrolSection: React.FC = () => {
               <Fuel className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Petrol</p>
+              <p className="text-sm font-bold text-gray-900">{title}</p>
               <Te className="text-gray-500 mb-0">Petrol token</Te>
             </div>
           </div>
