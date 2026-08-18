@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Petrol — simple flow</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: #f7f7f8;
+      color: #111827;
+    }
+    .wrap { max-width: 440px; margin: 0 auto; padding: 40px 20px 72px; }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    .sub { color: #6b7280; margin: 0 0 32px; font-size: 15px; }
+    .step {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .who {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #ea580c;
+      margin: 0 0 6px;
+    }
+    .who.desk { color: #4f46e5; }
+    .step b { display: block; font-size: 16px; margin-bottom: 4px; }
+    .step p { margin: 0; color: #6b7280; font-size: 14px; }
+    .arrow { text-align: center; color: #9ca3af; font-size: 20px; padding: 8px 0; }
+    .ok { color: #059669; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Petrol</h1>
+    <p class="sub">Boy asks. Desk gives token. Photos come next time.</p>
+
+    <div class="step">
+      <p class="who">Boy</p>
+      <b>Ask for petrol</b>
+      <p>Amount + vehicle. First time: no photos.</p>
+    </div>
+    <div class="arrow">↓</div>
+
+    <div class="step">
+      <p class="who desk">Desk</p>
+      <b>Give book + token number</b>
+      <p>Boy goes to the pump and fills.</p>
+    </div>
+    <div class="arrow">↓</div>
+
+    <div class="step">
+      <p class="who">Boy — next time</p>
+      <b>Last bill + meter readings</b>
+      <p>Previous reading 1234, current 1254 → 20 km driven. Photos + new token request. Can ask again same day.</p>
+    </div>
+    <div class="arrow">↓</div>
+
+    <div class="step">
+      <p class="who desk">Desk shortcut</p>
+      <b>Manual entry</b>
+      <p>Type an old fill by hand. Keep “bill received” on so it does not block the boy.</p>
+    </div>
+
+    <p class="sub" style="margin-top:28px">
+      Kms = distance driven (current − previous).<br />
+      Multiple petrol requests per day allowed.<br />
+      Dashboard = watch spend and export CSV.
+    </p>
+    <p class="ok" style="font-size:14px">That’s the whole system.</p>
+  </div>
+</body>
+</html>

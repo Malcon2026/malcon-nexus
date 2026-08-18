@@ -990,6 +990,8 @@ function rowToPetrol(row: Record<string, unknown>): PetrolRequest {
     issuedById: (row.issued_by_id as string | null) ?? null,
     issuedAt: (row.issued_at as string | null) ?? null,
     kms: row.kms == null ? null : Number(row.kms),
+    kmsStart: row.kms_start == null ? null : Number(row.kms_start),
+    kmsEnd: row.kms_end == null ? null : Number(row.kms_end),
     receiptUrl: (row.receipt_url as string) ?? '',
     kmsPhotoUrl: (row.kms_photo_url as string) ?? '',
     receiptSubmittedAt: (row.receipt_submitted_at as string | null) ?? null,
@@ -1035,6 +1037,8 @@ export const sbPetrolRepo = {
       issued_by_id: request.issuedById,
       issued_at: request.issuedAt,
       kms: request.kms,
+      kms_start: request.kmsStart,
+      kms_end: request.kmsEnd,
       receipt_url: request.receiptUrl,
       kms_photo_url: request.kmsPhotoUrl,
       receipt_submitted_at: request.receiptSubmittedAt,
@@ -1057,6 +1061,8 @@ export const sbPetrolRepo = {
     if (updates.issuedById !== undefined) payload.issued_by_id = updates.issuedById;
     if (updates.issuedAt !== undefined) payload.issued_at = updates.issuedAt;
     if (updates.kms !== undefined) payload.kms = updates.kms;
+    if (updates.kmsStart !== undefined) payload.kms_start = updates.kmsStart;
+    if (updates.kmsEnd !== undefined) payload.kms_end = updates.kmsEnd;
     if (updates.receiptUrl !== undefined) payload.receipt_url = updates.receiptUrl;
     if (updates.kmsPhotoUrl !== undefined) payload.kms_photo_url = updates.kmsPhotoUrl;
     if (updates.receiptSubmittedAt !== undefined) payload.receipt_submitted_at = updates.receiptSubmittedAt;

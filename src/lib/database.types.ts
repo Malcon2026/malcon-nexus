@@ -194,6 +194,8 @@ export interface Database {
           issued_by_id: string | null;
           issued_at: string | null;
           kms: number | null;
+          kms_start: number | null;
+          kms_end: number | null;
           receipt_url: string;
           kms_photo_url: string;
           receipt_submitted_at: string | null;

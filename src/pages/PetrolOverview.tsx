@@ -148,7 +148,7 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
           { label: 'Today', value: formatCurrency(stats.todayAmount), sub: `${stats.todayFills} fill${stats.todayFills === 1 ? '' : 's'}`, icon: <Fuel className="h-4 w-4 text-orange-600" />, bg: 'bg-orange-50' },
           { label: 'Month spend', value: formatCurrency(stats.monthAmount), sub: `${stats.monthFills} fills · avg ${formatCurrency(stats.avgFill)}`, icon: <Wallet className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50' },
           { label: 'Staff this month', value: stats.uniqueStaff, sub: `${stats.uniqueVehicles} vehicle${stats.uniqueVehicles === 1 ? '' : 's'}`, icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
-          { label: 'Kms logged', value: stats.monthKms ? stats.monthKms.toLocaleString('en-IN') : '—', sub: 'From bill receipts', icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
+          { label: 'Km driven', value: stats.monthKms ? stats.monthKms.toLocaleString('en-IN') : '—', sub: 'Trip km from bills', icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
         ].map((item) => (
           <Card key={item.label} className="p-4">
             <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${item.bg} mb-3`}>{item.icon}</div>
@@ -240,7 +240,7 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
                   <th className="px-4 py-2.5">Employee</th>
                   <th className="px-4 py-2.5 text-right">Fills</th>
                   <th className="px-4 py-2.5 text-right">Amount</th>
-                  <th className="px-4 py-2.5 text-right">Kms</th>
+                  <th className="px-4 py-2.5 text-right">Km driven</th>
                   <th className="px-4 py-2.5">Vehicle</th>
                   <th className="px-4 py-2.5">Last fill</th>
                   <th className="px-4 py-2.5" />
@@ -280,7 +280,7 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
       </Card>
 
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-gray-400">CSV includes date, vehicle, amount, book, token, kms, and bill status.</p>
+        <p className="text-xs text-gray-400">CSV includes date, vehicle, amount, book, token, meter readings, km driven, and bill status.</p>
         {petrolRequests.length > 0 && (
           <Button
             type="button"

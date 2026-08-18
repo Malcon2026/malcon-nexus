@@ -23,7 +23,8 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
-import { getPendingPetrolRequest, getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
+import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
+import type { PetrolTripEvidence } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -218,12 +219,12 @@ interface AppState {
     amount: number,
     vehicleNo: string,
     notes?: string,
-    previousEvidence?: { kms: number; receiptPhoto: File; kmsPhoto: File },
+    previousEvidence?: PetrolTripEvidence,
   ) => Promise<{ error: string | null }>;
   cancelPetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
   issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
-  submitPetrolReceipt: (requestId: string, kms: number, receiptPhoto: File, kmsPhoto: File) => Promise<{ error: string | null }>;
+  submitPetrolReceipt: (requestId: string, evidence: PetrolTripEvidence) => Promise<{ error: string | null }>;
   addManualPetrolEntry: (input: {
     employeeId: string;
     expenseDate: string;
@@ -231,6 +232,8 @@ interface AppState {
     amount: number;
     bookNo: string;
     tokenNo: string;
+    kmsStart?: number | null;
+    kmsEnd?: number | null;
     kms?: number | null;
     billReceived?: boolean;
     notes?: string;
@@ -551,8 +554,11 @@ function petrolDbError(err: unknown, fallback: string): string {
   if (message.includes('petrol_requests') && message.includes('does not exist')) {
     return 'Petrol is not set up in the database yet. Please run the petrol_requests migration in Supabase.';
   }
+  if (message.includes('kms_start') || message.includes('kms_end')) {
+    return 'Petrol trip-km columns are missing. Run add-petrol-trip-kms.sql in Supabase.';
+  }
   if (message.includes('idx_petrol_one_open_per_employee') || message.includes('idx_petrol_one_pending_per_employee')) {
-    return 'You already have a petrol request waiting for a token.';
+    return 'An old database rule is blocking more than one open request. Run add-petrol-trip-kms.sql in Supabase.';
   }
   if (message.includes('idx_petrol_book_token')) {
     return 'That book number and token number are already used.';
@@ -3241,21 +3247,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (!vehicle) {
       return { error: 'Enter the vehicle number.' };
     }
-    if (getPendingPetrolRequest(petrolRequests, currentUser.id)) {
-      return { error: 'Wait for the current book and token number first.' };
-    }
 
     const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
     if (previousIssued) {
       if (!previousEvidence) {
-        return { error: 'Upload the last pump bill photo and kms photo to request petrol again.' };
+        return { error: 'Enter previous and current meter readings and upload the last pump bill to request petrol again.' };
       }
-      const closeResult = await get().submitPetrolReceipt(
-        previousIssued.id,
-        previousEvidence.kms,
-        previousEvidence.receiptPhoto,
-        previousEvidence.kmsPhoto,
-      );
+      const closeResult = await get().submitPetrolReceipt(previousIssued.id, previousEvidence);
       if (closeResult.error) return closeResult;
     }
 
@@ -3274,6 +3272,8 @@ export const useStore = create<AppState>((set, get) => ({
       issuedById: null,
       issuedAt: null,
       kms: null,
+      kmsStart: null,
+      kmsEnd: null,
       receiptUrl: '',
       kmsPhotoUrl: '',
       receiptSubmittedAt: null,
@@ -3453,12 +3453,22 @@ export const useStore = create<AppState>((set, get) => ({
     if (!token) return { error: 'Enter the token number.' };
 
     const billReceived = input.billReceived !== false;
-    let kms: number | null = null;
-    if (input.kms != null) {
-      kms = Number(input.kms);
-      if (!Number.isFinite(kms) || kms < 0) {
-        return { error: 'Enter valid kms, or leave it blank.' };
+    let kmsStart: number | null = input.kmsStart == null ? null : Number(input.kmsStart);
+    let kmsEnd: number | null = input.kmsEnd == null ? null : Number(input.kmsEnd);
+    let kms: number | null = input.kms == null ? null : Number(input.kms);
+    if (kmsStart != null && (!Number.isFinite(kmsStart) || kmsStart < 0)) {
+      return { error: 'Enter a valid previous meter reading, or leave it blank.' };
+    }
+    if (kmsEnd != null && (!Number.isFinite(kmsEnd) || kmsEnd < 0)) {
+      return { error: 'Enter a valid current meter reading, or leave it blank.' };
+    }
+    if (kmsStart != null && kmsEnd != null) {
+      if (kmsEnd < kmsStart) {
+        return { error: 'Current reading must be the same as or higher than the previous reading.' };
       }
+      kms = Math.round((kmsEnd - kmsStart) * 10) / 10;
+    } else if (kms != null && (!Number.isFinite(kms) || kms < 0)) {
+      return { error: 'Enter valid kms driven, or leave it blank.' };
     }
 
     const bookTokenTaken = petrolRequests.some(
@@ -3466,15 +3476,6 @@ export const useStore = create<AppState>((set, get) => ({
     );
     if (bookTokenTaken) {
       return { error: 'That book number and token number are already used.' };
-    }
-
-    if (!billReceived) {
-      if (getPendingPetrolRequest(petrolRequests, employee.id)) {
-        return { error: `${employee.name} already has a request waiting for a token.` };
-      }
-      if (getIssuedAwaitingEvidence(petrolRequests, employee.id)) {
-        return { error: `${employee.name} already has an open token. Close it before adding another.` };
-      }
     }
 
     const at = new Date(`${dateKey}T12:00:00+05:30`).toISOString();
@@ -3493,6 +3494,8 @@ export const useStore = create<AppState>((set, get) => ({
       issuedById: currentUser.id,
       issuedAt: at,
       kms,
+      kmsStart,
+      kmsEnd,
       receiptUrl: '',
       kmsPhotoUrl: '',
       receiptSubmittedAt: billReceived ? at : null,
@@ -3512,7 +3515,7 @@ export const useStore = create<AppState>((set, get) => ({
       employee.name,
       currentUser.name,
       'admin',
-      `Manual petrol entry for ${employee.name}: book ${book} token ${token}, ₹${input.amount}, ${vehicle}${kms != null ? `, ${kms} km` : ''}.`,
+      `Manual petrol entry for ${employee.name}: book ${book} token ${token}, ₹${input.amount}, ${vehicle}${kms != null ? `, ${kms} km driven` : ''}.`,
     );
     persistActivity(activity);
 
@@ -3525,7 +3528,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  submitPetrolReceipt: async (requestId, kms, receiptPhoto, kmsPhoto) => {
+  submitPetrolReceipt: async (requestId, evidence) => {
     const { currentUser, petrolRequests } = get();
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol request not found.' };
@@ -3535,8 +3538,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (request.status !== 'issued') {
       return { error: 'Fill petrol at the pump first, then submit the photos.' };
     }
-    if (!Number.isFinite(kms) || kms < 0) {
-      return { error: 'Enter the vehicle kms after filling.' };
+    const { kmsStart, kmsEnd, receiptPhoto, kmsPhoto } = evidence;
+    const kms = Number.isFinite(evidence.kms)
+      ? evidence.kms
+      : Math.round((kmsEnd - kmsStart) * 10) / 10;
+    if (!Number.isFinite(kmsStart) || kmsStart < 0) {
+      return { error: 'Enter the previous meter reading (e.g. 1234).' };
+    }
+    if (!Number.isFinite(kmsEnd) || kmsEnd < kmsStart) {
+      return { error: 'Enter the current meter reading from the bill (e.g. 1254).' };
     }
     if (!receiptPhoto) {
       return { error: 'Take a photo of the pump receipt.' };
@@ -3572,6 +3582,8 @@ export const useStore = create<AppState>((set, get) => ({
     const updates: Partial<PetrolRequest> = {
       status: 'receipt_submitted',
       kms,
+      kmsStart,
+      kmsEnd,
       receiptUrl,
       kmsPhotoUrl,
       receiptSubmittedAt: now,
@@ -3587,7 +3599,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser.name,
       currentUser.name,
       currentUser.role,
-      `${currentUser.name} submitted pump bill and kms photo for book ${request.bookNo} token ${request.tokenNo} (${kms} km).`,
+      `${currentUser.name} submitted pump bill for book ${request.bookNo} token ${request.tokenNo} (${kmsStart} → ${kmsEnd} = ${kms} km driven).`,
     );
     persistActivity(activity);
 

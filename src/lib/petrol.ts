@@ -2,6 +2,17 @@ import type { Employee, PetrolRequest, PetrolRequestStatus } from '../types';
 
 export const PETROL_PRESET_AMOUNTS = [110, 220] as const;
 
+export type PetrolTripReadings = {
+  kmsStart: number;
+  kmsEnd: number;
+  kms: number;
+};
+
+export type PetrolTripEvidence = PetrolTripReadings & {
+  receiptPhoto: File;
+  kmsPhoto: File;
+};
+
 export function getPendingPetrolRequest(
   requests: PetrolRequest[],
   employeeId: string,
@@ -9,19 +20,67 @@ export function getPendingPetrolRequest(
   return requests.find((r) => r.employeeId === employeeId && r.status === 'pending') ?? null;
 }
 
-/** Token already issued — photos are attached on the *next* petrol request. */
+export function getPendingPetrolRequests(
+  requests: PetrolRequest[],
+  employeeId: string,
+): PetrolRequest[] {
+  return requests
+    .filter((r) => r.employeeId === employeeId && r.status === 'pending')
+    .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
+}
+
+/** Oldest issued token that still needs last-fill meter readings + photos. */
 export function getIssuedAwaitingEvidence(
   requests: PetrolRequest[],
   employeeId: string,
 ): PetrolRequest | null {
-  return (
-    requests.find(
-      (r) =>
-        r.employeeId === employeeId &&
-        r.status === 'issued' &&
-        !r.receiptUrl,
-    ) ?? null
-  );
+  const open = requests
+    .filter((r) => r.employeeId === employeeId && r.status === 'issued' && !r.receiptUrl)
+    .sort(
+      (a, b) =>
+        new Date(a.issuedAt || a.requestedAt).getTime() -
+        new Date(b.issuedAt || b.requestedAt).getTime(),
+    );
+  return open[0] ?? null;
+}
+
+/** Last submitted meter reading — prefill as the next previous reading. */
+export function lastMeterReading(requests: PetrolRequest[], employeeId: string): number | null {
+  const latest = requests
+    .filter((r) => r.employeeId === employeeId && r.kmsEnd != null)
+    .sort((a, b) => {
+      const aAt = new Date(a.receiptSubmittedAt || a.requestedAt).getTime();
+      const bAt = new Date(b.receiptSubmittedAt || b.requestedAt).getTime();
+      return bAt - aAt;
+    })[0];
+  return latest?.kmsEnd ?? null;
+}
+
+export function parseTripReadings(
+  startRaw: string,
+  endRaw: string,
+): { readings: PetrolTripReadings } | { error: string } {
+  const kmsStart = Number(startRaw);
+  const kmsEnd = Number(endRaw);
+  if (!Number.isFinite(kmsStart) || kmsStart < 0) {
+    return { error: 'Enter the previous meter reading (e.g. 1234).' };
+  }
+  if (!Number.isFinite(kmsEnd) || kmsEnd < 0) {
+    return { error: 'Enter the current meter reading from the bill (e.g. 1254).' };
+  }
+  if (kmsEnd < kmsStart) {
+    return { error: 'Current reading must be the same as or higher than the previous reading.' };
+  }
+  const kms = Math.round((kmsEnd - kmsStart) * 10) / 10;
+  return { readings: { kmsStart, kmsEnd, kms } };
+}
+
+export function formatTripKms(request: PetrolRequest): string {
+  if (request.kms == null) return '';
+  if (request.kmsStart != null && request.kmsEnd != null) {
+    return `${request.kms} km (${request.kmsStart} → ${request.kmsEnd})`;
+  }
+  return `${request.kms} km`;
 }
 
 export function lastVehicleNo(requests: PetrolRequest[], employeeId: string): string {

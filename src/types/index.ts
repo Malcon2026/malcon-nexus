@@ -326,7 +326,10 @@ export interface PetrolRequest {
   issuedBy: string | null;
   issuedById: string | null;
   issuedAt: string | null;
+  /** Kms driven this fill (current meter − previous meter). */
   kms: number | null;
+  kmsStart: number | null;
+  kmsEnd: number | null;
   receiptUrl: string;
   kmsPhotoUrl: string;
   receiptSubmittedAt: string | null;

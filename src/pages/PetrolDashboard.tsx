@@ -6,7 +6,15 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import type { PetrolRequest, PetrolRequestStatus, Department } from '../types';
-import { petrolStatusLabel, canManagePetrol, lastVehicleNo, PETROL_PRESET_AMOUNTS } from '../lib/petrol';
+import {
+  petrolStatusLabel,
+  canManagePetrol,
+  lastVehicleNo,
+  lastMeterReading,
+  parseTripReadings,
+  formatTripKms,
+  PETROL_PRESET_AMOUNTS,
+} from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { getISTDateKey } from '../lib/attendance';
@@ -63,7 +71,8 @@ export const PetrolDashboard: React.FC = () => {
   const [manualCustomAmount, setManualCustomAmount] = useState('');
   const [manualBook, setManualBook] = useState('');
   const [manualToken, setManualToken] = useState('');
-  const [manualKms, setManualKms] = useState('');
+  const [manualKmsStart, setManualKmsStart] = useState('');
+  const [manualKmsEnd, setManualKmsEnd] = useState('');
   const [manualBillReceived, setManualBillReceived] = useState(true);
   const [manualNotes, setManualNotes] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
@@ -196,7 +205,8 @@ export const PetrolDashboard: React.FC = () => {
     setManualCustomAmount('');
     setManualBook('');
     setManualToken('');
-    setManualKms('');
+    setManualKmsStart('');
+    setManualKmsEnd('');
     setManualBillReceived(true);
     setManualNotes('');
     setStaffSearch('');
@@ -249,10 +259,20 @@ export const PetrolDashboard: React.FC = () => {
 
   const handleManualSave = async () => {
     setError(null);
-    const kmsValue = manualKms.trim() === '' ? null : Number(manualKms);
-    if (kmsValue != null && (!Number.isFinite(kmsValue) || kmsValue < 0)) {
-      setError('Enter valid kms, or leave it blank.');
-      return;
+    const hasStart = manualKmsStart.trim() !== '';
+    const hasEnd = manualKmsEnd.trim() !== '';
+    let kmsStart: number | null = null;
+    let kmsEnd: number | null = null;
+    let kms: number | null = null;
+    if (hasStart || hasEnd) {
+      const parsed = parseTripReadings(manualKmsStart, manualKmsEnd);
+      if ('error' in parsed) {
+        setError(parsed.error);
+        return;
+      }
+      kmsStart = parsed.readings.kmsStart;
+      kmsEnd = parsed.readings.kmsEnd;
+      kms = parsed.readings.kms;
     }
     setBusy(true);
     try {
@@ -263,7 +283,9 @@ export const PetrolDashboard: React.FC = () => {
         amount: manualAmount,
         bookNo: manualBook,
         tokenNo: manualToken,
-        kms: kmsValue,
+        kmsStart,
+        kmsEnd,
+        kms,
         billReceived: manualBillReceived,
         notes: manualNotes,
       });
@@ -398,7 +420,7 @@ export const PetrolDashboard: React.FC = () => {
                   <th className="px-4 py-2.5 text-right">Amount</th>
                   <th className="px-4 py-2.5">Book no</th>
                   <th className="px-4 py-2.5">Token no</th>
-                  <th className="px-4 py-2.5 text-right">Kms</th>
+                  <th className="px-4 py-2.5 text-right">Km driven</th>
                   <th className="px-4 py-2.5">Evidence</th>
                   <th className="px-4 py-2.5">Status</th>
                   <th className="px-4 py-2.5" />
@@ -413,7 +435,13 @@ export const PetrolDashboard: React.FC = () => {
                     <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(r.amount)}</td>
                     <td className="px-4 py-2.5">{r.bookNo || '—'}</td>
                     <td className="px-4 py-2.5">{r.tokenNo || '—'}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{r.kms ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
+                      {r.kms != null ? (
+                        <span title={formatTripKms(r)}>{r.kms}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       {r.receiptUrl || r.kmsPhotoUrl ? (
                         <button
@@ -567,6 +595,9 @@ export const PetrolDashboard: React.FC = () => {
                             setStaffPickerOpen(false);
                             const remembered = lastVehicleNo(petrolRequests, e.id);
                             if (remembered) setManualVehicle(remembered);
+                            const lastReading = lastMeterReading(petrolRequests, e.id);
+                            setManualKmsStart(lastReading != null ? String(lastReading) : '');
+                            setManualKmsEnd('');
                           }}
                         >
                           <span className="text-sm text-gray-900">{e.name}</span>
@@ -662,16 +693,27 @@ export const PetrolDashboard: React.FC = () => {
               />
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Kms (optional)</label>
-            <input
-              type="number"
-              min={0}
-              className={inputClass}
-              value={manualKms}
-              onChange={(e) => setManualKms(e.target.value)}
-              placeholder="Odometer after fill"
-            />
+          <div className="space-y-2">
+            <label className={labelClass}>Kms driven (optional)</label>
+            <p className="text-xs text-gray-500">Previous 1234, current 1254 → 20 km driven.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                min={0}
+                className={inputClass}
+                value={manualKmsStart}
+                onChange={(e) => setManualKmsStart(e.target.value)}
+                placeholder="Previous e.g. 1234"
+              />
+              <input
+                type="number"
+                min={0}
+                className={inputClass}
+                value={manualKmsEnd}
+                onChange={(e) => setManualKmsEnd(e.target.value)}
+                placeholder="Current e.g. 1254"
+              />
+            </div>
           </div>
           <label className="flex items-start gap-2 text-sm text-gray-800">
             <input
@@ -793,7 +835,7 @@ export const PetrolDashboard: React.FC = () => {
             <input className={inputClass} value={tokenNo} onChange={(e) => setTokenNo(e.target.value)} placeholder="e.g. 45" />
           </div>
           <p className="text-xs text-gray-500">
-            From the second request, the boy uploads the last pump bill photo and kms photo.
+            Boys can request petrol more than once per day. Next time they submit previous + current meter readings and bill photos.
           </p>
         </div>
       </Modal>
@@ -804,7 +846,7 @@ export const PetrolDashboard: React.FC = () => {
         title="Petrol evidence"
         subtitle={
           evidenceFor
-            ? `${evidenceFor.employeeName} · ${evidenceFor.vehicleNo}${evidenceFor.kms != null ? ` · ${evidenceFor.kms} km` : ''}`
+            ? `${evidenceFor.employeeName} · ${evidenceFor.vehicleNo}${evidenceFor.kms != null ? ` · ${formatTripKms(evidenceFor)}` : ''}`
             : undefined
         }
         size="lg"
