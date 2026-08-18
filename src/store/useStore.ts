@@ -23,7 +23,7 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
-import { getBlockingPetrolRequest, canManagePetrol } from '../lib/petrol';
+import { getPendingPetrolRequest, getIssuedAwaitingEvidence, canManagePetrol } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -214,7 +214,12 @@ interface AppState {
   deleteDailyExpense: (id: string) => Promise<{ error: string | null }>;
 
   // Petrol token workflow
-  requestPetrol: (amount: number, vehicleNo: string, notes?: string) => Promise<{ error: string | null }>;
+  requestPetrol: (
+    amount: number,
+    vehicleNo: string,
+    notes?: string,
+    previousEvidence?: { kms: number; receiptPhoto: File; kmsPhoto: File },
+  ) => Promise<{ error: string | null }>;
   cancelPetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
   issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
@@ -533,8 +538,8 @@ function petrolDbError(err: unknown, fallback: string): string {
   if (message.includes('petrol_requests') && message.includes('does not exist')) {
     return 'Petrol is not set up in the database yet. Please run the petrol_requests migration in Supabase.';
   }
-  if (message.includes('idx_petrol_one_open_per_employee')) {
-    return 'You already have an open petrol request. Submit the pump receipt first.';
+  if (message.includes('idx_petrol_one_open_per_employee') || message.includes('idx_petrol_one_pending_per_employee')) {
+    return 'You already have a petrol request waiting for a token.';
   }
   if (message.includes('idx_petrol_book_token')) {
     return 'That book number and token number are already used.';
@@ -3203,7 +3208,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  requestPetrol: async (amount, vehicleNo, notes = '') => {
+  requestPetrol: async (amount, vehicleNo, notes = '', previousEvidence) => {
     const { currentUser, petrolRequests } = get();
     const vehicle = vehicleNo.trim().toUpperCase();
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -3212,8 +3217,22 @@ export const useStore = create<AppState>((set, get) => ({
     if (!vehicle) {
       return { error: 'Enter the vehicle number.' };
     }
-    if (getBlockingPetrolRequest(petrolRequests, currentUser.id)) {
-      return { error: 'You already have an open petrol request. Submit the pump receipt first.' };
+    if (getPendingPetrolRequest(petrolRequests, currentUser.id)) {
+      return { error: 'Wait for the current book and token number first.' };
+    }
+
+    const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
+    if (previousIssued) {
+      if (!previousEvidence) {
+        return { error: 'Upload the last pump bill photo and kms photo to request petrol again.' };
+      }
+      const closeResult = await get().submitPetrolReceipt(
+        previousIssued.id,
+        previousEvidence.kms,
+        previousEvidence.receiptPhoto,
+        previousEvidence.kmsPhoto,
+      );
+      if (closeResult.error) return closeResult;
     }
 
     const now = new Date().toISOString();
@@ -3250,7 +3269,9 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser.name,
       currentUser.name,
       currentUser.role,
-      `${currentUser.name} requested petrol ₹${amount} for ${vehicle}.`,
+      previousIssued
+        ? `${currentUser.name} requested next petrol ₹${amount} for ${vehicle} and attached last fill evidence.`
+        : `${currentUser.name} requested petrol ₹${amount} for ${vehicle}.`,
     );
     persistActivity(activity);
 

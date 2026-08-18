@@ -7,7 +7,8 @@ import { useStore } from '../store/useStore';
 import type { PetrolRequest } from '../types';
 import {
   PETROL_PRESET_AMOUNTS,
-  getBlockingPetrolRequest,
+  getPendingPetrolRequest,
+  getIssuedAwaitingEvidence,
   lastVehicleNo,
   petrolStatusLabel,
 } from '../lib/petrol';
@@ -32,7 +33,6 @@ export const EmployeePetrolSection: React.FC = () => {
   const petrolRequests = useStore((s) => s.petrolRequests);
   const requestPetrol = useStore((s) => s.requestPetrol);
   const cancelPetrolRequest = useStore((s) => s.cancelPetrolRequest);
-  const submitPetrolReceipt = useStore((s) => s.submitPetrolReceipt);
 
   const [amountChoice, setAmountChoice] = useState<number | 'other'>(220);
   const [customAmount, setCustomAmount] = useState('');
@@ -53,8 +53,10 @@ export const EmployeePetrolSection: React.FC = () => {
     [petrolRequests, currentUser.id],
   );
 
-  const blocking = getBlockingPetrolRequest(petrolRequests, currentUser.id);
+  const pending = getPendingPetrolRequest(petrolRequests, currentUser.id);
+  const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
   const rememberedVehicle = lastVehicleNo(petrolRequests, currentUser.id);
+  const needsPreviousPhotos = !!previousIssued && !pending;
 
   const resolvedAmount =
     amountChoice === 'other' ? Number(customAmount) : amountChoice;
@@ -71,9 +73,32 @@ export const EmployeePetrolSection: React.FC = () => {
       setError('Enter a valid amount (usually ₹110 or ₹220).');
       return;
     }
+
+    let previousEvidence: { kms: number; receiptPhoto: File; kmsPhoto: File } | undefined;
+    if (needsPreviousPhotos) {
+      const kmValue = Number(kms);
+      if (!Number.isFinite(kmValue) || kmValue < 0) {
+        setError('Enter the kms from the last fill.');
+        return;
+      }
+      if (!receiptPhoto) {
+        setError('Take a photo of the last pump bill.');
+        return;
+      }
+      if (!kmsPhoto) {
+        setError('Take a photo of the last kms / odometer.');
+        return;
+      }
+      if (receiptPhoto.size > MAX_RAW_PHOTO_BYTES || kmsPhoto.size > MAX_RAW_PHOTO_BYTES) {
+        setError('A photo is too large. Please take a clearer, smaller photo.');
+        return;
+      }
+      previousEvidence = { kms: kmValue, receiptPhoto, kmsPhoto };
+    }
+
     setSubmitting(true);
     try {
-      const result = await requestPetrol(resolvedAmount, vehicle, notes);
+      const result = await requestPetrol(resolvedAmount, vehicle, notes, previousEvidence);
       if (result.error) {
         setError(result.error);
         return;
@@ -81,6 +106,9 @@ export const EmployeePetrolSection: React.FC = () => {
       setSuccess('Request sent. Wait for admin to issue book and token number.');
       setNotes('');
       setCustomAmount('');
+      setKms('');
+      setReceiptPhoto(null);
+      setKmsPhoto(null);
     } finally {
       setSubmitting(false);
     }
@@ -97,43 +125,6 @@ export const EmployeePetrolSection: React.FC = () => {
         return;
       }
       setSuccess('Request cancelled. You can request petrol again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReceipt = async () => {
-    if (!blocking) return;
-    setError(null);
-    setSuccess(null);
-    const kmValue = Number(kms);
-    if (!Number.isFinite(kmValue) || kmValue < 0) {
-      setError('Enter the kms after filling petrol.');
-      return;
-    }
-    if (!receiptPhoto) {
-      setError('Take a photo of the pump receipt.');
-      return;
-    }
-    if (!kmsPhoto) {
-      setError('Take a photo of the kms / odometer.');
-      return;
-    }
-    if (receiptPhoto.size > MAX_RAW_PHOTO_BYTES || kmsPhoto.size > MAX_RAW_PHOTO_BYTES) {
-      setError('A photo is too large. Please take a clearer, smaller photo.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const result = await submitPetrolReceipt(blocking.id, kmValue, receiptPhoto, kmsPhoto);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setSuccess('Bill and kms photos submitted. You can request the next token now.');
-      setKms('');
-      setReceiptPhoto(null);
-      setKmsPhoto(null);
     } finally {
       setSubmitting(false);
     }
@@ -163,105 +154,55 @@ export const EmployeePetrolSection: React.FC = () => {
             </p>
           )}
 
-          {blocking?.status === 'pending' && (
+          {pending && (
             <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
               <p className="text-sm font-semibold text-amber-900">Waiting for book &amp; token</p>
               <Te className="text-amber-800 mb-0">Admin token istharu — wait cheyandi</Te>
               <p className="text-sm text-amber-900">
-                {formatCurrency(blocking.amount)} · {blocking.vehicleNo}
+                {formatCurrency(pending.amount)} · {pending.vehicleNo}
               </p>
-              <p className="text-xs text-amber-700">Next request opens only after you submit the pump bill and kms photos.</p>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 icon={<XCircle className="h-4 w-4" />}
                 disabled={submitting}
-                onClick={() => void handleCancel(blocking.id)}
+                onClick={() => void handleCancel(pending.id)}
               >
                 Cancel request
               </Button>
             </div>
           )}
 
-          {blocking?.status === 'issued' && (
-            <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-indigo-900">Fill at the pump, then submit evidence</p>
-                <Te className="text-indigo-800 mb-0">Bill photo + kms meter photo pettandi</Te>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
-                    <p className="text-[11px] text-gray-500">Book no</p>
-                    <p className="font-bold text-gray-900">{blocking.bookNo}</p>
-                  </div>
-                  <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
-                    <p className="text-[11px] text-gray-500">Token no</p>
-                    <p className="font-bold text-gray-900">{blocking.tokenNo}</p>
-                  </div>
-                  <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
-                    <p className="text-[11px] text-gray-500">Amount</p>
-                    <p className="font-bold text-gray-900">{formatCurrency(blocking.amount)}</p>
-                  </div>
-                  <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
-                    <p className="text-[11px] text-gray-500">Vehicle</p>
-                    <p className="font-bold text-gray-900">{blocking.vehicleNo}</p>
-                  </div>
+          {!pending && previousIssued && (
+            <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-2">
+              <p className="text-sm font-semibold text-indigo-900">Fill at the pump with this token</p>
+              <Te className="text-indigo-800 mb-0">Ippudu petrol vesukondi. Next request lo bill photos pettandi</Te>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                  <p className="text-[11px] text-gray-500">Book no</p>
+                  <p className="font-bold text-gray-900">{previousIssued.bookNo}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                  <p className="text-[11px] text-gray-500">Token no</p>
+                  <p className="font-bold text-gray-900">{previousIssued.tokenNo}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                  <p className="text-[11px] text-gray-500">Amount</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(previousIssued.amount)}</p>
+                </div>
+                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                  <p className="text-[11px] text-gray-500">Vehicle</p>
+                  <p className="font-bold text-gray-900">{previousIssued.vehicleNo}</p>
                 </div>
               </div>
-              <div>
-                <label className={labelClass}>Kms after fill *</label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  className={inputClass}
-                  value={kms}
-                  onChange={(e) => setKms(e.target.value)}
-                  placeholder="e.g. 45210"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Pump receipt photo *</label>
-                <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-indigo-200 rounded-lg bg-white cursor-pointer text-sm text-gray-700">
-                  <Camera className="h-4 w-4 text-indigo-600" />
-                  {receiptPhoto ? receiptPhoto.name : 'Take or choose pump bill'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => setReceiptPhoto(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-              </div>
-              <div>
-                <label className={labelClass}>Kms / odometer photo *</label>
-                <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-indigo-200 rounded-lg bg-white cursor-pointer text-sm text-gray-700">
-                  <Camera className="h-4 w-4 text-indigo-600" />
-                  {kmsPhoto ? kmsPhoto.name : 'Take or choose kms meter'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => setKmsPhoto(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-              </div>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                icon={<Send className="h-4 w-4" />}
-                disabled={submitting}
-                onClick={() => void handleReceipt()}
-              >
-                {submitting ? 'Submitting…' : 'Submit evidence'}
-              </Button>
+              <p className="text-xs text-indigo-800 pt-1">
+                When you request petrol again, attach this fill&apos;s pump bill photo and kms photo.
+              </p>
             </div>
           )}
 
-          {!blocking && (
+          {!pending && (
             <form
               noValidate
               onSubmit={(e) => {
@@ -270,8 +211,59 @@ export const EmployeePetrolSection: React.FC = () => {
               }}
               className="space-y-4 p-4 bg-orange-50/50 border border-orange-100 rounded-xl"
             >
-              <p className="text-sm font-semibold text-gray-900">Request petrol token</p>
-              <Te className="text-gray-500 mb-0">Amount + vehicle number</Te>
+              <p className="text-sm font-semibold text-gray-900">
+                {needsPreviousPhotos ? 'Request next petrol token' : 'Request petrol token'}
+              </p>
+              <Te className="text-gray-500 mb-0">
+                {needsPreviousPhotos ? 'Last bill photos + new amount' : 'Amount + vehicle number'}
+              </Te>
+
+              {needsPreviousPhotos && (
+                <div className="space-y-3 p-3 rounded-lg bg-white border border-orange-100">
+                  <p className="text-xs font-semibold text-gray-700">Last fill evidence *</p>
+                  <div>
+                    <label className={labelClass}>Kms after last fill *</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      className={inputClass}
+                      value={kms}
+                      onChange={(e) => setKms(e.target.value)}
+                      placeholder="e.g. 45210"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Last pump bill photo *</label>
+                    <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-orange-200 rounded-lg bg-orange-50/40 cursor-pointer text-sm text-gray-700">
+                      <Camera className="h-4 w-4 text-orange-600" />
+                      {receiptPhoto ? receiptPhoto.name : 'Take or choose pump bill'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => setReceiptPhoto(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Last kms / odometer photo *</label>
+                    <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-orange-200 rounded-lg bg-orange-50/40 cursor-pointer text-sm text-gray-700">
+                      <Camera className="h-4 w-4 text-orange-600" />
+                      {kmsPhoto ? kmsPhoto.name : 'Take or choose kms meter'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={(e) => setKmsPhoto(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className={labelClass}>Amount *</label>
                 <div className="flex flex-wrap gap-2">
@@ -333,7 +325,7 @@ export const EmployeePetrolSection: React.FC = () => {
                 />
               </div>
               <Button type="submit" variant="primary" size="sm" icon={<Send className="h-4 w-4" />} disabled={submitting}>
-                {submitting ? 'Sending…' : 'Request petrol'}
+                {submitting ? 'Sending…' : needsPreviousPhotos ? 'Submit photos & request' : 'Request petrol'}
               </Button>
             </form>
           )}

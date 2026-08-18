@@ -153,7 +153,7 @@ export const PetrolDashboard: React.FC = () => {
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol Dashboard</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Issue book and token numbers, then wait for the pump receipt before the next request.
+            Issue book and token numbers. From the second request, the boy attaches last fill bill and kms photos.
           </p>
         </div>
       </div>
@@ -369,7 +369,7 @@ export const PetrolDashboard: React.FC = () => {
             <input className={inputClass} value={tokenNo} onChange={(e) => setTokenNo(e.target.value)} placeholder="e.g. 45" />
           </div>
           <p className="text-xs text-gray-500">
-            The boy can request the next token only after submitting the pump bill photo and kms meter photo.
+            From the second request, the boy uploads the last pump bill photo and kms photo.
           </p>
         </div>
       </Modal>

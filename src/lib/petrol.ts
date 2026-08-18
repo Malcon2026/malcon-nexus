@@ -2,19 +2,25 @@ import type { Employee, PetrolRequest, PetrolRequestStatus } from '../types';
 
 export const PETROL_PRESET_AMOUNTS = [110, 220] as const;
 
-export const OPEN_PETROL_STATUSES: PetrolRequestStatus[] = ['pending', 'issued'];
-
-export function isOpenPetrolStatus(status: PetrolRequestStatus): boolean {
-  return status === 'pending' || status === 'issued';
+export function getPendingPetrolRequest(
+  requests: PetrolRequest[],
+  employeeId: string,
+): PetrolRequest | null {
+  return requests.find((r) => r.employeeId === employeeId && r.status === 'pending') ?? null;
 }
 
-/** An open request blocks the next petrol request until the pump receipt is submitted. */
-export function getBlockingPetrolRequest(
+/** Token already issued — photos are attached on the *next* petrol request. */
+export function getIssuedAwaitingEvidence(
   requests: PetrolRequest[],
   employeeId: string,
 ): PetrolRequest | null {
   return (
-    requests.find((r) => r.employeeId === employeeId && isOpenPetrolStatus(r.status)) ?? null
+    requests.find(
+      (r) =>
+        r.employeeId === employeeId &&
+        r.status === 'issued' &&
+        !r.receiptUrl,
+    ) ?? null
   );
 }
 
