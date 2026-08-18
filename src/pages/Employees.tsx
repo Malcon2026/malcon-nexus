@@ -24,7 +24,7 @@ const emptyForm = {
   email: '',
   phone: '',
   employeeCode: '',
-  role: 'employee' as 'admin' | 'employee',
+  role: 'employee' as 'admin' | 'employee' | 'petrol',
 };
 
 export const Employees: React.FC = () => {
@@ -93,7 +93,7 @@ export const Employees: React.FC = () => {
   };
 
   const filtered = employees
-    .filter((e) => e.role === 'employee' || e.role === 'admin')
+    .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol')
     .filter((e) => filterDept === 'All' || e.department === filterDept)
     .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()) || (e.employeeCode || '').includes(search.trim()));
 
@@ -267,6 +267,12 @@ export const Employees: React.FC = () => {
                         <p className="text-sm font-bold text-gray-900 truncate" title={emp.name}>{emp.name}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
                           <Badge className={`${departmentColors[emp.department]} text-[10px]`}>{emp.department}</Badge>
+                          {emp.role === 'petrol' && (
+                            <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-[10px]">Petrol desk</Badge>
+                          )}
+                          {emp.role === 'admin' && (
+                            <Badge className="bg-gray-900 text-white border-gray-900 text-[10px]">Admin</Badge>
+                          )}
                           {emp.employeeCode ? (
                             <span className="text-[10px] font-mono text-gray-500 tabular-nums">ID {emp.employeeCode}</span>
                           ) : null}
@@ -437,10 +443,11 @@ export const Employees: React.FC = () => {
               <select
                 className={inputClass}
                 value={form.role}
-                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' })}
+                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' })}
               >
                 <option value="employee">Employee</option>
                 <option value="admin">Administrator</option>
+                <option value="petrol">Petrol desk</option>
               </select>
             </div>
           </form>

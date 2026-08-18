@@ -19,7 +19,6 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const unread = notifications.filter(n => !n.read).length;
-  const isAdmin = currentUser.role === 'admin';
 
   const pageTitle: Record<string, string> = {
     dashboard: 'Dashboard',
@@ -85,7 +84,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
       {/* Role badge */}
       <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 shrink-0 capitalize">
-        {isAdmin ? 'Admin' : currentUser.department}
+        {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'petrol' ? 'Petrol desk' : currentUser.department}
       </span>
 
       {/* Notifications */}

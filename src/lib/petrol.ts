@@ -1,4 +1,4 @@
-import type { PetrolRequest, PetrolRequestStatus } from '../types';
+import type { Employee, PetrolRequest, PetrolRequestStatus } from '../types';
 
 export const PETROL_PRESET_AMOUNTS = [110, 220] as const;
 
@@ -23,6 +23,11 @@ export function lastVehicleNo(requests: PetrolRequest[], employeeId: string): st
     .filter((r) => r.employeeId === employeeId && r.vehicleNo.trim())
     .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())[0];
   return latest?.vehicleNo ?? '';
+}
+
+/** Main admin and the dedicated petrol-desk login can issue tokens. */
+export function canManagePetrol(role: Employee['role']): boolean {
+  return role === 'admin' || role === 'petrol';
 }
 
 export const petrolStatusLabel: Record<PetrolRequestStatus, string> = {

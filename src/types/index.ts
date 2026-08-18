@@ -40,7 +40,7 @@ export interface Employee {
   department: Department;
   email: string;
   avatar: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'petrol';
   status: 'Active' | 'Inactive';
   casesCompleted: number;
   casesActive: number;

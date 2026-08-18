@@ -122,7 +122,12 @@ export const Sidebar: React.FC = () => {
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
         {navItems
-          .filter(item => !item.adminOnly || currentUser.role === 'admin')
+          .filter((item) => {
+            if (currentUser.role === 'petrol') {
+              return item.id === 'petrol-dashboard' || item.id === 'settings';
+            }
+            return !item.adminOnly || currentUser.role === 'admin';
+          })
           .map((item) => {
             const badge = getBadge(item.id);
             const isActive = activeTab === item.id;

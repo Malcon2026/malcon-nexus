@@ -14,7 +14,7 @@ export interface Database {
           name: string;
           email: string;
           department: string;
-          role: 'admin' | 'employee';
+          role: 'admin' | 'employee' | 'petrol';
           status: 'Active' | 'Inactive';
           avatar: string;
           phone: string;

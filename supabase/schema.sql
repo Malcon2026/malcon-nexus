@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS employees (
     'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit',
     'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
   )),
-  role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee')),
+  role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee', 'petrol')),
   status       TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   avatar       TEXT NOT NULL DEFAULT '',
   phone        TEXT NOT NULL DEFAULT '',
@@ -451,7 +451,7 @@ DROP POLICY IF EXISTS "petrol_employee_insert" ON petrol_requests;
 DROP POLICY IF EXISTS "petrol_employee_cancel" ON petrol_requests;
 DROP POLICY IF EXISTS "petrol_employee_receipt" ON petrol_requests;
 CREATE POLICY "petrol_admin_all" ON petrol_requests
-  FOR ALL USING (current_user_role() = 'admin');
+  FOR ALL USING (current_user_role() IN ('admin', 'petrol'));
 CREATE POLICY "petrol_employee_select" ON petrol_requests
   FOR SELECT USING (employee_id = current_employee_id());
 CREATE POLICY "petrol_employee_insert" ON petrol_requests

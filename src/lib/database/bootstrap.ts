@@ -15,7 +15,7 @@ import {
   sbPetrolRepo,
 } from './repositories/supabaseRepositories';
 
-type BootstrapRole = 'admin' | 'employee';
+type BootstrapRole = 'admin' | 'employee' | 'petrol';
 
 export interface BootstrapOptions {
   employeeId?: string;
@@ -36,7 +36,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v7';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v8';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
@@ -145,7 +145,25 @@ function adminDeferredTasks(): BootstrapTask[] {
   ];
 }
 
+function petrolEssentialTasks(employeeId: string): BootstrapTask[] {
+  return [
+    {
+      key: 'employees',
+      run: async () => {
+        const self = await sbEmployeeRepo.getById(employeeId);
+        return self ? [self] : [];
+      },
+    },
+    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+  ];
+}
+
 function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?: BootstrapOptions): BootstrapTask[] {
+  if (role === 'petrol') {
+    return tier === 'essential' && options?.employeeId
+      ? petrolEssentialTasks(options.employeeId)
+      : [];
+  }
   if (role === 'employee') {
     if (!options?.employeeId) {
       return employeeDeferredTasks();
@@ -165,7 +183,7 @@ function shouldSkipEssentialFetch(
 ): boolean {
   if (runOptions?.force) return false;
   // Admins must always load fresh leave / off-site approval queues.
-  if (role === 'admin') return false;
+  if (role === 'admin' || role === 'petrol') return false;
   if (!options?.employeeId) return false;
   return isBootstrapCacheFresh(options.employeeId);
 }
@@ -244,6 +262,8 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'kits',
           'activityLog',
         ]
+      : role === 'petrol'
+        ? ['employees', 'petrolRequests']
       : [
           'employees',
           'attendanceRecords',

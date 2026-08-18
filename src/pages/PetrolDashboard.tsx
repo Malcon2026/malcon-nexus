@@ -6,8 +6,9 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import type { PetrolRequest, PetrolRequestStatus } from '../types';
-import { petrolStatusLabel } from '../lib/petrol';
+import { petrolStatusLabel, canManagePetrol } from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
+import { DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -25,9 +26,11 @@ type FilterTab = 'pending' | 'issued' | 'receipt_submitted' | 'all';
 
 export const PetrolDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
+  const employees = useStore((s) => s.employees);
   const petrolRequests = useStore((s) => s.petrolRequests);
   const issuePetrolToken = useStore((s) => s.issuePetrolToken);
   const rejectPetrolRequest = useStore((s) => s.rejectPetrolRequest);
+  const createEmployee = useStore((s) => s.createEmployee);
 
   const [tab, setTab] = useState<FilterTab>('pending');
   const [query, setQuery] = useState('');
@@ -37,8 +40,15 @@ export const PetrolDashboard: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [deskName, setDeskName] = useState('Petrol Desk');
+  const [deskEmail, setDeskEmail] = useState('');
+  const [deskPassword, setDeskPassword] = useState(DEFAULT_EMPLOYEE_PASSWORD);
+  const [deskBusy, setDeskBusy] = useState(false);
+  const [deskMsg, setDeskMsg] = useState<string | null>(null);
 
-  const isAdmin = currentUser.role === 'admin';
+  const canManage = canManagePetrol(currentUser.role);
+  const isMainAdmin = currentUser.role === 'admin';
+  const petrolLogins = employees.filter((e) => e.role === 'petrol');
 
   const counts = useMemo(() => ({
     pending: petrolRequests.filter((r) => r.status === 'pending').length,
@@ -62,7 +72,41 @@ export const PetrolDashboard: React.FC = () => {
       .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
   }, [petrolRequests, tab, query]);
 
-  if (!isAdmin) {
+  const handleCreateDeskLogin = async () => {
+    setDeskMsg(null);
+    const email = deskEmail.trim().toLowerCase();
+    const name = deskName.trim() || 'Petrol Desk';
+    const password = deskPassword.trim();
+    if (!email) {
+      setDeskMsg('Enter an email for the petrol login.');
+      return;
+    }
+    if (password.length < 8) {
+      setDeskMsg('Password must be at least 8 characters.');
+      return;
+    }
+    setDeskBusy(true);
+    try {
+      await createEmployee(
+        {
+          name,
+          email,
+          phone: '',
+          department: 'Office Staff',
+          role: 'petrol',
+        },
+        { password },
+      );
+      setDeskMsg(`Petrol login created: ${email}`);
+      setDeskEmail('');
+    } catch (err) {
+      setDeskMsg(err instanceof Error ? err.message : 'Could not create petrol login.');
+    } finally {
+      setDeskBusy(false);
+    }
+  };
+
+  if (!canManage) {
     return (
       <div className="p-6 max-w-lg mx-auto mt-20">
         <Card className="p-8 text-center">
@@ -113,6 +157,60 @@ export const PetrolDashboard: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {isMainAdmin && (
+        <Card className="p-4 mb-6">
+          <p className="text-sm font-semibold text-gray-900">Petrol desk login</p>
+          <p className="text-xs text-gray-500 mt-0.5 mb-3">
+            Separate from the main admin. This login only opens Petrol Dashboard.
+          </p>
+          {petrolLogins.length > 0 && (
+            <ul className="mb-3 space-y-1">
+              {petrolLogins.map((e) => (
+                <li key={e.id} className="text-sm text-gray-800">
+                  {e.name} · <span className="font-mono text-xs">{e.email}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className={labelClass}>Name</label>
+              <input className={inputClass} value={deskName} onChange={(e) => setDeskName(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass}>Email *</label>
+              <input
+                type="email"
+                className={inputClass}
+                value={deskEmail}
+                onChange={(e) => setDeskEmail(e.target.value)}
+                placeholder="petrol@company.com"
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Password *</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={deskPassword}
+                onChange={(e) => setDeskPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          {deskMsg && <p className="text-xs text-gray-600 mt-2">{deskMsg}</p>}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            disabled={deskBusy}
+            onClick={() => void handleCreateDeskLogin()}
+          >
+            {deskBusy ? 'Creating…' : 'Create petrol login'}
+          </Button>
+        </Card>
+      )}
 
       {error && (
         <p className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>

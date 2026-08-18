@@ -69,7 +69,7 @@ function MainApp() {
         restoreBootstrapCache,
         persistBootstrapCache,
       } = await import('./lib/database/bootstrap');
-      const role = employee.role === 'admin' ? 'admin' : 'employee';
+      const role = employee.role === 'admin' ? 'admin' : employee.role === 'petrol' ? 'petrol' : 'employee';
       const options = { employeeId: employee.id };
 
       const hadCache = restoreBootstrapCache(employee.id);
@@ -173,6 +173,14 @@ function MainApp() {
   };
 
   const renderPage = () => {
+    if (viewMode === 'petrol') {
+      switch (activeTab) {
+        case 'petrol-dashboard': return <PetrolDashboard />;
+        case 'settings': return <Settings />;
+        default: return <PetrolDashboard />;
+      }
+    }
+
     if (viewMode === 'employee') {
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;

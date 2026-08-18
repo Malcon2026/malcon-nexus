@@ -80,7 +80,13 @@ export const Settings: React.FC = () => {
   const [showCaseExport, setShowCaseExport] = useState(false);
 
   const isAdmin = viewMode === 'admin' || currentUser.role === 'admin';
-  const visibleTabs = tabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.adminOnly && !isAdmin) return false;
+    if (viewMode === 'petrol' && (tab.id === 'company' || tab.id === 'data' || tab.id === 'notice')) {
+      return false;
+    }
+    return true;
+  });
 
   // Profile form
   const [profileForm, setProfileForm] = useState({

@@ -23,7 +23,7 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolReceipt } from '../lib/petrolReceipt';
-import { getBlockingPetrolRequest } from '../lib/petrol';
+import { getBlockingPetrolRequest, canManagePetrol } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -56,7 +56,7 @@ const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
 interface AppState {
   // Auth / View Mode
   currentUser: Employee;
-  viewMode: 'admin' | 'employee';
+  viewMode: 'admin' | 'employee' | 'petrol';
 
   // State Collections
   cases: ImplantCase[];
@@ -264,7 +264,7 @@ const createActivityEvent = (
   entityId: string,
   entityLabel: string,
   performedBy: string,
-  performedByRole: 'admin' | 'employee',
+  performedByRole: Employee['role'] | 'admin' | 'employee',
   details: string,
 ): ActivityEvent => ({
   id: newId(),
@@ -273,7 +273,7 @@ const createActivityEvent = (
   entityId,
   entityLabel,
   performedBy,
-  performedByRole,
+  performedByRole: performedByRole === 'admin' ? 'admin' : 'employee',
   timestamp: new Date().toISOString(),
   details,
 });
@@ -630,11 +630,18 @@ const placeholderAdmin: Employee = {
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
 const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard'];
+const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 
 const applyUserSession = (
   user: Employee,
   current: { activeTab: string },
-): { currentUser: Employee; viewMode: 'admin' | 'employee'; activeTab: string } => {
+): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol'; activeTab: string } => {
+  if (user.role === 'petrol') {
+    const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
+      ? current.activeTab
+      : 'petrol-dashboard';
+    return { currentUser: user, viewMode: 'petrol', activeTab };
+  }
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   const activeTab =
     user.role !== 'admin' && ADMIN_ONLY_TABS.includes(current.activeTab)
@@ -645,7 +652,7 @@ const applyUserSession = (
 
 export const useStore = create<AppState>((set, get) => ({
   currentUser: adminUser,
-  viewMode: adminUser.role === 'admin' ? 'admin' : 'employee',
+  viewMode: adminUser.role === 'admin' ? 'admin' : adminUser.role === 'petrol' ? 'petrol' : 'employee',
   cases: initialCases,
   selectedCaseId: null,
   notifications: initialNotifications,
@@ -769,7 +776,7 @@ export const useStore = create<AppState>((set, get) => ({
           caseId,
           action: 'Case Created',
           performedBy: state.currentUser.name,
-          performedByRole: state.currentUser.role,
+          performedByRole: state.currentUser.role === 'admin' ? 'admin' : 'employee',
           timestamp: now,
           details:
             startIdx > 0
@@ -2129,7 +2136,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: record.id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: punchedAt,
       details: `${label} at ${OFFICE_LOCATION.address} (${geofence.distanceM}m from office)`,
     };
@@ -2180,7 +2187,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: record.id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: punchedAt,
       details: 'Punch out',
     };
@@ -2716,7 +2723,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: request.id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: requestedAt,
       details: `Submitted off-site punch in (${geofence.distanceM}m from office): ${trimmedReason}`,
     };
@@ -2809,7 +2816,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: reviewedAt,
       details: `Approved off-site ${punchLabel.toLowerCase()} for ${request.employeeName}. Reason: ${request.reason}`,
     };
@@ -2866,7 +2873,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: reviewedAt,
       details: `Rejected off-site ${punchLabel} for ${request.employeeName}. Reason given: ${request.reason}`,
     };
@@ -2952,7 +2959,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: inserted[0].id,
       entityLabel: currentUser.name,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: createdAt,
       details: workDate
         ? `${leaveType} leave ${fromDate} to ${toDate} (work day ${workDate}): ${trimmedReason}${splitNote ? ` · ${splitNote}` : ''}`
@@ -3079,7 +3086,7 @@ export const useStore = create<AppState>((set, get) => ({
           entityId: inserted[0].id,
           entityLabel: request.employeeName,
           performedBy: currentUser.name,
-          performedByRole: currentUser.role,
+          performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
           timestamp: reviewedAt,
           details: splitNote
             ? `Approved ${request.leaveType} leave for ${request.employeeName} (${request.fromDate} to ${request.toDate}). ${splitNote}`
@@ -3131,7 +3138,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: reviewedAt,
       details: request.compOffWorkDate
         ? `Approved Comp Off for ${request.employeeName} (${request.fromDate} to ${request.toDate}, work day ${request.compOffWorkDate}).`
@@ -3179,7 +3186,7 @@ export const useStore = create<AppState>((set, get) => ({
       entityId: request.id,
       entityLabel: request.employeeName,
       performedBy: currentUser.name,
-      performedByRole: currentUser.role,
+      performedByRole: currentUser.role === 'admin' ? 'admin' : 'employee',
       timestamp: reviewedAt,
       details: `Rejected ${request.leaveType} leave for ${request.employeeName}. Reason: ${request.reason}`,
     };
@@ -3293,8 +3300,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   issuePetrolToken: async (requestId, bookNo, tokenNo) => {
     const { currentUser, petrolRequests } = get();
-    if (currentUser.role !== 'admin') {
-      return { error: 'Only admins can issue petrol tokens.' };
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only the petrol desk or an admin can issue tokens.' };
     }
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol request not found.' };
@@ -3341,8 +3348,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   rejectPetrolRequest: async (requestId, adminNotes = '') => {
     const { currentUser, petrolRequests } = get();
-    if (currentUser.role !== 'admin') {
-      return { error: 'Only admins can reject petrol requests.' };
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only the petrol desk or an admin can reject requests.' };
     }
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol request not found.' };
