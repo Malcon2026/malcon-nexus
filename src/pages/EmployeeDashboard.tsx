@@ -14,6 +14,7 @@ import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWork
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
+import { HospitalTripPilotCard } from '../components/HospitalTripPilotCard';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
@@ -428,6 +429,7 @@ export const EmployeeDashboard: React.FC = () => {
         <>
           <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
           <EmployeeAttendanceHero />
+          <HospitalTripPilotCard />
         </>
       )}
 

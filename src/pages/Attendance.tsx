@@ -5,6 +5,53 @@ import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
+import { getISTDateKey, formatTimeIST } from '../lib/attendance';
+import { todayTripKm } from '../lib/hospitalTrip';
+
+const HospitalTripPilotAdmin: React.FC = () => {
+  const punches = useStore((s) => s.hospitalTripPunches);
+  const todayKey = getISTDateKey();
+  const today = punches
+    .filter((p) => getISTDateKey(p.punchedAt) === todayKey)
+    .sort((a, b) => new Date(b.punchedAt).getTime() - new Date(a.punchedAt).getTime());
+  if (today.length === 0) return null;
+
+  const byEmployee = new Map<string, typeof today>();
+  for (const p of today) {
+    const list = byEmployee.get(p.employeeId) ?? [];
+    list.push(p);
+    byEmployee.set(p.employeeId, list);
+  }
+
+  return (
+    <Card className="mt-4">
+      <div className="px-4 py-3 border-b border-gray-100">
+        <p className="text-sm font-semibold text-gray-900">Hospital trip punches · optional pilot</p>
+        <p className="text-xs text-gray-500 mt-0.5">Office → hospital GPS km. Boys can skip this.</p>
+      </div>
+      <div className="divide-y divide-gray-50">
+        {[...byEmployee.entries()].map(([id, rows]) => (
+          <div key={id} className="px-4 py-3">
+            <p className="text-sm font-medium text-gray-900">
+              {rows[0].employeeName}
+              <span className="ml-2 text-xs font-semibold text-sky-700 tabular-nums">
+                {todayTripKm(rows, id)} km today
+              </span>
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {rows.map((p) => (
+                <li key={p.id} className="text-xs text-gray-600">
+                  {formatTimeIST(p.punchedAt)} · {p.hospitalName}
+                  {p.distanceKm > 0 ? ` · ${p.distanceKm} km from ${p.fromLabel}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
 
 type AttendanceTab = 'today' | 'register' | 'approvals';
 
@@ -56,7 +103,12 @@ export const Attendance: React.FC = () => {
         ))}
       </div>
 
-      {pageTab === 'today' && <EmployeeAttendancePanel />}
+      {pageTab === 'today' && (
+        <>
+          <EmployeeAttendancePanel />
+          <HospitalTripPilotAdmin />
+        </>
+      )}
       {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
     </div>

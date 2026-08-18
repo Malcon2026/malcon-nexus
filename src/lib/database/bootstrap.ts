@@ -13,6 +13,7 @@ import {
   sbAttendanceApprovalRepo,
   sbLeaveRepo,
   sbPetrolRepo,
+  sbHospitalTripRepo,
 } from './repositories/supabaseRepositories';
 
 type BootstrapRole = 'admin' | 'employee' | 'petrol';
@@ -92,6 +93,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
+    { key: 'hospitalTripPunches', run: () => sbHospitalTripRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',
       run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
@@ -113,6 +115,7 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
       // Not read by any employee-facing screen today; still loaded in the
       // background in case something needs it, just never blocking.
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
     ];
   }
 
@@ -130,6 +133,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+    { key: 'hospitalTripPunches', run: () => sbHospitalTripRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
@@ -248,6 +252,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceApprovalRequests',
           'leaveRequests',
           'petrolRequests',
+          'hospitalTripPunches',
           'departments',
           'employees',
           'hospitals',
@@ -263,10 +268,12 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceRecords',
           'leaveRequests',
           'petrolRequests',
+          'hospitalTripPunches',
           'attendanceApprovalRequests',
           'departments',
           'cases',
           'notifications',
+          'hospitals',
         ];
 
   const data: Record<string, unknown[]> = {};

@@ -12,6 +12,7 @@ import type {
   LeaveRequest,
   DailyExpense,
   PetrolRequest,
+  HospitalTripPunch,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
@@ -1084,6 +1085,68 @@ export const sbPetrolRepo = {
       .from('petrol_requests')
       .delete()
       .neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+  },
+};
+
+function rowToHospitalTrip(row: Record<string, unknown>): HospitalTripPunch {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: (row.employee_name as string) ?? '',
+    hospitalId: (row.hospital_id as string | null) ?? null,
+    hospitalName: (row.hospital_name as string) ?? '',
+    punchedAt: row.punched_at as string,
+    latitude: Number(row.latitude ?? 0),
+    longitude: Number(row.longitude ?? 0),
+    accuracyM: Number(row.accuracy_m ?? 0),
+    fromLatitude: row.from_latitude == null ? null : Number(row.from_latitude),
+    fromLongitude: row.from_longitude == null ? null : Number(row.from_longitude),
+    fromLabel: (row.from_label as string) ?? '',
+    distanceKm: Number(row.distance_km ?? 0),
+    notes: (row.notes as string) ?? '',
+    createdAt: (row.created_at as string) ?? '',
+  };
+}
+
+export const sbHospitalTripRepo = {
+  async getAll(): Promise<HospitalTripPunch[]> {
+    const { data, error } = await supabase
+      .from('hospital_trip_punches')
+      .select('*')
+      .order('punched_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToHospitalTrip(row as Record<string, unknown>));
+  },
+
+  async getForEmployee(employeeId: string): Promise<HospitalTripPunch[]> {
+    const { data, error } = await supabase
+      .from('hospital_trip_punches')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('punched_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToHospitalTrip(row as Record<string, unknown>));
+  },
+
+  async insert(punch: HospitalTripPunch): Promise<void> {
+    const { error } = await supabase.from('hospital_trip_punches').insert({
+      id: punch.id,
+      employee_id: punch.employeeId,
+      employee_name: punch.employeeName,
+      hospital_id: punch.hospitalId,
+      hospital_name: punch.hospitalName,
+      punched_at: punch.punchedAt,
+      latitude: punch.latitude,
+      longitude: punch.longitude,
+      accuracy_m: punch.accuracyM,
+      from_latitude: punch.fromLatitude,
+      from_longitude: punch.fromLongitude,
+      from_label: punch.fromLabel,
+      distance_km: punch.distanceKm,
+      notes: punch.notes,
+      created_at: punch.createdAt,
+    });
     if (error) throw error;
   },
 };

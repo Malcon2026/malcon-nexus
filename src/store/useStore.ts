@@ -7,6 +7,7 @@ import type {
   DailyExpense,
   PetrolRequest,
   RestockOutcome,
+  HospitalTripPunch,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -23,9 +24,9 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
-import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
+import { lastTripCheckpoint, kmBetween } from '../lib/hospitalTrip';
 import type { PetrolTripEvidence } from '../lib/petrol';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbHospitalTripRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -73,6 +74,7 @@ interface AppState {
   attendanceApprovalRequests: AttendanceApprovalRequest[];
   leaveRequests: LeaveRequest[];
   petrolRequests: PetrolRequest[];
+  hospitalTripPunches: HospitalTripPunch[];
   dailyExpenses: DailyExpense[];
   dailyExpensesLoaded: boolean;
   appSettings: Record<string, string>;
@@ -173,6 +175,11 @@ interface AppState {
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
+  punchHospitalTrip: (
+    hospitalId: string | null,
+    hospitalName: string,
+    position: GeoPosition,
+  ) => Promise<{ error: string | null; distanceKm?: number }>;
 
   // Leave
   applyLeave: (
@@ -569,6 +576,30 @@ function petrolDbError(err: unknown, fallback: string): string {
   return message;
 }
 
+const persistHospitalTrip = async (punch: HospitalTripPunch): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbHospitalTripRepo.insert(punch);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save hospital punch';
+      console.error('[hospital-trip] persist failed:', err);
+      if (message.includes('hospital_trip_punches') && message.includes('does not exist')) {
+        return { error: 'Hospital trip punch is not set up yet. Run add-hospital-trip-punches.sql in Supabase.' };
+      }
+      if (message.includes('row-level security') || message.includes('RLS')) {
+        return { error: 'Could not save. Please log out and log in again, then retry.' };
+      }
+      return { error: message };
+    }
+    const list = Database.getAll<HospitalTripPunch>('hospitalTripPunches');
+    setCache('hospitalTripPunches', [punch, ...list.filter((p) => p.id !== punch.id)]);
+    return { error: null };
+  }
+  const list = Database.getAll<HospitalTripPunch>('hospitalTripPunches');
+  Database.saveAll('hospitalTripPunches', [punch, ...list]);
+  return { error: null };
+};
+
 const persistPetrolRequest = async (request: PetrolRequest): Promise<{ error: string | null }> => {
   if (USE_SUPABASE) {
     try {
@@ -635,6 +666,7 @@ const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords')
 const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
 const initialLeaveRequests = Database.getAll<LeaveRequest>('leaveRequests');
 const initialPetrolRequests = Database.getAll<PetrolRequest>('petrolRequests');
+const initialHospitalTripPunches = Database.getAll<HospitalTripPunch>('hospitalTripPunches');
 
 const placeholderAdmin: Employee = {
   id: 'guest',
@@ -690,6 +722,7 @@ export const useStore = create<AppState>((set, get) => ({
   attendanceApprovalRequests: initialAttendanceApprovals,
   leaveRequests: initialLeaveRequests,
   petrolRequests: initialPetrolRequests,
+  hospitalTripPunches: initialHospitalTripPunches,
   dailyExpenses: [],
   dailyExpensesLoaded: false,
   appSettings: {},
@@ -2054,6 +2087,45 @@ export const useStore = create<AppState>((set, get) => ({
   getMyTodayAttendance: () => {
     const { attendanceRecords, currentUser } = get();
     return summarizeLiveAttendance(attendanceRecords, currentUser.id);
+  },
+
+  punchHospitalTrip: async (hospitalId, hospitalName, position) => {
+    const { currentUser, attendanceRecords, hospitalTripPunches } = get();
+    const name = hospitalName.trim();
+    if (!name) return { error: 'Select or enter the hospital name.' };
+
+    const from = lastTripCheckpoint(attendanceRecords, hospitalTripPunches, currentUser.id);
+    const distanceKm = from
+      ? kmBetween(from.latitude, from.longitude, position.latitude, position.longitude)
+      : 0;
+    const now = new Date().toISOString();
+    const punch: HospitalTripPunch = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      hospitalId: hospitalId || null,
+      hospitalName: name,
+      punchedAt: now,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracyM: position.accuracyM,
+      fromLatitude: from?.latitude ?? null,
+      fromLongitude: from?.longitude ?? null,
+      fromLabel: from?.label ?? 'No previous punch',
+      distanceKm,
+      notes: 'Optional hospital trip punch (pilot)',
+      createdAt: now,
+    };
+
+    const persistResult = await persistHospitalTrip(punch);
+    if (persistResult.error) return persistResult;
+
+    set((s) => ({
+      hospitalTripPunches: [punch, ...s.hospitalTripPunches.filter((p) => p.id !== punch.id)],
+    }));
+    if (USE_SUPABASE) setCache('hospitalTripPunches', get().hospitalTripPunches);
+
+    return { error: null, distanceKm };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {
@@ -3809,6 +3881,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceApprovalRequests: [],
       leaveRequests: [],
       petrolRequests: [],
+      hospitalTripPunches: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -3837,6 +3910,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
       leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
       petrolRequests: Database.getAll<PetrolRequest>('petrolRequests'),
+      hospitalTripPunches: Database.getAll<HospitalTripPunch>('hospitalTripPunches'),
       ...session,
     });
   },

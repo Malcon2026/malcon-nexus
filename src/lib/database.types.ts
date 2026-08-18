@@ -179,7 +179,7 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['activity_log']['Insert']>;
       };
-      petrol_requests: {
+          petrol_requests: {
         Row: {
           id: string;
           employee_id: string;
@@ -210,6 +210,30 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['petrol_requests']['Insert']>;
+      };
+      hospital_trip_punches: {
+        Row: {
+          id: string;
+          employee_id: string;
+          employee_name: string;
+          hospital_id: string | null;
+          hospital_name: string;
+          punched_at: string;
+          latitude: number;
+          longitude: number;
+          accuracy_m: number;
+          from_latitude: number | null;
+          from_longitude: number | null;
+          from_label: string;
+          distance_km: number;
+          notes: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['hospital_trip_punches']['Row'], 'id' | 'created_at'> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['hospital_trip_punches']['Insert']>;
       };
     };
     Functions: {
