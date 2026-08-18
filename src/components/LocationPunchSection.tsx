@@ -9,10 +9,12 @@ import {
   todayLocationTripKm,
   todayLocationTrips,
   tripEndPlusCode,
+  tripKm,
   tripStartPlusCode,
 } from '../lib/locationTrip';
 import { Te } from './BilingualText';
 import { PlusCodeLink } from './PlusCodeLink';
+import { googleBikeMapsUrl } from '../lib/bikeRoute';
 
 const notesClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white min-h-[5.5rem] resize-y';
@@ -70,7 +72,11 @@ export const LocationPunchSection: React.FC = () => {
         setError(result.error);
         return;
       }
-      setSuccess(`Trip ${result.tripNo} saved · ${result.distanceKm ?? 0} km${result.plusCode ? ` · ${result.plusCode}` : ''}`);
+      const kmLabel =
+        result.bikeKm != null
+          ? `${result.bikeKm} km bike`
+          : `${result.distanceKm ?? 0} km straight`;
+      setSuccess(`Trip ${result.tripNo} saved · ${kmLabel}${result.plusCode ? ` · ${result.plusCode}` : ''}`);
       setNotes('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not get GPS. Try again outdoors.');
@@ -92,8 +98,8 @@ export const LocationPunchSection: React.FC = () => {
               <Te className="text-gray-500 mb-0">Start → reach → km</Te>
               <p className="text-xs text-gray-500 mt-1">
                 Press <span className="font-medium text-gray-700">Start location</span>, travel,
-                then press <span className="font-medium text-gray-700">Reached</span>. Each punch
-                saves a Google Plus Code so you can open Maps and re-check the spot.
+                then press <span className="font-medium text-gray-700">Reached</span>. The two
+                Plus Codes are sent to Maps as a <span className="font-medium text-gray-700">bike</span> route for road km.
               </p>
             </div>
           </div>
@@ -184,7 +190,11 @@ export const LocationPunchSection: React.FC = () => {
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold text-gray-900">Trip {t.tripNo}</p>
                     <p className="text-xs font-semibold tabular-nums text-sky-700">
-                      {t.status === 'completed' ? `${t.distanceKm} km` : 'In progress'}
+                      {t.status === 'completed'
+                        ? t.bikeKm != null
+                          ? `${t.bikeKm} km bike`
+                          : `${tripKm(t)} km`
+                        : 'In progress'}
                     </p>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -210,6 +220,16 @@ export const LocationPunchSection: React.FC = () => {
                         lng={t.endLng}
                         accuracyM={t.endAccuracyM}
                       />
+                    )}
+                    {t.status === 'completed' && t.endLat != null && t.endLng != null && (
+                      <a
+                        href={googleBikeMapsUrl(t.startLat, t.startLng, t.endLat, t.endLng)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-sky-700 hover:underline"
+                      >
+                        Bike route on Maps
+                      </a>
                     )}
                   </div>
                 </li>

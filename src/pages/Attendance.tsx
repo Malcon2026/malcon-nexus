@@ -6,8 +6,9 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
 import { formatTimeIST } from '../lib/attendance';
-import { todayLocationTripKm, tripEndPlusCode, tripStartPlusCode, visibleLocationTrips } from '../lib/locationTrip';
+import { todayLocationTripKm, tripEndPlusCode, tripKm, tripStartPlusCode, visibleLocationTrips } from '../lib/locationTrip';
 import { PlusCodeLink } from '../components/PlusCodeLink';
+import { googleBikeMapsUrl } from '../lib/bikeRoute';
 
 const LocationTripAdmin: React.FC = () => {
   const trips = useStore((s) => s.locationTrips);
@@ -25,7 +26,7 @@ const LocationTripAdmin: React.FC = () => {
     <Card className="mt-4">
       <div className="px-4 py-3 border-b border-gray-100">
         <p className="text-sm font-semibold text-gray-900">Location punchin</p>
-        <p className="text-xs text-gray-500 mt-0.5">Start → reached GPS km. Plus Code opens in Google Maps to re-check.</p>
+        <p className="text-xs text-gray-500 mt-0.5">Start → reached. Bike road km from Maps. Plus Code to re-check.</p>
       </div>
       <div className="divide-y divide-gray-50">
         {[...byEmployee.entries()].map(([id, rows]) => {
@@ -44,7 +45,7 @@ const LocationTripAdmin: React.FC = () => {
                     <p>
                       Trip {t.tripNo} · {formatTimeIST(t.startAt)}
                       {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ''}
-                      {t.status === 'completed' ? ` · ${t.distanceKm} km` : ' · in progress'}
+                      {t.status === 'completed' ? ` · ${tripKm(t)} km${t.bikeKm != null ? ' bike' : ''}` : ' · in progress'}
                       {t.notes ? ` · ${t.notes}` : ''}
                     </p>
                     <div className="mt-0.5 flex flex-col gap-0.5">
@@ -63,6 +64,16 @@ const LocationTripAdmin: React.FC = () => {
                           lng={t.endLng}
                           accuracyM={t.endAccuracyM}
                         />
+                      )}
+                      {t.status === 'completed' && t.endLat != null && t.endLng != null && (
+                        <a
+                          href={googleBikeMapsUrl(t.startLat, t.startLng, t.endLat, t.endLng)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-700 hover:underline"
+                        >
+                          Bike route on Maps
+                        </a>
                       )}
                     </div>
                   </li>

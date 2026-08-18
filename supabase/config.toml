@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.gallery]
 verify_jwt = false
+
+[functions.location-bike-route]
+verify_jwt = true

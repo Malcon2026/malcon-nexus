@@ -37,6 +37,10 @@ export function nextTripNo(
   return today.reduce((max, t) => Math.max(max, t.tripNo), 0) + 1;
 }
 
+export function tripKm(trip: LocationTrip): number {
+  return trip.bikeKm != null && Number.isFinite(trip.bikeKm) ? trip.bikeKm : trip.distanceKm;
+}
+
 export function todayLocationTripKm(
   trips: LocationTrip[],
   employeeId: string,
@@ -46,7 +50,7 @@ export function todayLocationTripKm(
     Math.round(
       todayLocationTrips(trips, employeeId, dateKey)
         .filter((t) => t.status === 'completed')
-        .reduce((sum, t) => sum + t.distanceKm, 0) * 10,
+        .reduce((sum, t) => sum + tripKm(t), 0) * 10,
     ) / 10
   );
 }

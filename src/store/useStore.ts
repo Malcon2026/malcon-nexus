@@ -26,6 +26,7 @@ import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { kmBetween, nextTripNo, openLocationTrip } from '../lib/locationTrip';
 import { encodePlusCode } from '../lib/plusCode';
+import { fetchBikeRouteKm } from '../lib/bikeRoute';
 import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
@@ -184,7 +185,7 @@ interface AppState {
   completeLocationTrip: (
     notes: string,
     position: GeoPosition,
-  ) => Promise<{ error: string | null; distanceKm?: number; tripNo?: number; plusCode?: string }>;
+  ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; tripNo?: number; plusCode?: string }>;
 
   // Leave
   applyLeave: (
@@ -583,6 +584,9 @@ function petrolDbError(err: unknown, fallback: string): string {
 
 const locationTripDbError = (err: unknown, fallback: string): string => {
   const message = err instanceof Error ? err.message : fallback;
+  if (message.includes('bike_km')) {
+    return 'Bike-km column is missing. Run add-location-trip-bike-km.sql in Supabase.';
+  }
   if (message.includes('start_plus_code') || message.includes('end_plus_code')) {
     return 'Plus Code columns are missing. Run add-location-trip-plus-codes.sql in Supabase.';
   }
@@ -2167,6 +2171,7 @@ export const useStore = create<AppState>((set, get) => ({
       endAccuracyM: null,
       endPlusCode: '',
       distanceKm: 0,
+      bikeKm: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -2194,6 +2199,13 @@ export const useStore = create<AppState>((set, get) => ({
     const now = new Date().toISOString();
     const distanceKm = kmBetween(open.startLat, open.startLng, position.latitude, position.longitude);
     const endPlusCode = encodePlusCode(position.latitude, position.longitude);
+    const routed = await fetchBikeRouteKm(
+      open.startLat,
+      open.startLng,
+      position.latitude,
+      position.longitude,
+    );
+    const bikeKm = routed?.km ?? null;
     const updates: Partial<LocationTrip> = {
       notes: trimmed,
       status: 'completed',
@@ -2203,6 +2215,7 @@ export const useStore = create<AppState>((set, get) => ({
       endAccuracyM: position.accuracyM,
       endPlusCode,
       distanceKm,
+      bikeKm,
       updatedAt: now,
     };
 
@@ -2215,7 +2228,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
-    return { error: null, distanceKm, tripNo: open.tripNo, plusCode: endPlusCode };
+    return { error: null, distanceKm, bikeKm, tripNo: open.tripNo, plusCode: endPlusCode };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {

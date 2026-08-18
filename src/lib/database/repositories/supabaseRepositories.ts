@@ -1093,6 +1093,10 @@ function isMissingPlusCodeColumn(message: string): boolean {
   return message.includes('start_plus_code') || message.includes('end_plus_code');
 }
 
+function isMissingBikeKmColumn(message: string): boolean {
+  return message.includes('bike_km');
+}
+
 function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
   return {
     id: row.id as string,
@@ -1112,6 +1116,7 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
     endAccuracyM: row.end_accuracy_m == null ? null : Number(row.end_accuracy_m),
     endPlusCode: (row.end_plus_code as string) ?? '',
     distanceKm: Number(row.distance_km ?? 0),
+    bikeKm: row.bike_km == null || row.bike_km === '' ? null : Number(row.bike_km),
     createdAt: (row.created_at as string) ?? '',
     updatedAt: (row.updated_at as string) ?? '',
   };
@@ -1156,13 +1161,15 @@ export const sbLocationTripRepo = {
       end_accuracy_m: trip.endAccuracyM,
       end_plus_code: trip.endPlusCode,
       distance_km: trip.distanceKm,
+      bike_km: trip.bikeKm,
       created_at: trip.createdAt,
       updated_at: trip.updatedAt,
     };
     const { error } = await supabase.from('location_trips').insert(payload);
-    if (error && isMissingPlusCodeColumn(error.message)) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message))) {
       delete payload.start_plus_code;
       delete payload.end_plus_code;
+      delete payload.bike_km;
       const retry = await supabase.from('location_trips').insert(payload);
       if (retry.error) throw retry.error;
       return;
@@ -1180,12 +1187,14 @@ export const sbLocationTripRepo = {
     if (updates.endAccuracyM !== undefined) payload.end_accuracy_m = updates.endAccuracyM;
     if (updates.endPlusCode !== undefined) payload.end_plus_code = updates.endPlusCode;
     if (updates.distanceKm !== undefined) payload.distance_km = updates.distanceKm;
+    if (updates.bikeKm !== undefined) payload.bike_km = updates.bikeKm;
     if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
 
     const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
-    if (error && isMissingPlusCodeColumn(error.message) && 'end_plus_code' in payload) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message))) {
       delete payload.end_plus_code;
       delete payload.start_plus_code;
+      delete payload.bike_km;
       const retry = await supabase.from('location_trips').update(payload).eq('id', id);
       if (retry.error) throw retry.error;
       return;

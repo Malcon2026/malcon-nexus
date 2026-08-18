@@ -230,6 +230,7 @@ export interface Database {
           end_accuracy_m: number | null;
           end_plus_code: string;
           distance_km: number;
+          bike_km: number | null;
           created_at: string;
           updated_at: string;
         };

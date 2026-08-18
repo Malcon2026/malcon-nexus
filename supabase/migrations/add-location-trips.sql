@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS location_trips (
   end_accuracy_m     DOUBLE PRECISION,
   end_plus_code      TEXT NOT NULL DEFAULT '',
   distance_km        NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  bike_km            NUMERIC(10, 2),
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
