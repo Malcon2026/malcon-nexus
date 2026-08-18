@@ -14,17 +14,38 @@ function roundKm(meters: number): number {
   return Math.round((meters / 1000) * 10) / 10;
 }
 
-async function googleTwoWheelerKm(
+function minutesFromSeconds(seconds: number): number {
+  return Math.max(1, Math.round(seconds / 60));
+}
+
+function googleDurationSeconds(duration: unknown): number | null {
+  if (typeof duration === 'number' && Number.isFinite(duration)) return duration;
+  if (typeof duration === 'string') {
+    const match = duration.match(/^(\d+(?:\.\d+)?)s$/);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
+type BikeRoute = {
+  km: number;
+  minutes: number | null;
+  source: 'google' | 'mappls';
+  mode: 'TWO_WHEELER';
+};
+
+async function googleTwoWheeler(
   key: string,
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
-): Promise<number | null> {
-  const body = {
+): Promise<BikeRoute | null> {
+  const requestBody = {
     origin: { location: { latLng: { latitude: startLat, longitude: startLng } } },
     destination: { location: { latLng: { latitude: endLat, longitude: endLng } } },
     travelMode: 'TWO_WHEELER',
+    routingPreference: 'TRAFFIC_AWARE',
     computeAlternativeRoutes: false,
     languageCode: 'en-IN',
     units: 'METRIC',
@@ -35,24 +56,33 @@ async function googleTwoWheelerKm(
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': key,
-      'X-Goog-FieldMask': 'routes.distanceMeters',
+      'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   });
   const payload = await res.json().catch(() => ({}));
-  const meters = payload?.routes?.[0]?.distanceMeters;
-  if (typeof meters === 'number' && meters >= 0) return roundKm(meters);
-  console.warn('[location-bike-route] Google:', payload?.error?.message ?? res.status);
-  return null;
+  const route = payload?.routes?.[0];
+  const meters = route?.distanceMeters;
+  if (typeof meters !== 'number' || meters < 0) {
+    console.warn('[location-bike-route] Google:', payload?.error?.message ?? res.status);
+    return null;
+  }
+  const seconds = googleDurationSeconds(route?.duration);
+  return {
+    km: roundKm(meters),
+    minutes: seconds != null ? minutesFromSeconds(seconds) : null,
+    source: 'google',
+    mode: 'TWO_WHEELER',
+  };
 }
 
-async function mapplsBikeKm(
+async function mapplsBike(
   key: string,
   startLat: number,
   startLng: number,
   endLat: number,
   endLng: number,
-): Promise<number | null> {
+): Promise<BikeRoute | null> {
   const coords = `${startLng},${startLat};${endLng},${endLat}`;
   const url =
     `https://apis.mappls.com/advancedmaps/v1/${encodeURIComponent(key)}` +
@@ -62,9 +92,19 @@ async function mapplsBikeKm(
   const meters =
     payload?.results?.distances?.[0]?.[1] ??
     payload?.distances?.[0]?.[1];
-  if (typeof meters === 'number' && meters >= 0) return roundKm(meters);
-  console.warn('[location-bike-route] Mappls:', payload?.message ?? res.status);
-  return null;
+  const seconds =
+    payload?.results?.durations?.[0]?.[1] ??
+    payload?.durations?.[0]?.[1];
+  if (typeof meters !== 'number' || meters < 0) {
+    console.warn('[location-bike-route] Mappls:', payload?.message ?? res.status);
+    return null;
+  }
+  return {
+    km: roundKm(meters),
+    minutes: typeof seconds === 'number' && seconds >= 0 ? minutesFromSeconds(seconds) : null,
+    source: 'mappls',
+    mode: 'TWO_WHEELER',
+  };
 }
 
 Deno.serve(async (req) => {
@@ -102,13 +142,13 @@ Deno.serve(async (req) => {
     const mapplsKey = Deno.env.get('MAPPLS_REST_KEY') ?? '';
 
     if (googleKey) {
-      const km = await googleTwoWheelerKm(googleKey, startLat, startLng, endLat, endLng);
-      if (km != null) return jsonResponse({ km, source: 'google' });
+      const route = await googleTwoWheeler(googleKey, startLat, startLng, endLat, endLng);
+      if (route) return jsonResponse(route);
     }
 
     if (mapplsKey) {
-      const km = await mapplsBikeKm(mapplsKey, startLat, startLng, endLat, endLng);
-      if (km != null) return jsonResponse({ km, source: 'mappls' });
+      const route = await mapplsBike(mapplsKey, startLat, startLng, endLat, endLng);
+      if (route) return jsonResponse(route);
     }
 
     if (!googleKey && !mapplsKey) {

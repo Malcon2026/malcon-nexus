@@ -231,6 +231,9 @@ export interface Database {
           end_plus_code: string;
           distance_km: number;
           bike_km: number | null;
+          bike_minutes: number | null;
+          bike_source: string;
+          bike_mode: string;
           created_at: string;
           updated_at: string;
         };

@@ -185,7 +185,7 @@ interface AppState {
   completeLocationTrip: (
     notes: string,
     position: GeoPosition,
-  ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; tripNo?: number; plusCode?: string }>;
+  ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; bikeMinutes?: number | null; tripNo?: number; plusCode?: string }>;
 
   // Leave
   applyLeave: (
@@ -584,8 +584,8 @@ function petrolDbError(err: unknown, fallback: string): string {
 
 const locationTripDbError = (err: unknown, fallback: string): string => {
   const message = err instanceof Error ? err.message : fallback;
-  if (message.includes('bike_km')) {
-    return 'Bike-km column is missing. Run add-location-trip-bike-km.sql in Supabase.';
+  if (message.includes('bike_km') || message.includes('bike_minutes')) {
+    return 'Bike route columns are missing. Run add-location-trip-bike-route.sql in Supabase.';
   }
   if (message.includes('start_plus_code') || message.includes('end_plus_code')) {
     return 'Plus Code columns are missing. Run add-location-trip-plus-codes.sql in Supabase.';
@@ -2172,6 +2172,9 @@ export const useStore = create<AppState>((set, get) => ({
       endPlusCode: '',
       distanceKm: 0,
       bikeKm: null,
+      bikeMinutes: null,
+      bikeSource: '',
+      bikeMode: '',
       createdAt: now,
       updatedAt: now,
     };
@@ -2206,6 +2209,7 @@ export const useStore = create<AppState>((set, get) => ({
       position.longitude,
     );
     const bikeKm = routed?.km ?? null;
+    const bikeMinutes = routed?.minutes ?? null;
     const updates: Partial<LocationTrip> = {
       notes: trimmed,
       status: 'completed',
@@ -2216,6 +2220,9 @@ export const useStore = create<AppState>((set, get) => ({
       endPlusCode,
       distanceKm,
       bikeKm,
+      bikeMinutes,
+      bikeSource: routed?.source ?? '',
+      bikeMode: routed?.mode ?? '',
       updatedAt: now,
     };
 
@@ -2228,7 +2235,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
-    return { error: null, distanceKm, bikeKm, tripNo: open.tripNo, plusCode: endPlusCode };
+    return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {

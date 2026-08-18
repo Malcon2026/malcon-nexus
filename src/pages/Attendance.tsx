@@ -6,7 +6,7 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
 import { formatTimeIST } from '../lib/attendance';
-import { todayLocationTripKm, tripEndPlusCode, tripKm, tripStartPlusCode, visibleLocationTrips } from '../lib/locationTrip';
+import { todayLocationTripKm, tripEndPlusCode, tripKm, tripStartPlusCode, visibleLocationTrips, formatBikeCard } from '../lib/locationTrip';
 import { PlusCodeLink } from '../components/PlusCodeLink';
 import { googleBikeMapsUrl } from '../lib/bikeRoute';
 
@@ -45,7 +45,7 @@ const LocationTripAdmin: React.FC = () => {
                     <p>
                       Trip {t.tripNo} · {formatTimeIST(t.startAt)}
                       {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ''}
-                      {t.status === 'completed' ? ` · ${tripKm(t)} km${t.bikeKm != null ? ' bike' : ''}` : ' · in progress'}
+                      {t.status === 'completed' ? ` · ${formatBikeCard(t) ?? `${tripKm(t)} km`}` : ' · in progress'}
                       {t.notes ? ` · ${t.notes}` : ''}
                     </p>
                     <div className="mt-0.5 flex flex-col gap-0.5">

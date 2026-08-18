@@ -41,6 +41,13 @@ export function tripKm(trip: LocationTrip): number {
   return trip.bikeKm != null && Number.isFinite(trip.bikeKm) ? trip.bikeKm : trip.distanceKm;
 }
 
+/** Same summary Google Maps shows: "13 km · 32 min". */
+export function formatBikeCard(trip: LocationTrip): string | null {
+  if (trip.bikeKm == null) return null;
+  if (trip.bikeMinutes != null) return `${trip.bikeKm} km · ${trip.bikeMinutes} min`;
+  return `${trip.bikeKm} km`;
+}
+
 export function todayLocationTripKm(
   trips: LocationTrip[],
   employeeId: string,

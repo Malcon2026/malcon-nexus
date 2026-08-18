@@ -1094,7 +1094,12 @@ function isMissingPlusCodeColumn(message: string): boolean {
 }
 
 function isMissingBikeKmColumn(message: string): boolean {
-  return message.includes('bike_km');
+  return (
+    message.includes('bike_km') ||
+    message.includes('bike_minutes') ||
+    message.includes('bike_source') ||
+    message.includes('bike_mode')
+  );
 }
 
 function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
@@ -1117,6 +1122,9 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
     endPlusCode: (row.end_plus_code as string) ?? '',
     distanceKm: Number(row.distance_km ?? 0),
     bikeKm: row.bike_km == null || row.bike_km === '' ? null : Number(row.bike_km),
+    bikeMinutes: row.bike_minutes == null || row.bike_minutes === '' ? null : Number(row.bike_minutes),
+    bikeSource: (row.bike_source as string) ?? '',
+    bikeMode: (row.bike_mode as string) ?? '',
     createdAt: (row.created_at as string) ?? '',
     updatedAt: (row.updated_at as string) ?? '',
   };
@@ -1162,6 +1170,9 @@ export const sbLocationTripRepo = {
       end_plus_code: trip.endPlusCode,
       distance_km: trip.distanceKm,
       bike_km: trip.bikeKm,
+      bike_minutes: trip.bikeMinutes,
+      bike_source: trip.bikeSource,
+      bike_mode: trip.bikeMode,
       created_at: trip.createdAt,
       updated_at: trip.updatedAt,
     };
@@ -1170,6 +1181,9 @@ export const sbLocationTripRepo = {
       delete payload.start_plus_code;
       delete payload.end_plus_code;
       delete payload.bike_km;
+      delete payload.bike_minutes;
+      delete payload.bike_source;
+      delete payload.bike_mode;
       const retry = await supabase.from('location_trips').insert(payload);
       if (retry.error) throw retry.error;
       return;
@@ -1188,6 +1202,9 @@ export const sbLocationTripRepo = {
     if (updates.endPlusCode !== undefined) payload.end_plus_code = updates.endPlusCode;
     if (updates.distanceKm !== undefined) payload.distance_km = updates.distanceKm;
     if (updates.bikeKm !== undefined) payload.bike_km = updates.bikeKm;
+    if (updates.bikeMinutes !== undefined) payload.bike_minutes = updates.bikeMinutes;
+    if (updates.bikeSource !== undefined) payload.bike_source = updates.bikeSource;
+    if (updates.bikeMode !== undefined) payload.bike_mode = updates.bikeMode;
     if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
 
     const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
@@ -1195,6 +1212,9 @@ export const sbLocationTripRepo = {
       delete payload.end_plus_code;
       delete payload.start_plus_code;
       delete payload.bike_km;
+      delete payload.bike_minutes;
+      delete payload.bike_source;
+      delete payload.bike_mode;
       const retry = await supabase.from('location_trips').update(payload).eq('id', id);
       if (retry.error) throw retry.error;
       return;

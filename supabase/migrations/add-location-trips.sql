@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS location_trips (
   end_plus_code      TEXT NOT NULL DEFAULT '',
   distance_km        NUMERIC(10, 2) NOT NULL DEFAULT 0,
   bike_km            NUMERIC(10, 2),
+  bike_minutes       INTEGER,
+  bike_source        TEXT NOT NULL DEFAULT '',
+  bike_mode          TEXT NOT NULL DEFAULT '',
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

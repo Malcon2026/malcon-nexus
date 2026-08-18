@@ -260,8 +260,12 @@ export interface LocationTrip {
   endAccuracyM: number | null;
   endPlusCode: string;
   distanceKm: number;
-  /** Two-wheeler road km from Google or Mappls. Null if routing was not available. */
+  /** Two-wheeler road km from Google/Mappls (e.g. 13). */
   bikeKm: number | null;
+  /** Two-wheeler ETA in minutes (e.g. 32). */
+  bikeMinutes: number | null;
+  bikeSource: string;
+  bikeMode: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -3,10 +3,12 @@ import { USE_SUPABASE } from './database/config';
 
 export type BikeRouteResult = {
   km: number;
+  minutes: number | null;
   source: 'google' | 'mappls';
+  mode: 'TWO_WHEELER';
 };
 
-/** Two-wheeler road km between start and reached pins. Null if Maps is not set up. */
+/** Two-wheeler road km + minutes between start and reached pins (Google Maps card). */
 export async function fetchBikeRouteKm(
   startLat: number,
   startLng: number,
@@ -24,13 +26,18 @@ export async function fetchBikeRouteKm(
     return null;
   }
 
-  const km = Number((data as { km?: unknown } | null)?.km);
-  const source = (data as { source?: string } | null)?.source;
+  const payload = data as Partial<BikeRouteResult> | null;
+  const km = Number(payload?.km);
   if (!Number.isFinite(km) || km < 0) return null;
-  if (source !== 'google' && source !== 'mappls') {
-    return { km, source: 'google' };
-  }
-  return { km, source };
+  const minutesRaw = payload?.minutes;
+  const minutes =
+    minutesRaw == null || minutesRaw === ('' as unknown)
+      ? null
+      : Number.isFinite(Number(minutesRaw))
+        ? Number(minutesRaw)
+        : null;
+  const source = payload?.source === 'mappls' ? 'mappls' : 'google';
+  return { km, minutes, source, mode: 'TWO_WHEELER' };
 }
 
 export function googleBikeMapsUrl(

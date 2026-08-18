@@ -11,6 +11,7 @@ import {
   tripEndPlusCode,
   tripKm,
   tripStartPlusCode,
+  formatBikeCard,
 } from '../lib/locationTrip';
 import { Te } from './BilingualText';
 import { PlusCodeLink } from './PlusCodeLink';
@@ -74,7 +75,9 @@ export const LocationPunchSection: React.FC = () => {
       }
       const kmLabel =
         result.bikeKm != null
-          ? `${result.bikeKm} km bike`
+          ? result.bikeMinutes != null
+            ? `${result.bikeKm} km · ${result.bikeMinutes} min (two-wheeler)`
+            : `${result.bikeKm} km bike`
           : `${result.distanceKm ?? 0} km straight`;
       setSuccess(`Trip ${result.tripNo} saved · ${kmLabel}${result.plusCode ? ` · ${result.plusCode}` : ''}`);
       setNotes('');
@@ -191,12 +194,13 @@ export const LocationPunchSection: React.FC = () => {
                     <p className="text-sm font-semibold text-gray-900">Trip {t.tripNo}</p>
                     <p className="text-xs font-semibold tabular-nums text-sky-700">
                       {t.status === 'completed'
-                        ? t.bikeKm != null
-                          ? `${t.bikeKm} km bike`
-                          : `${tripKm(t)} km`
+                        ? formatBikeCard(t) ?? `${tripKm(t)} km`
                         : 'In progress'}
                     </p>
                   </div>
+                  {t.status === 'completed' && t.bikeKm != null && (
+                    <p className="text-[11px] text-gray-500">Two-wheeler · Maps</p>
+                  )}
                   <p className="text-xs text-gray-500 mt-0.5">
                     {formatTimeIST(t.startAt)}
                     {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ' · waiting for Reached'}
