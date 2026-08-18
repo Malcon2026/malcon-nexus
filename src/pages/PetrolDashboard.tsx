@@ -39,7 +39,7 @@ export const PetrolDashboard: React.FC = () => {
   const [tokenNo, setTokenNo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [evidenceFor, setEvidenceFor] = useState<PetrolRequest | null>(null);
   const [deskName, setDeskName] = useState('Petrol Desk');
   const [deskEmail, setDeskEmail] = useState('');
   const [deskPassword, setDeskPassword] = useState(DEFAULT_EMPLOYEE_PASSWORD);
@@ -277,7 +277,7 @@ export const PetrolDashboard: React.FC = () => {
                   <th className="px-4 py-2.5">Book no</th>
                   <th className="px-4 py-2.5">Token no</th>
                   <th className="px-4 py-2.5 text-right">Kms</th>
-                  <th className="px-4 py-2.5">Bill</th>
+                  <th className="px-4 py-2.5">Evidence</th>
                   <th className="px-4 py-2.5">Status</th>
                   <th className="px-4 py-2.5" />
                 </tr>
@@ -293,13 +293,13 @@ export const PetrolDashboard: React.FC = () => {
                     <td className="px-4 py-2.5">{r.tokenNo || '—'}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{r.kms ?? '—'}</td>
                     <td className="px-4 py-2.5">
-                      {r.receiptUrl ? (
+                      {r.receiptUrl || r.kmsPhotoUrl ? (
                         <button
                           type="button"
                           className="text-indigo-600 hover:underline text-xs font-medium"
-                          onClick={() => setReceiptUrl(r.receiptUrl)}
+                          onClick={() => setEvidenceFor(r)}
                         >
-                          View
+                          View photos
                         </button>
                       ) : (
                         '—'
@@ -369,20 +369,40 @@ export const PetrolDashboard: React.FC = () => {
             <input className={inputClass} value={tokenNo} onChange={(e) => setTokenNo(e.target.value)} placeholder="e.g. 45" />
           </div>
           <p className="text-xs text-gray-500">
-            The boy can request the next token only after submitting the pump receipt photo and kms.
+            The boy can request the next token only after submitting the pump bill photo and kms meter photo.
           </p>
         </div>
       </Modal>
 
       <Modal
-        isOpen={!!receiptUrl}
-        onClose={() => setReceiptUrl(null)}
-        title="Pump receipt"
+        isOpen={!!evidenceFor}
+        onClose={() => setEvidenceFor(null)}
+        title="Petrol evidence"
+        subtitle={
+          evidenceFor
+            ? `${evidenceFor.employeeName} · ${evidenceFor.vehicleNo}${evidenceFor.kms != null ? ` · ${evidenceFor.kms} km` : ''}`
+            : undefined
+        }
         size="lg"
       >
-        {receiptUrl && (
-          <img src={receiptUrl} alt="Pump receipt" className="w-full rounded-lg border border-gray-100" />
-        )}
+        <div className="space-y-4 p-1">
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pump bill</p>
+            {evidenceFor?.receiptUrl ? (
+              <img src={evidenceFor.receiptUrl} alt="Pump receipt" className="w-full rounded-lg border border-gray-100" />
+            ) : (
+              <p className="text-sm text-gray-400">No bill photo</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Kms / odometer</p>
+            {evidenceFor?.kmsPhotoUrl ? (
+              <img src={evidenceFor.kmsPhotoUrl} alt="Kms meter" className="w-full rounded-lg border border-gray-100" />
+            ) : (
+              <p className="text-sm text-gray-400">No kms photo</p>
+            )}
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -22,7 +22,7 @@ import { uploadStagePhotos } from '../lib/stagePhotos';
 import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
-import { uploadPetrolReceipt } from '../lib/petrolReceipt';
+import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { getBlockingPetrolRequest, canManagePetrol } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
@@ -218,7 +218,7 @@ interface AppState {
   cancelPetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
   issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
-  submitPetrolReceipt: (requestId: string, kms: number, photo: File) => Promise<{ error: string | null }>;
+  submitPetrolReceipt: (requestId: string, kms: number, receiptPhoto: File, kmsPhoto: File) => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -3232,6 +3232,7 @@ export const useStore = create<AppState>((set, get) => ({
       issuedAt: null,
       kms: null,
       receiptUrl: '',
+      kmsPhotoUrl: '',
       receiptSubmittedAt: null,
       notes: notes.trim(),
       adminNotes: '',
@@ -3386,29 +3387,46 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  submitPetrolReceipt: async (requestId, kms, photo) => {
+  submitPetrolReceipt: async (requestId, kms, receiptPhoto, kmsPhoto) => {
     const { currentUser, petrolRequests } = get();
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol request not found.' };
     if (request.employeeId !== currentUser.id) {
-      return { error: 'You can only submit a receipt for your own request.' };
+      return { error: 'You can only submit evidence for your own request.' };
     }
     if (request.status !== 'issued') {
-      return { error: 'Fill petrol at the pump first, then submit the receipt.' };
+      return { error: 'Fill petrol at the pump first, then submit the photos.' };
     }
     if (!Number.isFinite(kms) || kms < 0) {
       return { error: 'Enter the vehicle kms after filling.' };
     }
-    if (!photo) {
+    if (!receiptPhoto) {
       return { error: 'Take a photo of the pump receipt.' };
+    }
+    if (!kmsPhoto) {
+      return { error: 'Take a photo of the kms / odometer.' };
     }
 
     let receiptUrl: string;
+    let kmsPhotoUrl: string;
     try {
-      receiptUrl = await uploadPetrolReceipt(request.id, currentUser.id, currentUser.name, photo);
+      receiptUrl = await uploadPetrolEvidence(
+        request.id,
+        currentUser.id,
+        currentUser.name,
+        receiptPhoto,
+        'receipt',
+      );
+      kmsPhotoUrl = await uploadPetrolEvidence(
+        request.id,
+        currentUser.id,
+        currentUser.name,
+        kmsPhoto,
+        'kms',
+      );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to upload receipt photo';
-      console.error('[petrol] receipt upload failed:', err);
+      const message = err instanceof Error ? err.message : 'Failed to upload evidence photos';
+      console.error('[petrol] evidence upload failed:', err);
       return { error: message };
     }
 
@@ -3417,6 +3435,7 @@ export const useStore = create<AppState>((set, get) => ({
       status: 'receipt_submitted',
       kms,
       receiptUrl,
+      kmsPhotoUrl,
       receiptSubmittedAt: now,
       updatedAt: now,
     };
@@ -3430,7 +3449,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser.name,
       currentUser.name,
       currentUser.role,
-      `${currentUser.name} submitted pump receipt for book ${request.bookNo} token ${request.tokenNo} (${kms} km).`,
+      `${currentUser.name} submitted pump bill and kms photo for book ${request.bookNo} token ${request.tokenNo} (${kms} km).`,
     );
     persistActivity(activity);
 

@@ -195,6 +195,7 @@ export interface Database {
           issued_at: string | null;
           kms: number | null;
           receipt_url: string;
+          kms_photo_url: string;
           receipt_submitted_at: string | null;
           notes: string;
           admin_notes: string;

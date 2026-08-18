@@ -39,7 +39,8 @@ export const EmployeePetrolSection: React.FC = () => {
   const [vehicleNo, setVehicleNo] = useState('');
   const [notes, setNotes] = useState('');
   const [kms, setKms] = useState('');
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [receiptPhoto, setReceiptPhoto] = useState<File | null>(null);
+  const [kmsPhoto, setKmsPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -110,24 +111,29 @@ export const EmployeePetrolSection: React.FC = () => {
       setError('Enter the kms after filling petrol.');
       return;
     }
-    if (!photo) {
+    if (!receiptPhoto) {
       setError('Take a photo of the pump receipt.');
       return;
     }
-    if (photo.size > MAX_RAW_PHOTO_BYTES) {
-      setError('Photo is too large. Please take a clearer, smaller photo.');
+    if (!kmsPhoto) {
+      setError('Take a photo of the kms / odometer.');
+      return;
+    }
+    if (receiptPhoto.size > MAX_RAW_PHOTO_BYTES || kmsPhoto.size > MAX_RAW_PHOTO_BYTES) {
+      setError('A photo is too large. Please take a clearer, smaller photo.');
       return;
     }
     setSubmitting(true);
     try {
-      const result = await submitPetrolReceipt(blocking.id, kmValue, photo);
+      const result = await submitPetrolReceipt(blocking.id, kmValue, receiptPhoto, kmsPhoto);
       if (result.error) {
         setError(result.error);
         return;
       }
-      setSuccess('Receipt submitted. You can request the next token now.');
+      setSuccess('Bill and kms photos submitted. You can request the next token now.');
       setKms('');
-      setPhoto(null);
+      setReceiptPhoto(null);
+      setKmsPhoto(null);
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +170,7 @@ export const EmployeePetrolSection: React.FC = () => {
               <p className="text-sm text-amber-900">
                 {formatCurrency(blocking.amount)} · {blocking.vehicleNo}
               </p>
-              <p className="text-xs text-amber-700">Next request opens only after you submit the pump receipt.</p>
+              <p className="text-xs text-amber-700">Next request opens only after you submit the pump bill and kms photos.</p>
               <Button
                 type="button"
                 variant="outline"
@@ -181,8 +187,8 @@ export const EmployeePetrolSection: React.FC = () => {
           {blocking?.status === 'issued' && (
             <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-indigo-900">Fill at the pump, then submit the bill</p>
-                <Te className="text-indigo-800 mb-0">Petrol vesukoni bill photo pettandi</Te>
+                <p className="text-sm font-semibold text-indigo-900">Fill at the pump, then submit evidence</p>
+                <Te className="text-indigo-800 mb-0">Bill photo + kms meter photo pettandi</Te>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
                     <p className="text-[11px] text-gray-500">Book no</p>
@@ -218,13 +224,27 @@ export const EmployeePetrolSection: React.FC = () => {
                 <label className={labelClass}>Pump receipt photo *</label>
                 <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-indigo-200 rounded-lg bg-white cursor-pointer text-sm text-gray-700">
                   <Camera className="h-4 w-4 text-indigo-600" />
-                  {photo ? photo.name : 'Take or choose photo'}
+                  {receiptPhoto ? receiptPhoto.name : 'Take or choose pump bill'}
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
                     className="hidden"
-                    onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                    onChange={(e) => setReceiptPhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+              <div>
+                <label className={labelClass}>Kms / odometer photo *</label>
+                <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-indigo-200 rounded-lg bg-white cursor-pointer text-sm text-gray-700">
+                  <Camera className="h-4 w-4 text-indigo-600" />
+                  {kmsPhoto ? kmsPhoto.name : 'Take or choose kms meter'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => setKmsPhoto(e.target.files?.[0] ?? null)}
                   />
                 </label>
               </div>
@@ -236,7 +256,7 @@ export const EmployeePetrolSection: React.FC = () => {
                 disabled={submitting}
                 onClick={() => void handleReceipt()}
               >
-                {submitting ? 'Submitting…' : 'Submit receipt'}
+                {submitting ? 'Submitting…' : 'Submit evidence'}
               </Button>
             </div>
           )}

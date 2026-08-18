@@ -328,6 +328,7 @@ export interface PetrolRequest {
   issuedAt: string | null;
   kms: number | null;
   receiptUrl: string;
+  kmsPhotoUrl: string;
   receiptSubmittedAt: string | null;
   notes: string;
   adminNotes: string;

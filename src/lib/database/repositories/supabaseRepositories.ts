@@ -991,6 +991,7 @@ function rowToPetrol(row: Record<string, unknown>): PetrolRequest {
     issuedAt: (row.issued_at as string | null) ?? null,
     kms: row.kms == null ? null : Number(row.kms),
     receiptUrl: (row.receipt_url as string) ?? '',
+    kmsPhotoUrl: (row.kms_photo_url as string) ?? '',
     receiptSubmittedAt: (row.receipt_submitted_at as string | null) ?? null,
     notes: (row.notes as string) ?? '',
     adminNotes: (row.admin_notes as string) ?? '',
@@ -1035,6 +1036,7 @@ export const sbPetrolRepo = {
       issued_at: request.issuedAt,
       kms: request.kms,
       receipt_url: request.receiptUrl,
+      kms_photo_url: request.kmsPhotoUrl,
       receipt_submitted_at: request.receiptSubmittedAt,
       notes: request.notes,
       admin_notes: request.adminNotes,
@@ -1056,6 +1058,7 @@ export const sbPetrolRepo = {
     if (updates.issuedAt !== undefined) payload.issued_at = updates.issuedAt;
     if (updates.kms !== undefined) payload.kms = updates.kms;
     if (updates.receiptUrl !== undefined) payload.receipt_url = updates.receiptUrl;
+    if (updates.kmsPhotoUrl !== undefined) payload.kms_photo_url = updates.kmsPhotoUrl;
     if (updates.receiptSubmittedAt !== undefined) payload.receipt_submitted_at = updates.receiptSubmittedAt;
     if (updates.notes !== undefined) payload.notes = updates.notes;
     if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;

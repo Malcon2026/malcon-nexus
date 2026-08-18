@@ -257,6 +257,7 @@ CREATE TABLE IF NOT EXISTS petrol_requests (
   issued_at              TIMESTAMPTZ,
   kms                    NUMERIC(10, 1),
   receipt_url            TEXT NOT NULL DEFAULT '',
+  kms_photo_url          TEXT NOT NULL DEFAULT '',
   receipt_submitted_at   TIMESTAMPTZ,
   notes                  TEXT NOT NULL DEFAULT '',
   admin_notes            TEXT NOT NULL DEFAULT '',
