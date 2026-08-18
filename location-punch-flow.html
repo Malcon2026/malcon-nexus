@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Location punchin — how it works</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --sky: #0369a1;
+      --ok: #047857;
+      --amber: #b45309;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: #ffffff;
+      color: var(--ink);
+    }
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 40px 24px 72px;
+    }
+    h1 { font-size: 1.75rem; margin: 0 0 6px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0 0 8px; font-size: 16px; line-height: 1.5; }
+    .not { font-size: 13px; color: var(--muted); margin: 0 0 36px; }
+
+    .board {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      align-items: stretch;
+      gap: 0;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px 16px 18px;
+      min-height: 148px;
+    }
+    .card .n {
+      width: 24px; height: 24px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .card b { display: block; font-size: 15px; margin-bottom: 6px; }
+    .card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .who {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--sky);
+      margin: 0 0 4px;
+    }
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9ca3af;
+      font-size: 22px;
+      padding: 0 8px;
+    }
+
+    .example {
+      margin-top: 40px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .example h2 {
+      margin: 0;
+      padding: 14px 18px;
+      font-size: 13px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: #374151;
+      background: #f9fafb;
+      border-bottom: 1px solid var(--line);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 18px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; width: 28%; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--sky); }
+    .km { font-weight: 700; color: var(--ok); }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+    .note b { display: block; margin-bottom: 6px; font-size: 14px; }
+    .note p, .note li { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .note ul { margin: 8px 0 0; padding-left: 18px; }
+    .ok { color: var(--ok); font-size: 14px; margin: 28px 0 0; }
+
+    @media (max-width: 800px) {
+      .board { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); padding: 6px 0; }
+      .split { grid-template-columns: 1fr; }
+      th { width: auto; }
+    }
+    @media print {
+      .page { padding: 12px 0; }
+      .card, .example, .note { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Location punchin</h1>
+    <p class="sub">Field staff log a trip with two GPS punches. The app calculates the km. Admin can re-check the spots on Google Maps.</p>
+    <p class="not">This is not office attendance and not petrol. Separate tab on the employee home: <b>Location punchin</b>.</p>
+
+    <div class="board">
+      <div class="card">
+        <span class="n">1</span>
+        <p class="who">Employee</p>
+        <b>Write notes</b>
+        <p>Where they are going and why. Required before start.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="card">
+        <span class="n">2</span>
+        <p class="who">Button one</p>
+        <b>Start location</b>
+        <p>Saves current GPS + Google Plus Code. Becomes <b>Trip 1</b>.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="card">
+        <span class="n">3</span>
+        <p class="who">Travel</p>
+        <b>Go to destination</b>
+        <p>No live tracking. One GPS read at start, one at arrival.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="card">
+        <span class="n">4</span>
+        <p class="who">Button two</p>
+        <b>Reached</b>
+        <p>Saves end GPS. App calculates distance. Next pair is Trip 2.</p>
+      </div>
+    </div>
+
+    <div class="example">
+      <h2>Example — same day, two trips</h2>
+      <table>
+        <tr>
+          <th>Staff</th>
+          <td>Ravi · Delivery</td>
+        </tr>
+        <tr>
+          <th>Trip 1 notes</th>
+          <td>Kit delivery — Sunshine Hospital, Dr. Rao case</td>
+        </tr>
+        <tr>
+          <th>Start</th>
+          <td>
+            9:10 AM · office gate<br />
+            <span class="mono">Plus Code 7J9W9FPP+2M7</span> · tap opens Google Maps
+          </td>
+        </tr>
+        <tr>
+          <th>Reached</th>
+          <td>
+            9:42 AM · hospital entrance<br />
+            <span class="mono">Plus Code 7J9X2Q8H+5C</span>
+          </td>
+        </tr>
+        <tr>
+          <th>Distance</th>
+          <td class="km">12.4 km saved on Trip 1</td>
+        </tr>
+        <tr>
+          <th>Trip 2</th>
+          <td>
+            After lunch he starts again: hospital → next hospital.<br />
+            Same two buttons. Saved as Trip 2 with its own notes, Plus Codes, and km.
+          </td>
+        </tr>
+        <tr>
+          <th>Today total</th>
+          <td>Trip 1 12.4 km + Trip 2 8.1 km = <b>20.5 km</b></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="split">
+      <div class="note">
+        <b>What the boy does</b>
+        <ul>
+          <li>Open Location punchin (not Punch in / out)</li>
+          <li>Notes → Start location → travel → Reached</li>
+          <li>One open trip at a time — must press Reached before the next start</li>
+        </ul>
+      </div>
+      <div class="note">
+        <b>What you can check</b>
+        <ul>
+          <li>Admin Attendance → Today lists each trip</li>
+          <li>Plus Code opens the exact pin in Google Maps</li>
+          <li>GPS accuracy is shown (e.g. ±12 m) so a weak indoor punch is obvious</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="ok">Km is straight-line GPS (start pin to end pin), not the speedometer. Petrol still uses meter photos.</p>
+  </div>
+</body>
+</html>
