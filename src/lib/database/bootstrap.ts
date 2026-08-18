@@ -112,6 +112,7 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
       // 150-day attendance history is only needed by the (lazy-loaded)
       // Attendance Register further down the dashboard — never blocks login.
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, sinceIso) },
+      { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
       // Not read by any employee-facing screen today; still loaded in the
       // background in case something needs it, just never blocking.
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
@@ -308,6 +309,15 @@ export async function bootstrapEssential(
   runOptions?: BootstrapRunOptions,
 ): Promise<boolean> {
   if (shouldSkipEssentialFetch(role, options, runOptions)) {
+    // Session cache is from login time and does not include punches made later.
+    // Always re-read location trips so refresh does not wipe them.
+    if (role === 'employee' && options?.employeeId) {
+      await runBootstrapTasks(
+        [{ key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(options.employeeId!) }],
+        'locationTrips',
+      );
+      return true;
+    }
     return false;
   }
 

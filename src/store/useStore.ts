@@ -28,6 +28,7 @@ import { kmBetween, nextTripNo, openLocationTrip } from '../lib/locationTrip';
 import { encodePlusCode } from '../lib/plusCode';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
+import { persistBootstrapCache } from '../lib/database/bootstrap';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -612,6 +613,12 @@ const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string 
   const list = Database.getAll<LocationTrip>('locationTrips');
   Database.saveAll('locationTrips', [trip, ...list]);
   return { error: null };
+};
+
+const persistLocationTripSession = (employee: { id: string; role: Employee['role'] }) => {
+  if (!USE_SUPABASE) return;
+  const role = employee.role === 'admin' || employee.role === 'petrol' ? employee.role : 'employee';
+  persistBootstrapCache(employee.id, role);
 };
 
 const updateLocationTrip = async (
@@ -2169,6 +2176,7 @@ export const useStore = create<AppState>((set, get) => ({
       locationTrips: [trip, ...s.locationTrips.filter((t) => t.id !== trip.id)],
     }));
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    persistLocationTripSession(currentUser);
 
     return { error: null, tripNo, plusCode: startPlusCode };
   },
@@ -2203,6 +2211,7 @@ export const useStore = create<AppState>((set, get) => ({
       locationTrips: s.locationTrips.map((t) => (t.id === open.id ? { ...t, ...updates } : t)),
     }));
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    persistLocationTripSession(currentUser);
 
     return { error: null, distanceKm, tripNo: open.tripNo, plusCode: endPlusCode };
   },
