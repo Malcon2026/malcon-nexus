@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, Flag, Loader2 } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Button } from './ui/Button';
@@ -8,8 +8,11 @@ import {
   openLocationTrip,
   todayLocationTripKm,
   todayLocationTrips,
+  tripEndPlusCode,
+  tripStartPlusCode,
 } from '../lib/locationTrip';
 import { Te } from './BilingualText';
+import { PlusCodeLink } from './PlusCodeLink';
 
 const notesClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white min-h-[5.5rem] resize-y';
@@ -28,10 +31,6 @@ export const LocationPunchSection: React.FC = () => {
   const open = openLocationTrip(locationTrips, currentUser.id);
   const today = todayLocationTrips(locationTrips, currentUser.id);
   const totalKm = todayLocationTripKm(locationTrips, currentUser.id);
-  const nextNo = useMemo(
-    () => (open ? open.tripNo : today.reduce((max, t) => Math.max(max, t.tripNo), 0) + 1),
-    [open, today],
-  );
 
   useEffect(() => {
     if (open) {
@@ -61,7 +60,7 @@ export const LocationPunchSection: React.FC = () => {
           setError(result.error);
           return;
         }
-        setSuccess(`Trip ${result.tripNo} started. Press Reached after you arrive.`);
+        setSuccess(`Trip ${result.tripNo} started${result.plusCode ? ` · ${result.plusCode}` : ''}. Press Reached after you arrive.`);
         setNotes(trimmed);
         return;
       }
@@ -71,7 +70,7 @@ export const LocationPunchSection: React.FC = () => {
         setError(result.error);
         return;
       }
-      setSuccess(`Trip ${result.tripNo} saved · ${result.distanceKm ?? 0} km`);
+      setSuccess(`Trip ${result.tripNo} saved · ${result.distanceKm ?? 0} km${result.plusCode ? ` · ${result.plusCode}` : ''}`);
       setNotes('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not get GPS. Try again outdoors.');
@@ -93,8 +92,8 @@ export const LocationPunchSection: React.FC = () => {
               <Te className="text-gray-500 mb-0">Start → reach → km</Te>
               <p className="text-xs text-gray-500 mt-1">
                 Press <span className="font-medium text-gray-700">Start location</span>, travel,
-                then press <span className="font-medium text-gray-700">Reached</span>. Distance is
-                saved as Trip {nextNo}. Notes are required.
+                then press <span className="font-medium text-gray-700">Reached</span>. Each punch
+                saves a Google Plus Code so you can open Maps and re-check the spot.
               </p>
             </div>
           </div>
@@ -110,6 +109,15 @@ export const LocationPunchSection: React.FC = () => {
               {open.notes && (
                 <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{open.notes}</p>
               )}
+              <div className="mt-1.5">
+                <PlusCodeLink
+                  label="Start"
+                  plusCode={tripStartPlusCode(open)}
+                  lat={open.startLat}
+                  lng={open.startLng}
+                  accuracyM={open.startAccuracyM}
+                />
+              </div>
             </div>
           )}
 
@@ -186,6 +194,24 @@ export const LocationPunchSection: React.FC = () => {
                   {t.notes && (
                     <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{t.notes}</p>
                   )}
+                  <div className="mt-1.5 flex flex-col gap-0.5">
+                    <PlusCodeLink
+                      label="Start"
+                      plusCode={tripStartPlusCode(t)}
+                      lat={t.startLat}
+                      lng={t.startLng}
+                      accuracyM={t.startAccuracyM}
+                    />
+                    {t.status === 'completed' && (
+                      <PlusCodeLink
+                        label="Reached"
+                        plusCode={tripEndPlusCode(t)}
+                        lat={t.endLat}
+                        lng={t.endLng}
+                        accuracyM={t.endAccuracyM}
+                      />
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

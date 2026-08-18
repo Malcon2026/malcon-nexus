@@ -6,7 +6,8 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
 import { formatTimeIST } from '../lib/attendance';
-import { todayLocationTripKm, visibleLocationTrips } from '../lib/locationTrip';
+import { todayLocationTripKm, tripEndPlusCode, tripStartPlusCode, visibleLocationTrips } from '../lib/locationTrip';
+import { PlusCodeLink } from '../components/PlusCodeLink';
 
 const LocationTripAdmin: React.FC = () => {
   const trips = useStore((s) => s.locationTrips);
@@ -24,7 +25,7 @@ const LocationTripAdmin: React.FC = () => {
     <Card className="mt-4">
       <div className="px-4 py-3 border-b border-gray-100">
         <p className="text-sm font-semibold text-gray-900">Location punchin</p>
-        <p className="text-xs text-gray-500 mt-0.5">Start → reached GPS km. Separate from attendance.</p>
+        <p className="text-xs text-gray-500 mt-0.5">Start → reached GPS km. Plus Code opens in Google Maps to re-check.</p>
       </div>
       <div className="divide-y divide-gray-50">
         {[...byEmployee.entries()].map(([id, rows]) => {
@@ -39,11 +40,31 @@ const LocationTripAdmin: React.FC = () => {
               </p>
               <ul className="mt-1 space-y-0.5">
                 {ordered.map((t) => (
-                  <li key={t.id} className="text-xs text-gray-600">
-                    Trip {t.tripNo} · {formatTimeIST(t.startAt)}
-                    {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ''}
-                    {t.status === 'completed' ? ` · ${t.distanceKm} km` : ' · in progress'}
-                    {t.notes ? ` · ${t.notes}` : ''}
+                  <li key={t.id} className="text-xs text-gray-600 py-1">
+                    <p>
+                      Trip {t.tripNo} · {formatTimeIST(t.startAt)}
+                      {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ''}
+                      {t.status === 'completed' ? ` · ${t.distanceKm} km` : ' · in progress'}
+                      {t.notes ? ` · ${t.notes}` : ''}
+                    </p>
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      <PlusCodeLink
+                        label="Start"
+                        plusCode={tripStartPlusCode(t)}
+                        lat={t.startLat}
+                        lng={t.startLng}
+                        accuracyM={t.startAccuracyM}
+                      />
+                      {t.status === 'completed' && (
+                        <PlusCodeLink
+                          label="Reached"
+                          plusCode={tripEndPlusCode(t)}
+                          lat={t.endLat}
+                          lng={t.endLng}
+                          accuracyM={t.endAccuracyM}
+                        />
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

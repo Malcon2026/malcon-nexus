@@ -25,6 +25,7 @@ import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { kmBetween, nextTripNo, openLocationTrip } from '../lib/locationTrip';
+import { encodePlusCode } from '../lib/plusCode';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
@@ -178,11 +179,11 @@ interface AppState {
   startLocationTrip: (
     notes: string,
     position: GeoPosition,
-  ) => Promise<{ error: string | null; tripNo?: number }>;
+  ) => Promise<{ error: string | null; tripNo?: number; plusCode?: string }>;
   completeLocationTrip: (
     notes: string,
     position: GeoPosition,
-  ) => Promise<{ error: string | null; distanceKm?: number; tripNo?: number }>;
+  ) => Promise<{ error: string | null; distanceKm?: number; tripNo?: number; plusCode?: string }>;
 
   // Leave
   applyLeave: (
@@ -581,6 +582,9 @@ function petrolDbError(err: unknown, fallback: string): string {
 
 const locationTripDbError = (err: unknown, fallback: string): string => {
   const message = err instanceof Error ? err.message : fallback;
+  if (message.includes('start_plus_code') || message.includes('end_plus_code')) {
+    return 'Plus Code columns are missing. Run add-location-trip-plus-codes.sql in Supabase.';
+  }
   if (message.includes('location_trips') && message.includes('does not exist')) {
     return 'Location punchin is not set up yet. Run add-location-trips.sql in Supabase.';
   }
@@ -2135,6 +2139,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const now = new Date().toISOString();
     const tripNo = nextTripNo(locationTrips, currentUser.id);
+    const startPlusCode = encodePlusCode(position.latitude, position.longitude);
     const trip: LocationTrip = {
       id: newId(),
       employeeId: currentUser.id,
@@ -2146,10 +2151,12 @@ export const useStore = create<AppState>((set, get) => ({
       startLat: position.latitude,
       startLng: position.longitude,
       startAccuracyM: position.accuracyM,
+      startPlusCode,
       endAt: null,
       endLat: null,
       endLng: null,
       endAccuracyM: null,
+      endPlusCode: '',
       distanceKm: 0,
       createdAt: now,
       updatedAt: now,
@@ -2163,7 +2170,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
 
-    return { error: null, tripNo };
+    return { error: null, tripNo, plusCode: startPlusCode };
   },
 
   completeLocationTrip: async (notes, position) => {
@@ -2176,6 +2183,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const now = new Date().toISOString();
     const distanceKm = kmBetween(open.startLat, open.startLng, position.latitude, position.longitude);
+    const endPlusCode = encodePlusCode(position.latitude, position.longitude);
     const updates: Partial<LocationTrip> = {
       notes: trimmed,
       status: 'completed',
@@ -2183,6 +2191,7 @@ export const useStore = create<AppState>((set, get) => ({
       endLat: position.latitude,
       endLng: position.longitude,
       endAccuracyM: position.accuracyM,
+      endPlusCode,
       distanceKm,
       updatedAt: now,
     };
@@ -2195,7 +2204,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
 
-    return { error: null, distanceKm, tripNo: open.tripNo };
+    return { error: null, distanceKm, tripNo: open.tripNo, plusCode: endPlusCode };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {

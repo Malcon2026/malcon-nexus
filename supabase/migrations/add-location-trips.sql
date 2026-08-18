@@ -15,10 +15,12 @@ CREATE TABLE IF NOT EXISTS location_trips (
   start_lat          DOUBLE PRECISION NOT NULL,
   start_lng          DOUBLE PRECISION NOT NULL,
   start_accuracy_m   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  start_plus_code    TEXT NOT NULL DEFAULT '',
   end_at             TIMESTAMPTZ,
   end_lat            DOUBLE PRECISION,
   end_lng            DOUBLE PRECISION,
   end_accuracy_m     DOUBLE PRECISION,
+  end_plus_code      TEXT NOT NULL DEFAULT '',
   distance_km        NUMERIC(10, 2) NOT NULL DEFAULT 0,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -1089,6 +1089,10 @@ export const sbPetrolRepo = {
   },
 };
 
+function isMissingPlusCodeColumn(message: string): boolean {
+  return message.includes('start_plus_code') || message.includes('end_plus_code');
+}
+
 function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
   return {
     id: row.id as string,
@@ -1101,10 +1105,12 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
     startLat: Number(row.start_lat ?? 0),
     startLng: Number(row.start_lng ?? 0),
     startAccuracyM: Number(row.start_accuracy_m ?? 0),
+    startPlusCode: (row.start_plus_code as string) ?? '',
     endAt: (row.end_at as string | null) ?? null,
     endLat: row.end_lat == null ? null : Number(row.end_lat),
     endLng: row.end_lng == null ? null : Number(row.end_lng),
     endAccuracyM: row.end_accuracy_m == null ? null : Number(row.end_accuracy_m),
+    endPlusCode: (row.end_plus_code as string) ?? '',
     distanceKm: Number(row.distance_km ?? 0),
     createdAt: (row.created_at as string) ?? '',
     updatedAt: (row.updated_at as string) ?? '',
@@ -1132,7 +1138,7 @@ export const sbLocationTripRepo = {
   },
 
   async insert(trip: LocationTrip): Promise<void> {
-    const { error } = await supabase.from('location_trips').insert({
+    const payload: Record<string, unknown> = {
       id: trip.id,
       employee_id: trip.employeeId,
       employee_name: trip.employeeName,
@@ -1143,14 +1149,24 @@ export const sbLocationTripRepo = {
       start_lat: trip.startLat,
       start_lng: trip.startLng,
       start_accuracy_m: trip.startAccuracyM,
+      start_plus_code: trip.startPlusCode,
       end_at: trip.endAt,
       end_lat: trip.endLat,
       end_lng: trip.endLng,
       end_accuracy_m: trip.endAccuracyM,
+      end_plus_code: trip.endPlusCode,
       distance_km: trip.distanceKm,
       created_at: trip.createdAt,
       updated_at: trip.updatedAt,
-    });
+    };
+    const { error } = await supabase.from('location_trips').insert(payload);
+    if (error && isMissingPlusCodeColumn(error.message)) {
+      delete payload.start_plus_code;
+      delete payload.end_plus_code;
+      const retry = await supabase.from('location_trips').insert(payload);
+      if (retry.error) throw retry.error;
+      return;
+    }
     if (error) throw error;
   },
 
@@ -1162,10 +1178,18 @@ export const sbLocationTripRepo = {
     if (updates.endLat !== undefined) payload.end_lat = updates.endLat;
     if (updates.endLng !== undefined) payload.end_lng = updates.endLng;
     if (updates.endAccuracyM !== undefined) payload.end_accuracy_m = updates.endAccuracyM;
+    if (updates.endPlusCode !== undefined) payload.end_plus_code = updates.endPlusCode;
     if (updates.distanceKm !== undefined) payload.distance_km = updates.distanceKm;
     if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
 
     const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
+    if (error && isMissingPlusCodeColumn(error.message) && 'end_plus_code' in payload) {
+      delete payload.end_plus_code;
+      delete payload.start_plus_code;
+      const retry = await supabase.from('location_trips').update(payload).eq('id', id);
+      if (retry.error) throw retry.error;
+      return;
+    }
     if (error) throw error;
   },
 };

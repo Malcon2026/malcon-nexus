@@ -223,10 +223,12 @@ export interface Database {
           start_lat: number;
           start_lng: number;
           start_accuracy_m: number;
+          start_plus_code: string;
           end_at: string | null;
           end_lat: number | null;
           end_lng: number | null;
           end_accuracy_m: number | null;
+          end_plus_code: string;
           distance_km: number;
           created_at: string;
           updated_at: string;

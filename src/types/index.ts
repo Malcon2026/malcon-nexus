@@ -253,10 +253,12 @@ export interface LocationTrip {
   startLat: number;
   startLng: number;
   startAccuracyM: number;
+  startPlusCode: string;
   endAt: string | null;
   endLat: number | null;
   endLng: number | null;
   endAccuracyM: number | null;
+  endPlusCode: string;
   distanceKm: number;
   createdAt: string;
   updatedAt: string;

@@ -1,5 +1,6 @@
 import type { LocationTrip } from '../types';
 import { getDistanceMeters, getISTDateKey } from './attendance';
+import { encodePlusCode } from './plusCode';
 
 export function kmBetween(
   lat1: number,
@@ -63,4 +64,14 @@ export function visibleLocationTrips(
         (t.endAt != null && getISTDateKey(t.endAt) === dateKey),
     )
     .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+}
+
+export function tripStartPlusCode(trip: LocationTrip): string {
+  return trip.startPlusCode || encodePlusCode(trip.startLat, trip.startLng);
+}
+
+export function tripEndPlusCode(trip: LocationTrip): string {
+  if (trip.endPlusCode) return trip.endPlusCode;
+  if (trip.endLat == null || trip.endLng == null) return '';
+  return encodePlusCode(trip.endLat, trip.endLng);
 }
