@@ -3251,7 +3251,7 @@ export const useStore = create<AppState>((set, get) => ({
     const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
     if (previousIssued) {
       if (!previousEvidence) {
-        return { error: 'Enter previous and current meter readings and upload the last pump bill to request petrol again.' };
+        return { error: 'Enter today kms and upload the last pump bill to request petrol again.' };
       }
       const closeResult = await get().submitPetrolReceipt(previousIssued.id, previousEvidence);
       if (closeResult.error) return closeResult;
@@ -3457,14 +3457,14 @@ export const useStore = create<AppState>((set, get) => ({
     let kmsEnd: number | null = input.kmsEnd == null ? null : Number(input.kmsEnd);
     let kms: number | null = input.kms == null ? null : Number(input.kms);
     if (kmsStart != null && (!Number.isFinite(kmsStart) || kmsStart < 0)) {
-      return { error: 'Enter a valid previous meter reading, or leave it blank.' };
+      return { error: 'Enter a valid yesterday kms, or leave it blank.' };
     }
     if (kmsEnd != null && (!Number.isFinite(kmsEnd) || kmsEnd < 0)) {
-      return { error: 'Enter a valid current meter reading, or leave it blank.' };
+      return { error: 'Enter a valid today kms, or leave it blank.' };
     }
     if (kmsStart != null && kmsEnd != null) {
       if (kmsEnd < kmsStart) {
-        return { error: 'Current reading must be the same as or higher than the previous reading.' };
+        return { error: 'Today kms must be the same as or higher than yesterday kms.' };
       }
       kms = Math.round((kmsEnd - kmsStart) * 10) / 10;
     } else if (kms != null && (!Number.isFinite(kms) || kms < 0)) {
@@ -3543,10 +3543,10 @@ export const useStore = create<AppState>((set, get) => ({
       ? evidence.kms
       : Math.round((kmsEnd - kmsStart) * 10) / 10;
     if (!Number.isFinite(kmsStart) || kmsStart < 0) {
-      return { error: 'Enter the previous meter reading (e.g. 1234).' };
+      return { error: 'Enter yesterday kms (e.g. 1234).' };
     }
     if (!Number.isFinite(kmsEnd) || kmsEnd < kmsStart) {
-      return { error: 'Enter the current meter reading from the bill (e.g. 1254).' };
+      return { error: 'Enter today kms from the bill (e.g. 1254).' };
     }
     if (!receiptPhoto) {
       return { error: 'Take a photo of the pump receipt.' };
@@ -3599,7 +3599,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser.name,
       currentUser.name,
       currentUser.role,
-      `${currentUser.name} submitted pump bill for book ${request.bookNo} token ${request.tokenNo} (${kmsStart} → ${kmsEnd} = ${kms} km driven).`,
+      `${currentUser.name} submitted pump bill for book ${request.bookNo} token ${request.tokenNo} (${kmsEnd} − ${kmsStart} = ${kms} km trip).`,
     );
     persistActivity(activity);
 

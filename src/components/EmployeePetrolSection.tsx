@@ -13,6 +13,7 @@ import {
   lastMeterReading,
   parseTripReadings,
   formatTripKms,
+  formatTripFormula,
   petrolStatusLabel,
 } from '../lib/petrol';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
@@ -74,11 +75,14 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
   const resolvedAmount =
     amountChoice === 'other' ? Number(customAmount) : amountChoice;
 
-  const parsedTrip = parseTripReadings(kmsStart, kmsEnd);
-  const drivenPreview = 'readings' in parsedTrip ? parsedTrip.readings.kms : null;
+  const parsedTrip = parseTripReadings(
+    rememberedStart != null ? String(rememberedStart) : kmsStart,
+    kmsEnd,
+  );
 
   const collectEvidence = () => {
-    const parsed = parseTripReadings(kmsStart, kmsEnd);
+    const yesterday = rememberedStart != null ? String(rememberedStart) : kmsStart;
+    const parsed = parseTripReadings(yesterday, kmsEnd);
     if ('error' in parsed) {
       setError(parsed.error);
       return null;
@@ -153,7 +157,7 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
         setError(result.error);
         return;
       }
-      setSuccess(`Bill submitted: ${evidence.kms} km driven. You can request petrol again today.`);
+      setSuccess(`Bill submitted: ${formatTripFormula(evidence.kmsStart, evidence.kmsEnd, evidence.kms)}`);
       clearEvidence();
     } finally {
       setSubmitting(false);
@@ -178,13 +182,19 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
 
   const tripFields = needsPreviousPhotos && (
     <div className="space-y-3 p-3 rounded-lg bg-white border border-orange-100">
-      <p className="text-xs font-semibold text-gray-700">Last fill — kms driven *</p>
+      <p className="text-xs font-semibold text-gray-700">Trip kms *</p>
       <p className="text-xs text-gray-500">
-        Previous reading 1234, bill reading 1254 → submit <span className="font-semibold text-gray-700">20 km</span> driven.
+        <span className="font-semibold text-gray-800">Today kms − yesterday kms = trip kms</span>
+        {' '}(e.g. 1254 − 1234 = 20 km)
       </p>
-      <div className="grid grid-cols-2 gap-2">
+      {rememberedStart != null ? (
+        <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+          <p className="text-[11px] text-gray-500">Yesterday kms (from last bill)</p>
+          <p className="text-sm font-bold text-gray-900 tabular-nums">{rememberedStart}</p>
+        </div>
+      ) : (
         <div>
-          <label className={labelClass}>Previous reading *</label>
+          <label className={labelClass}>Yesterday kms *</label>
           <input
             type="number"
             min={0}
@@ -192,24 +202,26 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
             className={inputClass}
             value={kmsStart}
             onChange={(e) => setKmsStart(e.target.value)}
-            placeholder="e.g. 1234"
+            placeholder="Meter reading last fill e.g. 1234"
           />
         </div>
-        <div>
-          <label className={labelClass}>Current reading *</label>
-          <input
-            type="number"
-            min={0}
-            step="0.1"
-            className={inputClass}
-            value={kmsEnd}
-            onChange={(e) => setKmsEnd(e.target.value)}
-            placeholder="e.g. 1254"
-          />
-        </div>
+      )}
+      <div>
+        <label className={labelClass}>Today kms *</label>
+        <input
+          type="number"
+          min={0}
+          step="0.1"
+          className={inputClass}
+          value={kmsEnd}
+          onChange={(e) => setKmsEnd(e.target.value)}
+          placeholder="Meter on this bill e.g. 1254"
+        />
       </div>
-      <p className="text-sm font-semibold text-gray-900">
-        {drivenPreview != null ? `${drivenPreview} km driven` : 'Kms driven will show here'}
+      <p className="text-sm font-semibold text-orange-700 tabular-nums">
+        {'readings' in parsedTrip
+          ? formatTripFormula(parsedTrip.readings.kmsStart, parsedTrip.readings.kmsEnd, parsedTrip.readings.kms)
+          : 'Trip kms will show here'}
       </p>
       <div>
         <label className={labelClass}>Last pump bill photo *</label>
@@ -324,7 +336,7 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
             </p>
             <Te className="text-gray-500 mb-0">
               {needsPreviousPhotos
-                ? 'Previous reading, current reading, photos, then new amount'
+                ? 'Today kms − yesterday kms + bill photos, then new amount'
                 : 'Amount + vehicle. You can request more than once today.'}
             </Te>
 
@@ -403,7 +415,7 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
               />
             </div>
             <Button type="submit" variant="primary" size="sm" icon={<Send className="h-4 w-4" />} disabled={submitting}>
-              {submitting ? 'Sending…' : needsPreviousPhotos ? 'Submit km & request again' : 'Request petrol'}
+              {submitting ? 'Sending…' : needsPreviousPhotos ? 'Submit trip km & request again' : 'Request petrol'}
             </Button>
           </form>
         </CardBody>

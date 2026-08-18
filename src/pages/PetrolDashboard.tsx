@@ -420,7 +420,7 @@ export const PetrolDashboard: React.FC = () => {
                   <th className="px-4 py-2.5 text-right">Amount</th>
                   <th className="px-4 py-2.5">Book no</th>
                   <th className="px-4 py-2.5">Token no</th>
-                  <th className="px-4 py-2.5 text-right">Km driven</th>
+                  <th className="px-4 py-2.5 text-right">Trip km</th>
                   <th className="px-4 py-2.5">Evidence</th>
                   <th className="px-4 py-2.5">Status</th>
                   <th className="px-4 py-2.5" />
@@ -694,8 +694,8 @@ export const PetrolDashboard: React.FC = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <label className={labelClass}>Kms driven (optional)</label>
-            <p className="text-xs text-gray-500">Previous 1234, current 1254 → 20 km driven.</p>
+            <label className={labelClass}>Trip km (optional)</label>
+            <p className="text-xs text-gray-500">Today kms − yesterday kms = trip km (e.g. 1254 − 1234 = 20)</p>
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="number"
@@ -703,7 +703,7 @@ export const PetrolDashboard: React.FC = () => {
                 className={inputClass}
                 value={manualKmsStart}
                 onChange={(e) => setManualKmsStart(e.target.value)}
-                placeholder="Previous e.g. 1234"
+                placeholder="Yesterday e.g. 1234"
               />
               <input
                 type="number"
@@ -711,7 +711,7 @@ export const PetrolDashboard: React.FC = () => {
                 className={inputClass}
                 value={manualKmsEnd}
                 onChange={(e) => setManualKmsEnd(e.target.value)}
-                placeholder="Current e.g. 1254"
+                placeholder="Today e.g. 1254"
               />
             </div>
           </div>
@@ -835,7 +835,7 @@ export const PetrolDashboard: React.FC = () => {
             <input className={inputClass} value={tokenNo} onChange={(e) => setTokenNo(e.target.value)} placeholder="e.g. 45" />
           </div>
           <p className="text-xs text-gray-500">
-            Boys can request petrol more than once per day. Next time they submit previous + current meter readings and bill photos.
+            Boys can request petrol more than once per day. Next time: today kms − yesterday kms + bill photos.
           </p>
         </div>
       </Modal>

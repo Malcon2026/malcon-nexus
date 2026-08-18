@@ -57,30 +57,35 @@ export function lastMeterReading(requests: PetrolRequest[], employeeId: string):
 }
 
 export function parseTripReadings(
-  startRaw: string,
-  endRaw: string,
+  yesterdayRaw: string,
+  todayRaw: string,
 ): { readings: PetrolTripReadings } | { error: string } {
-  const kmsStart = Number(startRaw);
-  const kmsEnd = Number(endRaw);
+  const kmsStart = Number(yesterdayRaw);
+  const kmsEnd = Number(todayRaw);
   if (!Number.isFinite(kmsStart) || kmsStart < 0) {
-    return { error: 'Enter the previous meter reading (e.g. 1234).' };
+    return { error: 'Enter yesterday kms (meter reading from last fill, e.g. 1234).' };
   }
   if (!Number.isFinite(kmsEnd) || kmsEnd < 0) {
-    return { error: 'Enter the current meter reading from the bill (e.g. 1254).' };
+    return { error: 'Enter today kms (meter reading on this bill, e.g. 1254).' };
   }
   if (kmsEnd < kmsStart) {
-    return { error: 'Current reading must be the same as or higher than the previous reading.' };
+    return { error: 'Today kms must be the same as or higher than yesterday kms.' };
   }
   const kms = Math.round((kmsEnd - kmsStart) * 10) / 10;
   return { readings: { kmsStart, kmsEnd, kms } };
 }
 
+/** e.g. "1254 − 1234 = 20 km trip" */
+export function formatTripFormula(kmsStart: number, kmsEnd: number, kms: number): string {
+  return `${kmsEnd} − ${kmsStart} = ${kms} km trip`;
+}
+
 export function formatTripKms(request: PetrolRequest): string {
   if (request.kms == null) return '';
   if (request.kmsStart != null && request.kmsEnd != null) {
-    return `${request.kms} km (${request.kmsStart} → ${request.kmsEnd})`;
+    return formatTripFormula(request.kmsStart, request.kmsEnd, request.kms);
   }
-  return `${request.kms} km`;
+  return `${request.kms} km trip`;
 }
 
 export function lastVehicleNo(requests: PetrolRequest[], employeeId: string): string {
