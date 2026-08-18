@@ -438,10 +438,9 @@ function groupLeavesByEmployee(leaveRequests: LeaveRequest[]): Map<string, Leave
   return byEmployee;
 }
 
-export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): RegisterDayColumn[] {
+export function buildDayColumnsForRange(fromDateKey: string, toDateKey: string): RegisterDayColumn[] {
   const todayKey = getISTDateKey();
-  const bounds = getSalaryCycleBounds(year, salaryMonth);
-  const dateKeys = iterateDateKeys(bounds.startDateKey, bounds.endDateKey);
+  const dateKeys = iterateDateKeys(fromDateKey, toDateKey);
   const columns: RegisterDayColumn[] = [];
   let previousMonth = -1;
 
@@ -458,7 +457,7 @@ export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): R
       day: d,
       dateKey,
       weekday: WEEKDAY_SHORT[date.getDay()],
-      weekNumber: getWeekNumberInCycle(bounds.startDateKey, dateKey),
+      weekNumber: getWeekNumberInCycle(fromDateKey, dateKey),
       isWeeklyOff: isWeeklyOffDateKey(dateKey),
       isFuture: dateKey > todayKey,
       isToday: dateKey === todayKey,
@@ -469,9 +468,18 @@ export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): R
   return columns;
 }
 
+export function buildSalaryCycleDayColumns(year: number, salaryMonth: number): RegisterDayColumn[] {
+  const bounds = getSalaryCycleBounds(year, salaryMonth);
+  return buildDayColumnsForRange(bounds.startDateKey, bounds.endDateKey);
+}
+
 /** @deprecated Use buildSalaryCycleDayColumns — kept for any external callers. */
 export function buildMonthDayColumns(year: number, month: number): RegisterDayColumn[] {
   return buildSalaryCycleDayColumns(year, month);
+}
+
+export function countPresentDays(cells: RegisterCellDetail[]): number {
+  return cells.filter((c) => c.code === 'P' || c.code === 'PI').length;
 }
 
 export function countPayDays(cells: RegisterCellDetail[], days: RegisterDayColumn[]): number {
@@ -513,39 +521,41 @@ export function sortRegisterRows(
   return sorted;
 }
 
-export function buildAttendanceRegister(
-  employees: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string }[],
-  records: AttendanceRecord[],
-  leaveRequests: LeaveRequest[],
-  year: number,
-  month: number,
-  options?: {
-    employeeId?: string;
-    /** Used when viewing a single employee whose profile isn't in `employees` yet. */
-    selfEmployee?: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string } | null;
-  },
-): AttendanceRegisterData {
-  const days = buildSalaryCycleDayColumns(year, month);
+type RegisterStaff = {
+  id: string;
+  name: string;
+  department: string;
+  role: string;
+  status: string;
+  employeeCode?: string;
+};
 
-  let staff: { id: string; name: string; department: string; role: string; status: string; employeeCode?: string }[];
+function resolveRegisterStaff(
+  employees: RegisterStaff[],
+  options?: { employeeId?: string; selfEmployee?: RegisterStaff | null },
+): RegisterStaff[] {
   if (options?.employeeId) {
-    // Own register: always show the employee row (don't require Active roster filter).
     const self =
       employees.find((e) => e.id === options.employeeId) ??
       (options.selfEmployee?.id === options.employeeId ? options.selfEmployee : null);
-    staff = self ? [self] : [];
-  } else {
-    // Admins are staff too — they just don't punch via geofence by default.
-    // Default order is employee ID; the panel can re-sort by name.
-    staff = filterAttendanceStaff(employees).sort((a, b) =>
-      compareEmployeeCode(a.employeeCode || '9999', b.employeeCode || '9999'),
-    );
+    return self ? [self] : [];
   }
+  return filterAttendanceStaff(employees).sort((a, b) =>
+    compareEmployeeCode(a.employeeCode || '9999', b.employeeCode || '9999'),
+  );
+}
 
+function buildRegisterRows(
+  staff: RegisterStaff[],
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  days: RegisterDayColumn[],
+  capPayDays: boolean,
+): RegisterEmployeeRow[] {
   const dayIndex = buildEmployeeDayAttendanceIndex(records);
   const leaveByEmployee = groupLeavesByEmployee(leaveRequests);
 
-  const rows: RegisterEmployeeRow[] = staff.map((employee) => {
+  return staff.map((employee) => {
     const daySummaries = dayIndex.get(employee.id);
     const empLeaves = leaveByEmployee.get(employee.id) ?? [];
     const rawCells = days.map((col) =>
@@ -557,15 +567,36 @@ export function buildAttendanceRegister(
       ),
     );
     const cells = applyRegisterPayrollRules(rawCells, days);
+    const presentAndOff = cells.filter((c, i) => {
+      const code = c.code;
+      return code === 'P' || code === 'PI' || (days[i] && code === 'WO');
+    }).length;
     return {
       employeeId: employee.id,
       employeeCode: (employee.employeeCode ?? '').trim(),
       employeeName: employee.name,
       department: employee.department,
       cells,
-      payDays: countPayDays(cells, days),
+      payDays: capPayDays ? Math.min(presentAndOff, PAYABLE_DAYS_PER_CYCLE) : presentAndOff,
     };
   });
+}
+
+export function buildAttendanceRegister(
+  employees: RegisterStaff[],
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  year: number,
+  month: number,
+  options?: {
+    employeeId?: string;
+    /** Used when viewing a single employee whose profile isn't in `employees` yet. */
+    selfEmployee?: RegisterStaff | null;
+  },
+): AttendanceRegisterData {
+  const days = buildSalaryCycleDayColumns(year, month);
+  const staff = resolveRegisterStaff(employees, options);
+  const rows = buildRegisterRows(staff, records, leaveRequests, days, true);
 
   return {
     year,
@@ -578,6 +609,21 @@ export function buildAttendanceRegister(
     rows,
     payableDaysCap: PAYABLE_DAYS_PER_CYCLE,
   };
+}
+
+/** Day-wise register for any date range (Reports CSV). */
+export function buildAttendanceRegisterForRange(
+  employees: RegisterStaff[],
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  fromDateKey: string,
+  toDateKey: string,
+  options?: { employeeId?: string },
+): { fromDateKey: string; toDateKey: string; days: RegisterDayColumn[]; rows: RegisterEmployeeRow[] } {
+  const days = buildDayColumnsForRange(fromDateKey, toDateKey);
+  const staff = resolveRegisterStaff(employees, options);
+  const rows = buildRegisterRows(staff, records, leaveRequests, days, false);
+  return { fromDateKey, toDateKey, days, rows };
 }
 
 export const REGISTER_CELL_STYLES: Record<

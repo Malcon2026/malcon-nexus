@@ -22,8 +22,8 @@ export const EXPORT_REPORT_TYPES: {
   },
   {
     id: 'attendance',
-    label: 'Attendance',
-    description: 'Daily punch in/out summary per employee for each day in the range.',
+    label: 'Attendance — Day-wise',
+    description: 'One row per employee per day: punch in/out, hours, P/A/leave codes. Pick a date range and optionally one employee.',
   },
   {
     id: 'employees',

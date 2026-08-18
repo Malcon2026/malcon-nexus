@@ -6,25 +6,26 @@ import type {
   Employee,
   Hospital,
   ImplantCase,
+  LeaveRequest,
 } from '../types';
-import {
-  buildEmployeeAttendanceReport,
-  formatDuration,
-  formatTimeIST,
-} from '../lib/attendance';
 import { downloadCsv } from './csv';
 import { formatCurrency, formatDateTime } from './helpers';
 import {
   getReportDateBounds,
   isDateKeyInRange,
   isTimestampInRange,
-  listDateKeys,
   reportRangeSlug,
   toIstDateKey,
   type ReportDateFilter,
 } from './reportFilters';
 import { filterCasesForExport, type CaseExportOptions } from './caseExport';
 import { calculateKmIncentive, KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
+import { getISTDateKey, formatTimeIST } from '../lib/attendance';
+import {
+  buildAttendanceRegisterForRange,
+  REGISTER_CELL_STYLES,
+  type RegisterCellCode,
+} from '../lib/attendanceRegister';
 
 function exportFilename(prefix: string, filter: ReportDateFilter): string {
   return `${prefix}_${reportRangeSlug(filter)}_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -55,57 +56,196 @@ export function filterEmployeesForExport(employees: Employee[], filter: ReportDa
   });
 }
 
-export function buildAttendanceSummaryRows(
+export function resolveAttendanceRange(
+  filter: ReportDateFilter,
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[] = [],
+): { from: string; to: string } {
+  const bounds = getReportDateBounds(filter);
+  if (bounds) return bounds;
+
+  const keys = [
+    ...records.map((r) => toIstDateKey(r.punchedAt)),
+    ...leaveRequests.flatMap((l) => [l.fromDate, l.toDate].map(toIstDateKey)),
+  ].filter(Boolean);
+  if (keys.length === 0) {
+    throw new Error('No attendance data available. Pick a date range, or wait until staff have punched in.');
+  }
+  keys.sort();
+  return { from: keys[0], to: getISTDateKey() };
+}
+
+export interface AttendanceDayWiseRow {
+  employeeCode: string;
+  employeeName: string;
+  department: string;
+  date: string;
+  weekday: string;
+  code: RegisterCellCode;
+  status: string;
+  punchIn: string;
+  punchOut: string;
+  hours: string;
+  leaveType: string;
+  leaveReason: string;
+}
+
+export function buildAttendanceDayWiseRows(
   employees: Employee[],
   records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
   filter: ReportDateFilter,
-): { date: string; employeeName: string; department: string; punchIn: string; punchOut: string; hours: string; status: string }[] {
-  const bounds = getReportDateBounds(filter);
-  let dateKeys: string[];
-  if (bounds) {
-    dateKeys = listDateKeys(bounds.from, bounds.to);
-  } else {
-    dateKeys = [...new Set(records.map((r) => toIstDateKey(r.punchedAt)))].sort();
-    if (dateKeys.length === 0) {
-      throw new Error('No attendance data available to export.');
-    }
-  }
+  employeeId?: string,
+): AttendanceDayWiseRow[] {
+  const { from, to } = resolveAttendanceRange(filter, records, leaveRequests);
+  const register = buildAttendanceRegisterForRange(
+    employees,
+    records,
+    leaveRequests,
+    from,
+    to,
+    employeeId ? { employeeId } : undefined,
+  );
 
-  const rows: ReturnType<typeof buildAttendanceSummaryRows> = [];
-  for (const dateKey of dateKeys) {
-    const dayReport = buildEmployeeAttendanceReport(employees, records, dateKey);
-    for (const row of dayReport) {
+  const rows: AttendanceDayWiseRow[] = [];
+  for (const emp of register.rows) {
+    emp.cells.forEach((cell, i) => {
+      const day = register.days[i];
+      if (!day) return;
       rows.push({
-        date: dateKey,
-        employeeName: row.employeeName,
-        department: row.department,
-        punchIn: row.punchIn ? formatTimeIST(row.punchIn.punchedAt) : '',
-        punchOut: row.punchOut ? formatTimeIST(row.punchOut.punchedAt) : '',
-        hours: row.punchIn ? formatDuration(row.workedMs) : '',
-        status: row.status,
+        employeeCode: emp.employeeCode,
+        employeeName: emp.employeeName,
+        department: emp.department,
+        date: day.dateKey,
+        weekday: day.weekday,
+        code: cell.code,
+        status: REGISTER_CELL_STYLES[cell.code]?.title ?? cell.label,
+        punchIn: cell.punchInTime ?? '',
+        punchOut: cell.punchOutTime ?? '',
+        hours: cell.workedDuration ?? '',
+        leaveType: cell.leaveType ?? '',
+        leaveReason: cell.leaveReason ?? '',
       });
-    }
+    });
   }
   return rows;
 }
 
+export function exportAttendanceDayWiseCsv(
+  employees: Employee[],
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  filter: ReportDateFilter,
+  employeeId?: string,
+): { count: number; filename: string } {
+  const rows = buildAttendanceDayWiseRows(employees, records, leaveRequests, filter, employeeId);
+  if (rows.length === 0) {
+    throw new Error('No attendance rows for the selected range.');
+  }
+
+  const filename = exportFilename('attendance_daywise', filter);
+  downloadCsv(
+    filename,
+    [
+      'Employee ID',
+      'Employee',
+      'Department',
+      'Date',
+      'Day',
+      'Code',
+      'Status',
+      'Punch In',
+      'Punch Out',
+      'Hours',
+      'Leave type',
+      'Leave reason',
+    ],
+    rows.map((r) => [
+      r.employeeCode,
+      r.employeeName,
+      r.department,
+      r.date,
+      r.weekday,
+      r.code,
+      r.status,
+      r.punchIn,
+      r.punchOut,
+      r.hours,
+      r.leaveType,
+      r.leaveReason,
+    ]),
+  );
+  return { count: rows.length, filename };
+}
+
+export function exportAttendanceGridCsv(
+  employees: Employee[],
+  records: AttendanceRecord[],
+  leaveRequests: LeaveRequest[],
+  filter: ReportDateFilter,
+  employeeId?: string,
+): { count: number; filename: string } {
+  const { from, to } = resolveAttendanceRange(filter, records, leaveRequests);
+  const register = buildAttendanceRegisterForRange(
+    employees,
+    records,
+    leaveRequests,
+    from,
+    to,
+    employeeId ? { employeeId } : undefined,
+  );
+  if (register.rows.length === 0) {
+    throw new Error('No staff rows for the selected range.');
+  }
+
+  const filename = exportFilename('attendance_grid', filter);
+  const dayHeaders = register.days.map((d) => {
+    const [, m, day] = d.dateKey.split('-');
+    return `${day}-${m} (${d.weekday})`;
+  });
+  downloadCsv(
+    filename,
+    ['Employee ID', 'Employee', 'Department', ...dayHeaders, 'Present days', 'Unpaid / Absent', 'Leave', 'Week off'],
+    register.rows.map((row) => {
+      const present = row.cells.filter((c) => c.code === 'P' || c.code === 'PI').length;
+      const unpaid = row.cells.filter((c) => c.code === 'UL' || c.code === 'A').length;
+      const leave = row.cells.filter((c) => ['CL', 'SL', 'L', 'CO', 'PL'].includes(c.code)).length;
+      const weekOff = row.cells.filter((c) => c.code === 'WO').length;
+      return [
+        row.employeeCode,
+        row.employeeName,
+        row.department,
+        ...row.cells.map((c) => c.code),
+        present,
+        unpaid,
+        leave,
+        weekOff,
+      ];
+    }),
+  );
+  return { count: register.rows.length, filename };
+}
+
+/** @deprecated Use buildAttendanceDayWiseRows */
+export function buildAttendanceSummaryRows(
+  employees: Employee[],
+  records: AttendanceRecord[],
+  filter: ReportDateFilter,
+  leaveRequests: LeaveRequest[] = [],
+  employeeId?: string,
+) {
+  return buildAttendanceDayWiseRows(employees, records, leaveRequests, filter, employeeId);
+}
+
+/** @deprecated Use exportAttendanceDayWiseCsv */
 export function exportAttendanceSummaryCsv(
   employees: Employee[],
   records: AttendanceRecord[],
   filter: ReportDateFilter,
-): { count: number; filename: string } {
-  const rows = buildAttendanceSummaryRows(employees, records, filter);
-  if (rows.length === 0) {
-    throw new Error('No attendance data matches the selected date range.');
-  }
-
-  const filename = exportFilename('attendance_summary', filter);
-  downloadCsv(
-    filename,
-    ['Date', 'Employee', 'Department', 'Punch In', 'Punch Out', 'Hours', 'Status'],
-    rows.map((r) => [r.date, r.employeeName, r.department, r.punchIn, r.punchOut, r.hours, r.status]),
-  );
-  return { count: rows.length, filename };
+  leaveRequests: LeaveRequest[] = [],
+  employeeId?: string,
+) {
+  return exportAttendanceDayWiseCsv(employees, records, leaveRequests, filter, employeeId);
 }
 
 export function exportAttendancePunchesCsv(

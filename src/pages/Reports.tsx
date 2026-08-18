@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Download, ShieldAlert, FolderOpen, LogIn, Users, Receipt, ScrollText,
-  CheckCircle2, Building2, MapPin, Fuel, List,
+  CheckCircle2, Building2, MapPin, Fuel, List, LayoutGrid,
 } from 'lucide-react';
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -18,11 +18,12 @@ import {
   exportCasesCsv,
 } from '../utils/caseExport';
 import {
-  buildAttendanceSummaryRows,
+  buildAttendanceDayWiseRows,
   buildExpenseSummaryRows,
   exportActivityCsv,
   exportAttendanceApprovalsCsv,
-  exportAttendanceSummaryCsv,
+  exportAttendanceDayWiseCsv,
+  exportAttendanceGridCsv,
   exportBillingCsv,
   exportEmployeesCsv,
   exportExpenseDetailCsv,
@@ -34,6 +35,7 @@ import {
   filterEmployeesForExport,
   filterExpensesForExport,
 } from '../utils/reportsExport';
+import { filterAttendanceStaff } from '../lib/staff';
 
 const REPORT_ICONS: Record<ExportReportType, React.ReactNode> = {
   cases: <FolderOpen className="h-5 w-5 text-indigo-600" />,
@@ -58,6 +60,7 @@ export const Reports: React.FC = () => {
   const activityLog = useStore((s) => s.activityLog);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
+  const leaveRequests = useStore((s) => s.leaveRequests);
   const dailyExpenses = useStore((s) => s.dailyExpenses);
   const dailyExpensesLoaded = useStore((s) => s.dailyExpensesLoaded);
   const loadDailyExpenses = useStore((s) => s.loadDailyExpenses);
@@ -71,9 +74,15 @@ export const Reports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<ExportReportType>('cases');
   const [dateFilter, setDateFilter] = useState<ReportDateFilter>(defaultFilter);
   const [caseDateField, setCaseDateField] = useState<CaseDateField>('createdAt');
+  const [attendanceEmployeeId, setAttendanceEmployeeId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+
+  const attendanceStaff = useMemo(
+    () => filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name)),
+    [employees],
+  );
 
   const previewCount = useMemo(() => {
     try {
@@ -81,7 +90,13 @@ export const Reports: React.FC = () => {
         case 'cases':
           return filterCasesForExport(cases, { ...dateFilter, dateField: caseDateField }).length;
         case 'attendance':
-          return buildAttendanceSummaryRows(employees, attendanceRecords, dateFilter).length;
+          return buildAttendanceDayWiseRows(
+            employees,
+            attendanceRecords,
+            leaveRequests,
+            dateFilter,
+            attendanceEmployeeId || undefined,
+          ).length;
         case 'employees':
           return filterEmployeesForExport(employees.filter((e) => e.role === 'employee'), dateFilter).length;
         case 'billing':
@@ -116,6 +131,8 @@ export const Reports: React.FC = () => {
     activityLog,
     attendanceRecords,
     attendanceApprovalRequests,
+    leaveRequests,
+    attendanceEmployeeId,
     dailyExpenses,
   ]);
 
@@ -132,7 +149,13 @@ export const Reports: React.FC = () => {
           result = exportCasesCsv(cases, { ...dateFilter, dateField: caseDateField });
           break;
         case 'attendance':
-          result = exportAttendanceSummaryCsv(employees, attendanceRecords, dateFilter);
+          result = exportAttendanceDayWiseCsv(
+            employees,
+            attendanceRecords,
+            leaveRequests,
+            dateFilter,
+            attendanceEmployeeId || undefined,
+          );
           break;
         case 'employees':
           result = exportEmployeesCsv(employees, dateFilter);
@@ -162,6 +185,26 @@ export const Reports: React.FC = () => {
           throw new Error('Unknown report type.');
       }
       setSuccess(`Downloaded ${result.count} row(s) → ${result.filename}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadGrid = async () => {
+    setError(null);
+    setSuccess(null);
+    setDownloading(true);
+    try {
+      const result = exportAttendanceGridCsv(
+        employees,
+        attendanceRecords,
+        leaveRequests,
+        dateFilter,
+        attendanceEmployeeId || undefined,
+      );
+      setSuccess(`Downloaded ${result.count} employee row(s) → ${result.filename}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Export failed.');
     } finally {
@@ -249,6 +292,28 @@ export const Reports: React.FC = () => {
               }}
             />
 
+            {selectedReport === 'attendance' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Employee</label>
+                <select
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                  value={attendanceEmployeeId}
+                  onChange={(e) => {
+                    setAttendanceEmployeeId(e.target.value);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                >
+                  <option value="">All staff</option>
+                  {attendanceStaff.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}{e.employeeCode ? ` · ${e.employeeCode}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {(selectedReport === 'cases' || selectedReport === 'hospitals') && (
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Filter cases by</label>
@@ -276,20 +341,39 @@ export const Reports: React.FC = () => {
                     : ''}
                 </p>
               </div>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<Download className="h-4 w-4" />}
-                onClick={() => void handleDownload()}
-                disabled={downloading || previewCount === 0}
-              >
-                {downloading ? 'Exporting…' : `Download CSV (${previewCount})`}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedReport === 'attendance' && (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    icon={<LayoutGrid className="h-4 w-4" />}
+                    onClick={() => void handleDownloadGrid()}
+                    disabled={downloading || previewCount === 0}
+                  >
+                    Grid CSV
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Download className="h-4 w-4" />}
+                  onClick={() => void handleDownload()}
+                  disabled={downloading || previewCount === 0}
+                >
+                  {downloading
+                    ? 'Exporting…'
+                    : selectedReport === 'attendance'
+                      ? `Day-wise CSV (${previewCount})`
+                      : `Download CSV (${previewCount})`}
+                </Button>
+              </div>
             </div>
 
             {selectedReport === 'attendance' && (
               <p className="text-xs text-gray-500">
-                Exports one row per employee per day in the selected range (punch in, punch out, hours, status).
+                <strong>Day-wise CSV</strong> = one row per employee per day (date, punch in/out, hours, P / UL / CL / SL / WO).
+                {' '}<strong>Grid CSV</strong> = one row per employee with a column for each date in the range.
+                Use Custom range for any from–to dates.
               </p>
             )}
 
