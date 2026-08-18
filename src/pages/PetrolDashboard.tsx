@@ -8,7 +8,6 @@ import { useStore } from '../store/useStore';
 import type { PetrolRequest, PetrolRequestStatus, Department } from '../types';
 import { petrolStatusLabel, canManagePetrol, lastVehicleNo, PETROL_PRESET_AMOUNTS } from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
-import { DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
@@ -72,18 +71,12 @@ export const PetrolDashboard: React.FC = () => {
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [staffForm, setStaffForm] = useState(emptyStaffForm);
   const [staffBusy, setStaffBusy] = useState(false);
-  const [deskName, setDeskName] = useState('Petrol Desk');
-  const [deskEmail, setDeskEmail] = useState('');
-  const [deskPassword, setDeskPassword] = useState(DEFAULT_EMPLOYEE_PASSWORD);
-  const [deskBusy, setDeskBusy] = useState(false);
-  const [deskMsg, setDeskMsg] = useState<string | null>(null);
   const [deskView, setDeskView] = useState<'overview' | 'queue'>(
     currentUser.role === 'admin' ? 'overview' : 'queue',
   );
 
   const canManage = canManagePetrol(currentUser.role);
   const isMainAdmin = currentUser.role === 'admin';
-  const petrolLogins = employees.filter((e) => e.role === 'petrol');
   const staffOptions = useMemo(
     () =>
       filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name)),
@@ -124,40 +117,6 @@ export const PetrolDashboard: React.FC = () => {
       })
       .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
   }, [petrolRequests, tab, query]);
-
-  const handleCreateDeskLogin = async () => {
-    setDeskMsg(null);
-    const email = deskEmail.trim().toLowerCase();
-    const name = deskName.trim() || 'Petrol Desk';
-    const password = deskPassword.trim();
-    if (!email) {
-      setDeskMsg('Enter an email for the petrol login.');
-      return;
-    }
-    if (password.length < 8) {
-      setDeskMsg('Password must be at least 8 characters.');
-      return;
-    }
-    setDeskBusy(true);
-    try {
-      await createEmployee(
-        {
-          name,
-          email,
-          phone: '',
-          department: 'Office Staff',
-          role: 'petrol',
-        },
-        { password },
-      );
-      setDeskMsg(`Petrol login created: ${email}`);
-      setDeskEmail('');
-    } catch (err) {
-      setDeskMsg(err instanceof Error ? err.message : 'Could not create petrol login.');
-    } finally {
-      setDeskBusy(false);
-    }
-  };
 
   if (!canManage) {
     return (
@@ -374,60 +333,6 @@ export const PetrolDashboard: React.FC = () => {
       <div className="mb-6">
         <EmployeePetrolSection title="Request petrol" />
       </div>
-
-      {isMainAdmin && (
-        <Card className="p-4 mb-6">
-          <p className="text-sm font-semibold text-gray-900">Petrol desk login</p>
-          <p className="text-xs text-gray-500 mt-0.5 mb-3">
-            Separate from the main admin. This login only opens Petrol Dashboard.
-          </p>
-          {petrolLogins.length > 0 && (
-            <ul className="mb-3 space-y-1">
-              {petrolLogins.map((e) => (
-                <li key={e.id} className="text-sm text-gray-800">
-                  {e.name} · <span className="font-mono text-xs">{e.email}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className={labelClass}>Name</label>
-              <input className={inputClass} value={deskName} onChange={(e) => setDeskName(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelClass}>Email *</label>
-              <input
-                type="email"
-                className={inputClass}
-                value={deskEmail}
-                onChange={(e) => setDeskEmail(e.target.value)}
-                placeholder="petrol@company.com"
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Password *</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={deskPassword}
-                onChange={(e) => setDeskPassword(e.target.value)}
-              />
-            </div>
-          </div>
-          {deskMsg && <p className="text-xs text-gray-600 mt-2">{deskMsg}</p>}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            disabled={deskBusy}
-            onClick={() => void handleCreateDeskLogin()}
-          >
-            {deskBusy ? 'Creating…' : 'Create petrol login'}
-          </Button>
-        </Card>
-      )}
 
       {error && (
         <p className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
