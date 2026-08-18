@@ -23,7 +23,7 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
-import { getPendingPetrolRequest, getIssuedAwaitingEvidence, canManagePetrol } from '../lib/petrol';
+import { getPendingPetrolRequest, getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -123,7 +123,7 @@ interface AppState {
   deleteCase: (id: string) => void;
 
   // Employee Actions
-  createEmployee: (employeeData: Partial<Employee>, options?: { password?: string }) => Promise<void>;
+  createEmployee: (employeeData: Partial<Employee>, options?: { password?: string; skipLogin?: boolean }) => Promise<Employee>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<{ error: string | null }>;
   deleteEmployee: (id: string) => void;
   importEmployeesFromCsv: (rows: EmployeeCsvRow[]) => Promise<{
@@ -1735,6 +1735,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   createEmployee: async (employeeData, options) => {
     const state = get();
+    if (state.currentUser.role === 'petrol' && employeeData.role && employeeData.role !== 'employee') {
+      throw new Error('Petrol desk can only add staff, not admin or petrol logins.');
+    }
     const initials = (employeeData.name || '')
       .split(' ')
       .map(n => n[0])
@@ -1742,24 +1745,31 @@ export const useStore = create<AppState>((set, get) => ({
       .join('')
       .toUpperCase();
 
+    const phone = employeeData.phone || '';
+    const name = employeeData.name || '';
+    const typedEmail = (employeeData.email || '').trim().toLowerCase();
     const newEmp: Employee = {
       id: newId(),
-      name: employeeData.name || '',
+      name,
       department: employeeData.department || 'Stores',
-      email: (employeeData.email || '').trim().toLowerCase(),
+      email: typedEmail || placeholderStaffEmail(name, phone),
       avatar: initials || 'EE',
-      role: employeeData.role || 'employee',
+      role: state.currentUser.role === 'petrol' ? 'employee' : (employeeData.role || 'employee'),
       status: 'Active',
       casesCompleted: 0,
       casesActive: 0,
       joinDate: new Date().toISOString().split('T')[0],
-      phone: employeeData.phone || '',
+      phone,
       employeeCode: (employeeData.employeeCode || '').trim(),
     };
 
     await employeeRepository.create(newEmp);
 
-    if (USE_SUPABASE) {
+    const skipLogin =
+      options?.skipLogin
+      || state.currentUser.role !== 'admin'
+      || !typedEmail;
+    if (USE_SUPABASE && !skipLogin) {
       const { error: loginError } = await createEmployeeLogin(
         newEmp.id,
         newEmp.email,
@@ -1783,6 +1793,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
+    return newEmp;
   },
 
   importEmployeesFromCsv: async (rows) => {

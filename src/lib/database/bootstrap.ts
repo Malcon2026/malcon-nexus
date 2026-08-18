@@ -145,15 +145,9 @@ function adminDeferredTasks(): BootstrapTask[] {
   ];
 }
 
-function petrolEssentialTasks(employeeId: string): BootstrapTask[] {
+function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
   return [
-    {
-      key: 'employees',
-      run: async () => {
-        const self = await sbEmployeeRepo.getById(employeeId);
-        return self ? [self] : [];
-      },
-    },
+    { key: 'employees', run: () => sbEmployeeRepo.getAll() },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
   ];
 }

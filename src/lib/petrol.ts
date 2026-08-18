@@ -36,6 +36,13 @@ export function canManagePetrol(role: Employee['role']): boolean {
   return role === 'admin' || role === 'petrol';
 }
 
+/** Unique email when petrol desk adds staff without a login. */
+export function placeholderStaffEmail(name: string, phone: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'staff';
+  const digits = phone.replace(/\D/g, '').slice(-10);
+  return `${slug}.${digits || Date.now()}@staff.malconnexus.local`;
+}
+
 export const petrolStatusLabel: Record<PetrolRequestStatus, string> = {
   pending: 'Waiting for token',
   issued: 'Fill at pump',

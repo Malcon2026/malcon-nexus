@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { Fuel, ShieldAlert, Ticket, XCircle, Camera, Search, Plus } from 'lucide-react';
+import { Fuel, ShieldAlert, Ticket, XCircle, Camera, Search, Plus, UserPlus } from 'lucide-react';
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
-import type { PetrolRequest, PetrolRequestStatus } from '../types';
+import type { PetrolRequest, PetrolRequestStatus, Department } from '../types';
 import { petrolStatusLabel, canManagePetrol, lastVehicleNo, PETROL_PRESET_AMOUNTS } from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
 import { DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
+import { ASSIGNABLE_DEPARTMENTS } from '../constants/departments';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -26,6 +27,14 @@ const statusBadge: Record<PetrolRequestStatus, string> = {
 };
 
 type FilterTab = 'pending' | 'issued' | 'receipt_submitted' | 'all';
+
+const emptyStaffForm = {
+  name: '',
+  phone: '',
+  employeeCode: '',
+  department: 'Delivery' as Department,
+  email: '',
+};
 
 export const PetrolDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
@@ -55,6 +64,10 @@ export const PetrolDashboard: React.FC = () => {
   const [manualKms, setManualKms] = useState('');
   const [manualBillReceived, setManualBillReceived] = useState(true);
   const [manualNotes, setManualNotes] = useState('');
+  const [staffSearch, setStaffSearch] = useState('');
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [staffForm, setStaffForm] = useState(emptyStaffForm);
+  const [staffBusy, setStaffBusy] = useState(false);
   const [deskName, setDeskName] = useState('Petrol Desk');
   const [deskEmail, setDeskEmail] = useState('');
   const [deskPassword, setDeskPassword] = useState(DEFAULT_EMPLOYEE_PASSWORD);
@@ -69,6 +82,17 @@ export const PetrolDashboard: React.FC = () => {
       filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name)),
     [employees],
   );
+  const filteredStaff = useMemo(() => {
+    const q = staffSearch.trim().toLowerCase();
+    if (!q) return staffOptions;
+    return staffOptions.filter(
+      (e) =>
+        e.name.toLowerCase().includes(q) ||
+        (e.employeeCode || '').toLowerCase().includes(q) ||
+        e.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')),
+    );
+  }, [staffOptions, staffSearch]);
+  const selectedStaff = staffOptions.find((e) => e.id === manualEmployeeId) ?? null;
   const manualAmount =
     manualAmountChoice === 'other' ? Number(manualCustomAmount) : manualAmountChoice;
 
@@ -180,6 +204,51 @@ export const PetrolDashboard: React.FC = () => {
     setManualKms('');
     setManualBillReceived(true);
     setManualNotes('');
+    setStaffSearch('');
+  };
+
+  const openAddStaff = () => {
+    setStaffForm(emptyStaffForm);
+    setError(null);
+    setShowAddStaff(true);
+  };
+
+  const handleAddStaff = async () => {
+    setError(null);
+    const name = staffForm.name.trim();
+    const phone = staffForm.phone.trim();
+    if (!name) {
+      setError('Enter the employee name.');
+      return;
+    }
+    if (!phone) {
+      setError('Enter the employee phone number.');
+      return;
+    }
+    setStaffBusy(true);
+    try {
+      const created = await createEmployee(
+        {
+          name,
+          phone,
+          employeeCode: staffForm.employeeCode.trim(),
+          department: staffForm.department,
+          email: staffForm.email.trim(),
+          role: 'employee',
+        },
+        { skipLogin: currentUser.role !== 'admin' || !staffForm.email.trim() },
+      );
+      setManualEmployeeId(created.id);
+      setStaffSearch('');
+      const remembered = lastVehicleNo(petrolRequests, created.id);
+      if (remembered) setManualVehicle(remembered);
+      setShowAddStaff(false);
+      setStaffForm(emptyStaffForm);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add employee.');
+    } finally {
+      setStaffBusy(false);
+    }
   };
 
   const handleManualSave = async () => {
@@ -222,19 +291,30 @@ export const PetrolDashboard: React.FC = () => {
             Request petrol yourself, issue tokens, or add a completed fill by hand.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          icon={<Plus className="h-4 w-4" />}
-          onClick={() => {
-            resetManualForm();
-            setError(null);
-            setShowManual(true);
-          }}
-        >
-          Manual entry
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            icon={<UserPlus className="h-4 w-4" />}
+            onClick={openAddStaff}
+          >
+            Add employee
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              resetManualForm();
+              setError(null);
+              setShowManual(true);
+            }}
+          >
+            Manual entry
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6">
@@ -448,22 +528,75 @@ export const PetrolDashboard: React.FC = () => {
             <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
           <div>
-            <label className={labelClass}>Employee *</label>
-            <select
-              className={inputClass}
-              value={manualEmployeeId}
-              onChange={(e) => {
-                const id = e.target.value;
-                setManualEmployeeId(id);
-                const remembered = lastVehicleNo(petrolRequests, id);
-                if (remembered) setManualVehicle(remembered);
-              }}
-            >
-              <option value="">Select staff</option>
-              {staffOptions.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <label className="text-xs font-medium text-gray-700">Employee *</label>
+              <button
+                type="button"
+                className="text-xs font-semibold text-indigo-600 hover:underline"
+                onClick={openAddStaff}
+              >
+                + Add new employee
+              </button>
+            </div>
+            {selectedStaff ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{selectedStaff.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedStaff.employeeCode ? `ID ${selectedStaff.employeeCode}` : selectedStaff.department}
+                    {selectedStaff.phone ? ` · ${selectedStaff.phone}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-gray-600 hover:text-gray-900 shrink-0"
+                  onClick={() => {
+                    setManualEmployeeId('');
+                    setStaffSearch('');
+                    setManualVehicle('');
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    className={`${inputClass} pl-8`}
+                    value={staffSearch}
+                    onChange={(e) => setStaffSearch(e.target.value)}
+                    placeholder="Search name, ID or phone"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="mt-1 max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
+                  {filteredStaff.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-gray-400">No match. Add the employee first.</p>
+                  ) : (
+                    filteredStaff.slice(0, 12).map((e) => (
+                      <button
+                        key={e.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                        onClick={() => {
+                          setManualEmployeeId(e.id);
+                          setStaffSearch('');
+                          const remembered = lastVehicleNo(petrolRequests, e.id);
+                          if (remembered) setManualVehicle(remembered);
+                        }}
+                      >
+                        <span className="text-sm text-gray-900">{e.name}</span>
+                        <span className="block text-xs text-gray-500">
+                          {e.employeeCode ? `ID ${e.employeeCode} · ` : ''}{e.department}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -577,6 +710,76 @@ export const PetrolDashboard: React.FC = () => {
               className={inputClass}
               value={manualNotes}
               onChange={(e) => setManualNotes(e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showAddStaff}
+        onClose={() => setShowAddStaff(false)}
+        title="Add employee"
+        subtitle="Name and phone are enough. Email is only needed if they should log in."
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowAddStaff(false)}>Cancel</Button>
+            <Button variant="primary" size="sm" disabled={staffBusy} onClick={() => void handleAddStaff()}>
+              {staffBusy ? 'Saving…' : 'Save employee'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {error && (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+          )}
+          <div>
+            <label className={labelClass}>Full name *</label>
+            <input
+              className={inputClass}
+              value={staffForm.name}
+              onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
+              placeholder="e.g. Surya"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Phone *</label>
+            <input
+              className={inputClass}
+              value={staffForm.phone}
+              onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+              placeholder="Mobile number"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Employee ID</label>
+            <input
+              className={inputClass}
+              value={staffForm.employeeCode}
+              onChange={(e) => setStaffForm({ ...staffForm, employeeCode: e.target.value })}
+              placeholder="Optional attendance sheet ID"
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Department *</label>
+            <select
+              className={inputClass}
+              value={staffForm.department}
+              onChange={(e) => setStaffForm({ ...staffForm, department: e.target.value as Department })}
+            >
+              {ASSIGNABLE_DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Email {isMainAdmin ? '(for app login)' : '(optional)'}</label>
+            <input
+              type="email"
+              className={inputClass}
+              value={staffForm.email}
+              onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
               placeholder="Optional"
             />
           </div>
