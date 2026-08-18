@@ -26,6 +26,27 @@ const statusBadge: Record<string, string> = {
   receipt_submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
+const PetrolChartTooltip: React.FC<{
+  active?: boolean;
+  payload?: { value?: number; payload?: { date?: string; fills?: number } }[];
+}> = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const point = payload[0];
+  const date = point.payload?.date;
+  const fills = point.payload?.fills ?? 0;
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg">
+      <p className="text-xs font-semibold text-gray-900">{date ? formatDate(date) : ''}</p>
+      <p className="text-sm font-bold text-orange-600 tabular-nums mt-0.5">
+        {formatCurrency(Number(point.value ?? 0))}
+      </p>
+      <p className="text-[11px] text-gray-500 mt-0.5">
+        {fills} fill{fills === 1 ? '' : 's'}
+      </p>
+    </div>
+  );
+};
+
 export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQueue }) => {
   const petrolRequests = useStore((s) => s.petrolRequests);
   const employees = useStore((s) => s.employees);
@@ -156,10 +177,7 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(value) => formatCurrency(Number(value ?? 0))}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.date ?? ''}
-                />
+                <Tooltip content={<PetrolChartTooltip />} cursor={{ stroke: '#f97316', strokeWidth: 1 }} />
                 <Area type="monotone" dataKey="amount" name="Amount" stroke="#f97316" fill="url(#petrolSpend)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
