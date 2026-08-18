@@ -65,6 +65,7 @@ export const PetrolDashboard: React.FC = () => {
   const [manualBillReceived, setManualBillReceived] = useState(true);
   const [manualNotes, setManualNotes] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
+  const [staffPickerOpen, setStaffPickerOpen] = useState(false);
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [staffForm, setStaffForm] = useState(emptyStaffForm);
   const [staffBusy, setStaffBusy] = useState(false);
@@ -205,6 +206,7 @@ export const PetrolDashboard: React.FC = () => {
     setManualBillReceived(true);
     setManualNotes('');
     setStaffSearch('');
+    setStaffPickerOpen(false);
   };
 
   const openAddStaff = () => {
@@ -523,20 +525,22 @@ export const PetrolDashboard: React.FC = () => {
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="p-4 space-y-4">
           {error && (
             <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
           <div>
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <label className="text-xs font-medium text-gray-700">Employee *</label>
-              <button
+              <Button
                 type="button"
-                className="text-xs font-semibold text-indigo-600 hover:underline"
+                variant="outline"
+                size="xs"
+                icon={<UserPlus className="h-3.5 w-3.5" />}
                 onClick={openAddStaff}
               >
-                + Add new employee
-              </button>
+                Add employee
+              </Button>
             </div>
             {selectedStaff ? (
               <div className="flex items-center justify-between gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
@@ -553,6 +557,7 @@ export const PetrolDashboard: React.FC = () => {
                   onClick={() => {
                     setManualEmployeeId('');
                     setStaffSearch('');
+                    setStaffPickerOpen(true);
                     setManualVehicle('');
                   }}
                 >
@@ -560,41 +565,50 @@ export const PetrolDashboard: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input
-                    className={`${inputClass} pl-8`}
-                    value={staffSearch}
-                    onChange={(e) => setStaffSearch(e.target.value)}
-                    placeholder="Search name, ID or phone"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="mt-1 max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
-                  {filteredStaff.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-gray-400">No match. Add the employee first.</p>
-                  ) : (
-                    filteredStaff.slice(0, 12).map((e) => (
-                      <button
-                        key={e.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                        onClick={() => {
-                          setManualEmployeeId(e.id);
-                          setStaffSearch('');
-                          const remembered = lastVehicleNo(petrolRequests, e.id);
-                          if (remembered) setManualVehicle(remembered);
-                        }}
-                      >
-                        <span className="text-sm text-gray-900">{e.name}</span>
-                        <span className="block text-xs text-gray-500">
-                          {e.employeeCode ? `ID ${e.employeeCode} · ` : ''}{e.department}
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  className={`${inputClass} pl-8`}
+                  value={staffSearch}
+                  onChange={(e) => {
+                    setStaffSearch(e.target.value);
+                    setStaffPickerOpen(true);
+                  }}
+                  onFocus={() => setStaffPickerOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => setStaffPickerOpen(false), 150);
+                  }}
+                  placeholder="Search name, ID or phone"
+                  autoComplete="off"
+                />
+                {staffPickerOpen && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {filteredStaff.length === 0 ? (
+                      <p className="px-3 py-2.5 text-xs text-gray-400">No match. Use Add employee.</p>
+                    ) : (
+                      filteredStaff.slice(0, 8).map((e) => (
+                        <button
+                          key={e.id}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                          onMouseDown={(ev) => ev.preventDefault()}
+                          onClick={() => {
+                            setManualEmployeeId(e.id);
+                            setStaffSearch('');
+                            setStaffPickerOpen(false);
+                            const remembered = lastVehicleNo(petrolRequests, e.id);
+                            if (remembered) setManualVehicle(remembered);
+                          }}
+                        >
+                          <span className="text-sm text-gray-900">{e.name}</span>
+                          <span className="block text-xs text-gray-500">
+                            {e.employeeCode ? `ID ${e.employeeCode} · ` : ''}{e.department}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -730,7 +744,7 @@ export const PetrolDashboard: React.FC = () => {
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="p-4 space-y-4">
           {error && (
             <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
@@ -800,7 +814,7 @@ export const PetrolDashboard: React.FC = () => {
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="p-4 space-y-4">
           <div>
             <label className={labelClass}>Book no *</label>
             <input className={inputClass} value={bookNo} onChange={(e) => setBookNo(e.target.value)} placeholder="e.g. 12" />
@@ -826,7 +840,7 @@ export const PetrolDashboard: React.FC = () => {
         }
         size="lg"
       >
-        <div className="space-y-4 p-1">
+        <div className="space-y-4 p-4">
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pump bill</p>
             {evidenceFor?.receiptUrl ? (
