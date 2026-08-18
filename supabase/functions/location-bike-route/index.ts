@@ -76,6 +76,22 @@ async function googleTwoWheeler(
   };
 }
 
+function mapplsMeters(payload: Record<string, unknown>): {
+  meters: number | null;
+  seconds: number | null;
+} {
+  const results = payload?.results as Record<string, unknown> | undefined;
+  const metersRaw =
+    (results?.distances as number[][] | undefined)?.[0]?.[1] ??
+    (payload?.distances as number[][] | undefined)?.[0]?.[1];
+  const secondsRaw =
+    (results?.durations as number[][] | undefined)?.[0]?.[1] ??
+    (payload?.durations as number[][] | undefined)?.[0]?.[1];
+  const meters = typeof metersRaw === 'number' && metersRaw >= 0 ? metersRaw : null;
+  const seconds = typeof secondsRaw === 'number' && secondsRaw >= 0 ? secondsRaw : null;
+  return { meters, seconds };
+}
+
 async function mapplsBike(
   key: string,
   startLat: number,
@@ -84,27 +100,28 @@ async function mapplsBike(
   endLng: number,
 ): Promise<BikeRoute | null> {
   const coords = `${startLng},${startLat};${endLng},${endLat}`;
-  const url =
-    `https://apis.mappls.com/advancedmaps/v1/${encodeURIComponent(key)}` +
-    `/distance_matrix/biking/${coords}?region=ind`;
-  const res = await fetch(url);
-  const payload = await res.json().catch(() => ({}));
-  const meters =
-    payload?.results?.distances?.[0]?.[1] ??
-    payload?.distances?.[0]?.[1];
-  const seconds =
-    payload?.results?.durations?.[0]?.[1] ??
-    payload?.durations?.[0]?.[1];
-  if (typeof meters !== 'number' || meters < 0) {
-    console.warn('[location-bike-route] Mappls:', payload?.message ?? res.status);
-    return null;
+  const encodedKey = encodeURIComponent(key);
+  const urls = [
+    `https://route.mappls.com/route/dm/distance_matrix/biking/${coords}?access_token=${encodedKey}`,
+    `https://apis.mappls.com/advancedmaps/v1/${encodedKey}/distance_matrix/biking/${coords}`,
+  ];
+
+  for (const url of urls) {
+    const res = await fetch(url);
+    const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const { meters, seconds } = mapplsMeters(payload);
+    if (meters == null) {
+      console.warn('[location-bike-route] Mappls:', payload?.message ?? payload?.error ?? res.status);
+      continue;
+    }
+    return {
+      km: roundKm(meters),
+      minutes: seconds != null ? minutesFromSeconds(seconds) : null,
+      source: 'mappls',
+      mode: 'TWO_WHEELER',
+    };
   }
-  return {
-    km: roundKm(meters),
-    minutes: typeof seconds === 'number' && seconds >= 0 ? minutesFromSeconds(seconds) : null,
-    source: 'mappls',
-    mode: 'TWO_WHEELER',
-  };
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -141,13 +158,13 @@ Deno.serve(async (req) => {
     const googleKey = Deno.env.get('GOOGLE_MAPS_API_KEY') ?? '';
     const mapplsKey = Deno.env.get('MAPPLS_REST_KEY') ?? '';
 
-    if (googleKey) {
-      const route = await googleTwoWheeler(googleKey, startLat, startLng, endLat, endLng);
+    if (mapplsKey) {
+      const route = await mapplsBike(mapplsKey, startLat, startLng, endLat, endLng);
       if (route) return jsonResponse(route);
     }
 
-    if (mapplsKey) {
-      const route = await mapplsBike(mapplsKey, startLat, startLng, endLat, endLng);
+    if (googleKey) {
+      const route = await googleTwoWheeler(googleKey, startLat, startLng, endLat, endLng);
       if (route) return jsonResponse(route);
     }
 
