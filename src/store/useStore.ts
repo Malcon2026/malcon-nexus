@@ -224,6 +224,17 @@ interface AppState {
   issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   submitPetrolReceipt: (requestId: string, kms: number, receiptPhoto: File, kmsPhoto: File) => Promise<{ error: string | null }>;
+  addManualPetrolEntry: (input: {
+    employeeId: string;
+    expenseDate: string;
+    vehicleNo: string;
+    amount: number;
+    bookNo: string;
+    tokenNo: string;
+    kms?: number | null;
+    billReceived?: boolean;
+    notes?: string;
+  }) => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -3401,6 +3412,99 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((s) => ({
       petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  addManualPetrolEntry: async (input) => {
+    const { currentUser, employees, petrolRequests } = get();
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only the petrol desk or an admin can add a manual entry.' };
+    }
+    const employee = employees.find((e) => e.id === input.employeeId);
+    if (!employee) return { error: 'Select an employee.' };
+
+    const vehicle = input.vehicleNo.trim().toUpperCase();
+    const book = input.bookNo.trim();
+    const token = input.tokenNo.trim();
+    const dateKey = input.expenseDate.trim();
+    if (!dateKey) return { error: 'Select the date.' };
+    if (!vehicle) return { error: 'Enter the vehicle number.' };
+    if (!Number.isFinite(input.amount) || input.amount <= 0) {
+      return { error: 'Enter a valid petrol amount.' };
+    }
+    if (!book) return { error: 'Enter the book number.' };
+    if (!token) return { error: 'Enter the token number.' };
+
+    const billReceived = input.billReceived !== false;
+    let kms: number | null = null;
+    if (input.kms != null) {
+      kms = Number(input.kms);
+      if (!Number.isFinite(kms) || kms < 0) {
+        return { error: 'Enter valid kms, or leave it blank.' };
+      }
+    }
+
+    const bookTokenTaken = petrolRequests.some(
+      (r) => r.bookNo.trim() === book && r.tokenNo.trim() === token,
+    );
+    if (bookTokenTaken) {
+      return { error: 'That book number and token number are already used.' };
+    }
+
+    if (!billReceived) {
+      if (getPendingPetrolRequest(petrolRequests, employee.id)) {
+        return { error: `${employee.name} already has a request waiting for a token.` };
+      }
+      if (getIssuedAwaitingEvidence(petrolRequests, employee.id)) {
+        return { error: `${employee.name} already has an open token. Close it before adding another.` };
+      }
+    }
+
+    const at = new Date(`${dateKey}T12:00:00+05:30`).toISOString();
+    const now = new Date().toISOString();
+    const request: PetrolRequest = {
+      id: newId(),
+      employeeId: employee.id,
+      employeeName: employee.name,
+      vehicleNo: vehicle,
+      amount: input.amount,
+      requestedAt: at,
+      status: billReceived ? 'receipt_submitted' : 'issued',
+      bookNo: book,
+      tokenNo: token,
+      issuedBy: currentUser.name,
+      issuedById: currentUser.id,
+      issuedAt: at,
+      kms,
+      receiptUrl: '',
+      kmsPhotoUrl: '',
+      receiptSubmittedAt: billReceived ? at : null,
+      notes: (input.notes ?? '').trim() || 'Manual entry',
+      adminNotes: 'Manual entry',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const persistResult = await persistPetrolRequest(request);
+    if (persistResult.error) return persistResult;
+
+    const activity = createActivityEvent(
+      'Petrol Manual Entry',
+      'petrol',
+      request.id,
+      employee.name,
+      currentUser.name,
+      'admin',
+      `Manual petrol entry for ${employee.name}: book ${book} token ${token}, ₹${input.amount}, ${vehicle}${kms != null ? `, ${kms} km` : ''}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: [request, ...s.petrolRequests.filter((r) => r.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
     }));
     if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
