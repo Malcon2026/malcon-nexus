@@ -207,7 +207,7 @@ export interface DepartmentInfo {
   color: string;
 }
 
-export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave' | 'expense';
+export type ActivityEntityType = 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave' | 'expense' | 'petrol';
 
 export interface ActivityEvent {
   id: string;
@@ -301,6 +301,36 @@ export interface DailyExpense {
   notes: string;
   enteredBy: string;
   enteredById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PetrolRequestStatus =
+  | 'pending'
+  | 'issued'
+  | 'receipt_submitted'
+  | 'rejected'
+  | 'cancelled';
+
+/** Employee petrol token: request → admin book/token → pump receipt + kms. */
+export interface PetrolRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  vehicleNo: string;
+  amount: number;
+  requestedAt: string;
+  status: PetrolRequestStatus;
+  bookNo: string;
+  tokenNo: string;
+  issuedBy: string | null;
+  issuedById: string | null;
+  issuedAt: string | null;
+  kms: number | null;
+  receiptUrl: string;
+  receiptSubmittedAt: string | null;
+  notes: string;
+  adminNotes: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -166,7 +166,7 @@ export interface Database {
         Row: {
           id: string;
           action: string;
-          entity_type: 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system';
+          entity_type: 'case' | 'employee' | 'hospital' | 'department' | 'kit' | 'system' | 'attendance' | 'leave' | 'expense' | 'petrol';
           entity_id: string;
           entity_label: string;
           performed_by: string;
@@ -178,6 +178,35 @@ export interface Database {
           id?: string;
         };
         Update: Partial<Database['public']['Tables']['activity_log']['Insert']>;
+      };
+      petrol_requests: {
+        Row: {
+          id: string;
+          employee_id: string;
+          employee_name: string;
+          vehicle_no: string;
+          amount: number;
+          requested_at: string;
+          status: 'pending' | 'issued' | 'receipt_submitted' | 'rejected' | 'cancelled';
+          book_no: string;
+          token_no: string;
+          issued_by: string | null;
+          issued_by_id: string | null;
+          issued_at: string | null;
+          kms: number | null;
+          receipt_url: string;
+          receipt_submitted_at: string | null;
+          notes: string;
+          admin_notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['petrol_requests']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['petrol_requests']['Insert']>;
       };
     };
     Functions: {

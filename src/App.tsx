@@ -11,6 +11,7 @@ import { ApprovalQueue } from './pages/ApprovalQueue';
 import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
+import { PetrolDashboard } from './pages/PetrolDashboard';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
@@ -192,6 +193,7 @@ function MainApp() {
       case 'employees':  return <Employees />;
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
+      case 'petrol-dashboard': return <PetrolDashboard />;
       case 'hospitals':  return <Hospitals />;
       case 'reports':
         return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;

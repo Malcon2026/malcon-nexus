@@ -16,6 +16,7 @@ import {
   Archive,
   Building2,
   Fuel,
+  Ticket,
   X,
   LayoutGrid,
   Tv,
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
   { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
+  { id: 'petrol-dashboard', label: 'Petrol Dashboard', icon: <Ticket className="h-4 w-4" />, adminOnly: true },
   { id: 'hospitals', label: 'Hospitals', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <Download className="h-4 w-4" />, adminOnly: true },
   { id: 'activity', label: 'Activity Log', icon: <ScrollText className="h-4 w-4" />, adminOnly: true },
@@ -61,6 +63,7 @@ export const Sidebar: React.FC = () => {
     currentUser,
     leaveRequests,
     attendanceApprovalRequests,
+    petrolRequests,
   } = useStore();
 
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval').length;
@@ -73,6 +76,7 @@ export const Sidebar: React.FC = () => {
     if (id === 'approvals') return pendingApprovals;
     if (id === 'cases' || id === 'live-cases') return activeCases;
     if (id === 'attendance') return pendingAttendanceApprovals;
+    if (id === 'petrol-dashboard') return petrolRequests.filter((r) => r.status === 'pending').length;
     return undefined;
   };
 

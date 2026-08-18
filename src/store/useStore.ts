@@ -5,6 +5,7 @@ import type {
   AttendanceApprovalRequest,
   LeaveRequest, LeaveType,
   DailyExpense,
+  PetrolRequest,
   RestockOutcome,
 } from '../types';
 import { Database } from '../lib/database/database';
@@ -21,7 +22,9 @@ import { uploadStagePhotos } from '../lib/stagePhotos';
 import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo } from '../lib/database/repositories/supabaseRepositories';
+import { uploadPetrolReceipt } from '../lib/petrolReceipt';
+import { getBlockingPetrolRequest } from '../lib/petrol';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -68,6 +71,7 @@ interface AppState {
   attendanceRecords: AttendanceRecord[];
   attendanceApprovalRequests: AttendanceApprovalRequest[];
   leaveRequests: LeaveRequest[];
+  petrolRequests: PetrolRequest[];
   dailyExpenses: DailyExpense[];
   dailyExpensesLoaded: boolean;
   appSettings: Record<string, string>;
@@ -208,6 +212,13 @@ interface AppState {
     notes?: string;
   }) => Promise<{ error: string | null }>;
   deleteDailyExpense: (id: string) => Promise<{ error: string | null }>;
+
+  // Petrol token workflow
+  requestPetrol: (amount: number, vehicleNo: string, notes?: string) => Promise<{ error: string | null }>;
+  cancelPetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
+  issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
+  rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  submitPetrolReceipt: (requestId: string, kms: number, photo: File) => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -517,6 +528,66 @@ const updateLeaveRequest = async (
   return { error: null };
 };
 
+function petrolDbError(err: unknown, fallback: string): string {
+  const message = err instanceof Error ? err.message : fallback;
+  if (message.includes('petrol_requests') && message.includes('does not exist')) {
+    return 'Petrol is not set up in the database yet. Please run the petrol_requests migration in Supabase.';
+  }
+  if (message.includes('idx_petrol_one_open_per_employee')) {
+    return 'You already have an open petrol request. Submit the pump receipt first.';
+  }
+  if (message.includes('idx_petrol_book_token')) {
+    return 'That book number and token number are already used.';
+  }
+  if (message.includes('row-level security') || message.includes('RLS')) {
+    return 'Could not save. Please log out and log in again, then retry.';
+  }
+  return message;
+}
+
+const persistPetrolRequest = async (request: PetrolRequest): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbPetrolRepo.insert(request);
+    } catch (err) {
+      console.error('[petrol] persist failed:', err);
+      return { error: petrolDbError(err, 'Failed to save petrol request') };
+    }
+    const list = Database.getAll<PetrolRequest>('petrolRequests');
+    setCache('petrolRequests', [request, ...list.filter((r) => r.id !== request.id)]);
+    return { error: null };
+  }
+  const list = Database.getAll<PetrolRequest>('petrolRequests');
+  Database.saveAll('petrolRequests', [request, ...list]);
+  return { error: null };
+};
+
+const updatePetrolRequest = async (
+  id: string,
+  updates: Partial<PetrolRequest>,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbPetrolRepo.update(id, updates);
+    } catch (err) {
+      console.error('[petrol] update failed:', err);
+      return { error: petrolDbError(err, 'Failed to update petrol request') };
+    }
+    const list = Database.getAll<PetrolRequest>('petrolRequests');
+    setCache(
+      'petrolRequests',
+      list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+    );
+    return { error: null };
+  }
+  const list = Database.getAll<PetrolRequest>('petrolRequests');
+  Database.saveAll(
+    'petrolRequests',
+    list.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+  );
+  return { error: null };
+};
+
 const updateCaseApproval = async (
   caseId: string,
   stage: WorkflowStage,
@@ -539,6 +610,7 @@ const initialActivity = Database.getAll<ActivityEvent>('activityLog');
 const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords');
 const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
 const initialLeaveRequests = Database.getAll<LeaveRequest>('leaveRequests');
+const initialPetrolRequests = Database.getAll<PetrolRequest>('petrolRequests');
 
 const placeholderAdmin: Employee = {
   id: 'guest',
@@ -557,7 +629,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board'];
+const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard'];
 
 const applyUserSession = (
   user: Employee,
@@ -586,6 +658,7 @@ export const useStore = create<AppState>((set, get) => ({
   attendanceRecords: initialAttendance,
   attendanceApprovalRequests: initialAttendanceApprovals,
   leaveRequests: initialLeaveRequests,
+  petrolRequests: initialPetrolRequests,
   dailyExpenses: [],
   dailyExpensesLoaded: false,
   appSettings: {},
@@ -3123,6 +3196,246 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
+  requestPetrol: async (amount, vehicleNo, notes = '') => {
+    const { currentUser, petrolRequests } = get();
+    const vehicle = vehicleNo.trim().toUpperCase();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { error: 'Enter a valid petrol amount.' };
+    }
+    if (!vehicle) {
+      return { error: 'Enter the vehicle number.' };
+    }
+    if (getBlockingPetrolRequest(petrolRequests, currentUser.id)) {
+      return { error: 'You already have an open petrol request. Submit the pump receipt first.' };
+    }
+
+    const now = new Date().toISOString();
+    const request: PetrolRequest = {
+      id: newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      vehicleNo: vehicle,
+      amount,
+      requestedAt: now,
+      status: 'pending',
+      bookNo: '',
+      tokenNo: '',
+      issuedBy: null,
+      issuedById: null,
+      issuedAt: null,
+      kms: null,
+      receiptUrl: '',
+      receiptSubmittedAt: null,
+      notes: notes.trim(),
+      adminNotes: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const persistResult = await persistPetrolRequest(request);
+    if (persistResult.error) return persistResult;
+
+    const activity = createActivityEvent(
+      'Petrol Requested',
+      'petrol',
+      request.id,
+      currentUser.name,
+      currentUser.name,
+      currentUser.role,
+      `${currentUser.name} requested petrol ₹${amount} for ${vehicle}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: [request, ...s.petrolRequests.filter((r) => r.id !== request.id)],
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  cancelPetrolRequest: async (requestId) => {
+    const { currentUser, petrolRequests } = get();
+    const request = petrolRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Petrol request not found.' };
+    if (request.employeeId !== currentUser.id) {
+      return { error: 'You can only cancel your own petrol request.' };
+    }
+    if (request.status !== 'pending') {
+      return { error: 'Only a request waiting for a token can be cancelled.' };
+    }
+
+    const now = new Date().toISOString();
+    const updates: Partial<PetrolRequest> = { status: 'cancelled', updatedAt: now };
+    const updateResult = await updatePetrolRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity = createActivityEvent(
+      'Petrol Request Cancelled',
+      'petrol',
+      request.id,
+      currentUser.name,
+      currentUser.name,
+      currentUser.role,
+      `${currentUser.name} cancelled petrol request of ₹${request.amount} for ${request.vehicleNo}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  issuePetrolToken: async (requestId, bookNo, tokenNo) => {
+    const { currentUser, petrolRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can issue petrol tokens.' };
+    }
+    const request = petrolRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Petrol request not found.' };
+    if (request.status !== 'pending') {
+      return { error: 'This request is not waiting for a token.' };
+    }
+    const book = bookNo.trim();
+    const token = tokenNo.trim();
+    if (!book) return { error: 'Enter the book number.' };
+    if (!token) return { error: 'Enter the token number.' };
+
+    const now = new Date().toISOString();
+    const updates: Partial<PetrolRequest> = {
+      status: 'issued',
+      bookNo: book,
+      tokenNo: token,
+      issuedBy: currentUser.name,
+      issuedById: currentUser.id,
+      issuedAt: now,
+      updatedAt: now,
+    };
+    const updateResult = await updatePetrolRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity = createActivityEvent(
+      'Petrol Token Issued',
+      'petrol',
+      request.id,
+      request.employeeName,
+      currentUser.name,
+      'admin',
+      `Issued book ${book} token ${token} to ${request.employeeName} for ₹${request.amount} (${request.vehicleNo}).`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  rejectPetrolRequest: async (requestId, adminNotes = '') => {
+    const { currentUser, petrolRequests } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can reject petrol requests.' };
+    }
+    const request = petrolRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Petrol request not found.' };
+    if (request.status !== 'pending') {
+      return { error: 'Only a request waiting for a token can be rejected.' };
+    }
+
+    const now = new Date().toISOString();
+    const updates: Partial<PetrolRequest> = {
+      status: 'rejected',
+      adminNotes: adminNotes.trim(),
+      updatedAt: now,
+    };
+    const updateResult = await updatePetrolRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity = createActivityEvent(
+      'Petrol Request Rejected',
+      'petrol',
+      request.id,
+      request.employeeName,
+      currentUser.name,
+      'admin',
+      `Rejected petrol request from ${request.employeeName} (₹${request.amount}, ${request.vehicleNo}).`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  submitPetrolReceipt: async (requestId, kms, photo) => {
+    const { currentUser, petrolRequests } = get();
+    const request = petrolRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Petrol request not found.' };
+    if (request.employeeId !== currentUser.id) {
+      return { error: 'You can only submit a receipt for your own request.' };
+    }
+    if (request.status !== 'issued') {
+      return { error: 'Fill petrol at the pump first, then submit the receipt.' };
+    }
+    if (!Number.isFinite(kms) || kms < 0) {
+      return { error: 'Enter the vehicle kms after filling.' };
+    }
+    if (!photo) {
+      return { error: 'Take a photo of the pump receipt.' };
+    }
+
+    let receiptUrl: string;
+    try {
+      receiptUrl = await uploadPetrolReceipt(request.id, currentUser.id, currentUser.name, photo);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to upload receipt photo';
+      console.error('[petrol] receipt upload failed:', err);
+      return { error: message };
+    }
+
+    const now = new Date().toISOString();
+    const updates: Partial<PetrolRequest> = {
+      status: 'receipt_submitted',
+      kms,
+      receiptUrl,
+      receiptSubmittedAt: now,
+      updatedAt: now,
+    };
+    const updateResult = await updatePetrolRequest(requestId, updates);
+    if (updateResult.error) return updateResult;
+
+    const activity = createActivityEvent(
+      'Petrol Receipt Submitted',
+      'petrol',
+      request.id,
+      currentUser.name,
+      currentUser.name,
+      currentUser.role,
+      `${currentUser.name} submitted pump receipt for book ${request.bookNo} token ${request.tokenNo} (${kms} km).`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
   // ========== DYNAMIC METRICS ==========
 
   getMonthlyData: () => {
@@ -3241,6 +3554,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceRecords: [],
       attendanceApprovalRequests: [],
       leaveRequests: [],
+      petrolRequests: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -3268,6 +3582,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceRecords: Database.getAll<AttendanceRecord>('attendanceRecords'),
       attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
       leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
+      petrolRequests: Database.getAll<PetrolRequest>('petrolRequests'),
       ...session,
     });
   },

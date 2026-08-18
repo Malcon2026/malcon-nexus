@@ -11,6 +11,7 @@ import type {
   AttendanceApprovalRequest,
   LeaveRequest,
   DailyExpense,
+  PetrolRequest,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
@@ -967,6 +968,100 @@ export const sbKitRepo = {
     if (updates.status)       patch.status = updates.status;
     if (updates.lastUsedDate) patch.last_used_date = updates.lastUsedDate;
     const { error } = await supabase.from('surgical_kits').update(patch).eq('id', id);
+    if (error) throw error;
+  },
+};
+
+
+// ─── PETROL REQUESTS (employee request → admin token → pump receipt) ──
+
+function rowToPetrol(row: Record<string, unknown>): PetrolRequest {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: (row.employee_name as string) ?? '',
+    vehicleNo: (row.vehicle_no as string) ?? '',
+    amount: Number(row.amount ?? 0),
+    requestedAt: row.requested_at as string,
+    status: row.status as PetrolRequest['status'],
+    bookNo: (row.book_no as string) ?? '',
+    tokenNo: (row.token_no as string) ?? '',
+    issuedBy: (row.issued_by as string | null) ?? null,
+    issuedById: (row.issued_by_id as string | null) ?? null,
+    issuedAt: (row.issued_at as string | null) ?? null,
+    kms: row.kms == null ? null : Number(row.kms),
+    receiptUrl: (row.receipt_url as string) ?? '',
+    receiptSubmittedAt: (row.receipt_submitted_at as string | null) ?? null,
+    notes: (row.notes as string) ?? '',
+    adminNotes: (row.admin_notes as string) ?? '',
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export const sbPetrolRepo = {
+  async getAll(): Promise<PetrolRequest[]> {
+    const { data, error } = await supabase
+      .from('petrol_requests')
+      .select('*')
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToPetrol(row as Record<string, unknown>));
+  },
+
+  async getForEmployee(employeeId: string): Promise<PetrolRequest[]> {
+    const { data, error } = await supabase
+      .from('petrol_requests')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToPetrol(row as Record<string, unknown>));
+  },
+
+  async insert(request: PetrolRequest): Promise<void> {
+    const { error } = await supabase.from('petrol_requests').insert({
+      id: request.id,
+      employee_id: request.employeeId,
+      employee_name: request.employeeName,
+      vehicle_no: request.vehicleNo,
+      amount: request.amount,
+      requested_at: request.requestedAt,
+      status: request.status,
+      book_no: request.bookNo,
+      token_no: request.tokenNo,
+      issued_by: request.issuedBy,
+      issued_by_id: request.issuedById,
+      issued_at: request.issuedAt,
+      kms: request.kms,
+      receipt_url: request.receiptUrl,
+      receipt_submitted_at: request.receiptSubmittedAt,
+      notes: request.notes,
+      admin_notes: request.adminNotes,
+      created_at: request.createdAt,
+      updated_at: request.updatedAt,
+    });
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<PetrolRequest>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    if (updates.vehicleNo !== undefined) payload.vehicle_no = updates.vehicleNo;
+    if (updates.amount !== undefined) payload.amount = updates.amount;
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.bookNo !== undefined) payload.book_no = updates.bookNo;
+    if (updates.tokenNo !== undefined) payload.token_no = updates.tokenNo;
+    if (updates.issuedBy !== undefined) payload.issued_by = updates.issuedBy;
+    if (updates.issuedById !== undefined) payload.issued_by_id = updates.issuedById;
+    if (updates.issuedAt !== undefined) payload.issued_at = updates.issuedAt;
+    if (updates.kms !== undefined) payload.kms = updates.kms;
+    if (updates.receiptUrl !== undefined) payload.receipt_url = updates.receiptUrl;
+    if (updates.receiptSubmittedAt !== undefined) payload.receipt_submitted_at = updates.receiptSubmittedAt;
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
+    if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
+
+    const { error } = await supabase.from('petrol_requests').update(payload).eq('id', id);
     if (error) throw error;
   },
 };

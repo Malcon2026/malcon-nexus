@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
   id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   action            TEXT NOT NULL,
   entity_type       TEXT NOT NULL CHECK (entity_type IN (
-    'case','employee','hospital','department','kit','system'
+    'case','employee','hospital','department','kit','system','attendance','leave','expense','petrol'
   )),
   entity_id         TEXT NOT NULL,
   entity_label      TEXT NOT NULL DEFAULT '',
@@ -239,6 +239,43 @@ CREATE INDEX IF NOT EXISTS idx_attendance_punched_at ON attendance_records(punch
 
 
 -- ============================================================
+-- 11. PETROL REQUESTS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS petrol_requests (
+  id                     UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id            UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  employee_name          TEXT NOT NULL DEFAULT '',
+  vehicle_no             TEXT NOT NULL DEFAULT '',
+  amount                 NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  requested_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status                 TEXT NOT NULL DEFAULT 'pending'
+                           CHECK (status IN ('pending', 'issued', 'receipt_submitted', 'rejected', 'cancelled')),
+  book_no                TEXT NOT NULL DEFAULT '',
+  token_no               TEXT NOT NULL DEFAULT '',
+  issued_by              TEXT,
+  issued_by_id           UUID REFERENCES employees(id) ON DELETE SET NULL,
+  issued_at              TIMESTAMPTZ,
+  kms                    NUMERIC(10, 1),
+  receipt_url            TEXT NOT NULL DEFAULT '',
+  receipt_submitted_at   TIMESTAMPTZ,
+  notes                  TEXT NOT NULL DEFAULT '',
+  admin_notes            TEXT NOT NULL DEFAULT '',
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_petrol_requests_employee_id ON petrol_requests(employee_id);
+CREATE INDEX IF NOT EXISTS idx_petrol_requests_status ON petrol_requests(status);
+CREATE INDEX IF NOT EXISTS idx_petrol_requests_requested_at ON petrol_requests(requested_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_petrol_one_open_per_employee
+  ON petrol_requests (employee_id)
+  WHERE status IN ('pending', 'issued');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_petrol_book_token
+  ON petrol_requests (book_no, token_no)
+  WHERE book_no <> '' AND token_no <> '';
+
+
+-- ============================================================
 -- UPDATED_AT TRIGGER
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -257,6 +294,8 @@ DROP TRIGGER IF EXISTS set_updated_at_cases ON cases;
 CREATE TRIGGER set_updated_at_cases      BEFORE UPDATE ON cases          FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS set_updated_at_kits ON surgical_kits;
 CREATE TRIGGER set_updated_at_kits       BEFORE UPDATE ON surgical_kits  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS set_updated_at_petrol ON petrol_requests;
+CREATE TRIGGER set_updated_at_petrol     BEFORE UPDATE ON petrol_requests FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 
 -- ============================================================
@@ -306,6 +345,7 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approvals     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_log  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE petrol_requests ENABLE ROW LEVEL SECURITY;
 
 -- Helper: get role of the currently logged-in user
 CREATE OR REPLACE FUNCTION current_user_role()
@@ -403,4 +443,38 @@ CREATE POLICY "attendance_admin_all" ON attendance_records
 CREATE POLICY "attendance_employee_own" ON attendance_records
   FOR ALL USING (employee_id = current_employee_id())
   WITH CHECK (employee_id = current_employee_id());
+
+-- PETROL REQUESTS
+DROP POLICY IF EXISTS "petrol_admin_all" ON petrol_requests;
+DROP POLICY IF EXISTS "petrol_employee_select" ON petrol_requests;
+DROP POLICY IF EXISTS "petrol_employee_insert" ON petrol_requests;
+DROP POLICY IF EXISTS "petrol_employee_cancel" ON petrol_requests;
+DROP POLICY IF EXISTS "petrol_employee_receipt" ON petrol_requests;
+CREATE POLICY "petrol_admin_all" ON petrol_requests
+  FOR ALL USING (current_user_role() = 'admin');
+CREATE POLICY "petrol_employee_select" ON petrol_requests
+  FOR SELECT USING (employee_id = current_employee_id());
+CREATE POLICY "petrol_employee_insert" ON petrol_requests
+  FOR INSERT WITH CHECK (
+    employee_id = current_employee_id()
+    AND status = 'pending'
+  );
+CREATE POLICY "petrol_employee_cancel" ON petrol_requests
+  FOR UPDATE USING (
+    employee_id = current_employee_id()
+    AND status = 'pending'
+  )
+  WITH CHECK (
+    employee_id = current_employee_id()
+    AND status = 'cancelled'
+  );
+CREATE POLICY "petrol_employee_receipt" ON petrol_requests
+  FOR UPDATE USING (
+    employee_id = current_employee_id()
+    AND status = 'issued'
+  )
+  WITH CHECK (
+    employee_id = current_employee_id()
+    AND status = 'receipt_submitted'
+  );
 

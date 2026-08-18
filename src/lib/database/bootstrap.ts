@@ -12,6 +12,7 @@ import {
   sbAttendanceRepo,
   sbAttendanceApprovalRepo,
   sbLeaveRepo,
+  sbPetrolRepo,
 } from './repositories/supabaseRepositories';
 
 type BootstrapRole = 'admin' | 'employee';
@@ -35,7 +36,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v6';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v7';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
@@ -90,6 +91,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
       run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, recentSinceIso),
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
+    { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',
       run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
@@ -127,6 +129,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
@@ -232,6 +235,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceRecords',
           'attendanceApprovalRequests',
           'leaveRequests',
+          'petrolRequests',
           'departments',
           'employees',
           'hospitals',
@@ -244,6 +248,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'employees',
           'attendanceRecords',
           'leaveRequests',
+          'petrolRequests',
           'attendanceApprovalRequests',
           'departments',
           'cases',
@@ -268,6 +273,7 @@ export async function refreshApprovalQueues(): Promise<void> {
   await runBootstrapTasks(
     [
       { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+      { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
       { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     ],
     'approvals',

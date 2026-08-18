@@ -1,0 +1,291 @@
+import React, { useMemo, useState } from 'react';
+import { Fuel, ShieldAlert, Ticket, XCircle, Camera, Search } from 'lucide-react';
+import { Card, CardBody } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
+import { useStore } from '../store/useStore';
+import type { PetrolRequest, PetrolRequestStatus } from '../types';
+import { petrolStatusLabel } from '../lib/petrol';
+import { formatCurrency, formatDate } from '../utils/helpers';
+
+const inputClass =
+  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
+const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
+
+const statusBadge: Record<PetrolRequestStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  issued: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  receipt_submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rejected: 'bg-red-50 text-red-700 border-red-200',
+  cancelled: 'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+type FilterTab = 'pending' | 'issued' | 'receipt_submitted' | 'all';
+
+export const PetrolDashboard: React.FC = () => {
+  const currentUser = useStore((s) => s.currentUser);
+  const petrolRequests = useStore((s) => s.petrolRequests);
+  const issuePetrolToken = useStore((s) => s.issuePetrolToken);
+  const rejectPetrolRequest = useStore((s) => s.rejectPetrolRequest);
+
+  const [tab, setTab] = useState<FilterTab>('pending');
+  const [query, setQuery] = useState('');
+  const [issueFor, setIssueFor] = useState<PetrolRequest | null>(null);
+  const [bookNo, setBookNo] = useState('');
+  const [tokenNo, setTokenNo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+
+  const isAdmin = currentUser.role === 'admin';
+
+  const counts = useMemo(() => ({
+    pending: petrolRequests.filter((r) => r.status === 'pending').length,
+    issued: petrolRequests.filter((r) => r.status === 'issued').length,
+    receipt_submitted: petrolRequests.filter((r) => r.status === 'receipt_submitted').length,
+  }), [petrolRequests]);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return [...petrolRequests]
+      .filter((r) => (tab === 'all' ? true : r.status === tab))
+      .filter((r) => {
+        if (!q) return true;
+        return (
+          r.employeeName.toLowerCase().includes(q) ||
+          r.vehicleNo.toLowerCase().includes(q) ||
+          r.bookNo.toLowerCase().includes(q) ||
+          r.tokenNo.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+  }, [petrolRequests, tab, query]);
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6 max-w-lg mx-auto mt-20">
+        <Card className="p-8 text-center">
+          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
+          <p className="text-sm text-gray-500 mt-2">Petrol Dashboard is only available to administrators.</p>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleIssue = async () => {
+    if (!issueFor) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await issuePetrolToken(issueFor.id, bookNo, tokenNo);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setIssueFor(null);
+      setBookNo('');
+      setTokenNo('');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await rejectPetrolRequest(id);
+      if (result.error) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Issue book and token numbers, then wait for the pump receipt before the next request.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <p className="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+        {[
+          { label: 'Waiting for token', value: counts.pending, bg: 'bg-amber-50', icon: <Ticket className="h-4 w-4 text-amber-700" /> },
+          { label: 'Awaiting receipt', value: counts.issued, bg: 'bg-indigo-50', icon: <Fuel className="h-4 w-4 text-indigo-700" /> },
+          { label: 'Bill received', value: counts.receipt_submitted, bg: 'bg-emerald-50', icon: <Camera className="h-4 w-4 text-emerald-700" /> },
+        ].map(({ label, value, bg, icon }) => (
+          <Card key={label} className="p-4">
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${bg} mb-2`}>{icon}</div>
+            <p className="text-lg font-bold text-gray-900 tabular-nums">{value}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {([
+          { id: 'pending', label: `Need token (${counts.pending})` },
+          { id: 'issued', label: `Awaiting bill (${counts.issued})` },
+          { id: 'receipt_submitted', label: 'Bill received' },
+          { id: 'all', label: 'All' },
+        ] as const).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setTab(item.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+              tab === item.id
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+        <div className="relative ml-auto w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <input
+            type="search"
+            className={`${inputClass} pl-8`}
+            placeholder="Search name, vehicle, token…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <Card className="overflow-hidden">
+        <CardBody className="p-0 overflow-x-auto">
+          {rows.length === 0 ? (
+            <p className="px-4 py-12 text-center text-sm text-gray-400">No petrol requests in this list</p>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-2.5">Date</th>
+                  <th className="px-4 py-2.5">Employee</th>
+                  <th className="px-4 py-2.5">Vehicle</th>
+                  <th className="px-4 py-2.5 text-right">Amount</th>
+                  <th className="px-4 py-2.5">Book no</th>
+                  <th className="px-4 py-2.5">Token no</th>
+                  <th className="px-4 py-2.5 text-right">Kms</th>
+                  <th className="px-4 py-2.5">Bill</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => (
+                  <tr key={r.id} className="bg-white">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{formatDate(r.requestedAt)}</td>
+                    <td className="px-4 py-2.5 font-medium text-gray-900">{r.employeeName}</td>
+                    <td className="px-4 py-2.5 text-gray-700">{r.vehicleNo}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(r.amount)}</td>
+                    <td className="px-4 py-2.5">{r.bookNo || '—'}</td>
+                    <td className="px-4 py-2.5">{r.tokenNo || '—'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{r.kms ?? '—'}</td>
+                    <td className="px-4 py-2.5">
+                      {r.receiptUrl ? (
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:underline text-xs font-medium"
+                          onClick={() => setReceiptUrl(r.receiptUrl)}
+                        >
+                          View
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Badge className={statusBadge[r.status]}>{petrolStatusLabel[r.status]}</Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      {r.status === 'pending' && (
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="xs"
+                            onClick={() => {
+                              setIssueFor(r);
+                              setBookNo('');
+                              setTokenNo('');
+                              setError(null);
+                            }}
+                          >
+                            Issue token
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            icon={<XCircle className="h-3.5 w-3.5" />}
+                            disabled={busy}
+                            onClick={() => void handleReject(r.id)}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardBody>
+      </Card>
+
+      <Modal
+        isOpen={!!issueFor}
+        onClose={() => setIssueFor(null)}
+        title="Issue petrol token"
+        subtitle={issueFor ? `${issueFor.employeeName} · ${formatCurrency(issueFor.amount)} · ${issueFor.vehicleNo}` : undefined}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIssueFor(null)}>Cancel</Button>
+            <Button variant="primary" size="sm" disabled={busy} onClick={() => void handleIssue()}>
+              {busy ? 'Saving…' : 'Issue token'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className={labelClass}>Book no *</label>
+            <input className={inputClass} value={bookNo} onChange={(e) => setBookNo(e.target.value)} placeholder="e.g. 12" />
+          </div>
+          <div>
+            <label className={labelClass}>Token no *</label>
+            <input className={inputClass} value={tokenNo} onChange={(e) => setTokenNo(e.target.value)} placeholder="e.g. 45" />
+          </div>
+          <p className="text-xs text-gray-500">
+            The boy can request the next token only after submitting the pump receipt photo and kms.
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!receiptUrl}
+        onClose={() => setReceiptUrl(null)}
+        title="Pump receipt"
+        size="lg"
+      >
+        {receiptUrl && (
+          <img src={receiptUrl} alt="Pump receipt" className="w-full rounded-lg border border-gray-100" />
+        )}
+      </Modal>
+    </div>
+  );
+};

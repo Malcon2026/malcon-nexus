@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
-  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase,
+  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -15,11 +15,12 @@ import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
 import { LeaveApplySection } from '../components/LeaveApplySection';
+import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
 
-type EmployeePage = 'home' | 'cases' | 'leaves' | 'register' | 'alerts';
+type EmployeePage = 'home' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -58,6 +59,9 @@ const HomeNavTiles: React.FC<{
   const myCases = useMyCases(employee);
   const pendingLeaveCount = useStore(
     (s) => s.leaveRequests.filter((lr) => lr.employeeId === employee.id && lr.status === 'pending').length,
+  );
+  const petrolOpen = useStore(
+    (s) => s.petrolRequests.filter((r) => r.employeeId === employee.id && (r.status === 'pending' || r.status === 'issued')).length,
   );
   const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
 
@@ -98,6 +102,15 @@ const HomeNavTiles: React.FC<{
       hint: 'P · CL · UL · WO',
       icon: <ClipboardList className="h-5 w-5 text-sky-600" />,
       iconBg: 'bg-sky-50',
+    },
+    {
+      id: 'petrol',
+      title: 'Petrol',
+      titleTe: 'Petrol token',
+      hint: petrolOpen > 0 ? (petrolOpen === 1 ? 'Open request' : `${petrolOpen} open`) : 'Request token',
+      icon: <Fuel className="h-5 w-5 text-orange-600" />,
+      iconBg: 'bg-orange-50',
+      badge: petrolOpen || undefined,
     },
     {
       id: 'alerts',
@@ -389,6 +402,13 @@ export const EmployeeDashboard: React.FC = () => {
         <>
           <PageHeader title="Register" titleTe="Attendance register" onBack={() => setPage('home')} />
           <EmployeeRegisterPage employeeId={currentUser.id} />
+        </>
+      )}
+
+      {page === 'petrol' && (
+        <>
+          <PageHeader title="Petrol" titleTe="Petrol token" onBack={() => setPage('home')} />
+          <EmployeePetrolSection />
         </>
       )}
 
