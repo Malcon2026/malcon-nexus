@@ -65,7 +65,7 @@ const TABLE_MAP: Record<string, string> = {
   attendanceApprovalRequests: 'attendance_approval_requests',
   leaveRequests: 'leave_requests',
   petrolRequests: 'petrol_requests',
-  hospitalTripPunches: 'hospital_trip_punches',
+  locationTrips: 'location_trips',
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     if (!table) return;
 
     // Collections with dedicated Supabase repositories (correct column mapping)
-    if (['cases', 'approvals', 'notifications', 'activityLog', 'attendanceRecords', 'attendanceApprovalRequests', 'leaveRequests', 'petrolRequests', 'hospitalTripPunches', 'employees', 'hospitals', 'doctors'].includes(key)) return;
+    if (['cases', 'approvals', 'notifications', 'activityLog', 'attendanceRecords', 'attendanceApprovalRequests', 'leaveRequests', 'petrolRequests', 'locationTrips', 'employees', 'hospitals', 'doctors'].includes(key)) return;
 
     // Convert camelCase app objects → snake_case DB columns
     const rows = data.map((item) => toSnakeCase(item as Record<string, unknown>));

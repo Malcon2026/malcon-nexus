@@ -239,23 +239,27 @@ export interface AttendanceRecord {
   selfieUrl: string | null;
 }
 
-/** Optional office → hospital GPS punch (pilot). Not used for attendance register. */
-export interface HospitalTripPunch {
+/** Employee location punchin: start GPS → reached GPS. Not used for attendance. */
+export type LocationTripStatus = 'started' | 'completed';
+
+export interface LocationTrip {
   id: string;
   employeeId: string;
   employeeName: string;
-  hospitalId: string | null;
-  hospitalName: string;
-  punchedAt: string;
-  latitude: number;
-  longitude: number;
-  accuracyM: number;
-  fromLatitude: number | null;
-  fromLongitude: number | null;
-  fromLabel: string;
-  distanceKm: number;
+  tripNo: number;
   notes: string;
+  status: LocationTripStatus;
+  startAt: string;
+  startLat: number;
+  startLng: number;
+  startAccuracyM: number;
+  endAt: string | null;
+  endLat: number | null;
+  endLng: number | null;
+  endAccuracyM: number | null;
+  distanceKm: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 export type AttendanceApprovalStatus = 'pending' | 'approved' | 'rejected';

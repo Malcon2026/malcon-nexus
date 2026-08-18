@@ -12,7 +12,7 @@ import type {
   LeaveRequest,
   DailyExpense,
   PetrolRequest,
-  HospitalTripPunch,
+  LocationTrip,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
@@ -1089,64 +1089,83 @@ export const sbPetrolRepo = {
   },
 };
 
-function rowToHospitalTrip(row: Record<string, unknown>): HospitalTripPunch {
+function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
   return {
     id: row.id as string,
     employeeId: row.employee_id as string,
     employeeName: (row.employee_name as string) ?? '',
-    hospitalId: (row.hospital_id as string | null) ?? null,
-    hospitalName: (row.hospital_name as string) ?? '',
-    punchedAt: row.punched_at as string,
-    latitude: Number(row.latitude ?? 0),
-    longitude: Number(row.longitude ?? 0),
-    accuracyM: Number(row.accuracy_m ?? 0),
-    fromLatitude: row.from_latitude == null ? null : Number(row.from_latitude),
-    fromLongitude: row.from_longitude == null ? null : Number(row.from_longitude),
-    fromLabel: (row.from_label as string) ?? '',
-    distanceKm: Number(row.distance_km ?? 0),
+    tripNo: Number(row.trip_no ?? 0),
     notes: (row.notes as string) ?? '',
+    status: row.status === 'completed' ? 'completed' : 'started',
+    startAt: row.start_at as string,
+    startLat: Number(row.start_lat ?? 0),
+    startLng: Number(row.start_lng ?? 0),
+    startAccuracyM: Number(row.start_accuracy_m ?? 0),
+    endAt: (row.end_at as string | null) ?? null,
+    endLat: row.end_lat == null ? null : Number(row.end_lat),
+    endLng: row.end_lng == null ? null : Number(row.end_lng),
+    endAccuracyM: row.end_accuracy_m == null ? null : Number(row.end_accuracy_m),
+    distanceKm: Number(row.distance_km ?? 0),
     createdAt: (row.created_at as string) ?? '',
+    updatedAt: (row.updated_at as string) ?? '',
   };
 }
 
-export const sbHospitalTripRepo = {
-  async getAll(): Promise<HospitalTripPunch[]> {
+export const sbLocationTripRepo = {
+  async getAll(): Promise<LocationTrip[]> {
     const { data, error } = await supabase
-      .from('hospital_trip_punches')
+      .from('location_trips')
       .select('*')
-      .order('punched_at', { ascending: false });
+      .order('start_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => rowToHospitalTrip(row as Record<string, unknown>));
+    return (data ?? []).map((row) => rowToLocationTrip(row as Record<string, unknown>));
   },
 
-  async getForEmployee(employeeId: string): Promise<HospitalTripPunch[]> {
+  async getForEmployee(employeeId: string): Promise<LocationTrip[]> {
     const { data, error } = await supabase
-      .from('hospital_trip_punches')
+      .from('location_trips')
       .select('*')
       .eq('employee_id', employeeId)
-      .order('punched_at', { ascending: false });
+      .order('start_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => rowToHospitalTrip(row as Record<string, unknown>));
+    return (data ?? []).map((row) => rowToLocationTrip(row as Record<string, unknown>));
   },
 
-  async insert(punch: HospitalTripPunch): Promise<void> {
-    const { error } = await supabase.from('hospital_trip_punches').insert({
-      id: punch.id,
-      employee_id: punch.employeeId,
-      employee_name: punch.employeeName,
-      hospital_id: punch.hospitalId,
-      hospital_name: punch.hospitalName,
-      punched_at: punch.punchedAt,
-      latitude: punch.latitude,
-      longitude: punch.longitude,
-      accuracy_m: punch.accuracyM,
-      from_latitude: punch.fromLatitude,
-      from_longitude: punch.fromLongitude,
-      from_label: punch.fromLabel,
-      distance_km: punch.distanceKm,
-      notes: punch.notes,
-      created_at: punch.createdAt,
+  async insert(trip: LocationTrip): Promise<void> {
+    const { error } = await supabase.from('location_trips').insert({
+      id: trip.id,
+      employee_id: trip.employeeId,
+      employee_name: trip.employeeName,
+      trip_no: trip.tripNo,
+      notes: trip.notes,
+      status: trip.status,
+      start_at: trip.startAt,
+      start_lat: trip.startLat,
+      start_lng: trip.startLng,
+      start_accuracy_m: trip.startAccuracyM,
+      end_at: trip.endAt,
+      end_lat: trip.endLat,
+      end_lng: trip.endLng,
+      end_accuracy_m: trip.endAccuracyM,
+      distance_km: trip.distanceKm,
+      created_at: trip.createdAt,
+      updated_at: trip.updatedAt,
     });
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<LocationTrip>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.endAt !== undefined) payload.end_at = updates.endAt;
+    if (updates.endLat !== undefined) payload.end_lat = updates.endLat;
+    if (updates.endLng !== undefined) payload.end_lng = updates.endLng;
+    if (updates.endAccuracyM !== undefined) payload.end_accuracy_m = updates.endAccuracyM;
+    if (updates.distanceKm !== undefined) payload.distance_km = updates.distanceKm;
+    if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
+
+    const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
     if (error) throw error;
   },
 };

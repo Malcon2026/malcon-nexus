@@ -1,3 +1,4 @@
+-- Unused. Replaced by location punchin (add-location-trips.sql).
 -- Optional pilot: office → hospital GPS punch. Distance is calculated on each punch.
 -- Not required for attendance or petrol. Run in Supabase Dashboard → SQL Editor.
 

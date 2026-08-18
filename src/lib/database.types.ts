@@ -211,29 +211,32 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['petrol_requests']['Insert']>;
       };
-      hospital_trip_punches: {
+      location_trips: {
         Row: {
           id: string;
           employee_id: string;
           employee_name: string;
-          hospital_id: string | null;
-          hospital_name: string;
-          punched_at: string;
-          latitude: number;
-          longitude: number;
-          accuracy_m: number;
-          from_latitude: number | null;
-          from_longitude: number | null;
-          from_label: string;
-          distance_km: number;
+          trip_no: number;
           notes: string;
+          status: 'started' | 'completed';
+          start_at: string;
+          start_lat: number;
+          start_lng: number;
+          start_accuracy_m: number;
+          end_at: string | null;
+          end_lat: number | null;
+          end_lng: number | null;
+          end_accuracy_m: number | null;
+          distance_km: number;
           created_at: string;
+          updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['hospital_trip_punches']['Row'], 'id' | 'created_at'> & {
+        Insert: Omit<Database['public']['Tables']['location_trips']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
           created_at?: string;
+          updated_at?: string;
         };
-        Update: Partial<Database['public']['Tables']['hospital_trip_punches']['Insert']>;
+        Update: Partial<Database['public']['Tables']['location_trips']['Insert']>;
       };
     };
     Functions: {

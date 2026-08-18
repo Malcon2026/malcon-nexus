@@ -13,7 +13,7 @@ import {
   sbAttendanceApprovalRepo,
   sbLeaveRepo,
   sbPetrolRepo,
-  sbHospitalTripRepo,
+  sbLocationTripRepo,
 } from './repositories/supabaseRepositories';
 
 type BootstrapRole = 'admin' | 'employee' | 'petrol';
@@ -37,7 +37,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v8';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v9';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
@@ -93,7 +93,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
-    { key: 'hospitalTripPunches', run: () => sbHospitalTripRepo.getForEmployee(employeeId) },
+    { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',
       run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
@@ -133,7 +133,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
-    { key: 'hospitalTripPunches', run: () => sbHospitalTripRepo.getAll() },
+    { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
@@ -252,7 +252,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceApprovalRequests',
           'leaveRequests',
           'petrolRequests',
-          'hospitalTripPunches',
+          'locationTrips',
           'departments',
           'employees',
           'hospitals',
@@ -268,7 +268,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceRecords',
           'leaveRequests',
           'petrolRequests',
-          'hospitalTripPunches',
+          'locationTrips',
           'attendanceApprovalRequests',
           'departments',
           'cases',

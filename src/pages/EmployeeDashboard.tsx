@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
-  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn,
+  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn, MapPin,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -14,15 +14,16 @@ import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWork
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
-import { HospitalTripPilotCard } from '../components/HospitalTripPilotCard';
+import { LocationPunchSection } from '../components/LocationPunchSection';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
 import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
+import { openLocationTrip } from '../lib/locationTrip';
 
-type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol';
+type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'location';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -69,6 +70,7 @@ const HomeNavTiles: React.FC<{
   const petrolNeedsPhotos = useStore(
     (s) => s.petrolRequests.some((r) => r.employeeId === employee.id && r.status === 'issued' && !r.receiptUrl),
   );
+  const locationOpen = useStore((s) => openLocationTrip(s.locationTrips, employee.id));
   const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
 
   const summary = summarizeLiveAttendance(attendanceRecords, employee.id);
@@ -107,6 +109,15 @@ const HomeNavTiles: React.FC<{
       icon: <Fuel className="h-5 w-5 text-orange-600" />,
       iconBg: 'bg-orange-50',
       badge: petrolPending || (petrolNeedsPhotos ? 1 : 0) || undefined,
+    },
+    {
+      id: 'location',
+      title: 'Location punchin',
+      titleTe: 'Location punch',
+      hint: locationOpen ? `Trip ${locationOpen.tripNo} — press Reached` : 'Start / reached GPS',
+      icon: <MapPin className="h-5 w-5 text-sky-600" />,
+      iconBg: 'bg-sky-50',
+      badge: locationOpen ? 1 : undefined,
     },
     {
       id: 'leaves',
@@ -429,7 +440,6 @@ export const EmployeeDashboard: React.FC = () => {
         <>
           <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
           <EmployeeAttendanceHero />
-          <HospitalTripPilotCard />
         </>
       )}
 
@@ -462,6 +472,13 @@ export const EmployeeDashboard: React.FC = () => {
         <>
           <PageHeader title="Petrol" titleTe="Petrol token" onBack={() => setPage('home')} />
           <EmployeePetrolSection />
+        </>
+      )}
+
+      {page === 'location' && (
+        <>
+          <PageHeader title="Location punchin" titleTe="Location punch" onBack={() => setPage('home')} />
+          <LocationPunchSection />
         </>
       )}
 
