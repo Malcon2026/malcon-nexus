@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
-  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel,
+  CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -19,8 +19,9 @@ import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
+import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
 
-type EmployeePage = 'home' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol';
+type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -53,10 +54,11 @@ const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void
 );
 
 const HomeNavTiles: React.FC<{
-  employee: Pick<import('../types').Employee, 'id' | 'email'>;
+  employee: Pick<import('../types').Employee, 'id' | 'email' | 'name'>;
   onOpen: (page: EmployeePage) => void;
 }> = ({ employee, onOpen }) => {
   const myCases = useMyCases(employee);
+  const attendanceRecords = useStore((s) => s.attendanceRecords);
   const pendingLeaveCount = useStore(
     (s) => s.leaveRequests.filter((lr) => lr.employeeId === employee.id && lr.status === 'pending').length,
   );
@@ -68,8 +70,15 @@ const HomeNavTiles: React.FC<{
   );
   const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
 
+  const summary = summarizeLiveAttendance(attendanceRecords, employee.id);
   const activeCases = myCases.filter((c) => c.status === 'Active').length;
   const waitingCases = myCases.filter((c) => c.status === 'Waiting For Approval').length;
+
+  const punchHint = summary.isPunchedIn && summary.punchIn
+    ? `In at ${formatTimeIST(summary.punchIn.punchedAt)}`
+    : summary.punchOut
+      ? `Out at ${formatTimeIST(summary.punchOut.punchedAt)}`
+      : 'Tap to punch in';
 
   const tiles: {
     id: EmployeePage;
@@ -84,16 +93,25 @@ const HomeNavTiles: React.FC<{
       id: 'cases',
       title: 'Cases',
       titleTe: 'Cases',
-      hint: waitingCases > 0 ? `${waitingCases} waiting admin` : `${activeCases} active`,
+      hint: waitingCases > 0 ? `${waitingCases} waiting` : `${activeCases} active`,
       icon: <Briefcase className="h-5 w-5 text-indigo-600" />,
       iconBg: 'bg-indigo-50',
       badge: activeCases + waitingCases || undefined,
     },
     {
+      id: 'petrol',
+      title: 'Petrol',
+      titleTe: 'Petrol',
+      hint: petrolPending > 0 ? 'Waiting for token' : petrolNeedsPhotos ? 'Add last bill photos' : 'Request token',
+      icon: <Fuel className="h-5 w-5 text-orange-600" />,
+      iconBg: 'bg-orange-50',
+      badge: petrolPending || (petrolNeedsPhotos ? 1 : 0) || undefined,
+    },
+    {
       id: 'leaves',
-      title: 'Leaves',
+      title: 'Leave',
       titleTe: 'Leave',
-      hint: pendingLeaveCount > 0 ? `${pendingLeaveCount} pending` : 'Apply / history',
+      hint: pendingLeaveCount > 0 ? `${pendingLeaveCount} pending` : 'Apply leave',
       icon: <CalendarDays className="h-5 w-5 text-emerald-600" />,
       iconBg: 'bg-emerald-50',
       badge: pendingLeaveCount || undefined,
@@ -101,28 +119,15 @@ const HomeNavTiles: React.FC<{
     {
       id: 'register',
       title: 'Register',
-      titleTe: 'Attendance register',
-      hint: 'P · CL · UL · WO',
+      titleTe: 'Attendance',
+      hint: 'Month view',
       icon: <ClipboardList className="h-5 w-5 text-sky-600" />,
       iconBg: 'bg-sky-50',
     },
     {
-      id: 'petrol',
-      title: 'Petrol',
-      titleTe: 'Petrol token',
-      hint: petrolPending > 0
-        ? 'Waiting for token'
-        : petrolNeedsPhotos
-          ? 'Next request needs last bill photos'
-          : 'Request token',
-      icon: <Fuel className="h-5 w-5 text-orange-600" />,
-      iconBg: 'bg-orange-50',
-      badge: petrolPending || (petrolNeedsPhotos ? 1 : 0) || undefined,
-    },
-    {
       id: 'alerts',
       title: 'Alerts',
-      titleTe: 'Notifications',
+      titleTe: 'Alerts',
       hint: unreadNotifCount > 0 ? `${unreadNotifCount} new` : 'No new alerts',
       icon: <Bell className="h-5 w-5 text-amber-600" />,
       iconBg: 'bg-amber-50',
@@ -131,30 +136,55 @@ const HomeNavTiles: React.FC<{
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-2">
-      {tiles.map((tile) => (
-        <button
-          key={tile.id}
-          type="button"
-          onClick={() => onOpen(tile.id)}
-          className="relative text-left rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-200 hover:shadow transition-all active:scale-[0.98]"
-        >
-          {tile.badge != null && tile.badge > 0 && (
-            <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
-              {tile.badge > 99 ? '99+' : tile.badge}
-            </span>
-          )}
-          <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tile.iconBg} mb-3`}>
-            {tile.icon}
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => onOpen('attendance')}
+        className={`w-full text-left rounded-2xl border p-4 shadow-sm transition-all active:scale-[0.99] ${
+          summary.isPunchedIn
+            ? 'border-emerald-200 bg-emerald-50/40'
+            : 'border-gray-200 bg-white hover:border-indigo-200'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
+            summary.isPunchedIn ? 'bg-emerald-100' : 'bg-indigo-50'
+          }`}>
+            <LogIn className={`h-6 w-6 ${summary.isPunchedIn ? 'text-emerald-700' : 'text-indigo-600'}`} />
           </div>
-          <div className="flex items-center justify-between gap-1">
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-bold text-gray-900">Punch in / out</p>
+            <Te className="text-gray-500 mb-0 mt-0">Attendance</Te>
+            <p className={`text-sm mt-1 ${summary.isPunchedIn ? 'text-emerald-700 font-medium' : 'text-gray-500'}`}>
+              {punchHint}
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-300 shrink-0" />
+        </div>
+      </button>
+
+      <div className="grid grid-cols-2 gap-3">
+        {tiles.map((tile) => (
+          <button
+            key={tile.id}
+            type="button"
+            onClick={() => onOpen(tile.id)}
+            className="relative text-left rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-200 transition-all active:scale-[0.98] min-h-[8.5rem]"
+          >
+            {tile.badge != null && tile.badge > 0 && (
+              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                {tile.badge > 99 ? '99+' : tile.badge}
+              </span>
+            )}
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tile.iconBg} mb-3`}>
+              {tile.icon}
+            </div>
             <p className="text-sm font-bold text-gray-900">{tile.title}</p>
-            <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
-          </div>
-          <Te className="text-gray-500 mb-0.5">{tile.titleTe}</Te>
-          <p className="text-[11px] text-gray-500 mt-0.5">{tile.hint}</p>
-        </button>
-      ))}
+            <Te className="text-gray-500 mb-0 mt-0">{tile.titleTe}</Te>
+            <p className="text-xs text-gray-500 mt-1">{tile.hint}</p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
@@ -376,14 +406,28 @@ export const EmployeeDashboard: React.FC = () => {
 
       {page === 'home' && (
         <>
-          <NoticeBoard />
-          <EmployeeAttendanceHero />
-          <div className="pt-1 pb-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-0.5">
-              Menu
+          <div className="mb-4">
+            <p className="text-xs text-gray-500">
+              {new Date().toLocaleDateString('en-IN', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'short',
+                timeZone: 'Asia/Kolkata',
+              })}
             </p>
-            <HomeNavTiles employee={currentUser} onOpen={setPage} />
+            <h1 className="text-xl font-bold text-gray-900 mt-0.5">
+              Hi, {currentUser.name.split(' ')[0]}
+            </h1>
           </div>
+          <NoticeBoard />
+          <HomeNavTiles employee={currentUser} onOpen={setPage} />
+        </>
+      )}
+
+      {page === 'attendance' && (
+        <>
+          <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
+          <EmployeeAttendanceHero />
         </>
       )}
 
