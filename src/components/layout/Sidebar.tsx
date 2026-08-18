@@ -77,6 +77,9 @@ export const Sidebar: React.FC = () => {
     if (id === 'cases' || id === 'live-cases') return activeCases;
     if (id === 'attendance') return pendingAttendanceApprovals;
     if (id === 'petrol-dashboard') return petrolRequests.filter((r) => r.status === 'pending').length;
+    if (id === 'dashboard' && currentUser.role === 'petrol') {
+      return petrolRequests.filter((r) => r.status === 'pending' || r.status === 'issued').length;
+    }
     return undefined;
   };
 
@@ -124,7 +127,7 @@ export const Sidebar: React.FC = () => {
         {navItems
           .filter((item) => {
             if (currentUser.role === 'petrol') {
-              return item.id === 'petrol-dashboard' || item.id === 'settings';
+              return item.id === 'dashboard' || item.id === 'petrol-dashboard' || item.id === 'settings';
             }
             return !item.adminOnly || currentUser.role === 'admin';
           })
@@ -155,7 +158,7 @@ export const Sidebar: React.FC = () => {
                       exit={{ opacity: 0 }}
                       className="flex-1 text-left truncate"
                     >
-                      {item.label}
+                    {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Tokens' : item.label}
                     </motion.span>
                   )}
                 </AnimatePresence>

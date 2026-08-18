@@ -12,6 +12,7 @@ import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
 import { PetrolDashboard } from './pages/PetrolDashboard';
+import { PetrolOverview } from './pages/PetrolOverview';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
@@ -175,9 +176,10 @@ function MainApp() {
   const renderPage = () => {
     if (viewMode === 'petrol') {
       switch (activeTab) {
+        case 'dashboard': return <PetrolOverview />;
         case 'petrol-dashboard': return <PetrolDashboard />;
         case 'settings': return <Settings />;
-        default: return <PetrolDashboard />;
+        default: return <PetrolOverview />;
       }
     }
 

@@ -13,6 +13,7 @@ import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
 import { ASSIGNABLE_DEPARTMENTS } from '../constants/departments';
+import { PetrolOverview } from './PetrolOverview';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -74,6 +75,9 @@ export const PetrolDashboard: React.FC = () => {
   const [deskPassword, setDeskPassword] = useState(DEFAULT_EMPLOYEE_PASSWORD);
   const [deskBusy, setDeskBusy] = useState(false);
   const [deskMsg, setDeskMsg] = useState<string | null>(null);
+  const [deskView, setDeskView] = useState<'overview' | 'queue'>(
+    currentUser.role === 'admin' ? 'overview' : 'queue',
+  );
 
   const canManage = canManagePetrol(currentUser.role);
   const isMainAdmin = currentUser.role === 'admin';
@@ -163,6 +167,10 @@ export const PetrolDashboard: React.FC = () => {
         </Card>
       </div>
     );
+  }
+
+  if (isMainAdmin && deskView === 'overview') {
+    return <PetrolOverview onOpenQueue={() => setDeskView('queue')} />;
   }
 
   const handleIssue = async () => {
@@ -294,6 +302,11 @@ export const PetrolDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isMainAdmin && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setDeskView('overview')}>
+              Dashboard
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
