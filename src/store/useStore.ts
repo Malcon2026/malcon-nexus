@@ -235,6 +235,8 @@ interface AppState {
     billReceived?: boolean;
     notes?: string;
   }) => Promise<{ error: string | null }>;
+  deletePetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
+  clearAllPetrolEntries: () => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -3594,6 +3596,84 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
     if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  deletePetrolRequest: async (requestId) => {
+    const { currentUser, petrolRequests } = get();
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only the petrol desk or an admin can delete petrol entries.' };
+    }
+    const request = petrolRequests.find((r) => r.id === requestId);
+    if (!request) return { error: 'Petrol entry not found.' };
+
+    if (USE_SUPABASE) {
+      try {
+        await sbPetrolRepo.remove(requestId);
+      } catch (err) {
+        return { error: petrolDbError(err, 'Failed to delete petrol entry') };
+      }
+    } else {
+      Database.saveAll(
+        'petrolRequests',
+        Database.getAll<PetrolRequest>('petrolRequests').filter((r) => r.id !== requestId),
+      );
+    }
+
+    const activity = createActivityEvent(
+      'Petrol Entry Deleted',
+      'petrol',
+      request.id,
+      request.employeeName,
+      currentUser.name,
+      currentUser.role,
+      `Deleted petrol entry for ${request.employeeName}: ${request.vehicleNo || 'no vehicle'}, ₹${request.amount}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: s.petrolRequests.filter((r) => r.id !== requestId),
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+
+    return { error: null };
+  },
+
+  clearAllPetrolEntries: async () => {
+    const { currentUser, petrolRequests } = get();
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only the petrol desk or an admin can delete petrol entries.' };
+    }
+    if (petrolRequests.length === 0) return { error: null };
+
+    if (USE_SUPABASE) {
+      try {
+        await sbPetrolRepo.removeAll();
+      } catch (err) {
+        return { error: petrolDbError(err, 'Failed to delete petrol entries') };
+      }
+    } else {
+      Database.saveAll('petrolRequests', []);
+    }
+
+    const activity = createActivityEvent(
+      'Petrol Entries Cleared',
+      'petrol',
+      'all',
+      'All petrol entries',
+      currentUser.name,
+      currentUser.role,
+      `Deleted ${petrolRequests.length} petrol ${petrolRequests.length === 1 ? 'entry' : 'entries'}.`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      petrolRequests: [],
+      activityLog: [activity, ...s.activityLog],
+    }));
+    if (USE_SUPABASE) setCache('petrolRequests', []);
 
     return { error: null };
   },

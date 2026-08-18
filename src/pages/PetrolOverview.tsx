@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Camera, Fuel, Ticket, Users, Wallet, AlertTriangle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Camera, Fuel, Ticket, Users, Wallet, AlertTriangle, Trash2 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -20,11 +20,24 @@ const statusBadge: Record<string, string> = {
 export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQueue }) => {
   const petrolRequests = useStore((s) => s.petrolRequests);
   const setActiveTab = useStore((s) => s.setActiveTab);
+  const clearAllPetrolEntries = useStore((s) => s.clearAllPetrolEntries);
+  const [busy, setBusy] = useState(false);
   const stats = useMemo(() => summarizePetrol(petrolRequests), [petrolRequests]);
 
   const openQueue = () => {
     if (onOpenQueue) onOpenQueue();
     else setActiveTab('petrol-dashboard');
+  };
+
+  const handleClearAll = async () => {
+    if (petrolRequests.length === 0) return;
+    if (!window.confirm(`Delete all ${petrolRequests.length} petrol entries? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await clearAllPetrolEntries();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -36,9 +49,23 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
             Monitor tokens, bills, and petrol spend across the team.
           </p>
         </div>
-        <Button variant="primary" size="sm" onClick={openQueue}>
-          Open token queue
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {petrolRequests.length > 0 && (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="h-4 w-4" />}
+              disabled={busy}
+              onClick={() => void handleClearAll()}
+            >
+              Delete all
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={openQueue}>
+            Open token queue
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

@@ -1067,4 +1067,17 @@ export const sbPetrolRepo = {
     const { error } = await supabase.from('petrol_requests').update(payload).eq('id', id);
     if (error) throw error;
   },
+
+  async remove(id: string): Promise<void> {
+    const { error } = await supabase.from('petrol_requests').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  async removeAll(): Promise<void> {
+    const { error } = await supabase
+      .from('petrol_requests')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+  },
 };

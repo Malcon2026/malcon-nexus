@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Fuel, ShieldAlert, Ticket, XCircle, Camera, Search, Plus, UserPlus } from 'lucide-react';
+import { Fuel, ShieldAlert, Ticket, XCircle, Camera, Search, Plus, UserPlus, Trash2 } from 'lucide-react';
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -44,6 +44,8 @@ export const PetrolDashboard: React.FC = () => {
   const issuePetrolToken = useStore((s) => s.issuePetrolToken);
   const rejectPetrolRequest = useStore((s) => s.rejectPetrolRequest);
   const addManualPetrolEntry = useStore((s) => s.addManualPetrolEntry);
+  const deletePetrolRequest = useStore((s) => s.deletePetrolRequest);
+  const clearAllPetrolEntries = useStore((s) => s.clearAllPetrolEntries);
   const createEmployee = useStore((s) => s.createEmployee);
 
   const [tab, setTab] = useState<FilterTab>('pending');
@@ -202,6 +204,31 @@ export const PetrolDashboard: React.FC = () => {
     }
   };
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Delete petrol entry for ${name}? This cannot be undone.`)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await deletePetrolRequest(id);
+      if (result.error) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (petrolRequests.length === 0) return;
+    if (!window.confirm(`Delete all ${petrolRequests.length} petrol entries? This cannot be undone.`)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await clearAllPetrolEntries();
+      if (result.error) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const resetManualForm = () => {
     setManualEmployeeId('');
     setManualDate(getISTDateKey());
@@ -329,6 +356,18 @@ export const PetrolDashboard: React.FC = () => {
           >
             Manual entry
           </Button>
+          {petrolRequests.length > 0 && (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="h-4 w-4" />}
+              disabled={busy}
+              onClick={() => void handleClearAll()}
+            >
+              Delete all
+            </Button>
+          )}
         </div>
       </div>
 
@@ -487,33 +526,45 @@ export const PetrolDashboard: React.FC = () => {
                       <Badge className={statusBadge[r.status]}>{petrolStatusLabel[r.status]}</Badge>
                     </td>
                     <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                      {r.status === 'pending' && (
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            type="button"
-                            variant="primary"
-                            size="xs"
-                            onClick={() => {
-                              setIssueFor(r);
-                              setBookNo('');
-                              setTokenNo('');
-                              setError(null);
-                            }}
-                          >
-                            Issue token
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            icon={<XCircle className="h-3.5 w-3.5" />}
-                            disabled={busy}
-                            onClick={() => void handleReject(r.id)}
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex justify-end gap-1.5">
+                        {r.status === 'pending' && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              size="xs"
+                              onClick={() => {
+                                setIssueFor(r);
+                                setBookNo('');
+                                setTokenNo('');
+                                setError(null);
+                              }}
+                            >
+                              Issue token
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              icon={<XCircle className="h-3.5 w-3.5" />}
+                              disabled={busy}
+                              onClick={() => void handleReject(r.id)}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          icon={<Trash2 className="h-3.5 w-3.5" />}
+                          disabled={busy}
+                          onClick={() => void handleDelete(r.id, r.employeeName)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
