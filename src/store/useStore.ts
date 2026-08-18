@@ -26,9 +26,9 @@ import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { kmBetween, nextTripNo, openLocationTrip } from '../lib/locationTrip';
 import { encodePlusCode } from '../lib/plusCode';
+import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
-import { persistBootstrapCache } from '../lib/database/bootstrap';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -618,7 +618,9 @@ const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string 
 const persistLocationTripSession = (employee: { id: string; role: Employee['role'] }) => {
   if (!USE_SUPABASE) return;
   const role = employee.role === 'admin' || employee.role === 'petrol' ? employee.role : 'employee';
-  persistBootstrapCache(employee.id, role);
+  void import('../lib/database/bootstrap').then(({ persistBootstrapCache }) => {
+    persistBootstrapCache(employee.id, role);
+  });
 };
 
 const updateLocationTrip = async (

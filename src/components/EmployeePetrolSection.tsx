@@ -139,6 +139,8 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
       setNotes('');
       setCustomAmount('');
       if (previousEvidence) clearEvidence();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send petrol request. Try again.');
     } finally {
       setSubmitting(false);
     }
