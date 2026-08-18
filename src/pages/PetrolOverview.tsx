@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Gauge, Car,
 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -167,19 +167,13 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
           </CardHeader>
           <CardBody>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={stats.daily} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="petrolSpend" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+              <BarChart data={stats.daily} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip content={<PetrolChartTooltip />} cursor={{ stroke: '#f97316', strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="amount" name="Amount" stroke="#f97316" fill="url(#petrolSpend)" strokeWidth={2} />
-              </AreaChart>
+                <Tooltip content={<PetrolChartTooltip />} cursor={{ fill: 'rgba(249,115,22,0.08)' }} />
+                <Bar dataKey="amount" name="Amount" fill="#f97316" radius={[4, 4, 0, 0]} maxBarSize={28} />
+              </BarChart>
             </ResponsiveContainer>
           </CardBody>
         </Card>
