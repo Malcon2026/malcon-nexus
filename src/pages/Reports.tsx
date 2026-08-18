@@ -83,6 +83,7 @@ export const Reports: React.FC = () => {
     () => filterAttendanceStaff(employees).sort((a, b) => a.name.localeCompare(b.name)),
     [employees],
   );
+  const selectedAttendanceEmployee = attendanceStaff.find((e) => e.id === attendanceEmployeeId) ?? null;
 
   const previewCount = useMemo(() => {
     try {
@@ -311,6 +312,11 @@ export const Reports: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  {selectedAttendanceEmployee
+                    ? `Personal sheet for ${selectedAttendanceEmployee.name}: each day with punch in and punch out.`
+                    : 'Select one employee to download only that person’s day-wise punch in / punch out.'}
+                </p>
               </div>
             )}
 
@@ -333,6 +339,9 @@ export const Reports: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-700">
                   <strong className="text-gray-900">{previewCount}</strong> row{previewCount === 1 ? '' : 's'} ready to export
+                  {selectedReport === 'attendance' && selectedAttendanceEmployee
+                    ? ` · ${selectedAttendanceEmployee.name}`
+                    : ''}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Range: {REPORT_DATE_RANGE_LABELS[dateFilter.range]}
@@ -342,7 +351,7 @@ export const Reports: React.FC = () => {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {selectedReport === 'attendance' && (
+                {selectedReport === 'attendance' && !attendanceEmployeeId && (
                   <Button
                     variant="outline"
                     size="md"
@@ -362,18 +371,20 @@ export const Reports: React.FC = () => {
                 >
                   {downloading
                     ? 'Exporting…'
-                    : selectedReport === 'attendance'
-                      ? `Day-wise CSV (${previewCount})`
-                      : `Download CSV (${previewCount})`}
+                    : selectedReport === 'attendance' && selectedAttendanceEmployee
+                      ? `Download ${selectedAttendanceEmployee.name} CSV`
+                      : selectedReport === 'attendance'
+                        ? `Day-wise CSV (${previewCount})`
+                        : `Download CSV (${previewCount})`}
                 </Button>
               </div>
             </div>
 
             {selectedReport === 'attendance' && (
               <p className="text-xs text-gray-500">
-                <strong>Day-wise CSV</strong> = one row per employee per day (date, punch in/out, hours, P / UL / CL / SL / WO).
-                {' '}<strong>Grid CSV</strong> = one row per employee with a column for each date in the range.
-                Use Custom range for any from–to dates.
+                {selectedAttendanceEmployee
+                  ? `Personal CSV for ${selectedAttendanceEmployee.name}: Date, Day, Punch In, Punch Out, Hours, Status.`
+                  : 'Day-wise CSV = one row per employee per day. Grid CSV = one row per employee with a column for each date. Select one employee for a personal punch-in / punch-out sheet.'}
               </p>
             )}
 

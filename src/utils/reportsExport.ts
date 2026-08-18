@@ -31,6 +31,10 @@ function exportFilename(prefix: string, filter: ReportDateFilter): string {
   return `${prefix}_${reportRangeSlug(filter)}_${new Date().toISOString().slice(0, 10)}.csv`;
 }
 
+function slugName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'employee';
+}
+
 export function filterActivityForExport(events: ActivityEvent[], filter: ReportDateFilter): ActivityEvent[] {
   return events.filter((e) => isTimestampInRange(e.timestamp, filter));
 }
@@ -141,6 +145,17 @@ export function exportAttendanceDayWiseCsv(
   const rows = buildAttendanceDayWiseRows(employees, records, leaveRequests, filter, employeeId);
   if (rows.length === 0) {
     throw new Error('No attendance rows for the selected range.');
+  }
+
+  const person = employeeId ? employees.find((e) => e.id === employeeId) : null;
+  if (employeeId && person) {
+    const filename = exportFilename(`attendance_${slugName(person.name)}`, filter);
+    downloadCsv(
+      filename,
+      ['Date', 'Day', 'Punch In', 'Punch Out', 'Hours', 'Status'],
+      rows.map((r) => [r.date, r.weekday, r.punchIn, r.punchOut, r.hours, r.status]),
+    );
+    return { count: rows.length, filename };
   }
 
   const filename = exportFilename('attendance_daywise', filter);
