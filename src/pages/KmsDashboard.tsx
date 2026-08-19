@@ -50,26 +50,23 @@ const KmsChartTooltip: React.FC<{
   );
 };
 
-function TripDetail({ trip }: { trip: LocationTrip }) {
+function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
   return (
-    <li className="px-4 py-3">
+    <li className="px-4 py-2.5 border-t border-sky-100/80">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">
-          {trip.employeeName}
-          <span className="ml-2 text-xs font-normal text-gray-500">Trip {trip.tripNo}</span>
-        </p>
+        <p className="text-xs font-medium text-gray-800">Trip {trip.tripNo}</p>
         <p className="text-xs font-semibold tabular-nums text-sky-700">
-          {trip.status === 'completed' ? formatBikeCard(trip) ?? `${tripKm(trip)} km` : 'In progress'}
+          {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
         </p>
       </div>
-      <p className="text-xs text-gray-500 mt-0.5">
+      <p className="text-[11px] text-gray-500 mt-0.5">
         {formatDate(locationTripDateKey(trip))} · {formatTimeIST(trip.startAt)}
         {trip.endAt ? ` → ${formatTimeIST(trip.endAt)}` : ''}
       </p>
       {trip.notes && (
-        <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{trip.notes}</p>
+        <p className="text-[11px] text-gray-600 mt-1 whitespace-pre-wrap">{trip.notes}</p>
       )}
-      <div className="mt-1.5 flex flex-col gap-0.5">
+      <div className="mt-1 flex flex-col gap-0.5">
         <PlusCodeLink
           label="Start"
           plusCode={tripStartPlusCode(trip)}
@@ -77,24 +74,24 @@ function TripDetail({ trip }: { trip: LocationTrip }) {
           lng={trip.startLng}
           accuracyM={trip.startAccuracyM}
         />
-        {trip.status === 'completed' && (
-          <PlusCodeLink
-            label="Reached"
-            plusCode={tripEndPlusCode(trip)}
-            lat={trip.endLat}
-            lng={trip.endLng}
-            accuracyM={trip.endAccuracyM}
-          />
-        )}
-        {trip.status === 'completed' && trip.endLat != null && trip.endLng != null && (
-          <a
-            href={googleBikeMapsUrl(trip.startLat, trip.startLng, trip.endLat, trip.endLng)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-sky-700 hover:underline"
-          >
-            Bike route on Maps
-          </a>
+        {trip.endLat != null && trip.endLng != null && (
+          <>
+            <PlusCodeLink
+              label="Reached"
+              plusCode={tripEndPlusCode(trip)}
+              lat={trip.endLat}
+              lng={trip.endLng}
+              accuracyM={trip.endAccuracyM}
+            />
+            <a
+              href={googleBikeMapsUrl(trip.startLat, trip.startLng, trip.endLat, trip.endLng)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-sky-700 hover:underline"
+            >
+              Bike route on Maps
+            </a>
+          </>
         )}
       </div>
     </li>
@@ -122,19 +119,18 @@ export const KmsDashboard: React.FC = () => {
     });
   }, [stats.byEmployee, query]);
 
-  const tripRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return [...stats.completedMonth]
-      .filter((t) => (selectedId === 'all' ? true : t.employeeId === selectedId))
-      .filter((t) => {
-        if (!q) return true;
-        return (
-          t.employeeName.toLowerCase().includes(q) ||
-          t.notes.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
-  }, [stats.completedMonth, selectedId, query]);
+  const tripsByEmployee = useMemo(() => {
+    const map = new Map<string, LocationTrip[]>();
+    for (const trip of stats.completedMonth) {
+      const list = map.get(trip.employeeId) ?? [];
+      list.push(trip);
+      map.set(trip.employeeId, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => tripKm(b) - tripKm(a) || new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+    }
+    return map;
+  }, [stats.completedMonth]);
 
   const handleExport = (employeeId?: string, name?: string) => {
     setExportMsg(null);
@@ -267,18 +263,23 @@ export const KmsDashboard: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">By employee</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Tap a name to see that person’s trips</p>
+            <h2 className="text-sm font-semibold text-gray-900">Employees</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Highest km first. Tap a name to open trips.</p>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name or notes"
-              className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg w-full sm:w-56"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search employee"
+                className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg w-full sm:w-56"
+              />
+            </div>
+            <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
+              Export all staff
+            </Button>
           </div>
         </CardHeader>
         <CardBody className="p-0 overflow-x-auto">
@@ -288,6 +289,7 @@ export const KmsDashboard: React.FC = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 <tr>
+                  <th className="px-4 py-2.5 w-10">#</th>
                   <th className="px-4 py-2.5">Employee</th>
                   <th className="px-4 py-2.5 text-right">Trips</th>
                   <th className="px-4 py-2.5 text-right">Km</th>
@@ -297,59 +299,53 @@ export const KmsDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredStaff.map((row) => (
-                  <tr
-                    key={row.employeeId}
-                    className={`cursor-pointer hover:bg-sky-50/60 ${selectedId === row.employeeId ? 'bg-sky-50' : 'bg-white'}`}
-                    onClick={() => setSelectedId((id) => (id === row.employeeId ? 'all' : row.employeeId))}
-                  >
-                    <td className="px-4 py-2.5 font-medium text-gray-900">{row.name}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{row.trips}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums font-semibold">{row.km}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{row.bikeTrips}</td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-gray-600">{formatDate(row.lastDate)}</td>
-                    <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        icon={<Download className="h-3.5 w-3.5" />}
-                        onClick={() => handleExport(row.employeeId, row.name)}
+                {filteredStaff.map((row, index) => {
+                  const open = selectedId === row.employeeId;
+                  const employeeTrips = tripsByEmployee.get(row.employeeId) ?? [];
+                  return (
+                    <React.Fragment key={row.employeeId}>
+                      <tr
+                        className={`cursor-pointer hover:bg-sky-50/60 ${open ? 'bg-sky-50' : 'bg-white'}`}
+                        onClick={() => setSelectedId((id) => (id === row.employeeId ? 'all' : row.employeeId))}
                       >
-                        Export
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-4 py-2.5 text-xs font-semibold tabular-nums text-gray-400">{index + 1}</td>
+                        <td className="px-4 py-2.5 font-medium text-gray-900">{row.name}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{row.trips}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-800">{row.km}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{row.bikeTrips}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap text-gray-600">{formatDate(row.lastDate)}</td>
+                        <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="xs"
+                            icon={<Download className="h-3.5 w-3.5" />}
+                            onClick={() => handleExport(row.employeeId, row.name)}
+                          >
+                            Export
+                          </Button>
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="bg-sky-50/40">
+                          <td colSpan={7} className="p-0">
+                            {employeeTrips.length === 0 ? (
+                              <p className="px-4 py-3 text-xs text-gray-500">No completed trips</p>
+                            ) : (
+                              <ul>
+                                {employeeTrips.map((t) => (
+                                  <EmployeeTripRow key={t.id} trip={t} />
+                                ))}
+                              </ul>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
-          )}
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">
-              {selectedId === 'all' ? 'Trips this month' : `${tripRows[0]?.employeeName ?? 'Employee'} trips`}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">Plus Codes to re-check Start and Reached</p>
-          </div>
-          {selectedId !== 'all' && (
-            <Button type="button" variant="ghost" size="xs" onClick={() => setSelectedId('all')}>
-              Show all
-            </Button>
-          )}
-        </CardHeader>
-        <CardBody className="p-0">
-          {tripRows.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-gray-400">No completed trips to show</p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {tripRows.map((t) => (
-                <TripDetail key={t.id} trip={t} />
-              ))}
-            </ul>
           )}
         </CardBody>
       </Card>
