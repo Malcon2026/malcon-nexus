@@ -13,6 +13,7 @@ import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
 import { PetrolDashboard } from './pages/PetrolDashboard';
 import { PetrolOverview } from './pages/PetrolOverview';
+import { KmsDashboard } from './pages/KmsDashboard';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
@@ -204,6 +205,7 @@ function MainApp() {
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
       case 'petrol-dashboard': return <PetrolDashboard />;
+      case 'kms-dashboard': return <KmsDashboard />;
       case 'hospitals':  return <Hospitals />;
       case 'reports':
         return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;

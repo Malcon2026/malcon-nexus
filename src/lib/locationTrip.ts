@@ -11,6 +11,11 @@ export function kmBetween(
   return Math.round((getDistanceMeters(lat1, lng1, lat2, lng2) / 1000) * 10) / 10;
 }
 
+/** IST calendar day the trip belongs to (reached day, else start). */
+export function locationTripDateKey(trip: LocationTrip): string {
+  return getISTDateKey(trip.endAt || trip.startAt);
+}
+
 export function todayLocationTrips(
   trips: LocationTrip[],
   employeeId: string,

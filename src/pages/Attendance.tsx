@@ -5,87 +5,6 @@ import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
-import { formatTimeIST } from '../lib/attendance';
-import { todayLocationTripKm, tripEndPlusCode, tripKm, tripStartPlusCode, visibleLocationTrips, formatBikeCard } from '../lib/locationTrip';
-import { PlusCodeLink } from '../components/PlusCodeLink';
-import { googleBikeMapsUrl } from '../lib/bikeRoute';
-
-const LocationTripAdmin: React.FC = () => {
-  const trips = useStore((s) => s.locationTrips);
-  const today = visibleLocationTrips(trips);
-  if (today.length === 0) return null;
-
-  const byEmployee = new Map<string, typeof today>();
-  for (const t of today) {
-    const list = byEmployee.get(t.employeeId) ?? [];
-    list.push(t);
-    byEmployee.set(t.employeeId, list);
-  }
-
-  return (
-    <Card className="mt-4">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-900">Location punchin</p>
-        <p className="text-xs text-gray-500 mt-0.5">Start → reached. Bike road km from Maps. Plus Code to re-check.</p>
-      </div>
-      <div className="divide-y divide-gray-50">
-        {[...byEmployee.entries()].map(([id, rows]) => {
-          const ordered = [...rows].sort((a, b) => a.tripNo - b.tripNo);
-          return (
-            <div key={id} className="px-4 py-3">
-              <p className="text-sm font-medium text-gray-900">
-                {rows[0].employeeName}
-                <span className="ml-2 text-xs font-semibold text-sky-700 tabular-nums">
-                  {todayLocationTripKm(rows, id)} km today
-                </span>
-              </p>
-              <ul className="mt-1 space-y-0.5">
-                {ordered.map((t) => (
-                  <li key={t.id} className="text-xs text-gray-600 py-1">
-                    <p>
-                      Trip {t.tripNo} · {formatTimeIST(t.startAt)}
-                      {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ''}
-                      {t.status === 'completed' ? ` · ${formatBikeCard(t) ?? `${tripKm(t)} km`}` : ' · in progress'}
-                      {t.notes ? ` · ${t.notes}` : ''}
-                    </p>
-                    <div className="mt-0.5 flex flex-col gap-0.5">
-                      <PlusCodeLink
-                        label="Start"
-                        plusCode={tripStartPlusCode(t)}
-                        lat={t.startLat}
-                        lng={t.startLng}
-                        accuracyM={t.startAccuracyM}
-                      />
-                      {t.status === 'completed' && (
-                        <PlusCodeLink
-                          label="Reached"
-                          plusCode={tripEndPlusCode(t)}
-                          lat={t.endLat}
-                          lng={t.endLng}
-                          accuracyM={t.endAccuracyM}
-                        />
-                      )}
-                      {t.status === 'completed' && t.endLat != null && t.endLng != null && (
-                        <a
-                          href={googleBikeMapsUrl(t.startLat, t.startLng, t.endLat, t.endLng)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-sky-700 hover:underline"
-                        >
-                          Bike route on Maps
-                        </a>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-};
 
 type AttendanceTab = 'today' | 'register' | 'approvals';
 
@@ -137,12 +56,7 @@ export const Attendance: React.FC = () => {
         ))}
       </div>
 
-      {pageTab === 'today' && (
-        <>
-          <EmployeeAttendancePanel />
-          <LocationTripAdmin />
-        </>
-      )}
+      {pageTab === 'today' && <EmployeeAttendancePanel />}
       {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
     </div>
