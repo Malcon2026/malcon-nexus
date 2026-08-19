@@ -181,12 +181,13 @@ interface AppState {
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
   startLocationTrip: (
     position: GeoPosition,
-    from: HospitalPlace,
-    to: HospitalPlace,
+    from?: HospitalPlace | null,
+    to?: HospitalPlace | null,
   ) => Promise<{ error: string | null; tripNo?: number; plusCode?: string; warning?: string | null }>;
   completeLocationTrip: (
     position: GeoPosition,
   ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; bikeMinutes?: number | null; tripNo?: number; plusCode?: string; warning?: string | null }>;
+  deleteLocationTrip: (tripId: string) => Promise<{ error: string | null }>;
 
   // Leave
   applyLeave: (
@@ -2149,16 +2150,15 @@ export const useStore = create<AppState>((set, get) => ({
     return summarizeLiveAttendance(attendanceRecords, currentUser.id);
   },
 
-  startLocationTrip: async (position, from, to) => {
+  startLocationTrip: async (position, from = null, to = null) => {
     const { currentUser, locationTrips } = get();
     const fromName = from?.name.trim() ?? '';
     const toName = to?.name.trim() ?? '';
-    if (!fromName || !toName) return { error: 'Pick From and To first.' };
     if (openLocationTrip(locationTrips, currentUser.id)) {
       return { error: 'A trip is already in progress. Press Reached first.' };
     }
 
-    const notes = `${fromName} → ${toName}`;
+    const notes = fromName && toName ? `${fromName} → ${toName}` : fromName || toName;
     const now = new Date().toISOString();
     const tripNo = nextTripNo(locationTrips, currentUser.id);
     const startPlusCode = encodePlusCode(position.latitude, position.longitude);
@@ -2185,15 +2185,15 @@ export const useStore = create<AppState>((set, get) => ({
       bikeSource: '',
       bikeMode: '',
       fromName,
-      fromAddress: from.address.trim() ?? '',
-      fromEloc: from.eloc.trim() ?? '',
-      fromLat: from.lat ?? null,
-      fromLng: from.lng ?? null,
+      fromAddress: from?.address.trim() ?? '',
+      fromEloc: from?.eloc.trim() ?? '',
+      fromLat: from?.lat ?? null,
+      fromLng: from?.lng ?? null,
       hospitalName: toName,
-      hospitalAddress: to.address.trim() ?? '',
-      hospitalEloc: to.eloc.trim() ?? '',
-      hospitalLat: to.lat ?? null,
-      hospitalLng: to.lng ?? null,
+      hospitalAddress: to?.address.trim() ?? '',
+      hospitalEloc: to?.eloc.trim() ?? '',
+      hospitalLat: to?.lat ?? null,
+      hospitalLng: to?.lng ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -2209,7 +2209,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const warning = graceWarning(
       'Start',
-      metersFromPin(position.latitude, position.longitude, from.lat, from.lng),
+      metersFromPin(position.latitude, position.longitude, from?.lat, from?.lng),
     );
     return { error: null, tripNo, plusCode: startPlusCode, warning };
   },
@@ -2264,6 +2264,35 @@ export const useStore = create<AppState>((set, get) => ({
       metersFromPin(position.latitude, position.longitude, open.hospitalLat, open.hospitalLng),
     );
     return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode, warning };
+  },
+
+  deleteLocationTrip: async (tripId) => {
+    const { currentUser, locationTrips } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only an admin can delete a trip.' };
+    }
+    const trip = locationTrips.find((t) => t.id === tripId);
+    if (!trip) return { error: 'Trip not found.' };
+
+    if (USE_SUPABASE) {
+      try {
+        await sbLocationTripRepo.remove(tripId);
+      } catch (err) {
+        return { error: locationTripDbError(err, 'Failed to delete trip') };
+      }
+    } else {
+      Database.saveAll(
+        'locationTrips',
+        Database.getAll<LocationTrip>('locationTrips').filter((t) => t.id !== tripId),
+      );
+    }
+
+    set((s) => ({
+      locationTrips: s.locationTrips.filter((t) => t.id !== tripId),
+    }));
+    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    persistLocationTripSession(currentUser);
+    return { error: null };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {

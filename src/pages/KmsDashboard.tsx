@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Search, ShieldAlert, Users,
+  ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Search, ShieldAlert, Trash2, Users,
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -51,7 +51,15 @@ const KmsChartTooltip: React.FC<{
   );
 };
 
-function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
+function EmployeeTripRow({
+  trip,
+  onDelete,
+  deleting,
+}: {
+  trip: LocationTrip;
+  onDelete: (trip: LocationTrip) => void;
+  deleting: boolean;
+}) {
   return (
     <li className="px-4 py-2.5 border-t border-gray-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -59,9 +67,20 @@ function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
           Trip {trip.tripNo}
           {tripRouteLabel(trip) ? ` · ${tripRouteLabel(trip)}` : ''}
         </p>
-        <p className="text-xs font-semibold tabular-nums text-sky-700">
-          {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-semibold tabular-nums text-sky-700">
+            {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
+          </p>
+          <button
+            type="button"
+            className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+            aria-label="Delete trip"
+            disabled={deleting}
+            onClick={() => onDelete(trip)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <p className="text-[11px] text-gray-500 mt-0.5">
         {formatDate(locationTripDateKey(trip))} · {formatTimeIST(trip.startAt)}
@@ -111,11 +130,13 @@ export const KmsDashboard: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
   const trips = useStore((s) => s.locationTrips);
   const employees = useStore((s) => s.employees);
+  const deleteLocationTrip = useStore((s) => s.deleteLocationTrip);
 
   const [month, setMonth] = useState(currentKmsMonth);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | 'all'>('all');
   const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const stats = useMemo(() => summarizeLocationKms(trips, month), [trips, month]);
   const todayMonth = currentKmsMonth();
@@ -153,6 +174,20 @@ export const KmsDashboard: React.FC = () => {
     } catch (err) {
       setExportMsg(err instanceof Error ? err.message : 'Export failed.');
     }
+  };
+
+  const handleDelete = async (trip: LocationTrip) => {
+    const label = tripRouteLabel(trip) || `Trip ${trip.tripNo}`;
+    if (!window.confirm(`Delete ${trip.employeeName} · ${label}? This cannot be undone.`)) return;
+    setDeletingId(trip.id);
+    setExportMsg(null);
+    const result = await deleteLocationTrip(trip.id);
+    setDeletingId(null);
+    if (result.error) {
+      setExportMsg(result.error);
+      return;
+    }
+    setExportMsg(`Deleted ${trip.employeeName} · ${label}.`);
   };
 
   if (viewMode !== 'admin') {
@@ -258,9 +293,22 @@ export const KmsDashboard: React.FC = () => {
               <ul className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
                 {stats.inProgress.map((t) => (
                   <li key={t.id} className="px-4 py-2.5">
-                    <p className="text-sm font-medium text-gray-900 truncate">{t.employeeName}</p>
-                    <p className="text-xs text-gray-500">Trip {t.tripNo} · started {formatTimeIST(t.startAt)}</p>
-                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 mt-1">Waiting for Reached</Badge>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{t.employeeName}</p>
+                        <p className="text-xs text-gray-500">Trip {t.tripNo} · started {formatTimeIST(t.startAt)}</p>
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-200 mt-1">Waiting for Reached</Badge>
+                      </div>
+                      <button
+                        type="button"
+                        className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+                        aria-label="Delete trip"
+                        disabled={deletingId === t.id}
+                        onClick={() => void handleDelete(t)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -343,7 +391,12 @@ export const KmsDashboard: React.FC = () => {
                             ) : (
                               <ul>
                                 {employeeTrips.map((t) => (
-                                  <EmployeeTripRow key={t.id} trip={t} />
+                                  <EmployeeTripRow
+                                    key={t.id}
+                                    trip={t}
+                                    deleting={deletingId === t.id}
+                                    onDelete={(trip) => void handleDelete(trip)}
+                                  />
                                 ))}
                               </ul>
                             )}

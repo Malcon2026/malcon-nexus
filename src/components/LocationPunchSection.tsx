@@ -195,16 +195,12 @@ export const LocationPunchSection: React.FC = () => {
     setError(null);
     setWarning(null);
     setSuccess(null);
-    if (kind === 'start' && (!from || !to)) {
-      setError('Pick From and To first.');
-      return;
-    }
 
     setBusy(kind);
     try {
       const position = await getCurrentPosition();
       if (kind === 'start') {
-        const result = await startLocationTrip(position, from!, to!);
+        const result = await startLocationTrip(position, from, to);
         if (result.error) {
           setError(result.error);
           return;
@@ -256,9 +252,11 @@ export const LocationPunchSection: React.FC = () => {
               <p className="text-sm font-semibold text-amber-900">
                 Trip {open.tripNo} in progress
               </p>
-              <p className="text-xs font-medium text-amber-900 mt-1">{tripRouteLabel(open)}</p>
+              {tripRouteLabel(open) ? (
+                <p className="text-xs font-medium text-amber-900 mt-1">{tripRouteLabel(open)}</p>
+              ) : null}
               <p className="text-xs text-amber-800 mt-0.5">
-                Started {formatTimeIST(open.startAt)}. Press Reached at To.
+                Started {formatTimeIST(open.startAt)}. Press Reached after you arrive.
               </p>
               <div className="mt-1.5">
                 <PlusCodeLink
@@ -313,7 +311,7 @@ export const LocationPunchSection: React.FC = () => {
           {showForm && (
             <>
               <PlaceField
-                label="From"
+                label="From (optional)"
                 place={from}
                 onChange={setFrom}
                 hospitals={hospitals}
@@ -321,20 +319,23 @@ export const LocationPunchSection: React.FC = () => {
                 placeholder="Search starting place…"
               />
               <PlaceField
-                label="To"
+                label="To (optional)"
                 place={to}
                 onChange={setTo}
                 hospitals={hospitals}
                 disabled={busy != null || !!open}
                 placeholder="Search destination…"
               />
+              <p className="text-xs text-gray-500">
+                Skip From/To if the search is wrong. Start and Reached GPS still save the trip.
+              </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   type="button"
                   variant="primary"
                   icon={busy === 'start' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                  disabled={busy != null || !!open || !from || !to}
+                  disabled={busy != null || !!open}
                   onClick={() => void runGps('start')}
                 >
                   {busy === 'start' ? 'Getting GPS…' : 'Start location'}

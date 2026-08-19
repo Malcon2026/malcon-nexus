@@ -1291,4 +1291,9 @@ export const sbLocationTripRepo = {
     }
     if (error) throw error;
   },
+
+  async remove(id: string): Promise<void> {
+    const { error } = await supabase.from('location_trips').delete().eq('id', id);
+    if (error) throw error;
+  },
 };
