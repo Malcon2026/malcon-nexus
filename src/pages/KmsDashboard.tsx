@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, ShieldAlert, Trash2, Users,
+  Check, ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Pencil, ShieldAlert, Trash2, Users, X,
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -54,12 +54,27 @@ const KmsChartTooltip: React.FC<{
 function EmployeeTripRow({
   trip,
   onDelete,
-  deleting,
+  onSaveKm,
+  busy,
 }: {
   trip: LocationTrip;
   onDelete: (trip: LocationTrip) => void;
-  deleting: boolean;
+  onSaveKm: (trip: LocationTrip, km: number) => Promise<boolean>;
+  busy: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [kmValue, setKmValue] = useState(String(tripKm(trip)));
+
+  const startEdit = () => {
+    setKmValue(String(tripKm(trip)));
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const ok = await onSaveKm(trip, Number(kmValue));
+    if (ok) setEditing(false);
+  };
+
   return (
     <li className="px-4 py-2.5 border-t border-gray-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -67,19 +82,64 @@ function EmployeeTripRow({
           Trip {trip.tripNo}
           {tripRouteLabel(trip) ? ` · ${tripRouteLabel(trip)}` : ''}
         </p>
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold tabular-nums text-sky-700">
-            {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
-          </p>
-          <button
-            type="button"
-            className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
-            aria-label="Delete trip"
-            disabled={deleting}
-            onClick={() => onDelete(trip)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+        <div className="flex items-center gap-1.5">
+          {editing ? (
+            <>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={kmValue}
+                onChange={(e) => setKmValue(e.target.value)}
+                className="w-20 px-2 py-1 text-xs border border-gray-200 rounded-md tabular-nums"
+                disabled={busy}
+                autoFocus
+              />
+              <span className="text-xs text-gray-500">km</span>
+              <button
+                type="button"
+                className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
+                aria-label="Save km"
+                disabled={busy}
+                onClick={() => void save()}
+              >
+                <Check className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-400 hover:bg-gray-100"
+                aria-label="Cancel"
+                disabled={busy}
+                onClick={() => setEditing(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold tabular-nums text-sky-700">
+                {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
+              </p>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-400 hover:text-gray-800 hover:bg-gray-100 disabled:opacity-40"
+                aria-label="Edit km"
+                disabled={busy}
+                onClick={startEdit}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
+                aria-label="Delete trip"
+                disabled={busy}
+                onClick={() => onDelete(trip)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
       <p className="text-[11px] text-gray-500 mt-0.5">
@@ -126,6 +186,7 @@ export const KmsDashboard: React.FC = () => {
   const trips = useStore((s) => s.locationTrips);
   const employees = useStore((s) => s.employees);
   const deleteLocationTrip = useStore((s) => s.deleteLocationTrip);
+  const updateLocationTripKm = useStore((s) => s.updateLocationTripKm);
 
   const [month, setMonth] = useState(currentKmsMonth);
   const [selectedId, setSelectedId] = useState<string | 'all'>('all');
@@ -174,6 +235,19 @@ export const KmsDashboard: React.FC = () => {
       return;
     }
     setExportMsg(`Deleted ${trip.employeeName} · ${label}.`);
+  };
+
+  const handleSaveKm = async (trip: LocationTrip, km: number) => {
+    setDeletingId(trip.id);
+    setExportMsg(null);
+    const result = await updateLocationTripKm(trip.id, km);
+    setDeletingId(null);
+    if (result.error) {
+      setExportMsg(result.error);
+      return false;
+    }
+    setExportMsg(`Updated ${trip.employeeName} · Trip ${trip.tripNo} to ${Math.round(km * 10) / 10} km.`);
+    return true;
   };
 
   if (viewMode !== 'admin') {
@@ -368,8 +442,9 @@ export const KmsDashboard: React.FC = () => {
                                   <EmployeeTripRow
                                     key={t.id}
                                     trip={t}
-                                    deleting={deletingId === t.id}
+                                    busy={deletingId === t.id}
                                     onDelete={(trip) => void handleDelete(trip)}
+                                    onSaveKm={handleSaveKm}
                                   />
                                 ))}
                               </ul>

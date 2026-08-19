@@ -188,6 +188,7 @@ interface AppState {
     position: GeoPosition,
   ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; bikeMinutes?: number | null; tripNo?: number; plusCode?: string; warning?: string | null }>;
   deleteLocationTrip: (tripId: string) => Promise<{ error: string | null }>;
+  updateLocationTripKm: (tripId: string, km: number) => Promise<{ error: string | null }>;
 
   // Leave
   applyLeave: (
@@ -2281,6 +2282,36 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((s) => ({
       locationTrips: s.locationTrips.filter((t) => t.id !== tripId),
+    }));
+    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    persistLocationTripSession(currentUser);
+    return { error: null };
+  },
+
+  updateLocationTripKm: async (tripId, km) => {
+    const { currentUser, locationTrips } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only an admin can edit trip km.' };
+    }
+    const trip = locationTrips.find((t) => t.id === tripId);
+    if (!trip) return { error: 'Trip not found.' };
+    const nextKm = Math.round(Number(km) * 10) / 10;
+    if (!Number.isFinite(nextKm) || nextKm < 0) {
+      return { error: 'Enter a valid km.' };
+    }
+
+    const updates: Partial<LocationTrip> = {
+      bikeKm: nextKm,
+      distanceKm: nextKm,
+      bikeMinutes: null,
+      bikeSource: 'admin',
+      updatedAt: new Date().toISOString(),
+    };
+    const persistResult = await updateLocationTrip(tripId, updates);
+    if (persistResult.error) return persistResult;
+
+    set((s) => ({
+      locationTrips: s.locationTrips.map((t) => (t.id === tripId ? { ...t, ...updates } : t)),
     }));
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
