@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Search, ShieldAlert, Trash2, Users,
+  ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, ShieldAlert, Trash2, Users,
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -107,12 +107,7 @@ function EmployeeTripRow({
               accuracyM={trip.endAccuracyM}
             />
             <a
-              href={googleBikeMapsUrl(
-                trip.fromLat ?? trip.startLat,
-                trip.fromLng ?? trip.startLng,
-                trip.hospitalLat ?? trip.endLat,
-                trip.hospitalLng ?? trip.endLng,
-              )}
+              href={googleBikeMapsUrl(trip.startLat, trip.startLng, trip.endLat, trip.endLng)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] text-sky-700 hover:underline"
@@ -133,21 +128,12 @@ export const KmsDashboard: React.FC = () => {
   const deleteLocationTrip = useStore((s) => s.deleteLocationTrip);
 
   const [month, setMonth] = useState(currentKmsMonth);
-  const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | 'all'>('all');
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const stats = useMemo(() => summarizeLocationKms(trips, month), [trips, month]);
   const todayMonth = currentKmsMonth();
-
-  const filteredStaff = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return stats.byEmployee.filter((row) => {
-      if (!q) return true;
-      return row.name.toLowerCase().includes(q);
-    });
-  }, [stats.byEmployee, query]);
 
   const tripsByEmployee = useMemo(() => {
     const map = new Map<string, LocationTrip[]>();
@@ -323,24 +309,12 @@ export const KmsDashboard: React.FC = () => {
             <h2 className="text-sm font-semibold text-gray-900">Employees</h2>
             <p className="text-xs text-gray-500 mt-0.5">Highest km first. Tap a name to open trips.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search employee"
-                className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg w-full sm:w-56"
-              />
-            </div>
-            <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
-              Export all staff
-            </Button>
-          </div>
+          <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
+            Export all staff
+          </Button>
         </CardHeader>
         <CardBody className="p-0 overflow-x-auto">
-          {filteredStaff.length === 0 ? (
+          {stats.byEmployee.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-gray-400">No trips in {kmsMonthLabel(month)}</p>
           ) : (
             <table className="min-w-full text-sm">
@@ -356,7 +330,7 @@ export const KmsDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredStaff.map((row, index) => {
+                {stats.byEmployee.map((row, index) => {
                   const open = selectedId === row.employeeId;
                   const employeeTrips = tripsByEmployee.get(row.employeeId) ?? [];
                   return (

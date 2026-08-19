@@ -2220,21 +2220,17 @@ export const useStore = create<AppState>((set, get) => ({
     if (!open) return { error: 'Start a trip first, then press Reached after you arrive.' };
 
     const now = new Date().toISOString();
-    const originLat = open.fromLat ?? open.startLat;
-    const originLng = open.fromLng ?? open.startLng;
-    const destLat = open.hospitalLat ?? position.latitude;
-    const destLng = open.hospitalLng ?? position.longitude;
-    const distanceKm = kmBetween(originLat, originLng, destLat, destLng);
+    const distanceKm = kmBetween(open.startLat, open.startLng, position.latitude, position.longitude);
     const endPlusCode = encodePlusCode(position.latitude, position.longitude);
     const routed = await fetchBikeRouteKm(
-      originLat,
-      originLng,
-      destLat,
-      destLng,
-      open.hospitalEloc || undefined,
+      open.startLat,
+      open.startLng,
+      position.latitude,
+      position.longitude,
     );
-    const bikeKm = routed?.km ?? null;
-    const bikeMinutes = routed?.minutes ?? null;
+    const wildBike = routed != null && routed.km > Math.max(80, distanceKm * 6);
+    const bikeKm = wildBike ? null : routed?.km ?? null;
+    const bikeMinutes = wildBike ? null : routed?.minutes ?? null;
     const updates: Partial<LocationTrip> = {
       status: 'completed',
       endAt: now,
@@ -2259,11 +2255,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
-    const warning = graceWarning(
-      'Reached',
-      metersFromPin(position.latitude, position.longitude, open.hospitalLat, open.hospitalLng),
-    );
-    return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode, warning };
+    return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode };
   },
 
   deleteLocationTrip: async (tripId) => {
