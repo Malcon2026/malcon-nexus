@@ -26,10 +26,10 @@ type SelfieItem = {
 type StatusFilter = 'all' | AttendanceDayStatus | 'unclosed';
 
 const statusConfig = {
-  in: { shareTitle: 'Punched In Today' },
-  out: { shareTitle: 'Punched Out Today' },
-  absent: { shareTitle: 'Absent Today' },
-  unclosed: { shareTitle: 'Unclosed Shift (forgot Punch Out)' },
+  in: { shareTitleToday: 'Punched In Today', shareTitlePast: 'Still punched in' },
+  out: { shareTitleToday: 'Punched Out Today', shareTitlePast: 'Punched Out' },
+  absent: { shareTitleToday: 'Absent Today', shareTitlePast: 'Absent' },
+  unclosed: { shareTitleToday: 'Unclosed Shift (forgot Punch Out)', shareTitlePast: 'Unclosed Shift (forgot Punch Out)' },
 } as const;
 
 function formatShareDate(dateKey: string): string {
@@ -74,10 +74,13 @@ function shareDetailLines(row: ShareRow, filterStatus: StatusFilter): string[] {
   return lines;
 }
 
-function shareTitleForFilter(filterStatus: StatusFilter): string {
+function shareTitleForFilter(filterStatus: StatusFilter, isToday: boolean): string {
   if (filterStatus === 'all') return 'All Staff';
-  if (filterStatus === 'unclosed') return statusConfig.unclosed.shareTitle;
-  return statusConfig[filterStatus].shareTitle;
+  if (filterStatus === 'unclosed') {
+    return isToday ? statusConfig.unclosed.shareTitleToday : statusConfig.unclosed.shareTitlePast;
+  }
+  const titles = statusConfig[filterStatus];
+  return isToday ? titles.shareTitleToday : titles.shareTitlePast;
 }
 
 export const EmployeeAttendancePanel: React.FC = () => {
@@ -97,6 +100,13 @@ export const EmployeeAttendancePanel: React.FC = () => {
     setSelfieIndex(null);
   }, [filterStatus, dateKey]);
 
+  // Past days are closed: people who came are "out", not still "in".
+  useEffect(() => {
+    if (dateKey !== getISTDateKey() && filterStatus === 'in') {
+      setFilterStatus('out');
+    }
+  }, [dateKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const refreshAttendance = async (force = false) => {
     setRefreshing(true);
     try {
@@ -108,10 +118,10 @@ export const EmployeeAttendancePanel: React.FC = () => {
     }
   };
 
-  // Keep admin punch-in list + selfies in sync when staff punch in on their phones.
+  // Reload punches for the selected day. Live-refresh only while viewing today.
   useEffect(() => {
-    if (dateKey !== getISTDateKey()) return;
     void refreshAttendance(true);
+    if (dateKey !== getISTDateKey()) return;
     const onFocus = () => void refreshAttendance(true);
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -147,7 +157,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   };
 
   const isToday = dateKey === getISTDateKey();
-  const shareTitle = shareTitleForFilter(filterStatus);
+  const shareTitle = shareTitleForFilter(filterStatus, isToday);
 
   const sortedForShare = useMemo(
     () => [...filtered]
@@ -208,8 +218,8 @@ export const EmployeeAttendancePanel: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { id: 'all' as const, label: 'Total Staff', value: stats.total, icon: <Users className="h-4 w-4 text-gray-600" />, bg: 'bg-gray-50', activeRing: 'ring-gray-400' },
-          { id: 'in' as const, label: 'Punched In', value: stats.in, icon: <LogIn className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50', activeRing: 'ring-emerald-500' },
-          { id: 'out' as const, label: 'Punched Out', value: stats.out, icon: <LogOut className="h-4 w-4 text-blue-600" />, bg: 'bg-blue-50', activeRing: 'ring-blue-500' },
+          { id: 'in' as const, label: isToday ? 'Punched In' : 'Still in', value: stats.in, icon: <LogIn className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50', activeRing: 'ring-emerald-500' },
+          { id: 'out' as const, label: isToday ? 'Punched Out' : 'Present (out)', value: stats.out, icon: <LogOut className="h-4 w-4 text-blue-600" />, bg: 'bg-blue-50', activeRing: 'ring-blue-500' },
           { id: 'absent' as const, label: 'Absent', value: stats.absent, icon: <UserX className="h-4 w-4 text-gray-500" />, bg: 'bg-gray-50', activeRing: 'ring-gray-500' },
           { id: 'unclosed' as const, label: 'Unclosed Shift', value: stats.unclosed, icon: <AlertTriangle className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50', activeRing: 'ring-amber-500' },
         ].map(({ id, label, value, icon, bg, activeRing }) => {
@@ -246,6 +256,11 @@ export const EmployeeAttendancePanel: React.FC = () => {
           />
           {isToday && (
             <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">Today</Badge>
+          )}
+          {!isToday && (
+            <p className="text-xs text-gray-500">
+              Finished day — list opens on Present (out).
+            </p>
           )}
         </div>
 
@@ -314,7 +329,11 @@ export const EmployeeAttendancePanel: React.FC = () => {
           </p>
 
           {sortedForShare.length === 0 ? (
-            <p className="text-center text-sm text-gray-500 py-6">No one in this list.</p>
+            <p className="text-center text-sm text-gray-500 py-6">
+              {!isToday && filterStatus === 'in'
+                ? 'Nobody is still punched in on this date. Open Present (out) to see who came.'
+                : 'No one in this list.'}
+            </p>
           ) : (
             <ol className="grid grid-cols-3 gap-x-2 gap-y-2">
               {sortedForShare.map((row, i) => {
