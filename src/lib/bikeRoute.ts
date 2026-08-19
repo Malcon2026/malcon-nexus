@@ -14,11 +14,12 @@ export async function fetchBikeRouteKm(
   startLng: number,
   endLat: number,
   endLng: number,
+  endEloc?: string,
 ): Promise<BikeRouteResult | null> {
   if (!USE_SUPABASE) return null;
 
   const { data, error } = await supabase.functions.invoke('location-bike-route', {
-    body: { startLat, startLng, endLat, endLng },
+    body: { startLat, startLng, endLat, endLng, endEloc: endEloc || undefined },
   });
 
   if (error) {

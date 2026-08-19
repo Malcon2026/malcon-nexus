@@ -98,8 +98,11 @@ async function mapplsBike(
   startLng: number,
   endLat: number,
   endLng: number,
+  endEloc?: string,
 ): Promise<BikeRoute | null> {
-  const coords = `${startLng},${startLat};${endLng},${endLat}`;
+  const endPoint =
+    endEloc && /^[A-Za-z0-9]{6}$/.test(endEloc) ? endEloc : `${endLng},${endLat}`;
+  const coords = `${startLng},${startLat};${endPoint}`;
   const encodedKey = encodeURIComponent(key);
   const urls = [
     `https://route.mappls.com/route/dm/distance_matrix/biking/${coords}?access_token=${encodedKey}`,
@@ -151,15 +154,29 @@ Deno.serve(async (req) => {
     const startLng = Number(body.startLng);
     const endLat = Number(body.endLat);
     const endLng = Number(body.endLng);
-    if (![startLat, startLng, endLat, endLng].every(Number.isFinite)) {
+    const endEloc = typeof body.endEloc === 'string' ? body.endEloc.trim() : '';
+    if (![startLat, startLng, endLat, endLng].every(Number.isFinite) && !endEloc) {
       return jsonResponse({ error: 'Need start and end coordinates.' }, 400);
+    }
+    if (![startLat, startLng].every(Number.isFinite)) {
+      return jsonResponse({ error: 'Need start coordinates.' }, 400);
+    }
+    if (!endEloc && ![endLat, endLng].every(Number.isFinite)) {
+      return jsonResponse({ error: 'Need end coordinates.' }, 400);
     }
 
     const googleKey = Deno.env.get('GOOGLE_MAPS_API_KEY') ?? '';
     const mapplsKey = Deno.env.get('MAPPLS_REST_KEY') ?? '';
 
     if (mapplsKey) {
-      const route = await mapplsBike(mapplsKey, startLat, startLng, endLat, endLng);
+      const route = await mapplsBike(
+        mapplsKey,
+        startLat,
+        startLng,
+        Number.isFinite(endLat) ? endLat : startLat,
+        Number.isFinite(endLng) ? endLng : startLng,
+        endEloc,
+      );
       if (route) return jsonResponse(route);
     }
 

@@ -54,7 +54,10 @@ function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
   return (
     <li className="px-4 py-2.5 border-t border-gray-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs font-medium text-gray-800">Trip {trip.tripNo}</p>
+        <p className="text-xs font-medium text-gray-800">
+          Trip {trip.tripNo}
+          {trip.hospitalName ? ` · ${trip.hospitalName}` : ''}
+        </p>
         <p className="text-xs font-semibold tabular-nums text-sky-700">
           {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
         </p>
@@ -84,7 +87,12 @@ function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
               accuracyM={trip.endAccuracyM}
             />
             <a
-              href={googleBikeMapsUrl(trip.startLat, trip.startLng, trip.endLat, trip.endLng)}
+              href={googleBikeMapsUrl(
+                trip.startLat,
+                trip.startLng,
+                trip.hospitalLat ?? trip.endLat,
+                trip.hospitalLng ?? trip.endLng,
+              )}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] text-sky-700 hover:underline"

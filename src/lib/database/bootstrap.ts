@@ -93,6 +93,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
+    { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
     { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
     {
       key: 'attendanceApprovalRequests',

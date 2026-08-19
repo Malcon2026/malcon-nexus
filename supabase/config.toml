@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.location-bike-route]
 verify_jwt = true
+
+[functions.location-hospital-search]
+verify_jwt = true

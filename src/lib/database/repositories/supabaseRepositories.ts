@@ -1102,6 +1102,16 @@ function isMissingBikeKmColumn(message: string): boolean {
   );
 }
 
+function isMissingHospitalColumn(message: string): boolean {
+  return (
+    message.includes('hospital_name') ||
+    message.includes('hospital_address') ||
+    message.includes('hospital_eloc') ||
+    message.includes('hospital_lat') ||
+    message.includes('hospital_lng')
+  );
+}
+
 function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
   return {
     id: row.id as string,
@@ -1125,6 +1135,11 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
     bikeMinutes: row.bike_minutes == null || row.bike_minutes === '' ? null : Number(row.bike_minutes),
     bikeSource: (row.bike_source as string) ?? '',
     bikeMode: (row.bike_mode as string) ?? '',
+    hospitalName: (row.hospital_name as string) ?? '',
+    hospitalAddress: (row.hospital_address as string) ?? '',
+    hospitalEloc: (row.hospital_eloc as string) ?? '',
+    hospitalLat: row.hospital_lat == null || row.hospital_lat === '' ? null : Number(row.hospital_lat),
+    hospitalLng: row.hospital_lng == null || row.hospital_lng === '' ? null : Number(row.hospital_lng),
     createdAt: (row.created_at as string) ?? '',
     updatedAt: (row.updated_at as string) ?? '',
   };
@@ -1173,17 +1188,27 @@ export const sbLocationTripRepo = {
       bike_minutes: trip.bikeMinutes,
       bike_source: trip.bikeSource,
       bike_mode: trip.bikeMode,
+      hospital_name: trip.hospitalName,
+      hospital_address: trip.hospitalAddress,
+      hospital_eloc: trip.hospitalEloc,
+      hospital_lat: trip.hospitalLat,
+      hospital_lng: trip.hospitalLng,
       created_at: trip.createdAt,
       updated_at: trip.updatedAt,
     };
     const { error } = await supabase.from('location_trips').insert(payload);
-    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message))) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message))) {
       delete payload.start_plus_code;
       delete payload.end_plus_code;
       delete payload.bike_km;
       delete payload.bike_minutes;
       delete payload.bike_source;
       delete payload.bike_mode;
+      delete payload.hospital_name;
+      delete payload.hospital_address;
+      delete payload.hospital_eloc;
+      delete payload.hospital_lat;
+      delete payload.hospital_lng;
       const retry = await supabase.from('location_trips').insert(payload);
       if (retry.error) throw retry.error;
       return;
@@ -1205,16 +1230,26 @@ export const sbLocationTripRepo = {
     if (updates.bikeMinutes !== undefined) payload.bike_minutes = updates.bikeMinutes;
     if (updates.bikeSource !== undefined) payload.bike_source = updates.bikeSource;
     if (updates.bikeMode !== undefined) payload.bike_mode = updates.bikeMode;
+    if (updates.hospitalName !== undefined) payload.hospital_name = updates.hospitalName;
+    if (updates.hospitalAddress !== undefined) payload.hospital_address = updates.hospitalAddress;
+    if (updates.hospitalEloc !== undefined) payload.hospital_eloc = updates.hospitalEloc;
+    if (updates.hospitalLat !== undefined) payload.hospital_lat = updates.hospitalLat;
+    if (updates.hospitalLng !== undefined) payload.hospital_lng = updates.hospitalLng;
     if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
 
     const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
-    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message))) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message))) {
       delete payload.end_plus_code;
       delete payload.start_plus_code;
       delete payload.bike_km;
       delete payload.bike_minutes;
       delete payload.bike_source;
       delete payload.bike_mode;
+      delete payload.hospital_name;
+      delete payload.hospital_address;
+      delete payload.hospital_eloc;
+      delete payload.hospital_lat;
+      delete payload.hospital_lng;
       const retry = await supabase.from('location_trips').update(payload).eq('id', id);
       if (retry.error) throw retry.error;
       return;

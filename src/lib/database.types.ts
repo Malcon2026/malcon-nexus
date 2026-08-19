@@ -234,6 +234,11 @@ export interface Database {
           bike_minutes: number | null;
           bike_source: string;
           bike_mode: string;
+          hospital_name: string;
+          hospital_address: string;
+          hospital_eloc: string;
+          hospital_lat: number | null;
+          hospital_lng: number | null;
           created_at: string;
           updated_at: string;
         };
