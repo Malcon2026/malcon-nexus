@@ -52,7 +52,7 @@ const KmsChartTooltip: React.FC<{
 
 function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
   return (
-    <li className="px-4 py-2.5 border-t border-sky-100/80">
+    <li className="px-4 py-2.5 border-t border-gray-200">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-xs font-medium text-gray-800">Trip {trip.tripNo}</p>
         <p className="text-xs font-semibold tabular-nums text-sky-700">
@@ -305,15 +305,15 @@ export const KmsDashboard: React.FC = () => {
                   return (
                     <React.Fragment key={row.employeeId}>
                       <tr
-                        className={`cursor-pointer hover:bg-sky-50/60 ${open ? 'bg-sky-50' : 'bg-white'}`}
+                        className={`cursor-pointer hover:bg-gray-50 ${open ? 'bg-indigo-50' : 'bg-white'}`}
                         onClick={() => setSelectedId((id) => (id === row.employeeId ? 'all' : row.employeeId))}
                       >
                         <td className="px-4 py-2.5 text-xs font-semibold tabular-nums text-gray-400">{index + 1}</td>
                         <td className="px-4 py-2.5 font-medium text-gray-900">{row.name}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{row.trips}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-800">{row.km}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">{row.bikeTrips}</td>
-                        <td className="px-4 py-2.5 whitespace-nowrap text-gray-600">{formatDate(row.lastDate)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.trips}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-400">{row.km}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.bikeTrips}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{formatDate(row.lastDate)}</td>
                         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                           <Button
                             type="button"
@@ -327,7 +327,7 @@ export const KmsDashboard: React.FC = () => {
                         </td>
                       </tr>
                       {open && (
-                        <tr className="bg-sky-50/40">
+                        <tr className="bg-gray-50">
                           <td colSpan={7} className="p-0">
                             {employeeTrips.length === 0 ? (
                               <p className="px-4 py-3 text-xs text-gray-500">No completed trips</p>
