@@ -35,7 +35,7 @@ export function searchMalconHospitals(hospitals: Hospital[], query: string): Hos
     }));
 }
 
-export async function searchMapplsHospitals(
+export async function searchMapplsPlaces(
   query: string,
   lat?: number,
   lng?: number,
@@ -51,7 +51,7 @@ export async function searchMapplsHospitals(
   });
 
   if (error) {
-    console.warn('[hospital-search]', error.message);
+    console.warn('[place-search]', error.message);
     return [];
   }
 

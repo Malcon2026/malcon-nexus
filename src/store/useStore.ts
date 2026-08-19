@@ -24,7 +24,7 @@ import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
-import { kmBetween, nextTripNo, openLocationTrip } from '../lib/locationTrip';
+import { graceWarning, kmBetween, metersFromPin, nextTripNo, openLocationTrip } from '../lib/locationTrip';
 import { encodePlusCode } from '../lib/plusCode';
 import { fetchBikeRouteKm } from '../lib/bikeRoute';
 import type { HospitalPlace } from '../lib/hospitalSearch';
@@ -180,14 +180,13 @@ interface AppState {
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
   startLocationTrip: (
-    notes: string,
     position: GeoPosition,
-    hospital?: HospitalPlace | null,
-  ) => Promise<{ error: string | null; tripNo?: number; plusCode?: string }>;
+    from: HospitalPlace,
+    to: HospitalPlace,
+  ) => Promise<{ error: string | null; tripNo?: number; plusCode?: string; warning?: string | null }>;
   completeLocationTrip: (
-    notes: string,
     position: GeoPosition,
-  ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; bikeMinutes?: number | null; tripNo?: number; plusCode?: string }>;
+  ) => Promise<{ error: string | null; distanceKm?: number; bikeKm?: number | null; bikeMinutes?: number | null; tripNo?: number; plusCode?: string; warning?: string | null }>;
 
   // Leave
   applyLeave: (
@@ -588,6 +587,9 @@ const locationTripDbError = (err: unknown, fallback: string): string => {
   const message = err instanceof Error ? err.message : fallback;
   if (message.includes('bike_km') || message.includes('bike_minutes')) {
     return 'Bike route columns are missing. Run add-location-trip-bike-route.sql in Supabase.';
+  }
+  if (message.includes('from_name') || message.includes('from_eloc')) {
+    return 'From columns are missing. Run add-location-trip-from.sql in Supabase.';
   }
   if (message.includes('hospital_name') || message.includes('hospital_eloc')) {
     return 'Hospital columns are missing. Run add-location-trip-hospital.sql in Supabase.';
@@ -2147,16 +2149,16 @@ export const useStore = create<AppState>((set, get) => ({
     return summarizeLiveAttendance(attendanceRecords, currentUser.id);
   },
 
-  startLocationTrip: async (notes, position, hospital = null) => {
+  startLocationTrip: async (position, from, to) => {
     const { currentUser, locationTrips } = get();
-    const hospitalName = hospital?.name.trim() ?? '';
-    const trimmed = notes.trim() || hospitalName;
-    if (!hospitalName) return { error: 'Search and pick a hospital first.' };
-    if (!trimmed) return { error: 'Add notes before starting the trip.' };
+    const fromName = from?.name.trim() ?? '';
+    const toName = to?.name.trim() ?? '';
+    if (!fromName || !toName) return { error: 'Pick From and To first.' };
     if (openLocationTrip(locationTrips, currentUser.id)) {
       return { error: 'A trip is already in progress. Press Reached first.' };
     }
 
+    const notes = `${fromName} → ${toName}`;
     const now = new Date().toISOString();
     const tripNo = nextTripNo(locationTrips, currentUser.id);
     const startPlusCode = encodePlusCode(position.latitude, position.longitude);
@@ -2165,7 +2167,7 @@ export const useStore = create<AppState>((set, get) => ({
       employeeId: currentUser.id,
       employeeName: currentUser.name,
       tripNo,
-      notes: trimmed,
+      notes,
       status: 'started',
       startAt: now,
       startLat: position.latitude,
@@ -2182,11 +2184,16 @@ export const useStore = create<AppState>((set, get) => ({
       bikeMinutes: null,
       bikeSource: '',
       bikeMode: '',
-      hospitalName,
-      hospitalAddress: hospital?.address.trim() ?? '',
-      hospitalEloc: hospital?.eloc.trim() ?? '',
-      hospitalLat: hospital?.lat ?? null,
-      hospitalLng: hospital?.lng ?? null,
+      fromName,
+      fromAddress: from.address.trim() ?? '',
+      fromEloc: from.eloc.trim() ?? '',
+      fromLat: from.lat ?? null,
+      fromLng: from.lng ?? null,
+      hospitalName: toName,
+      hospitalAddress: to.address.trim() ?? '',
+      hospitalEloc: to.eloc.trim() ?? '',
+      hospitalLat: to.lat ?? null,
+      hospitalLng: to.lng ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -2200,25 +2207,28 @@ export const useStore = create<AppState>((set, get) => ({
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
-    return { error: null, tripNo, plusCode: startPlusCode };
+    const warning = graceWarning(
+      'Start',
+      metersFromPin(position.latitude, position.longitude, from.lat, from.lng),
+    );
+    return { error: null, tripNo, plusCode: startPlusCode, warning };
   },
 
-  completeLocationTrip: async (notes, position) => {
+  completeLocationTrip: async (position) => {
     const { currentUser, locationTrips } = get();
     const open = openLocationTrip(locationTrips, currentUser.id);
     if (!open) return { error: 'Start a trip first, then press Reached after you arrive.' };
 
-    const trimmed = notes.trim() || open.notes.trim();
-    if (!trimmed) return { error: 'Add notes before completing the trip.' };
-
     const now = new Date().toISOString();
+    const originLat = open.fromLat ?? open.startLat;
+    const originLng = open.fromLng ?? open.startLng;
     const destLat = open.hospitalLat ?? position.latitude;
     const destLng = open.hospitalLng ?? position.longitude;
-    const distanceKm = kmBetween(open.startLat, open.startLng, destLat, destLng);
+    const distanceKm = kmBetween(originLat, originLng, destLat, destLng);
     const endPlusCode = encodePlusCode(position.latitude, position.longitude);
     const routed = await fetchBikeRouteKm(
-      open.startLat,
-      open.startLng,
+      originLat,
+      originLng,
       destLat,
       destLng,
       open.hospitalEloc || undefined,
@@ -2226,7 +2236,6 @@ export const useStore = create<AppState>((set, get) => ({
     const bikeKm = routed?.km ?? null;
     const bikeMinutes = routed?.minutes ?? null;
     const updates: Partial<LocationTrip> = {
-      notes: trimmed,
       status: 'completed',
       endAt: now,
       endLat: position.latitude,
@@ -2250,7 +2259,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
-    return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode };
+    const warning = graceWarning(
+      'Reached',
+      metersFromPin(position.latitude, position.longitude, open.hospitalLat, open.hospitalLng),
+    );
+    return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode, warning };
   },
 
   punchAttendance: async (punchType, position, selfieFile = null) => {

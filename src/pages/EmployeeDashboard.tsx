@@ -114,7 +114,7 @@ const HomeNavTiles: React.FC<{
       id: 'location',
       title: 'Location punchin',
       titleTe: 'Location punch',
-      hint: locationOpen ? `Trip ${locationOpen.tripNo} — press Reached` : 'Start / reached GPS',
+      hint: locationOpen ? `Trip ${locationOpen.tripNo} — press Reached` : 'Add trip',
       icon: <MapPin className="h-5 w-5 text-sky-600" />,
       iconBg: 'bg-sky-50',
       badge: locationOpen ? 1 : undefined,

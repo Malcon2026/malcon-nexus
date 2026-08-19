@@ -111,11 +111,8 @@ Deno.serve(async (req) => {
     if (userError || !user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const rawQuery = String(body.query ?? '').trim();
-    if (rawQuery.length < 2) return jsonResponse({ places: [] });
-    const query = /\b(hospital|clinic|nursing|medical)\b/i.test(rawQuery)
-      ? rawQuery
-      : `${rawQuery} hospital`;
+    const query = String(body.query ?? '').trim();
+    if (query.length < 2) return jsonResponse({ places: [] });
 
     const lat = Number(body.lat);
     const lng = Number(body.lng);

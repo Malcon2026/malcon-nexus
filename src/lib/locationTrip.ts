@@ -91,3 +91,26 @@ export function tripEndPlusCode(trip: LocationTrip): string {
   if (trip.endLat == null || trip.endLng == null) return '';
   return encodePlusCode(trip.endLat, trip.endLng);
 }
+
+export const TRIP_GRACE_M = 500;
+
+export function tripRouteLabel(trip: LocationTrip): string {
+  if (trip.fromName && trip.hospitalName) return `${trip.fromName} → ${trip.hospitalName}`;
+  return trip.hospitalName || trip.notes || '';
+}
+
+export function metersFromPin(
+  lat: number,
+  lng: number,
+  pinLat: number | null | undefined,
+  pinLng: number | null | undefined,
+): number | null {
+  if (pinLat == null || pinLng == null) return null;
+  return Math.round(getDistanceMeters(lat, lng, pinLat, pinLng));
+}
+
+export function graceWarning(kind: 'Start' | 'Reached', meters: number | null): string | null {
+  if (meters == null || meters <= TRIP_GRACE_M) return null;
+  const label = meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
+  return `${kind} is ${label} from the planned place (500 m grace). Trip still saved.`;
+}

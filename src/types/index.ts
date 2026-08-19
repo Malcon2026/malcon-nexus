@@ -266,6 +266,11 @@ export interface LocationTrip {
   bikeMinutes: number | null;
   bikeSource: string;
   bikeMode: string;
+  fromName: string;
+  fromAddress: string;
+  fromEloc: string;
+  fromLat: number | null;
+  fromLng: number | null;
   hospitalName: string;
   hospitalAddress: string;
   hospitalEloc: string;

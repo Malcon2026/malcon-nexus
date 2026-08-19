@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, Flag, Loader2, Search, X } from 'lucide-react';
+import { MapPin, Navigation, Flag, Loader2, Search, X, Plus } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
@@ -12,74 +12,54 @@ import {
   tripKm,
   tripStartPlusCode,
   formatBikeCard,
+  tripRouteLabel,
 } from '../lib/locationTrip';
 import { Te } from './BilingualText';
 import { PlusCodeLink } from './PlusCodeLink';
 import { googleBikeMapsUrl } from '../lib/bikeRoute';
-import { searchMalconHospitals, searchMapplsHospitals, type HospitalPlace } from '../lib/hospitalSearch';
+import { searchMalconHospitals, searchMapplsPlaces, type HospitalPlace } from '../lib/hospitalSearch';
+import type { Hospital } from '../types';
 
-const notesClass =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white min-h-[5.5rem] resize-y';
-
-export const LocationPunchSection: React.FC = () => {
-  const currentUser = useStore((s) => s.currentUser);
-  const locationTrips = useStore((s) => s.locationTrips);
-  const hospitals = useStore((s) => s.hospitals);
-  const startLocationTrip = useStore((s) => s.startLocationTrip);
-  const completeLocationTrip = useStore((s) => s.completeLocationTrip);
-
-  const [notes, setNotes] = useState('');
-  const [hospitalQuery, setHospitalQuery] = useState('');
-  const [hospital, setHospital] = useState<HospitalPlace | null>(null);
-  const [hospitalHits, setHospitalHits] = useState<HospitalPlace[]>([]);
+function PlaceField({
+  label,
+  place,
+  onChange,
+  hospitals,
+  disabled,
+  placeholder,
+}: {
+  label: string;
+  place: HospitalPlace | null;
+  onChange: (place: HospitalPlace | null) => void;
+  hospitals: Hospital[];
+  disabled: boolean;
+  placeholder: string;
+}) {
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<HospitalPlace[]>([]);
   const [searching, setSearching] = useState(false);
-  const [busy, setBusy] = useState<'start' | 'end' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const open = openLocationTrip(locationTrips, currentUser.id);
-  const today = todayLocationTrips(locationTrips, currentUser.id);
-  const totalKm = todayLocationTripKm(locationTrips, currentUser.id);
 
   useEffect(() => {
-    if (open) {
-      setNotes((prev) => (prev.trim() ? prev : open.notes));
-      if (open.hospitalName) {
-        setHospital((prev) => prev ?? {
-          id: `saved:${open.id}`,
-          name: open.hospitalName,
-          address: open.hospitalAddress,
-          eloc: open.hospitalEloc,
-          lat: open.hospitalLat,
-          lng: open.hospitalLng,
-          source: open.hospitalEloc ? 'mappls' : 'malcon',
-        });
-      }
-    }
-  }, [open?.id, open?.notes, open?.hospitalName]);
-
-  useEffect(() => {
-    const q = hospitalQuery.trim();
-    if (hospital || open) {
-      setHospitalHits([]);
+    const q = query.trim();
+    if (place || disabled) {
+      setHits([]);
       setSearching(false);
       return;
     }
     if (q.length < 2) {
-      setHospitalHits([]);
+      setHits([]);
       setSearching(false);
       return;
     }
     const local = searchMalconHospitals(hospitals, q);
-    setHospitalHits(local);
+    setHits(local);
     let cancelled = false;
     setSearching(true);
     const timer = window.setTimeout(() => {
-      void searchMapplsHospitals(q).then((remote) => {
+      void searchMapplsPlaces(q).then((remote) => {
         if (cancelled) return;
         const seen = new Set(local.map((p) => p.name.toLowerCase()));
-        const extra = remote.filter((p) => !seen.has(p.name.toLowerCase()));
-        setHospitalHits([...local, ...extra].slice(0, 10));
+        setHits([...local, ...remote.filter((p) => !seen.has(p.name.toLowerCase()))].slice(0, 10));
       }).finally(() => {
         if (!cancelled) setSearching(false);
       });
@@ -88,22 +68,135 @@ export const LocationPunchSection: React.FC = () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [hospitalQuery, hospital, open, hospitals]);
+  }, [query, place, disabled, hospitals]);
+
+  if (place) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1.5">{label}</label>
+        <div className="flex items-start justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{place.name}</p>
+            {place.address && (
+              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{place.address}</p>
+            )}
+          </div>
+          {!disabled && (
+            <button
+              type="button"
+              className="p-1 rounded-md text-gray-500 hover:bg-white"
+              onClick={() => {
+                onChange(null);
+                setQuery('');
+              }}
+              aria-label={`Clear ${label}`}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 mb-1.5">{label}</label>
+      <div className="relative">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+        <input
+          type="search"
+          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete="off"
+        />
+        {(searching || hits.length > 0) && (
+          <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+            {searching && hits.length === 0 && (
+              <li className="px-3 py-2 text-xs text-gray-500">Searching Mappls…</li>
+            )}
+            {hits.map((hit) => (
+              <li key={hit.id}>
+                <button
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-gray-50"
+                  onClick={() => {
+                    onChange(hit);
+                    setQuery('');
+                    setHits([]);
+                  }}
+                >
+                  <p className="text-sm font-medium text-gray-900">{hit.name}</p>
+                  {hit.address && (
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{hit.address}</p>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const LocationPunchSection: React.FC = () => {
+  const currentUser = useStore((s) => s.currentUser);
+  const locationTrips = useStore((s) => s.locationTrips);
+  const hospitals = useStore((s) => s.hospitals);
+  const startLocationTrip = useStore((s) => s.startLocationTrip);
+  const completeLocationTrip = useStore((s) => s.completeLocationTrip);
+
+  const [adding, setAdding] = useState(false);
+  const [from, setFrom] = useState<HospitalPlace | null>(null);
+  const [to, setTo] = useState<HospitalPlace | null>(null);
+  const [busy, setBusy] = useState<'start' | 'end' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const open = openLocationTrip(locationTrips, currentUser.id);
+  const today = todayLocationTrips(locationTrips, currentUser.id);
+  const totalKm = todayLocationTripKm(locationTrips, currentUser.id);
+
+  useEffect(() => {
+    if (!open) return;
+    setAdding(false);
+    setFrom((prev) => prev ?? (open.fromName ? {
+      id: `saved-from:${open.id}`,
+      name: open.fromName,
+      address: open.fromAddress,
+      eloc: open.fromEloc,
+      lat: open.fromLat,
+      lng: open.fromLng,
+      source: open.fromEloc ? 'mappls' : 'malcon',
+    } : null));
+    setTo((prev) => prev ?? (open.hospitalName ? {
+      id: `saved-to:${open.id}`,
+      name: open.hospitalName,
+      address: open.hospitalAddress,
+      eloc: open.hospitalEloc,
+      lat: open.hospitalLat,
+      lng: open.hospitalLng,
+      source: open.hospitalEloc ? 'mappls' : 'malcon',
+    } : null));
+  }, [open?.id, open?.fromName, open?.hospitalName]);
+
+  const resetForm = () => {
+    setAdding(false);
+    setFrom(null);
+    setTo(null);
+  };
 
   const runGps = async (kind: 'start' | 'end') => {
     setError(null);
+    setWarning(null);
     setSuccess(null);
-    const trimmed = notes.trim();
-    if (kind === 'start' && !hospital) {
-      setError('Search and pick a hospital first.');
-      return;
-    }
-    if (kind === 'start' && !trimmed && !hospital?.name) {
-      setError('Add notes before starting the trip.');
-      return;
-    }
-    if (kind === 'end' && !trimmed && !open?.notes.trim()) {
-      setError('Add notes before completing the trip.');
+    if (kind === 'start' && (!from || !to)) {
+      setError('Pick From and To first.');
       return;
     }
 
@@ -111,17 +204,17 @@ export const LocationPunchSection: React.FC = () => {
     try {
       const position = await getCurrentPosition();
       if (kind === 'start') {
-        const result = await startLocationTrip(trimmed, position, hospital);
+        const result = await startLocationTrip(position, from!, to!);
         if (result.error) {
           setError(result.error);
           return;
         }
-        setSuccess(`Trip ${result.tripNo} to ${hospital?.name ?? 'hospital'} started${result.plusCode ? ` · ${result.plusCode}` : ''}. Press Reached after you arrive.`);
-        setNotes(trimmed || hospital?.name || '');
+        if (result.warning) setWarning(result.warning);
+        setSuccess(`Trip ${result.tripNo} started. Press Reached after you arrive.`);
         return;
       }
 
-      const result = await completeLocationTrip(trimmed || open?.notes || '', position);
+      const result = await completeLocationTrip(position);
       if (result.error) {
         setError(result.error);
         return;
@@ -129,19 +222,20 @@ export const LocationPunchSection: React.FC = () => {
       const kmLabel =
         result.bikeKm != null
           ? result.bikeMinutes != null
-            ? `${result.bikeKm} km · ${result.bikeMinutes} min (two-wheeler)`
+            ? `${result.bikeKm} km · ${result.bikeMinutes} min`
             : `${result.bikeKm} km bike`
-          : `${result.distanceKm ?? 0} km straight`;
-      setSuccess(`Trip ${result.tripNo} saved · ${kmLabel}${result.plusCode ? ` · ${result.plusCode}` : ''}`);
-      setNotes('');
-      setHospital(null);
-      setHospitalQuery('');
+          : `${result.distanceKm ?? 0} km`;
+      if (result.warning) setWarning(result.warning);
+      setSuccess(`Trip ${result.tripNo} saved · ${kmLabel}`);
+      resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not get GPS. Try again outdoors.');
     } finally {
       setBusy(null);
     }
   };
+
+  const showForm = adding || !!open;
 
   return (
     <div className="space-y-4">
@@ -153,12 +247,7 @@ export const LocationPunchSection: React.FC = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-gray-900">Location punchin</p>
-              <Te className="text-gray-500 mb-0">Start → reach → km</Te>
-              <p className="text-xs text-gray-500 mt-1">
-                Search the hospital, press <span className="font-medium text-gray-700">Start location</span>,
-                travel, then <span className="font-medium text-gray-700">Reached</span>. Bike km is the
-                two-wheeler road distance to that hospital.
-              </p>
+              <Te className="text-gray-500 mb-0">Add trip → start → reached</Te>
             </div>
           </div>
 
@@ -167,15 +256,10 @@ export const LocationPunchSection: React.FC = () => {
               <p className="text-sm font-semibold text-amber-900">
                 Trip {open.tripNo} in progress
               </p>
+              <p className="text-xs font-medium text-amber-900 mt-1">{tripRouteLabel(open)}</p>
               <p className="text-xs text-amber-800 mt-0.5">
-                Started {formatTimeIST(open.startAt)}. Press Reached at the destination.
+                Started {formatTimeIST(open.startAt)}. Press Reached at To.
               </p>
-              {open.hospitalName && (
-                <p className="text-xs font-medium text-amber-900 mt-1">{open.hospitalName}</p>
-              )}
-              {open.notes && (
-                <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{open.notes}</p>
-              )}
               <div className="mt-1.5">
                 <PlusCodeLink
                   label="Start"
@@ -199,116 +283,84 @@ export const LocationPunchSection: React.FC = () => {
               {error}
             </p>
           )}
+          {warning && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {warning}
+            </p>
+          )}
           {success && (
             <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
               {success}
             </p>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Hospital <span className="text-red-500">*</span>
-            </label>
-            {hospital ? (
-              <div className="flex items-start justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{hospital.name}</p>
-                  {hospital.address && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{hospital.address}</p>
-                  )}
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    {hospital.source === 'malcon' ? 'Malcon list' : 'Mappls'}
-                  </p>
-                </div>
-                {!open && (
-                  <button
-                    type="button"
-                    className="p-1 rounded-md text-gray-500 hover:bg-white"
-                    onClick={() => {
-                      setHospital(null);
-                      setHospitalQuery('');
-                    }}
-                    aria-label="Clear hospital"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                <input
-                  type="search"
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
-                  value={hospitalQuery}
-                  onChange={(e) => setHospitalQuery(e.target.value)}
-                  placeholder="Search KIMS, Yashoda, Apollo…"
-                  disabled={busy != null || !!open}
-                  autoComplete="off"
-                />
-                {(searching || hospitalHits.length > 0) && (
-                  <ul className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-                    {searching && hospitalHits.length === 0 && (
-                      <li className="px-3 py-2 text-xs text-gray-500">Searching Mappls…</li>
-                    )}
-                    {hospitalHits.map((hit) => (
-                      <li key={hit.id}>
-                        <button
-                          type="button"
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onClick={() => {
-                            setHospital(hit);
-                            setHospitalQuery('');
-                            setHospitalHits([]);
-                            setNotes((prev) => (prev.trim() ? prev : hit.name));
-                          }}
-                        >
-                          <p className="text-sm font-medium text-gray-900">{hit.name}</p>
-                          {hit.address && (
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{hit.address}</p>
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Notes <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              className={notesClass}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={open ? open.notes || 'Where are you going / what is this trip?' : 'Where are you going / what is this trip?'}
-              disabled={busy != null}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          {!showForm && (
             <Button
               type="button"
               variant="primary"
-              icon={busy === 'start' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-              disabled={busy != null || !!open || !hospital}
-              onClick={() => void runGps('start')}
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => {
+                setError(null);
+                setWarning(null);
+                setSuccess(null);
+                setAdding(true);
+              }}
             >
-              {busy === 'start' ? 'Getting GPS…' : 'Start location'}
+              Add trip
             </Button>
-            <Button
-              type="button"
-              variant="success"
-              icon={busy === 'end' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
-              disabled={busy != null || !open}
-              onClick={() => void runGps('end')}
-            >
-              {busy === 'end' ? 'Getting GPS…' : 'Reached'}
-            </Button>
-          </div>
+          )}
+
+          {showForm && (
+            <>
+              <PlaceField
+                label="From"
+                place={from}
+                onChange={setFrom}
+                hospitals={hospitals}
+                disabled={busy != null || !!open}
+                placeholder="Search starting place…"
+              />
+              <PlaceField
+                label="To"
+                place={to}
+                onChange={setTo}
+                hospitals={hospitals}
+                disabled={busy != null || !!open}
+                placeholder="Search destination…"
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  icon={busy === 'start' ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                  disabled={busy != null || !!open || !from || !to}
+                  onClick={() => void runGps('start')}
+                >
+                  {busy === 'start' ? 'Getting GPS…' : 'Start location'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="success"
+                  icon={busy === 'end' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
+                  disabled={busy != null || !open}
+                  onClick={() => void runGps('end')}
+                >
+                  {busy === 'end' ? 'Getting GPS…' : 'Reached'}
+                </Button>
+              </div>
+
+              {adding && !open && (
+                <button
+                  type="button"
+                  className="text-xs text-gray-500 hover:text-gray-800"
+                  onClick={resetForm}
+                >
+                  Cancel
+                </button>
+              )}
+            </>
+          )}
         </CardBody>
       </Card>
 
@@ -327,19 +379,13 @@ export const LocationPunchSection: React.FC = () => {
                         : 'In progress'}
                     </p>
                   </div>
-                  {t.hospitalName && (
-                    <p className="text-xs font-medium text-gray-800 mt-0.5">{t.hospitalName}</p>
-                  )}
-                  {t.status === 'completed' && t.bikeKm != null && (
-                    <p className="text-[11px] text-gray-500">Two-wheeler · Maps</p>
+                  {tripRouteLabel(t) && (
+                    <p className="text-xs font-medium text-gray-800 mt-0.5">{tripRouteLabel(t)}</p>
                   )}
                   <p className="text-xs text-gray-500 mt-0.5">
                     {formatTimeIST(t.startAt)}
                     {t.endAt ? ` → ${formatTimeIST(t.endAt)}` : ' · waiting for Reached'}
                   </p>
-                  {t.notes && (
-                    <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{t.notes}</p>
-                  )}
                   <div className="mt-1.5 flex flex-col gap-0.5">
                     <PlusCodeLink
                       label="Start"
@@ -360,8 +406,8 @@ export const LocationPunchSection: React.FC = () => {
                     {t.status === 'completed' && t.endLat != null && t.endLng != null && (
                       <a
                         href={googleBikeMapsUrl(
-                          t.startLat,
-                          t.startLng,
+                          t.fromLat ?? t.startLat,
+                          t.fromLng ?? t.startLng,
                           t.hospitalLat ?? t.endLat,
                           t.hospitalLng ?? t.endLng,
                         )}

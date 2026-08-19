@@ -24,6 +24,7 @@ import {
   locationTripDateKey,
   tripEndPlusCode,
   tripKm,
+  tripRouteLabel,
   tripStartPlusCode,
 } from '../lib/locationTrip';
 import { formatDate } from '../utils/helpers';
@@ -56,7 +57,7 @@ function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-xs font-medium text-gray-800">
           Trip {trip.tripNo}
-          {trip.hospitalName ? ` · ${trip.hospitalName}` : ''}
+          {tripRouteLabel(trip) ? ` · ${tripRouteLabel(trip)}` : ''}
         </p>
         <p className="text-xs font-semibold tabular-nums text-sky-700">
           {formatBikeCard(trip) ?? `${tripKm(trip)} km`}
@@ -88,8 +89,8 @@ function EmployeeTripRow({ trip }: { trip: LocationTrip }) {
             />
             <a
               href={googleBikeMapsUrl(
-                trip.startLat,
-                trip.startLng,
+                trip.fromLat ?? trip.startLat,
+                trip.fromLng ?? trip.startLng,
                 trip.hospitalLat ?? trip.endLat,
                 trip.hospitalLng ?? trip.endLng,
               )}

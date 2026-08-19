@@ -1102,6 +1102,16 @@ function isMissingBikeKmColumn(message: string): boolean {
   );
 }
 
+function isMissingFromColumn(message: string): boolean {
+  return (
+    message.includes('from_name') ||
+    message.includes('from_address') ||
+    message.includes('from_eloc') ||
+    message.includes('from_lat') ||
+    message.includes('from_lng')
+  );
+}
+
 function isMissingHospitalColumn(message: string): boolean {
   return (
     message.includes('hospital_name') ||
@@ -1135,6 +1145,11 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
     bikeMinutes: row.bike_minutes == null || row.bike_minutes === '' ? null : Number(row.bike_minutes),
     bikeSource: (row.bike_source as string) ?? '',
     bikeMode: (row.bike_mode as string) ?? '',
+    fromName: (row.from_name as string) ?? '',
+    fromAddress: (row.from_address as string) ?? '',
+    fromEloc: (row.from_eloc as string) ?? '',
+    fromLat: row.from_lat == null || row.from_lat === '' ? null : Number(row.from_lat),
+    fromLng: row.from_lng == null || row.from_lng === '' ? null : Number(row.from_lng),
     hospitalName: (row.hospital_name as string) ?? '',
     hospitalAddress: (row.hospital_address as string) ?? '',
     hospitalEloc: (row.hospital_eloc as string) ?? '',
@@ -1188,6 +1203,11 @@ export const sbLocationTripRepo = {
       bike_minutes: trip.bikeMinutes,
       bike_source: trip.bikeSource,
       bike_mode: trip.bikeMode,
+      from_name: trip.fromName,
+      from_address: trip.fromAddress,
+      from_eloc: trip.fromEloc,
+      from_lat: trip.fromLat,
+      from_lng: trip.fromLng,
       hospital_name: trip.hospitalName,
       hospital_address: trip.hospitalAddress,
       hospital_eloc: trip.hospitalEloc,
@@ -1197,13 +1217,18 @@ export const sbLocationTripRepo = {
       updated_at: trip.updatedAt,
     };
     const { error } = await supabase.from('location_trips').insert(payload);
-    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message))) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message) || isMissingFromColumn(error.message))) {
       delete payload.start_plus_code;
       delete payload.end_plus_code;
       delete payload.bike_km;
       delete payload.bike_minutes;
       delete payload.bike_source;
       delete payload.bike_mode;
+      delete payload.from_name;
+      delete payload.from_address;
+      delete payload.from_eloc;
+      delete payload.from_lat;
+      delete payload.from_lng;
       delete payload.hospital_name;
       delete payload.hospital_address;
       delete payload.hospital_eloc;
@@ -1230,6 +1255,11 @@ export const sbLocationTripRepo = {
     if (updates.bikeMinutes !== undefined) payload.bike_minutes = updates.bikeMinutes;
     if (updates.bikeSource !== undefined) payload.bike_source = updates.bikeSource;
     if (updates.bikeMode !== undefined) payload.bike_mode = updates.bikeMode;
+    if (updates.fromName !== undefined) payload.from_name = updates.fromName;
+    if (updates.fromAddress !== undefined) payload.from_address = updates.fromAddress;
+    if (updates.fromEloc !== undefined) payload.from_eloc = updates.fromEloc;
+    if (updates.fromLat !== undefined) payload.from_lat = updates.fromLat;
+    if (updates.fromLng !== undefined) payload.from_lng = updates.fromLng;
     if (updates.hospitalName !== undefined) payload.hospital_name = updates.hospitalName;
     if (updates.hospitalAddress !== undefined) payload.hospital_address = updates.hospitalAddress;
     if (updates.hospitalEloc !== undefined) payload.hospital_eloc = updates.hospitalEloc;
@@ -1238,13 +1268,18 @@ export const sbLocationTripRepo = {
     if (updates.updatedAt !== undefined) payload.updated_at = updates.updatedAt;
 
     const { error } = await supabase.from('location_trips').update(payload).eq('id', id);
-    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message))) {
+    if (error && (isMissingPlusCodeColumn(error.message) || isMissingBikeKmColumn(error.message) || isMissingHospitalColumn(error.message) || isMissingFromColumn(error.message))) {
       delete payload.end_plus_code;
       delete payload.start_plus_code;
       delete payload.bike_km;
       delete payload.bike_minutes;
       delete payload.bike_source;
       delete payload.bike_mode;
+      delete payload.from_name;
+      delete payload.from_address;
+      delete payload.from_eloc;
+      delete payload.from_lat;
+      delete payload.from_lng;
       delete payload.hospital_name;
       delete payload.hospital_address;
       delete payload.hospital_eloc;

@@ -15,7 +15,8 @@ const HEADERS = [
   'Source',
   'Start Plus Code',
   'Reached Plus Code',
-  'Hospital',
+  'From',
+  'To',
   'Notes',
 ];
 
@@ -67,6 +68,7 @@ export function exportLocationKmsCsv(
       t.bikeSource || (t.bikeKm != null ? 'bike' : 'straight'),
       tripStartPlusCode(t),
       tripEndPlusCode(t),
+      t.fromName,
       t.hospitalName,
       t.notes,
     ]),
