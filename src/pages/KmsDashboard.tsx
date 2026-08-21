@@ -333,8 +333,6 @@ export const KmsDashboard: React.FC = () => {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
             <span className="px-2 text-sm font-semibold text-gray-900 min-w-[9.5rem] text-center">
               {kmsMonthLabel(month)}
             </span>
