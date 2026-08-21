@@ -32,6 +32,8 @@ export type KmsEmployeeRow = {
   name: string;
   trips: number;
   km: number;
+  todayTrips: number;
+  todayKm: number;
   bikeTrips: number;
   lastDate: string;
 };
@@ -62,17 +64,23 @@ export function summarizeLocationKms(trips: LocationTrip[], month = currentKmsMo
       name: trip.employeeName,
       trips: 0,
       km: 0,
+      todayTrips: 0,
+      todayKm: 0,
       bikeTrips: 0,
       lastDate: locationTripDateKey(trip),
     };
     current.trips += 1;
     current.km = round1(current.km + tripKm(trip));
+    if (locationTripDateKey(trip) === today) {
+      current.todayTrips += 1;
+      current.todayKm = round1(current.todayKm + tripKm(trip));
+    }
     if (trip.bikeKm != null) current.bikeTrips += 1;
     const dateKey = locationTripDateKey(trip);
     if (dateKey > current.lastDate) current.lastDate = dateKey;
     byEmployeeMap.set(trip.employeeId, current);
   }
-  const byEmployee = [...byEmployeeMap.values()].sort((a, b) => b.km - a.km);
+  const byEmployee = [...byEmployeeMap.values()].sort((a, b) => b.km - a.km || b.todayKm - a.todayKm);
 
   return {
     today,

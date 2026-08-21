@@ -189,16 +189,32 @@ export const KmsDashboard: React.FC = () => {
   const updateLocationTripKm = useStore((s) => s.updateLocationTripKm);
 
   const [month, setMonth] = useState(currentKmsMonth);
+  const [range, setRange] = useState<'today' | 'month'>('today');
   const [selectedId, setSelectedId] = useState<string | 'all'>('all');
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const stats = useMemo(() => summarizeLocationKms(trips, month), [trips, month]);
   const todayMonth = currentKmsMonth();
+  const todayKey = stats.today;
+
+  const staffRows = useMemo(() => {
+    const rows = range === 'today'
+      ? stats.byEmployee.filter((row) => row.todayTrips > 0)
+      : stats.byEmployee;
+    return [...rows].sort((a, b) => (
+      range === 'today'
+        ? b.todayKm - a.todayKm || b.km - a.km
+        : b.km - a.km || b.todayKm - a.todayKm
+    ));
+  }, [stats.byEmployee, range]);
 
   const tripsByEmployee = useMemo(() => {
     const map = new Map<string, LocationTrip[]>();
-    for (const trip of stats.completedMonth) {
+    const source = range === 'today'
+      ? stats.completedMonth.filter((t) => locationTripDateKey(t) === todayKey)
+      : stats.completedMonth;
+    for (const trip of source) {
       const list = map.get(trip.employeeId) ?? [];
       list.push(trip);
       map.set(trip.employeeId, list);
@@ -207,7 +223,7 @@ export const KmsDashboard: React.FC = () => {
       list.sort((a, b) => tripKm(b) - tripKm(a) || new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
     }
     return map;
-  }, [stats.completedMonth]);
+  }, [stats.completedMonth, range, todayKey]);
 
   const handleExport = (employeeId?: string, name?: string) => {
     setExportMsg(null);
@@ -381,30 +397,56 @@ export const KmsDashboard: React.FC = () => {
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Employees</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Highest km first. Tap a name to open trips.</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {range === 'today' ? "Today's km first. Tap a name to open today's trips." : 'Month km first. Tap a name to open trips.'}
+            </p>
           </div>
-          <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
-            Export all staff
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                onClick={() => {
+                  setMonth(currentKmsMonth());
+                  setRange('today');
+                }}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                onClick={() => setRange('month')}
+              >
+                Month
+              </button>
+            </div>
+            <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
+              Export all staff
+            </Button>
+          </div>
         </CardHeader>
         <CardBody className="p-0 overflow-x-auto">
-          {stats.byEmployee.length === 0 ? (
-            <p className="px-4 py-12 text-center text-sm text-gray-400">No trips in {kmsMonthLabel(month)}</p>
+          {staffRows.length === 0 ? (
+            <p className="px-4 py-12 text-center text-sm text-gray-400">
+              {range === 'today' ? 'No trips today' : `No trips in ${kmsMonthLabel(month)}`}
+            </p>
           ) : (
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 <tr>
                   <th className="px-4 py-2.5 w-10">#</th>
                   <th className="px-4 py-2.5">Employee</th>
-                  <th className="px-4 py-2.5 text-right">Trips</th>
-                  <th className="px-4 py-2.5 text-right">Km</th>
-                  <th className="px-4 py-2.5 text-right">Bike routes</th>
+                  <th className="px-4 py-2.5 text-right">Today km</th>
+                  <th className="px-4 py-2.5 text-right">Today trips</th>
+                  <th className="px-4 py-2.5 text-right">Month km</th>
+                  <th className="px-4 py-2.5 text-right">Month trips</th>
                   <th className="px-4 py-2.5">Last trip</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {stats.byEmployee.map((row, index) => {
+                {staffRows.map((row, index) => {
                   const open = selectedId === row.employeeId;
                   const employeeTrips = tripsByEmployee.get(row.employeeId) ?? [];
                   return (
@@ -415,9 +457,10 @@ export const KmsDashboard: React.FC = () => {
                       >
                         <td className="px-4 py-2.5 text-xs font-semibold tabular-nums text-gray-400">{index + 1}</td>
                         <td className="px-4 py-2.5 font-medium text-gray-900">{row.name}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-400">{row.todayKm}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.todayTrips}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.km}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.trips}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-400">{row.km}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.bikeTrips}</td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{formatDate(row.lastDate)}</td>
                         <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                           <Button
@@ -433,7 +476,7 @@ export const KmsDashboard: React.FC = () => {
                       </tr>
                       {open && (
                         <tr className="bg-gray-50">
-                          <td colSpan={7} className="p-0">
+                          <td colSpan={8} className="p-0">
                             {employeeTrips.length === 0 ? (
                               <p className="px-4 py-3 text-xs text-gray-500">No completed trips</p>
                             ) : (
