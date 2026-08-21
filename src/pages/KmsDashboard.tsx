@@ -220,7 +220,12 @@ export const KmsDashboard: React.FC = () => {
       map.set(trip.employeeId, list);
     }
     for (const list of map.values()) {
-      list.sort((a, b) => tripKm(b) - tripKm(a) || new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+      list.sort(
+        (a, b) =>
+          locationTripDateKey(b).localeCompare(locationTripDateKey(a)) ||
+          a.tripNo - b.tripNo ||
+          new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+      );
     }
     return map;
   }, [stats.completedMonth, range, todayKey]);
