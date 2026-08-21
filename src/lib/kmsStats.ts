@@ -12,6 +12,12 @@ export function shiftKmsMonth(yearMonth: string, delta: number): string {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
 }
 
+export function shiftKmsDate(dateKey: string, delta: number): string {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const next = new Date(year, month - 1, day + delta);
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+}
+
 export function kmsMonthLabel(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number);
   return new Date(year, month - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });

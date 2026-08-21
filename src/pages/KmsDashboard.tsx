@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
   Check, ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Pencil, ShieldAlert, Trash2, Users, X,
@@ -10,12 +10,13 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { PlusCodeLink } from '../components/PlusCodeLink';
 import { useStore } from '../store/useStore';
-import { formatTimeIST } from '../lib/attendance';
+import { formatTimeIST, getISTDateKey } from '../lib/attendance';
 import { googleBikeMapsUrl } from '../lib/bikeRoute';
 import { exportLocationKmsCsv } from '../lib/kmsExport';
 import {
   currentKmsMonth,
   kmsMonthLabel,
+  shiftKmsDate,
   shiftKmsMonth,
   summarizeLocationKms,
 } from '../lib/kmsStats';
@@ -189,7 +190,8 @@ export const KmsDashboard: React.FC = () => {
   const updateLocationTripKm = useStore((s) => s.updateLocationTripKm);
 
   const [month, setMonth] = useState(currentKmsMonth);
-  const [range, setRange] = useState<'today' | 'month'>('today');
+  const [range, setRange] = useState<'today' | 'day' | 'month'>('today');
+  const [selectedDate, setSelectedDate] = useState(getISTDateKey);
   const [selectedId, setSelectedId] = useState<string | 'all'>('all');
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -197,22 +199,46 @@ export const KmsDashboard: React.FC = () => {
   const stats = useMemo(() => summarizeLocationKms(trips, month), [trips, month]);
   const todayMonth = currentKmsMonth();
   const todayKey = stats.today;
+  const viewDate = range === 'month' ? null : range === 'today' ? todayKey : selectedDate;
+
+  const openDate = (date: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayKey) return;
+    setSelectedDate(date);
+    setMonth(date.slice(0, 7));
+    setRange(date === todayKey ? 'today' : 'day');
+  };
 
   const staffRows = useMemo(() => {
-    const rows = range === 'today'
-      ? stats.byEmployee.filter((row) => row.todayTrips > 0)
-      : stats.byEmployee;
-    return [...rows].sort((a, b) => (
-      range === 'today'
-        ? b.todayKm - a.todayKm || b.km - a.km
-        : b.km - a.km || b.todayKm - a.todayKm
-    ));
-  }, [stats.byEmployee, range]);
+    if (!viewDate) {
+      return [...stats.byEmployee]
+        .map((row) => ({ ...row, dayKm: row.todayKm, dayTrips: row.todayTrips }))
+        .sort((a, b) => b.km - a.km || b.dayKm - a.dayKm);
+    }
+    const monthById = new Map(stats.byEmployee.map((row) => [row.employeeId, row]));
+    const map = new Map<string, { employeeId: string; name: string; dayKm: number; dayTrips: number; km: number; trips: number; lastDate: string }>();
+    for (const trip of stats.completedMonth) {
+      if (locationTripDateKey(trip) !== viewDate) continue;
+      const monthRow = monthById.get(trip.employeeId);
+      const current = map.get(trip.employeeId) ?? {
+        employeeId: trip.employeeId,
+        name: trip.employeeName,
+        dayKm: 0,
+        dayTrips: 0,
+        km: monthRow?.km ?? 0,
+        trips: monthRow?.trips ?? 0,
+        lastDate: viewDate,
+      };
+      current.dayTrips += 1;
+      current.dayKm = Math.round((current.dayKm + tripKm(trip)) * 10) / 10;
+      map.set(trip.employeeId, current);
+    }
+    return [...map.values()].sort((a, b) => b.dayKm - a.dayKm || b.km - a.km);
+  }, [stats.byEmployee, stats.completedMonth, viewDate]);
 
   const tripsByEmployee = useMemo(() => {
     const map = new Map<string, LocationTrip[]>();
-    const source = range === 'today'
-      ? stats.completedMonth.filter((t) => locationTripDateKey(t) === todayKey)
+    const source = viewDate
+      ? stats.completedMonth.filter((t) => locationTripDateKey(t) === viewDate)
       : stats.completedMonth;
     for (const trip of source) {
       const list = map.get(trip.employeeId) ?? [];
@@ -228,14 +254,15 @@ export const KmsDashboard: React.FC = () => {
       );
     }
     return map;
-  }, [stats.completedMonth, range, todayKey]);
+  }, [stats.completedMonth, viewDate]);
 
   const handleExport = (employeeId?: string, name?: string) => {
     setExportMsg(null);
     try {
       const result = exportLocationKmsCsv(trips, employees, {
         employeeId,
-        month,
+        date: viewDate ?? undefined,
+        month: viewDate ? undefined : month,
         label: name || 'all-staff',
       });
       setExportMsg(`Downloaded ${result.count} ${result.count === 1 ? 'trip' : 'trips'} → ${result.filename}`);
@@ -298,9 +325,14 @@ export const KmsDashboard: React.FC = () => {
             <button
               type="button"
               className="p-2 rounded-md hover:bg-gray-100 text-gray-500"
-              onClick={() => setMonth((m) => shiftKmsMonth(m, -1))}
+              onClick={() => {
+                setMonth((m) => shiftKmsMonth(m, -1));
+                setRange('month');
+              }}
               aria-label="Previous month"
             >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="px-2 text-sm font-semibold text-gray-900 min-w-[9.5rem] text-center">
@@ -309,7 +341,10 @@ export const KmsDashboard: React.FC = () => {
             <button
               type="button"
               className="p-2 rounded-md hover:bg-gray-100 text-gray-500 disabled:opacity-30"
-              onClick={() => setMonth((m) => shiftKmsMonth(m, 1))}
+              onClick={() => {
+                setMonth((m) => shiftKmsMonth(m, 1));
+                setRange('month');
+              }}
               disabled={month >= todayMonth}
               aria-label="Next month"
             >
@@ -347,7 +382,7 @@ export const KmsDashboard: React.FC = () => {
         <Card className="xl:col-span-2">
           <CardHeader>
             <h2 className="text-sm font-semibold text-gray-900">Daily km · {kmsMonthLabel(month)}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Bike road km when Mappls answered, else stored trip km</p>
+            <p className="text-xs text-gray-500 mt-0.5">Tap a bar to open that day's staff list</p>
           </CardHeader>
           <CardBody>
             <ResponsiveContainer width="100%" height={240}>
@@ -356,7 +391,22 @@ export const KmsDashboard: React.FC = () => {
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<KmsChartTooltip />} cursor={{ fill: 'rgba(14,165,233,0.08)' }} />
-                <Bar dataKey="km" name="Km" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar
+                  dataKey="km"
+                  name="Km"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={28}
+                  cursor="pointer"
+                  onClick={(data) => {
+                    const point = data as { date?: string; payload?: { date?: string } };
+                    const date = point.date || point.payload?.date;
+                    if (date) openDate(date);
+                  }}
+                >
+                  {stats.daily.map((d) => (
+                    <Cell key={d.date} fill={viewDate === d.date ? '#0369a1' : '#0ea5e9'} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardBody>
@@ -403,7 +453,9 @@ export const KmsDashboard: React.FC = () => {
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Employees</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {range === 'today' ? "Today's km first. Tap a name to open today's trips." : 'Month km first. Tap a name to open trips.'}
+              {viewDate
+                ? `${formatDate(viewDate)} · highest km first. Tap a name to open trips.`
+                : 'Month km first. Tap a name to open trips.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -411,12 +463,21 @@ export const KmsDashboard: React.FC = () => {
               <button
                 type="button"
                 className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                onClick={() => {
-                  setMonth(currentKmsMonth());
-                  setRange('today');
-                }}
+                onClick={() => openDate(todayKey)}
               >
                 Today
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                onClick={() => {
+                  const date = selectedDate > todayKey ? todayKey : selectedDate;
+                  setSelectedDate(date);
+                  setMonth(date.slice(0, 7));
+                  setRange('day');
+                }}
+              >
+                Date
               </button>
               <button
                 type="button"
@@ -426,15 +487,42 @@ export const KmsDashboard: React.FC = () => {
                 Month
               </button>
             </div>
+            <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
+              <button
+                type="button"
+                className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500"
+                onClick={() => openDate(shiftKmsDate(viewDate ?? selectedDate, -1))}
+                aria-label="Previous day"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <input
+                type="date"
+                value={viewDate ?? selectedDate}
+                max={todayKey}
+                onChange={(e) => openDate(e.target.value)}
+                className="px-1 py-1 text-xs text-gray-800 bg-transparent"
+                aria-label="Pick a date"
+              />
+              <button
+                type="button"
+                className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 disabled:opacity-30"
+                onClick={() => openDate(shiftKmsDate(viewDate ?? selectedDate, 1))}
+                disabled={(viewDate ?? selectedDate) >= todayKey}
+                aria-label="Next day"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
-              Export all staff
+              {viewDate ? 'Export day' : 'Export all staff'}
             </Button>
           </div>
         </CardHeader>
         <CardBody className="p-0 overflow-x-auto">
           {staffRows.length === 0 ? (
             <p className="px-4 py-12 text-center text-sm text-gray-400">
-              {range === 'today' ? 'No trips today' : `No trips in ${kmsMonthLabel(month)}`}
+              {viewDate ? `No trips on ${formatDate(viewDate)}` : `No trips in ${kmsMonthLabel(month)}`}
             </p>
           ) : (
             <table className="min-w-full text-sm">
@@ -442,8 +530,8 @@ export const KmsDashboard: React.FC = () => {
                 <tr>
                   <th className="px-4 py-2.5 w-10">#</th>
                   <th className="px-4 py-2.5">Employee</th>
-                  <th className="px-4 py-2.5 text-right">Today km</th>
-                  <th className="px-4 py-2.5 text-right">Today trips</th>
+                  <th className="px-4 py-2.5 text-right">{viewDate && viewDate !== todayKey ? 'Day km' : 'Today km'}</th>
+                  <th className="px-4 py-2.5 text-right">{viewDate && viewDate !== todayKey ? 'Day trips' : 'Today trips'}</th>
                   <th className="px-4 py-2.5 text-right">Month km</th>
                   <th className="px-4 py-2.5 text-right">Month trips</th>
                   <th className="px-4 py-2.5">Last trip</th>
@@ -462,8 +550,8 @@ export const KmsDashboard: React.FC = () => {
                       >
                         <td className="px-4 py-2.5 text-xs font-semibold tabular-nums text-gray-400">{index + 1}</td>
                         <td className="px-4 py-2.5 font-medium text-gray-900">{row.name}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-400">{row.todayKm}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.todayTrips}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-sky-400">{row.dayKm}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.dayTrips}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.km}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{row.trips}</td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-gray-700">{formatDate(row.lastDate)}</td>

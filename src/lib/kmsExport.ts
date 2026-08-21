@@ -28,20 +28,21 @@ export function locationTripsForExport(
   trips: LocationTrip[],
   employeeId?: string,
   month?: string,
+  date?: string,
 ): LocationTrip[] {
   return [...trips]
     .filter((t) => t.status === 'completed')
     .filter((t) => (employeeId ? t.employeeId === employeeId : true))
-    .filter((t) => (month ? locationTripDateKey(t).startsWith(month) : true))
+    .filter((t) => (date ? locationTripDateKey(t) === date : month ? locationTripDateKey(t).startsWith(month) : true))
     .sort((a, b) => locationTripDateKey(a).localeCompare(locationTripDateKey(b)) || a.tripNo - b.tripNo);
 }
 
 export function exportLocationKmsCsv(
   trips: LocationTrip[],
   employees: Employee[],
-  options: { employeeId?: string; month?: string; label?: string },
+  options: { employeeId?: string; month?: string; date?: string; label?: string },
 ): { count: number; filename: string } {
-  const rows = locationTripsForExport(trips, options.employeeId, options.month);
+  const rows = locationTripsForExport(trips, options.employeeId, options.month, options.date);
   if (rows.length === 0) {
     throw new Error('No completed trips to export for this selection.');
   }
@@ -50,7 +51,7 @@ export function exportLocationKmsCsv(
   const filename = [
     'kms',
     options.label ? slug(options.label) : options.employeeId ? 'employee' : 'all-staff',
-    options.month || 'all',
+    options.date || options.month || 'all',
   ].join('-');
 
   downloadCsv(
