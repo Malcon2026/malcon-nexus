@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { EmployeeLeaveApprovalsPanel } from './EmployeeLeaveApprovalsPanel';
 import { EmployeeAttendanceApprovalsPanel } from './EmployeeAttendanceApprovalsPanel';
+import { useStore } from '../store/useStore';
 import { countPendingLeaveSubmissions } from '../lib/leave';
 
 type ApprovalFilter = 'all' | 'leave' | 'offsite';
