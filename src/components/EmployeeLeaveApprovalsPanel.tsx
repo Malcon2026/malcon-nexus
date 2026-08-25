@@ -9,8 +9,15 @@ import { Avatar } from './ui/Avatar';
 import { Modal } from './ui/Modal';
 import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
-import type { LeaveRequest } from '../types';
-import { countWorkingLeaveDays, formatCompOffWorkDate, formatLeaveDateRange } from '../lib/leave';
+import {
+  countWorkingLeaveDays,
+  formatCompOffWorkDate,
+  formatLeaveDateRange,
+  formatLeaveTypeBreakdown,
+  groupLeaveSubmissions,
+  leaveGroupHasQuotaSplit,
+  type LeaveSubmissionGroup,
+} from '../lib/leave';
 
 const statusConfig = {
   pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -28,7 +35,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
 
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [refreshing, setRefreshing] = useState(false);
-  const [reviewing, setReviewing] = useState<LeaveRequest | null>(null);
+  const [reviewing, setReviewing] = useState<LeaveSubmissionGroup | null>(null);
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -39,19 +46,13 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
     [employees],
   );
 
-  const sorted = useMemo(
-    () =>
-      [...leaveRequests].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      ),
-    [leaveRequests],
-  );
+  const groups = useMemo(() => groupLeaveSubmissions(leaveRequests), [leaveRequests]);
 
   const filtered = filter === 'pending'
-    ? sorted.filter((r) => r.status === 'pending')
-    : sorted;
+    ? groups.filter((g) => g.status === 'pending')
+    : groups;
 
-  const pendingCount = sorted.filter((r) => r.status === 'pending').length;
+  const pendingCount = groups.filter((g) => g.status === 'pending').length;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -64,7 +65,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
     }
   };
 
-  const openReview = (request: LeaveRequest, action: 'approve' | 'reject') => {
+  const openReview = (group: LeaveSubmissionGroup, action: 'approve' | 'reject') => {
     setReviewing(request);
     setReviewAction(action);
     setAdminNotes('');
@@ -80,17 +81,19 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
   };
 
   const submitReview = async () => {
-    if (!reviewing || !reviewAction) return;
+    if (!reviewing || !reviewAction || reviewing.pendingIds.length === 0) return;
     setSubmitting(true);
     setError(null);
     try {
-      const result =
-        reviewAction === 'approve'
-          ? await approveLeave(reviewing.id, adminNotes)
-          : await rejectLeave(reviewing.id, adminNotes);
-      if (result.error) {
-        setError(result.error);
-        return;
+      for (const id of reviewing.pendingIds) {
+        const result =
+          reviewAction === 'approve'
+            ? await approveLeave(id, adminNotes)
+            : await rejectLeave(id, adminNotes);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
       }
       closeReview();
     } finally {
@@ -135,55 +138,78 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((request) => {
-            const emp = employeeById.get(request.employeeId);
+          {filtered.map((group) => {
+            const emp = employeeById.get(group.employeeId);
             const dept = emp?.department ?? 'Stores';
-            const days = countWorkingLeaveDays(request.fromDate, request.toDate);
-            const sc = statusConfig[request.status];
+            const days = countWorkingLeaveDays(group.fromDate, group.toDate);
+            const sc = statusConfig[group.status];
+            const split = leaveGroupHasQuotaSplit(group.segments);
+            const typeLabel = group.segments.length === 1
+              ? group.segments[0].leaveType
+              : formatLeaveTypeBreakdown(group.segments);
 
             return (
-              <Card key={request.id}>
+              <Card key={group.key}>
                 <CardBody>
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="flex items-start gap-3 min-w-0">
-                      <Avatar name={request.employeeName} size="md" />
+                      <Avatar name={group.employeeName} size="md" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900">{request.employeeName}</p>
+                          <p className="text-sm font-semibold text-gray-900">{group.employeeName}</p>
                           <Badge className={`${departmentColors[dept]} text-xs`}>{dept}</Badge>
                           <Badge className={`${sc.className} text-xs`}>{sc.label}</Badge>
                         </div>
                         <p className="text-sm text-gray-800 mt-1">
-                          <span className="font-medium">{request.leaveType}</span>
+                          <span className="font-medium">{typeLabel}</span>
                           {' · '}
-                          {formatLeaveDateRange(request.fromDate, request.toDate)}
+                          {formatLeaveDateRange(group.fromDate, group.toDate)}
                           {' · '}
                           <span className="text-gray-500">{days} working day{days === 1 ? '' : 's'}</span>
                         </p>
-                        {request.leaveType === 'Comp Off' && request.compOffWorkDate && (
+                        {group.segments.length > 1 && (
+                          <ul className="mt-2 space-y-1">
+                            {group.segments.map((segment) => (
+                              <li key={segment.id} className="text-xs text-gray-700">
+                                <span className="font-medium">{formatLeaveDateRange(segment.fromDate, segment.toDate)}</span>
+                                {' · '}
+                                {segment.leaveType}
+                                {segment.leaveType === 'Unpaid' && split ? (
+                                  <span className="text-amber-700"> · extra day after 1 Casual this salary month</span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {split && (
+                          <p className="text-[11px] text-amber-800 mt-2">
+                            One Casual day is allowed per salary month (28th–27th). Extra days become Unpaid.
+                          </p>
+                        )}
+                        {group.segments.some((s) => s.leaveType === 'Comp Off' && s.compOffWorkDate) && (
                           <p className="text-xs text-violet-700 mt-1">
-                            Work day: {formatCompOffWorkDate(request.compOffWorkDate)}
+                            Work day: {formatCompOffWorkDate(group.segments.find((s) => s.compOffWorkDate)?.compOffWorkDate)}
                           </p>
                         )}
                         <p className="text-xs text-gray-600 mt-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                          {request.reason}
+                          {group.reason}
                         </p>
-                        {request.reviewedBy && (
+                        {group.segments[0].reviewedBy && (
                           <p className="text-[10px] text-gray-400 mt-2">
-                            Reviewed by {request.reviewedBy}
-                            {request.adminNotes ? ` — ${request.adminNotes}` : ''}
+                            Reviewed by {group.segments[0].reviewedBy}
+                            {group.segments[0].adminNotes ? ` — ${group.segments[0].adminNotes}` : ''}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    {request.status === 'pending' && (
+                    {group.status === 'pending' && (
                       <div className="flex gap-2 shrink-0">
                         <Button
                           variant="primary"
                           size="sm"
                           icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                          onClick={() => openReview(request, 'approve')}
+                          onClick={() => openReview(group, 'approve')}
                         >
                           Approve
                         </Button>
@@ -191,7 +217,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
                           variant="outline"
                           size="sm"
                           icon={<XCircle className="h-3.5 w-3.5" />}
-                          onClick={() => openReview(request, 'reject')}
+                          onClick={() => openReview(group, 'reject')}
                         >
                           Reject
                         </Button>
@@ -211,9 +237,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
           onClose={closeReview}
           title={reviewAction === 'approve' ? 'Approve Leave' : 'Reject Leave'}
           subtitle={
-            reviewing.leaveType === 'Comp Off' && reviewing.compOffWorkDate
-              ? `${reviewing.employeeName} — Comp Off (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)}), work day ${formatCompOffWorkDate(reviewing.compOffWorkDate)}`
-              : `${reviewing.employeeName} — ${reviewing.leaveType} (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)})`
+            `${reviewing.employeeName} — ${formatLeaveTypeBreakdown(reviewing.segments)} (${formatLeaveDateRange(reviewing.fromDate, reviewing.toDate)})`
           }
           size="sm"
           footer={
@@ -233,7 +257,18 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
           <div className="p-6 space-y-4">
             <div className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg p-3">
               <AlertCircle className="h-4 w-4 shrink-0 text-gray-400 mt-0.5" />
-              <span>{reviewing.reason}</span>
+              <div className="space-y-1">
+                {reviewing.segments.length > 1 && (
+                  <ul className="space-y-0.5">
+                    {reviewing.segments.map((segment) => (
+                      <li key={segment.id}>
+                        {formatLeaveDateRange(segment.fromDate, segment.toDate)} · {segment.leaveType}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <span>{reviewing.reason}</span>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Admin notes (optional)</label>

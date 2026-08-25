@@ -21,6 +21,7 @@ import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
 import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
+import { countPendingLeaveSubmissions } from '../lib/leave';
 import { openLocationTrip } from '../lib/locationTrip';
 
 type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'location';
@@ -62,7 +63,7 @@ const HomeNavTiles: React.FC<{
   const myCases = useMyCases(employee);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const pendingLeaveCount = useStore(
-    (s) => s.leaveRequests.filter((lr) => lr.employeeId === employee.id && lr.status === 'pending').length,
+    (s) => countPendingLeaveSubmissions(s.leaveRequests.filter((lr) => lr.employeeId === employee.id)),
   );
   const petrolPending = useStore(
     (s) => s.petrolRequests.filter((r) => r.employeeId === employee.id && r.status === 'pending').length,

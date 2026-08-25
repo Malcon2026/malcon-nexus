@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { EmployeeLeaveApprovalsPanel } from './EmployeeLeaveApprovalsPanel';
 import { EmployeeAttendanceApprovalsPanel } from './EmployeeAttendanceApprovalsPanel';
-import { useStore } from '../store/useStore';
+import { countPendingLeaveSubmissions } from '../lib/leave';
 
 type ApprovalFilter = 'all' | 'leave' | 'offsite';
 
 export const AttendanceApprovalsPanel: React.FC = () => {
-  const pendingLeaveCount = useStore((s) =>
-    s.leaveRequests.filter((r) => r.status === 'pending').length,
-  );
+  const pendingLeaveCount = useStore((s) => countPendingLeaveSubmissions(s.leaveRequests));
   const pendingOffsiteCount = useStore((s) =>
     s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
   );

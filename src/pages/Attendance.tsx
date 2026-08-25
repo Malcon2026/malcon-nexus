@@ -5,14 +5,13 @@ import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
 import { AttendanceApprovalsPanel } from '../components/AttendanceApprovalsPanel';
+import { countPendingLeaveSubmissions } from '../lib/leave';
 
 type AttendanceTab = 'today' | 'register' | 'approvals';
 
 export const Attendance: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
-  const pendingLeaveCount = useStore((s) =>
-    s.leaveRequests.filter((r) => r.status === 'pending').length,
-  );
+  const pendingLeaveCount = useStore((s) => countPendingLeaveSubmissions(s.leaveRequests));
   const pendingOffsiteCount = useStore((s) =>
     s.attendanceApprovalRequests.filter((r) => r.status === 'pending').length,
   );

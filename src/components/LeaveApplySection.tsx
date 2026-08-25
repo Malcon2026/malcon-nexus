@@ -7,12 +7,7 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { useStore } from '../store/useStore';
 import type { LeaveRequest, LeaveType } from '../types';
-import {
-  LEAVE_TYPES,
-  countWorkingLeaveDays,
-  formatCompOffWorkDate,
-  formatLeaveDateRange,
-} from '../lib/leave';
+import { countWorkingLeaveDays, formatCompOffWorkDate, formatLeaveDateRange, formatLeaveTypeBreakdown, groupLeaveSubmissions, LEAVE_TYPES, originalLeaveReason } from '../lib/leave';
 import { getISTDateKey } from '../lib/attendance';
 import { Te } from './BilingualText';
 
@@ -46,10 +41,7 @@ export const LeaveApplySection: React.FC = () => {
   const today = getISTDateKey();
   const myLeaves = useMemo(
     () =>
-      leaveRequests
-        .filter((lr) => lr.employeeId === currentUser.id)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 8),
+      groupLeaveSubmissions(leaveRequests.filter((lr) => lr.employeeId === currentUser.id)).slice(0, 8),
     [leaveRequests, currentUser.id],
   );
 
@@ -123,10 +115,15 @@ export const LeaveApplySection: React.FC = () => {
     }
   };
 
-  const handleCancel = async (id: string) => {
+  const handleCancel = async (ids: string[]) => {
     setError(null);
-    const result = await cancelLeave(id);
-    if (result.error) setError(result.error);
+    for (const id of ids) {
+      const result = await cancelLeave(id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+    }
   };
 
   return (
@@ -278,38 +275,49 @@ export const LeaveApplySection: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {myLeaves.map((lr) => (
+              {myLeaves.map((group) => (
                 <div
-                  key={lr.id}
+                  key={group.key}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-gray-50 border border-gray-100 rounded-lg"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">{lr.leaveType}</span>
-                      <Badge className={`${statusBadge[lr.status]} text-xs capitalize`}>{lr.status}</Badge>
+                      <span className="text-sm font-medium text-gray-900">
+                        {group.segments.length === 1
+                          ? group.segments[0].leaveType
+                          : formatLeaveTypeBreakdown(group.segments)}
+                      </span>
+                      <Badge className={`${statusBadge[group.status]} text-xs capitalize`}>{group.status}</Badge>
                     </div>
-                    <p className="text-xs text-gray-600 mt-0.5">{formatLeaveDateRange(lr.fromDate, lr.toDate)}</p>
-                    {lr.leaveType === 'Comp Off' && lr.compOffWorkDate && (
-                      <p className="text-xs text-violet-700 mt-0.5">
-                        Work day: {formatCompOffWorkDate(lr.compOffWorkDate)}
+                    <p className="text-xs text-gray-600 mt-0.5">{formatLeaveDateRange(group.fromDate, group.toDate)}</p>
+                    {group.segments.length > 1 && (
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {group.segments
+                          .map((s) => `${formatLeaveDateRange(s.fromDate, s.toDate)} ${s.leaveType}`)
+                          .join(' · ')}
                       </p>
                     )}
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{lr.reason}</p>
+                    {group.segments.some((s) => s.leaveType === 'Comp Off' && s.compOffWorkDate) && (
+                      <p className="text-xs text-violet-700 mt-0.5">
+                        Work day: {formatCompOffWorkDate(group.segments.find((s) => s.compOffWorkDate)?.compOffWorkDate)}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 truncate mt-0.5">{originalLeaveReason(group.reason)}</p>
                   </div>
-                  {lr.status === 'pending' && (
+                  {group.status === 'pending' && (
                     <Button
                       variant="outline"
                       size="sm"
                       icon={<XCircle className="h-3.5 w-3.5" />}
-                      onClick={() => void handleCancel(lr.id)}
+                      onClick={() => void handleCancel(group.pendingIds)}
                     >
                       Cancel
                     </Button>
                   )}
-                  {lr.status === 'approved' && (
+                  {group.status === 'approved' && (
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 hidden sm:block" />
                   )}
-                  {lr.status === 'pending' && (
+                  {group.status === 'pending' && (
                     <Clock className="h-4 w-4 text-amber-500 shrink-0 hidden sm:block" />
                   )}
                 </div>

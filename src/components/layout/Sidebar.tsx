@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
+import { countPendingLeaveSubmissions } from '../../lib/leave';
 import loginLogo from '../../assets/login-logo.png';
 
 interface NavItem {
@@ -71,7 +72,7 @@ export const Sidebar: React.FC = () => {
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval').length;
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval').length;
   const pendingAttendanceApprovals =
-    leaveRequests.filter((r) => r.status === 'pending').length +
+    countPendingLeaveSubmissions(leaveRequests) +
     attendanceApprovalRequests.filter((r) => r.status === 'pending').length;
 
   const getBadge = (id: string) => {

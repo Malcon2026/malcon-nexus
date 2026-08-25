@@ -329,3 +329,81 @@ export function formatLeaveDateRange(fromDate: string, toDate: string): string {
   if (fromDate === toDate) return fmt(fromDate);
   return `${fmt(fromDate)} – ${fmt(toDate)}`;
 }
+
+const AUTO_QUOTA_REASON = / \(Auto: (?:Casual|Sick) quota used — unpaid\)$/;
+
+export function originalLeaveReason(reason: string): string {
+  return reason.replace(AUTO_QUOTA_REASON, '').trim();
+}
+
+export type LeaveSubmissionGroup = {
+  key: string;
+  employeeId: string;
+  employeeName: string;
+  createdAt: string;
+  segments: LeaveRequest[];
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  status: LeaveRequest['status'];
+  pendingIds: string[];
+};
+
+export function leaveSubmissionKey(request: LeaveRequest): string {
+  return `${request.employeeId}::${request.createdAt}`;
+}
+
+export function groupLeaveSubmissions(requests: LeaveRequest[]): LeaveSubmissionGroup[] {
+  const map = new Map<string, LeaveRequest[]>();
+  for (const request of requests) {
+    const key = leaveSubmissionKey(request);
+    const list = map.get(key) ?? [];
+    list.push(request);
+    map.set(key, list);
+  }
+
+  const groups: LeaveSubmissionGroup[] = [];
+  for (const [key, rows] of map) {
+    const segments = [...rows].sort(
+      (a, b) => a.fromDate.localeCompare(b.fromDate) || a.toDate.localeCompare(b.toDate),
+    );
+    const pending = segments.filter((s) => s.status === 'pending');
+    groups.push({
+      key,
+      employeeId: segments[0].employeeId,
+      employeeName: segments[0].employeeName,
+      createdAt: segments[0].createdAt,
+      segments,
+      fromDate: segments[0].fromDate,
+      toDate: segments[segments.length - 1].toDate,
+      reason: originalLeaveReason(segments[0].reason),
+      status: pending.length > 0 ? 'pending' : segments[0].status,
+      pendingIds: pending.map((s) => s.id),
+    });
+  }
+
+  return groups.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+export function countPendingLeaveSubmissions(requests: LeaveRequest[]): number {
+  return groupLeaveSubmissions(requests).filter((g) => g.status === 'pending').length;
+}
+
+export function formatLeaveTypeBreakdown(segments: LeaveRequest[]): string {
+  const counts = new Map<string, number>();
+  for (const segment of segments) {
+    const days = countWorkingLeaveDays(segment.fromDate, segment.toDate);
+    counts.set(segment.leaveType, (counts.get(segment.leaveType) ?? 0) + days);
+  }
+  return [...counts.entries()]
+    .map(([type, days]) => `${days} ${type}`)
+    .join(' + ');
+}
+
+export function leaveGroupHasQuotaSplit(segments: LeaveRequest[]): boolean {
+  return segments.some((s) => AUTO_QUOTA_REASON.test(s.reason) || (
+    segments.length > 1 && segments.some((row) => row.leaveType === 'Unpaid') && segments.some((row) => row.leaveType === 'Casual' || row.leaveType === 'Sick')
+  ));
+}
