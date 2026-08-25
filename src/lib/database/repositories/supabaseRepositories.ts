@@ -804,6 +804,23 @@ export const sbLeaveRepo = {
   },
 
   async insert(request: LeaveRequest): Promise<void> {
+    if (request.status === 'pending' && !request.reviewedById) {
+      const { error: rpcError } = await supabase.rpc('submit_own_leave', {
+        p_id: request.id,
+        p_leave_type: request.leaveType,
+        p_from_date: request.fromDate,
+        p_to_date: request.toDate,
+        p_reason: request.reason,
+        p_comp_off_work_date: request.compOffWorkDate,
+      });
+      if (!rpcError) return;
+      const rpcMessage = `${rpcError.message} ${rpcError.details ?? ''} ${rpcError.hint ?? ''}`;
+      const rpcMissing =
+        rpcMessage.includes('submit_own_leave') &&
+        (rpcMessage.includes('does not exist') || rpcMessage.includes('Could not find the function'));
+      if (!rpcMissing) throw rpcError;
+    }
+
     const { error } = await supabase.from('leave_requests').insert({
       id: request.id,
       employee_id: request.employeeId,

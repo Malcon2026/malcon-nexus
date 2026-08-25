@@ -192,6 +192,7 @@ export function splitLeaveByClSlQuota(
 
   for (const dayKey of iterateDateKeys(from, to)) {
     if (excludeDates?.has(dayKey)) continue;
+    if (isWeeklyOffDateKey(dayKey)) continue;
 
     const cycle = getSalaryMonthForDateKey(dayKey);
     const cycleKey = salaryCycleKey(cycle.year, cycle.month);

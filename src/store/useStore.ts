@@ -492,12 +492,24 @@ const updateAttendanceApprovalRequest = async (
   return { error: null };
 };
 
+function supabaseErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const e = err as { message?: unknown; details?: unknown; hint?: unknown };
+    const parts = [e.message, e.details, e.hint].filter(
+      (part): part is string => typeof part === 'string' && part.trim().length > 0,
+    );
+    if (parts.length) return parts.join(' — ');
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
+
 const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: string | null }> => {
   if (USE_SUPABASE) {
     try {
       await sbLeaveRepo.insert(request);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save leave request';
+      const message = supabaseErrorMessage(err, 'Failed to save leave request');
       console.error('[leave] persist failed:', err);
       if (message.includes('leave_requests') && message.includes('does not exist')) {
         return { error: 'Leave management is not set up in the database yet. Please run the leave migration.' };

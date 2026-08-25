@@ -264,6 +264,17 @@ export interface Database {
         Args: Record<string, never>;
         Returns: string;
       };
+      submit_own_leave: {
+        Args: {
+          p_id: string;
+          p_leave_type: string;
+          p_from_date: string;
+          p_to_date: string;
+          p_reason: string;
+          p_comp_off_work_date?: string | null;
+        };
+        Returns: undefined;
+      };
     };
   };
 }
