@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  CheckCircle2, XCircle, Clock, RefreshCw, CalendarDays, AlertCircle,
+  CheckCircle2, ChevronDown, XCircle, RefreshCw, CalendarDays, AlertCircle,
 } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -34,6 +34,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
 
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reviewing, setReviewing] = useState<LeaveSubmissionGroup | null>(null);
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | null>(null);
@@ -66,7 +67,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
   };
 
   const openReview = (group: LeaveSubmissionGroup, action: 'approve' | 'reject') => {
-    setReviewing(request);
+    setReviewing(group);
     setReviewAction(action);
     setAdminNotes('');
     setError(null);
@@ -137,93 +138,100 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
           </p>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filtered.map((group) => {
             const emp = employeeById.get(group.employeeId);
             const dept = emp?.department ?? 'Stores';
             const days = countWorkingLeaveDays(group.fromDate, group.toDate);
             const sc = statusConfig[group.status];
             const split = leaveGroupHasQuotaSplit(group.segments);
+            const open = openKey === group.key;
             const typeLabel = group.segments.length === 1
               ? group.segments[0].leaveType
               : formatLeaveTypeBreakdown(group.segments);
 
             return (
-              <Card key={group.key}>
-                <CardBody>
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <Avatar name={group.employeeName} size="md" />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900">{group.employeeName}</p>
-                          <Badge className={`${departmentColors[dept]} text-xs`}>{dept}</Badge>
-                          <Badge className={`${sc.className} text-xs`}>{sc.label}</Badge>
-                        </div>
-                        <p className="text-sm text-gray-800 mt-1">
-                          <span className="font-medium">{typeLabel}</span>
-                          {' · '}
-                          {formatLeaveDateRange(group.fromDate, group.toDate)}
-                          {' · '}
-                          <span className="text-gray-500">{days} working day{days === 1 ? '' : 's'}</span>
-                        </p>
-                        {group.segments.length > 1 && (
-                          <ul className="mt-2 space-y-1">
-                            {group.segments.map((segment) => (
-                              <li key={segment.id} className="text-xs text-gray-700">
-                                <span className="font-medium">{formatLeaveDateRange(segment.fromDate, segment.toDate)}</span>
-                                {' · '}
-                                {segment.leaveType}
-                                {segment.leaveType === 'Unpaid' && split ? (
-                                  <span className="text-amber-700"> · extra day after 1 Casual this salary month</span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {split && (
-                          <p className="text-[11px] text-amber-800 mt-2">
-                            One Casual day is allowed per salary month (28th–27th). Extra days become Unpaid.
-                          </p>
-                        )}
-                        {group.segments.some((s) => s.leaveType === 'Comp Off' && s.compOffWorkDate) && (
-                          <p className="text-xs text-violet-700 mt-1">
-                            Work day: {formatCompOffWorkDate(group.segments.find((s) => s.compOffWorkDate)?.compOffWorkDate)}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-600 mt-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                          {group.reason}
-                        </p>
-                        {group.segments[0].reviewedBy && (
-                          <p className="text-[10px] text-gray-400 mt-2">
-                            Reviewed by {group.segments[0].reviewedBy}
-                            {group.segments[0].adminNotes ? ` — ${group.segments[0].adminNotes}` : ''}
-                          </p>
-                        )}
+              <Card key={group.key} className={open ? 'ring-1 ring-indigo-200' : ''}>
+                <CardBody className="p-0">
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-3 flex items-start gap-3"
+                    onClick={() => setOpenKey((key) => (key === group.key ? null : group.key))}
+                  >
+                    <Avatar name={group.employeeName} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-900">{group.employeeName}</p>
+                        <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 mt-0.5 transition-transform ${open ? 'rotate-180' : ''}`} />
                       </div>
+                      <p className="text-xs text-gray-700 mt-0.5">
+                        {days} day{days === 1 ? '' : 's'}
+                        {' · '}
+                        {formatLeaveDateRange(group.fromDate, group.toDate)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{group.reason}</p>
                     </div>
+                  </button>
 
-                    {group.status === 'pending' && (
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                          onClick={() => openReview(group, 'approve')}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<XCircle className="h-3.5 w-3.5" />}
-                          onClick={() => openReview(group, 'reject')}
-                        >
-                          Reject
-                        </Button>
+                  {open && (
+                    <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={`${departmentColors[dept]} text-xs`}>{dept}</Badge>
+                        <Badge className={`${sc.className} text-xs`}>{sc.label}</Badge>
+                        <span className="text-xs text-gray-600">{typeLabel}</span>
                       </div>
-                    )}
-                  </div>
+                      {group.segments.length > 1 && (
+                        <ul className="space-y-1">
+                          {group.segments.map((segment) => (
+                            <li key={segment.id} className="text-xs text-gray-700">
+                              <span className="font-medium">{formatLeaveDateRange(segment.fromDate, segment.toDate)}</span>
+                              {' · '}
+                              {segment.leaveType}
+                              {segment.leaveType === 'Unpaid' && split ? (
+                                <span className="text-amber-700"> · extra day after 1 Casual this salary month</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {split && (
+                        <p className="text-[11px] text-amber-800">
+                          One Casual day is allowed per salary month (28th–27th). Extra days become Unpaid.
+                        </p>
+                      )}
+                      {group.segments.some((s) => s.leaveType === 'Comp Off' && s.compOffWorkDate) && (
+                        <p className="text-xs text-violet-700">
+                          Work day: {formatCompOffWorkDate(group.segments.find((s) => s.compOffWorkDate)?.compOffWorkDate)}
+                        </p>
+                      )}
+                      {group.segments[0].reviewedBy && (
+                        <p className="text-[10px] text-gray-400">
+                          Reviewed by {group.segments[0].reviewedBy}
+                          {group.segments[0].adminNotes ? ` — ${group.segments[0].adminNotes}` : ''}
+                        </p>
+                      )}
+                      {group.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                            onClick={() => openReview(group, 'approve')}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<XCircle className="h-3.5 w-3.5" />}
+                            onClick={() => openReview(group, 'reject')}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardBody>
               </Card>
             );
