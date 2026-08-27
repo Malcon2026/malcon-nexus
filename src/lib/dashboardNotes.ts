@@ -19,24 +19,37 @@ export interface DashboardNote {
   updatedAt: number;
 }
 
-export const DASHBOARD_NOTE_COLORS: {
+export interface NoteColorStyle {
   id: DashboardNoteColor;
-  card: string;
-  border: string;
-  dot: string;
-}[] = [
-  { id: 'default', card: 'bg-white', border: 'border-gray-300', dot: 'bg-white border border-gray-300' },
-  { id: 'yellow', card: 'bg-amber-50', border: 'border-amber-400', dot: 'bg-amber-400' },
-  { id: 'green', card: 'bg-emerald-50', border: 'border-emerald-400', dot: 'bg-emerald-400' },
-  { id: 'blue', card: 'bg-sky-50', border: 'border-sky-400', dot: 'bg-sky-400' },
-  { id: 'pink', card: 'bg-pink-50', border: 'border-pink-400', dot: 'bg-pink-400' },
-  { id: 'purple', card: 'bg-violet-50', border: 'border-violet-400', dot: 'bg-violet-400' },
-  { id: 'orange', card: 'bg-orange-50', border: 'border-orange-400', dot: 'bg-orange-400' },
-  { id: 'gray', card: 'bg-gray-50', border: 'border-gray-400', dot: 'bg-gray-400' },
+  label: string;
+  background: string;
+  borderColor: string;
+  dotColor: string;
+}
+
+export const NOTE_COLOR_STYLES: NoteColorStyle[] = [
+  { id: 'default', label: 'Default', background: 'var(--mn-surface)', borderColor: '#5c667a', dotColor: '#5c667a' },
+  { id: 'yellow', label: 'Yellow', background: 'rgba(251, 191, 36, 0.14)', borderColor: '#fbbf24', dotColor: '#fbbf24' },
+  { id: 'green', label: 'Green', background: 'rgba(52, 211, 153, 0.14)', borderColor: '#34d399', dotColor: '#34d399' },
+  { id: 'blue', label: 'Blue', background: 'rgba(96, 165, 250, 0.14)', borderColor: '#60a5fa', dotColor: '#60a5fa' },
+  { id: 'pink', label: 'Pink', background: 'rgba(244, 114, 182, 0.14)', borderColor: '#f472b6', dotColor: '#f472b6' },
+  { id: 'purple', label: 'Purple', background: 'rgba(167, 139, 250, 0.14)', borderColor: '#a78bfa', dotColor: '#a78bfa' },
+  { id: 'orange', label: 'Orange', background: 'rgba(251, 146, 60, 0.14)', borderColor: '#fb923c', dotColor: '#fb923c' },
+  { id: 'gray', label: 'Gray', background: 'rgba(148, 163, 184, 0.12)', borderColor: '#94a3b8', dotColor: '#94a3b8' },
 ];
 
-export const getNoteColorClasses = (color: DashboardNoteColor) =>
-  DASHBOARD_NOTE_COLORS.find((c) => c.id === color) ?? DASHBOARD_NOTE_COLORS[0];
+/** @deprecated use getNoteColorStyle */
+export const DASHBOARD_NOTE_COLORS = NOTE_COLOR_STYLES.map((s) => ({
+  id: s.id,
+  card: '',
+  border: '',
+  dot: '',
+}));
+
+export const getNoteColorStyle = (color: DashboardNoteColor): NoteColorStyle =>
+  NOTE_COLOR_STYLES.find((s) => s.id === color) ?? NOTE_COLOR_STYLES[0];
+
+export const getNoteColorClasses = (color: DashboardNoteColor) => getNoteColorStyle(color);
 
 const MAX_TITLE = 120;
 
@@ -97,10 +110,30 @@ export const serializeDashboardNotes = (notes: DashboardNote[]): string =>
   );
 
 const isNoteColor = (value: unknown): value is DashboardNoteColor =>
-  typeof value === 'string' && DASHBOARD_NOTE_COLORS.some((c) => c.id === value);
+  typeof value === 'string' && NOTE_COLOR_STYLES.some((c) => c.id === value);
 
 export const sortDashboardNotes = (notes: DashboardNote[]): DashboardNote[] =>
   [...notes].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     return b.updatedAt - a.updatedAt;
   });
+
+export const formatNoteDate = (ts: number): string => {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  if (sameDay) {
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+export const noteMatchesSearch = (note: DashboardNote, query: string): boolean => {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const bodyText = note.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+  return note.title.toLowerCase().includes(q) || bodyText.includes(q);
+};

@@ -11,6 +11,7 @@ interface RichTextEditorProps {
   minHeight?: string;
   disabled?: boolean;
   embedded?: boolean;
+  dark?: boolean;
   showLink?: boolean;
   showColors?: boolean;
 }
@@ -48,6 +49,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   minHeight = '120px',
   disabled = false,
   embedded = false,
+  dark = false,
   showLink = true,
   showColors = true,
 }) => {
@@ -125,13 +127,25 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div className={`overflow-hidden ${embedded ? '' : `rounded-xl border border-gray-200 bg-white ${disabled ? 'opacity-60 pointer-events-none' : ''}`}`}>
-      <div className={`flex flex-wrap items-center gap-0.5 px-2 py-1.5 ${embedded ? 'border-b border-black/5 bg-transparent' : 'border-b border-gray-100 bg-gray-50'}`}>
+      <div
+        className={
+          embedded
+            ? dark
+              ? 'note-rich-toolbar'
+              : 'flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-black/5 bg-transparent'
+            : 'flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50'
+        }
+      >
         {tools.map((t) => (
           <button
             key={t.label}
             type="button"
             title={t.label}
-            className={`p-1.5 rounded-md text-gray-600 transition-colors ${embedded ? 'hover:bg-black/5 hover:text-gray-900' : 'hover:bg-white hover:text-gray-900 hover:shadow-sm'}`}
+            className={
+              embedded && dark
+                ? ''
+                : `p-1.5 rounded-md text-gray-600 transition-colors ${embedded ? 'hover:bg-black/5 hover:text-gray-900' : 'hover:bg-white hover:text-gray-900 hover:shadow-sm'}`
+            }
             onMouseDown={(e) => {
               e.preventDefault();
               if (t.onClick) t.onClick();
@@ -169,7 +183,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         contentEditable={!disabled}
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        className={`notice-rich-editor text-sm text-stone-800 leading-relaxed outline-none focus:ring-0 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 ${embedded ? 'px-0 py-2' : 'px-3 py-2.5'}`}
+        className={`notice-rich-editor text-sm leading-relaxed outline-none focus:ring-0 empty:before:content-[attr(data-placeholder)] ${
+          dark
+            ? 'text-[var(--mn-text)] empty:before:text-[var(--mn-dim)]'
+            : 'text-stone-800 empty:before:text-gray-400'
+        } ${embedded ? 'px-0 py-2' : 'px-3 py-2.5'}`}
         style={{ minHeight }}
         onInput={emit}
         onBlur={emit}

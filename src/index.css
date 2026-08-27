@@ -372,6 +372,127 @@ textarea {
   }
 }
 
+/* ── Admin Notes page (Google Keep style, dark theme) ── */
+.notes-composer-shell {
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-border-strong);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.notes-composer-shell:focus-within {
+  border-color: rgba(124, 108, 240, 0.45);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(124, 108, 240, 0.12);
+}
+
+.notes-composer-trigger {
+  background: var(--mn-surface);
+  border: 1px solid var(--mn-border-strong);
+  border-radius: 1rem;
+  color: var(--mn-dim);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.notes-composer-trigger:hover {
+  background: var(--mn-surface-2);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: var(--mn-muted);
+}
+
+.note-card {
+  border-radius: 1rem;
+  border-width: 2px;
+  border-style: solid;
+  background: var(--mn-surface);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.note-card-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.note-card:hover .note-card-actions,
+.note-card:focus-within .note-card-actions {
+  opacity: 1;
+}
+
+.notes-masonry {
+  column-gap: 1rem;
+}
+
+.notes-masonry-item {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .notes-masonry { column-count: 2; }
+}
+@media (min-width: 1024px) {
+  .notes-masonry { column-count: 3; }
+}
+@media (min-width: 1280px) {
+  .notes-masonry { column-count: 4; }
+}
+
+.note-editor-panel {
+  border-radius: 1rem;
+  border-width: 2px;
+  border-style: solid;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.note-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--mn-border);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.note-rich-toolbar button {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  color: var(--mn-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.note-rich-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--mn-text);
+}
+
+.note-color-dot {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.note-color-dot:hover {
+  transform: scale(1.1);
+}
+
+.note-color-dot.is-selected {
+  box-shadow: 0 0 0 2px var(--mn-bg), 0 0 0 4px currentColor;
+}
+
+.note-modal-backdrop {
+  background: rgba(6, 8, 15, 0.72);
+  backdrop-filter: blur(6px);
+}
+
 /* ── Employee attendance hero (dashboard redesign) ── */
 .attendance-status-panel {
   background: var(--mn-surface);
