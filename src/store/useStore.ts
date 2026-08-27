@@ -30,7 +30,7 @@ import { fetchBikeRouteKm } from '../lib/bikeRoute';
 import type { HospitalPlace } from '../lib/hospitalSearch';
 import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import type { PetrolTripEvidence } from '../lib/petrol';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
+import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -265,6 +265,8 @@ interface AppState {
   setEmployeeNotice: (notice: string) => Promise<{ error: string | null }>;
   getAdminDashboardNotes: () => string;
   setAdminDashboardNotes: (notes: string) => Promise<{ error: string | null }>;
+  getAdminDashboardNoteCards: () => DashboardNote[];
+  setAdminDashboardNoteCards: (notes: DashboardNote[]) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -2918,7 +2920,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (state.currentUser.role !== 'admin') {
       return { error: 'Only admins can update dashboard notes.' };
     }
-    const value = notes.trim().slice(0, 2000);
+    const value = notes.trim().slice(0, 50000);
     try {
       await sbSettingsRepo.set('admin_dashboard_notes', value, state.currentUser.name);
     } catch (err) {
@@ -2928,6 +2930,14 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set((s) => ({ appSettings: { ...s.appSettings, admin_dashboard_notes: value } }));
     return { error: null };
+  },
+
+  getAdminDashboardNoteCards: () => {
+    return parseDashboardNotes(get().appSettings.admin_dashboard_notes);
+  },
+
+  setAdminDashboardNoteCards: async (notes) => {
+    return get().setAdminDashboardNotes(serializeDashboardNotes(notes));
   },
 
   submitOffsitePunchRequest: async (punchType, reason, position, selfieFile = null) => {
