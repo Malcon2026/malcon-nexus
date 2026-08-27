@@ -13,6 +13,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
+import { DashboardStickyNotes } from '../components/DashboardStickyNotes';
 import { useStore } from '../store/useStore';
 import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { filterAttendanceStaff } from '../lib/staff';
@@ -127,6 +128,8 @@ export const Dashboard: React.FC = () => {
           View All Cases
         </Button>
       </div>
+
+      <DashboardStickyNotes />
 
       {/* KPI Grid */}
       <motion.div

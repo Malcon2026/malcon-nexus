@@ -357,6 +357,50 @@ textarea {
   }
 }
 
+/* ── Admin dashboard sticky notes ── */
+.dashboard-sticky-note {
+  position: relative;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.125rem 1.125rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(145deg, #fef9c3 0%, #fef08a 55%, #fde68a 100%);
+  border: 1px solid rgba(180, 130, 20, 0.35);
+  box-shadow:
+    0 1px 2px rgba(120, 80, 0, 0.08),
+    0 8px 24px rgba(180, 130, 20, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.dashboard-sticky-note-fold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2rem;
+  height: 2rem;
+  background: linear-gradient(135deg, transparent 50%, rgba(180, 130, 20, 0.22) 50%, #facc15 100%);
+  border-bottom-left-radius: 0.35rem;
+  pointer-events: none;
+}
+
+.dashboard-sticky-note-input {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(146, 100, 10, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  color: #422006;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dashboard-sticky-note-input::placeholder {
+  color: rgba(66, 32, 6, 0.45);
+}
+
+.dashboard-sticky-note-input:focus {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(146, 100, 10, 0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .notice-board,
   .notice-board-dashes,

@@ -263,6 +263,8 @@ interface AppState {
   setIncentiveRatePerKm: (rate: number) => Promise<{ error: string | null }>;
   getEmployeeNotice: () => string;
   setEmployeeNotice: (notice: string) => Promise<{ error: string | null }>;
+  getAdminDashboardNotes: () => string;
+  setAdminDashboardNotes: (notes: string) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
   getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
@@ -2904,6 +2906,27 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: message };
     }
     set((s) => ({ appSettings: { ...s.appSettings, employee_notice: value } }));
+    return { error: null };
+  },
+
+  getAdminDashboardNotes: () => {
+    return (get().appSettings.admin_dashboard_notes ?? '').trim();
+  },
+
+  setAdminDashboardNotes: async (notes) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can update dashboard notes.' };
+    }
+    const value = notes.trim().slice(0, 2000);
+    try {
+      await sbSettingsRepo.set('admin_dashboard_notes', value, state.currentUser.name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save notes.';
+      console.error('[settings] dashboard notes save failed:', err);
+      return { error: message };
+    }
+    set((s) => ({ appSettings: { ...s.appSettings, admin_dashboard_notes: value } }));
     return { error: null };
   },
 
