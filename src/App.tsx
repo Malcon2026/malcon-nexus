@@ -19,6 +19,7 @@ import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
+import { Notes } from './pages/Notes';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
@@ -199,6 +200,7 @@ function MainApp() {
       case 'dashboard':  return <Dashboard />;
       case 'cases':      return <Cases />;
       case 'live-cases': return <LiveCases />;
+      case 'notes':      return <Notes />;
       case 'workflow':   return <WorkflowBoard />;
       case 'approvals':  return <ApprovalQueue />;
       case 'employees':  return <Employees />;

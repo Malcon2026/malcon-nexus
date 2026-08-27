@@ -31,6 +31,7 @@ import type { HospitalPlace } from '../lib/hospitalSearch';
 import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,

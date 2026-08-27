@@ -21,6 +21,7 @@ import {
   X,
   LayoutGrid,
   Tv,
+  StickyNote,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -38,6 +39,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
+  { id: 'notes', label: 'Notes', icon: <StickyNote className="h-4 w-4" />, adminOnly: true },
   { id: 'cases', label: 'Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },

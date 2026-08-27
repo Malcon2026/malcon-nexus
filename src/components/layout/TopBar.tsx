@@ -22,6 +22,8 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
   const pageTitle: Record<string, string> = {
     dashboard: 'Dashboard',
+    'live-cases': 'Live Cases',
+    notes: 'Notes',
     cases: 'Implant Cases',
     workflow: 'Workflow Board',
     approvals: 'Approval Queue',
