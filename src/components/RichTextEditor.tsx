@@ -10,6 +10,9 @@ interface RichTextEditorProps {
   placeholder?: string;
   minHeight?: string;
   disabled?: boolean;
+  embedded?: boolean;
+  showLink?: boolean;
+  showColors?: boolean;
 }
 
 type Cmd =
@@ -44,6 +47,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   placeholder = 'Write a notice…',
   minHeight = '120px',
   disabled = false,
+  embedded = false,
+  showLink = true,
+  showColors = true,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const lastEmitted = useRef(value);
@@ -113,19 +119,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     { cmd: 'strikeThrough', label: 'Strike', icon: <Strikethrough className="h-3.5 w-3.5" /> },
     { cmd: 'insertUnorderedList', label: 'Bullets', icon: <List className="h-3.5 w-3.5" /> },
     { cmd: 'insertOrderedList', label: 'Numbered', icon: <ListOrdered className="h-3.5 w-3.5" /> },
-    { label: 'Link', icon: <Link2 className="h-3.5 w-3.5" />, onClick: addLink },
+    ...(showLink ? [{ label: 'Link', icon: <Link2 className="h-3.5 w-3.5" />, onClick: addLink }] : []),
     { cmd: 'removeFormat', label: 'Clear format', icon: <RemoveFormatting className="h-3.5 w-3.5" /> },
   ];
 
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white overflow-hidden ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-gray-50">
+    <div className={`overflow-hidden ${embedded ? '' : `rounded-xl border border-gray-200 bg-white ${disabled ? 'opacity-60 pointer-events-none' : ''}`}`}>
+      <div className={`flex flex-wrap items-center gap-0.5 px-2 py-1.5 ${embedded ? 'border-b border-black/5 bg-transparent' : 'border-b border-gray-100 bg-gray-50'}`}>
         {tools.map((t) => (
           <button
             key={t.label}
             type="button"
             title={t.label}
-            className="p-1.5 rounded-md text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm transition-colors"
+            className={`p-1.5 rounded-md text-gray-600 transition-colors ${embedded ? 'hover:bg-black/5 hover:text-gray-900' : 'hover:bg-white hover:text-gray-900 hover:shadow-sm'}`}
             onMouseDown={(e) => {
               e.preventDefault();
               if (t.onClick) t.onClick();
@@ -135,31 +141,35 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             {t.icon}
           </button>
         ))}
-        <span className="mx-1 h-4 w-px bg-gray-200" />
-        {COLORS.map((c) => (
-          <button
-            key={c.label}
-            type="button"
-            title={c.label}
-            className="h-5 w-5 rounded-full border border-gray-200 mx-0.5 hover:scale-110 transition-transform"
-            style={{ background: c.value || '#e6ebf5' }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setColor(c.value);
-            }}
-          />
-        ))}
+        {showColors && (
+          <>
+            <span className="mx-1 h-4 w-px bg-gray-200" />
+            {COLORS.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                title={c.label}
+                className="h-5 w-5 rounded-full border border-gray-200 mx-0.5 hover:scale-110 transition-transform"
+                style={{ background: c.value || '#e6ebf5' }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setColor(c.value);
+                }}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       <div
         ref={ref}
         role="textbox"
         aria-multiline
-        aria-label="Notice message"
+        aria-label="Rich text"
         contentEditable={!disabled}
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        className="notice-rich-editor px-3 py-2.5 text-sm text-stone-800 leading-relaxed outline-none focus:ring-0 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+        className={`notice-rich-editor text-sm text-stone-800 leading-relaxed outline-none focus:ring-0 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 ${embedded ? 'px-0 py-2' : 'px-3 py-2.5'}`}
         style={{ minHeight }}
         onInput={emit}
         onBlur={emit}

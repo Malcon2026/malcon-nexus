@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Pin, PinOff, Trash2, X } from 'lucide-react';
+import { RichTextEditor } from './RichTextEditor';
 import { useStore } from '../store/useStore';
+import { isNoticeEmpty, sanitizeNoticeHtml } from '../lib/noticeHtml';
 import {
   createDashboardNote,
   DASHBOARD_NOTE_COLORS,
   getNoteColorClasses,
+  isDashboardNoteEmpty,
+  normalizeNoteBody,
   parseDashboardNotes,
   serializeDashboardNotes,
   sortDashboardNotes,
@@ -25,7 +29,7 @@ const NoteColorPicker: React.FC<{
         aria-label={`${color.id} color`}
         onClick={() => onChange(color.id)}
         className={`h-5 w-5 rounded-full transition-transform hover:scale-110 ${color.dot} ${
-          value === color.id ? 'ring-2 ring-offset-1 ring-gray-400' : ''
+          value === color.id ? 'ring-2 ring-offset-1 ring-gray-500' : ''
         }`}
       />
     ))}
@@ -41,8 +45,16 @@ const NoteEditor: React.FC<{
 }> = ({ note, expanded = false, onChange, onClose, onDelete }) => {
   const color = getNoteColorClasses(note.color);
 
+  const updateBody = (html: string) => {
+    onChange({
+      ...note,
+      body: normalizeNoteBody(html),
+      updatedAt: Date.now(),
+    });
+  };
+
   return (
-    <div className={`rounded-2xl border shadow-sm ${color.card} ${expanded ? 'p-4' : 'p-3'}`}>
+    <div className={`rounded-2xl border-2 shadow-sm ${color.border} ${color.card} ${expanded ? 'p-4' : 'p-3'}`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <input
           value={note.title}
@@ -61,13 +73,29 @@ const NoteEditor: React.FC<{
           </button>
         )}
       </div>
-      <textarea
-        value={note.body}
-        onChange={(e) => onChange({ ...note, body: e.target.value, updatedAt: Date.now() })}
-        placeholder="Take a note…"
-        rows={expanded ? 5 : 3}
-        className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-400 outline-none resize-none leading-relaxed"
-      />
+
+      {expanded ? (
+        <RichTextEditor
+          embedded
+          showLink={false}
+          showColors={false}
+          value={note.body}
+          onChange={updateBody}
+          placeholder="Take a note…"
+          minHeight="120px"
+        />
+      ) : (
+        <RichTextEditor
+          embedded
+          showLink={false}
+          showColors={false}
+          value={note.body}
+          onChange={updateBody}
+          placeholder="Take a note…"
+          minHeight="72px"
+        />
+      )}
+
       {expanded && (
         <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-black/5">
           <NoteColorPicker
@@ -169,7 +197,7 @@ export const DashboardStickyNotes: React.FC = () => {
       ...composerDraft,
       updatedAt: Date.now(),
     });
-    if (!trimmed.title.trim() && !trimmed.body.trim()) return;
+    if (isDashboardNoteEmpty(trimmed)) return;
     updateNotes([trimmed, ...notes]);
     setComposerDraft(createDashboardNote());
     setComposerOpen(false);
@@ -194,24 +222,23 @@ export const DashboardStickyNotes: React.FC = () => {
         <div>
           <h2 className="text-sm font-semibold text-gray-900">Notes</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Quick reminders — like Google Keep
+            Quick reminders — bold, lists, and colors
             {saving ? ' · Saving…' : ''}
           </p>
         </div>
       </div>
 
       {/* Composer */}
-      <div
-        className={`rounded-2xl border border-gray-100 bg-white shadow-sm transition-all ${
-          composerOpen ? 'p-4' : 'p-3 cursor-text hover:shadow-md hover:border-gray-200'
-        }`}
-        onClick={() => {
-          if (!composerOpen) setComposerOpen(true);
-        }}
-      >
-        {!composerOpen ? (
+      {!composerOpen ? (
+        <button
+          type="button"
+          onClick={() => setComposerOpen(true)}
+          className="w-full text-left rounded-2xl border-2 border-gray-300 bg-white shadow-sm p-3 hover:shadow-md transition-all"
+        >
           <p className="text-sm text-gray-400 px-1">Take a note…</p>
-        ) : (
+        </button>
+      ) : (
+        <div className="space-y-3">
           <NoteEditor
             note={composerDraft}
             expanded
@@ -221,9 +248,7 @@ export const DashboardStickyNotes: React.FC = () => {
               setComposerDraft(createDashboardNote());
             }}
           />
-        )}
-        {composerOpen && (
-          <div className="flex justify-end mt-3">
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={handleAddNote}
@@ -232,14 +257,15 @@ export const DashboardStickyNotes: React.FC = () => {
               Add note
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Notes grid — same card rhythm as Live Cases */}
+      {/* Notes grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <AnimatePresence>
           {notes.map((note, idx) => {
             const color = getNoteColorClasses(note.color);
+            const safeBody = sanitizeNoticeHtml(note.body);
             return (
               <motion.div
                 key={note.id}
@@ -248,7 +274,7 @@ export const DashboardStickyNotes: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ delay: Math.min(idx * 0.03, 0.24) }}
-                className={`group rounded-2xl border shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer ${color.card}`}
+                className={`group rounded-2xl border-2 shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer ${color.border} ${color.card}`}
                 onClick={() => setEditingId(note.id)}
               >
                 <div className="p-4">
@@ -260,10 +286,11 @@ export const DashboardStickyNotes: React.FC = () => {
                     )}
                     {note.pinned && <Pin className="h-3.5 w-3.5 text-gray-500 shrink-0 fill-current" />}
                   </div>
-                  {note.body && (
-                    <p className="text-sm text-gray-600 whitespace-pre-wrap line-clamp-6 leading-relaxed">
-                      {note.body}
-                    </p>
+                  {!isNoticeEmpty(note.body) && (
+                    <div
+                      className="notice-html text-sm text-gray-600 line-clamp-6 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: safeBody }}
+                    />
                   )}
                 </div>
                 <div className="flex items-center gap-1 px-4 pb-3 opacity-0 group-hover:opacity-100 transition-opacity">
