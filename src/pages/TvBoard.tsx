@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
-import { UNUSED_IMPLANTS_REMARK } from '../lib/caseWorkflow';
+import { isPostSurgeryStage } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -122,6 +122,8 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const remark = tvRemark(c);
   const billing = tvBillingStatus(c);
   const isLiveActive = c.status === 'Active';
+  const isPostSurgery = isLiveActive && isPostSurgeryStage(c.currentStage);
+  const isPreSurgeryActive = isLiveActive && !isPostSurgery;
 
   return (
     <div
@@ -131,7 +133,9 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
       <div className="flex items-center justify-between gap-3 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
-            className={`h-2.5 w-2.5 rounded-full shrink-0 overflow-hidden ${isLiveActive ? 'tv-dot-pulse' : ''}`}
+            className={`h-2.5 w-2.5 rounded-full shrink-0 overflow-hidden ${
+              isPreSurgeryActive ? 'tv-dot-pulse' : isPostSurgery ? 'tv-dot-pulse-yellow' : ''
+            }`}
             style={isLiveActive ? undefined : { background: INK_DIM }}
           />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
@@ -160,11 +164,19 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             {formatDateIST(c.surgeryDate).replace(/^\w+,\s/, '')}
           </span>
           <span
-            className={`${isLiveActive ? 'tv-stage-blink' : ''} px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
+            className={`${
+              isPreSurgeryActive
+                ? 'tv-stage-blink'
+                : isPostSurgery
+                  ? 'tv-stage-blink-yellow'
+                  : ''
+            } px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide whitespace-nowrap`}
             style={
-              isLiveActive
+              isPreSurgeryActive
                 ? { ['--tv-stage' as string]: stageColor }
-                : { backgroundColor: stageColor, color: '#ffffff' }
+                : isPostSurgery
+                  ? undefined
+                  : { backgroundColor: stageColor, color: '#ffffff' }
             }
           >
             {stageLabel}

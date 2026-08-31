@@ -140,6 +140,13 @@ export function getStageIndex(stage: WorkflowStage): number {
   return WORKFLOW_STAGES.indexOf(normalizeWorkflowStageName(stage));
 }
 
+/** True when the case has moved past the Surgery stage in the workflow. */
+export function isPostSurgeryStage(stage: WorkflowStage): boolean {
+  const surgeryIdx = getStageIndex('Surgery');
+  const idx = getStageIndex(stage);
+  return idx > surgeryIdx && stage !== 'Completed';
+}
+
 /** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
 export function getNextWorkflowStage(
   current: WorkflowStage,
