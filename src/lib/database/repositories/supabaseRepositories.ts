@@ -17,7 +17,7 @@ import type {
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
 import { normalizeDepartment } from '../../../constants/departments';
-import { normalizeCaseStages } from '../../caseWorkflow';
+import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP } from '../../caseWorkflow';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -449,6 +449,78 @@ export const sbCaseRepo = {
     }
 
     return [...byId.values()];
+  },
+
+  async getFcfsPoolForEmployee(employeeId: string, department: string): Promise<ImplantCase[]> {
+    const dept = normalizeDepartment(department) ?? department;
+    const fcfsStages = ['Pickup from Hospital', 'Billing', 'Bill Submission'].filter(
+      (stage) => STAGE_DEPARTMENT_MAP[stage as keyof typeof STAGE_DEPARTMENT_MAP] === dept,
+    );
+    if (fcfsStages.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*')
+      .is('assigned_employee_id', null)
+      .eq('status', 'Active')
+      .in('current_stage', fcfsStages)
+      .eq('current_department', dept)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
+  },
+
+  async getCasesForEmployeeIncludingPool(employeeId: string, department: string): Promise<ImplantCase[]> {
+    const [assigned, pool] = await Promise.all([
+      this.getForEmployee(employeeId),
+      this.getFcfsPoolForEmployee(employeeId, department),
+    ]);
+    const byId = new Map<string, ImplantCase>();
+    for (const c of [...assigned, ...pool]) byId.set(c.id, c);
+    return [...byId.values()];
+  },
+
+  async claimCase(caseId: string, employee: Employee): Promise<ImplantCase> {
+    const existing = await this.getById(caseId);
+    if (!existing) throw new Error('Case not found');
+    if (!isFcfsStage(existing.currentStage)) throw new Error('This stage is not FCFS.');
+    if (existing.assignedEmployee) throw new Error('This case was already claimed or assigned.');
+
+    const assignedAt = new Date().toISOString();
+    const stageName = normalizeWorkflowStageName(existing.currentStage);
+    const updatedStages = normalizeCaseStages(
+      existing.stages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === stageName
+          ? {
+              ...s,
+              assignedEmployee: employee,
+              assignedAt,
+              status: 'Assigned' as const,
+            }
+          : s,
+      ),
+    );
+
+    const merged: ImplantCase = {
+      ...existing,
+      assignedEmployee: employee,
+      status: 'Active',
+      currentDepartment: normalizeDepartment(employee.department) ?? employee.department,
+      stages: updatedStages,
+      updatedAt: assignedAt,
+    };
+
+    const row = caseToRow(merged);
+    const { data, error } = await supabase
+      .from('cases')
+      .update(row as never)
+      .eq('id', caseId)
+      .is('assigned_employee_id', null)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('This case was already claimed by someone else.');
+    return rowToCase(data as Record<string, unknown>);
   },
 
   async getById(id: string): Promise<ImplantCase | null> {

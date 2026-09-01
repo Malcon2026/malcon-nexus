@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { useStore } from '../store/useStore';
-import { isCaseAssignedToEmployee } from '../lib/caseWorkflow';
+import { isCaseAssignedToEmployee, isFcfsPoolCase } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 
@@ -28,6 +28,7 @@ export const LiveCases: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterStage, setFilterStage] = useState<WorkflowStage | ''>('');
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
+  const [filterPoolOnly, setFilterPoolOnly] = useState(false);
   const [editCaseId, setEditCaseId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -63,6 +64,7 @@ export const LiveCases: React.FC = () => {
     }
     if (filterStage) result = result.filter((c) => c.currentStage === filterStage);
     if (filterPriority) result = result.filter((c) => c.priority === filterPriority);
+    if (filterPoolOnly) result = result.filter(isFcfsPoolCase);
 
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
     return result.sort((a, b) => {
@@ -70,7 +72,7 @@ export const LiveCases: React.FC = () => {
       if (p !== 0) return p;
       return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
     });
-  }, [cases, search, filterStage, filterPriority]);
+  }, [cases, search, filterStage, filterPriority, filterPoolOnly]);
 
   return (
     <div className="p-4 sm:p-6 max-w-[1800px] mx-auto w-full min-w-0">
@@ -120,9 +122,18 @@ export const LiveCases: React.FC = () => {
           <option value="">All Priorities</option>
           {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
-        {(filterStage || filterPriority || search) && (
+        <label className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer shrink-0">
+          <input
+            type="checkbox"
+            checked={filterPoolOnly}
+            onChange={(e) => setFilterPoolOnly(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          <span className="text-gray-700 whitespace-nowrap">FCFS pool only</span>
+        </label>
+        {(filterStage || filterPriority || search || filterPoolOnly) && (
           <button
-            onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); }}
+            onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); setFilterPoolOnly(false); }}
             className="flex items-center gap-1 px-3 py-2 text-xs text-red-600 hover:text-red-800 font-medium shrink-0"
           >
             <X className="h-3.5 w-3.5" /> Clear
@@ -191,11 +202,22 @@ export const LiveCases: React.FC = () => {
                     </div>
                   )}
 
+                  {isFcfsPoolCase(c) && (
+                    <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
+                      <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">FCFS Pool</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                     {c.assignedEmployee ? (
                       <div className="flex items-center gap-1.5 min-w-0">
                         <Avatar name={c.assignedEmployee.name} size="xs" />
                         <span className="text-xs text-gray-700 truncate max-w-[90px]">{c.assignedEmployee.name.split(' ')[0]}</span>
+                      </div>
+                    ) : isFcfsPoolCase(c) ? (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <User className="h-3.5 w-3.5" />
+                        <span className="text-xs font-medium">Pool</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-gray-400">

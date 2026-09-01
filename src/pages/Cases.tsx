@@ -19,6 +19,7 @@ import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
   isCaseAssignedToEmployee,
+  isFcfsStage,
   type AssignableStage,
   type StageAssignments,
 } from '../lib/caseWorkflow';
@@ -104,6 +105,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 
     const stageAssignments: StageAssignments = {};
     for (const stage of activeStages) {
+      if (isFcfsStage(stage)) continue;
       const empId = form.stageEmployeeIds[stage];
       if (!empId) continue;
       const emp = employees.find((e) => e.id === empId);
@@ -257,6 +259,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
           <div className="space-y-3">
             {activeStages.map((stage) => {
               const deptHint = STAGE_DEPARTMENT_MAP[stage];
+              const fcfs = isFcfsStage(stage);
               const options = employeesForStage(stage);
               return (
                 <div key={stage} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 sm:gap-3 items-start sm:items-center">
@@ -271,6 +274,11 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                     </p>
                     {deptHint && <p className="text-[11px] text-gray-400">{deptHint}</p>}
                   </div>
+                  {fcfs ? (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                      FCFS — staff claim when this stage opens (or you assign manually later)
+                    </p>
+                  ) : (
                   <select
                     className={inputClass}
                     value={form.stageEmployeeIds[stage]}
@@ -288,6 +296,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                       </option>
                     ))}
                   </select>
+                  )}
                 </div>
               );
             })}

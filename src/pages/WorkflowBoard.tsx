@@ -6,6 +6,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
+import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 
 const KANBAN_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -68,6 +69,7 @@ export const WorkflowBoard: React.FC = () => {
       <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-w-full">
         {KANBAN_STAGES.map((stage) => {
           const stageCases = getCasesForStage(stage);
+          const poolCount = isFcfsStage(stage) ? countFcfsPoolCases(cases, stage as 'Pickup from Hospital' | 'Billing' | 'Bill Submission') : 0;
           const sc = stageColors[stage];
           const info = STAGE_LABELS[stage];
 
@@ -81,7 +83,12 @@ export const WorkflowBoard: React.FC = () => {
                       <div className={`h-2 w-2 rounded-full ${sc.dot}`} />
                       <span className={`text-xs font-bold ${sc.text}`}>{info.title}</span>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5 ml-4">{info.desc}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5 ml-4">
+                      {info.desc}
+                      {poolCount > 0 && (
+                        <span className="ml-1 text-amber-600 font-semibold">· {poolCount} in pool</span>
+                      )}
+                    </p>
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sc.bg} ${sc.text}`}>
                     {stageCases.length}
@@ -95,6 +102,7 @@ export const WorkflowBoard: React.FC = () => {
                   const pc = priorityColors[c.priority];
                   const isOverdueSurgery = new Date(c.surgeryDate) < new Date() && c.status !== 'Completed';
                   const isWaiting = c.status === 'Waiting For Approval';
+                  const inPool = isFcfsPoolCase(c);
 
                   return (
                     <motion.div
@@ -127,12 +135,23 @@ export const WorkflowBoard: React.FC = () => {
                           </div>
                         )}
 
+                        {inPool && (
+                          <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
+                            <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">FCFS Pool</span>
+                          </div>
+                        )}
+
                         {/* Assigned Employee */}
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50">
                           {c.assignedEmployee ? (
                             <div className="flex items-center gap-1.5">
                               <Avatar name={c.assignedEmployee.name} size="xs" />
                               <span className="text-[10px] text-gray-600 truncate max-w-[80px]">{c.assignedEmployee.name.split(' ')[0]}</span>
+                            </div>
+                          ) : inPool ? (
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <User className="h-3 w-3" />
+                              <span className="text-[10px] font-medium">Pool</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1 text-gray-400">

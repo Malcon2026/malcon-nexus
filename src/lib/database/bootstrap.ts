@@ -101,7 +101,11 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     },
     // Cases must load on login — otherwise My Cases stays empty until a late
     // deferred fetch (or stale session cache) finishes.
-    { key: 'cases', run: () => sbCaseRepo.getForEmployee(employeeId) },
+    { key: 'cases', run: async () => {
+        const self = await sbEmployeeRepo.getById(employeeId);
+        const dept = self?.department ?? '';
+        return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, dept);
+      } },
     { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
   ];
 }

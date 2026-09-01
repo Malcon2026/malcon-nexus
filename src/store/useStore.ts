@@ -32,7 +32,7 @@ import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } fro
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -40,7 +40,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canClaimCase, getAvailableFcfsCases, isFcfsPoolCase } from '../lib/caseWorkflow';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -117,6 +117,8 @@ interface AppState {
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
+  claimCase: (caseId: string) => Promise<{ error: string | null }>;
+  getAvailableFcfsCasesForCurrentUser: () => ImplantCase[];
   reactivateAssignedCase: (caseId: string) => Promise<void>;
   repairStuckAssignmentsForCurrentUser: () => Promise<void>;
   repairPendingStageSubmissions: () => Promise<void>;
@@ -836,7 +838,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
     const startIdx = WORKFLOW_STAGES.indexOf(startStage);
 
-    const startEmp = assignments[startStage as keyof StageAssignments] ?? null;
+    const startEmpRaw = assignments[startStage as keyof StageAssignments] ?? null;
+    const startEmp = isFcfsStage(startStage) ? null : startEmpRaw;
     if (startEmp && (!startEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(startEmp.id))) {
       throw new Error(`Cannot assign ${startEmp.name}: missing employee id. Refresh the page and pick employees again.`);
     }
@@ -868,7 +871,7 @@ export const useStore = create<AppState>((set, get) => ({
           documents: [],
         };
       }
-      const emp = assignments[stage as keyof typeof assignments] ?? null;
+      const emp = isFcfsStage(stage) ? null : (assignments[stage as keyof typeof assignments] ?? null);
       const stageIdx = WORKFLOW_STAGES.indexOf(stage);
       const isSkipped = stageIdx < startIdx;
       const isStart = stageIdx === startIdx;
@@ -900,7 +903,7 @@ export const useStore = create<AppState>((set, get) => ({
       implantType: caseData.implantType || '',
       implantCompany: caseData.implantCompany || '',
       priority: caseData.priority || 'Medium',
-      status: startEmp ? 'Active' : 'Draft',
+      status: startEmp || isFcfsStage(startStage) ? 'Active' : 'Draft',
       currentStage: startStage,
       currentDepartment: startDept,
       assignedEmployee: startEmp,
@@ -999,8 +1002,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (!c) return;
 
     const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
-    // New cases pre-assign every stage — activate the next person automatically.
-    if (next && next !== 'Completed') {
+    // Pre-assign only for non-FCFS stages; FCFS stages open as an Active pool.
+    if (next && next !== 'Completed' && !isFcfsStage(next)) {
       const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
       if (nextEmp) {
         await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next);
@@ -1010,16 +1013,25 @@ export const useStore = create<AppState>((set, get) => ({
 
     const currentName = normalizeWorkflowStageName(c.currentStage);
     const approvedAt = new Date().toISOString();
-    const updatedStages = normalizeCaseStages(
-      c.stages.map((s) =>
-        normalizeWorkflowStageName(s.stage) === currentName
-          ? { ...s, status: 'Approved' as const, approvedAt, adminNotes }
-          : s
-      ),
-    );
-    // Next stage has no employee: still move forward so admin can skip
-    // unassigned stages (kit already gone, surgery already done, etc.).
     const advancingUnassigned = Boolean(next && next !== 'Completed');
+    const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) => {
+        const name = normalizeWorkflowStageName(s.stage);
+        if (name === currentName) {
+          return { ...s, status: 'Approved' as const, approvedAt, adminNotes };
+        }
+        if (advancingToFcfs && next && name === normalizeWorkflowStageName(next)) {
+          return {
+            ...s,
+            assignedEmployee: null,
+            assignedAt: null,
+            status: 'Pending' as const,
+          };
+        }
+        return s;
+      }),
+    );
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
@@ -1027,9 +1039,11 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: approvedAt,
-      details: advancingUnassigned
-        ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}. ${adminNotes}`
-        : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
+      details: advancingToFcfs
+        ? `Case entered FCFS pool at ${next}. Staff can claim or admin can assign. ${adminNotes}`
+        : advancingUnassigned
+          ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}. ${adminNotes}`
+          : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
     };
 
     // Update approvals table
@@ -1041,7 +1055,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
-      status: advancingUnassigned ? 'Draft' : 'Approved',
+      status: advancingUnassigned ? (advancingToFcfs ? 'Active' : 'Draft') : 'Approved',
       ...(advancingUnassigned && next
         ? {
             currentStage: next,
@@ -1379,6 +1393,105 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     void notifyCaseAssignment(caseId, employee.id);
+  },
+
+  claimCase: async (caseId) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return { error: 'Case not found' };
+    if (!canClaimCase(c, state.currentUser)) {
+      return { error: 'You cannot claim this case. It may already be assigned or not in your department.' };
+    }
+
+    const assignedAt = new Date().toISOString();
+    const stageName = normalizeWorkflowStageName(c.currentStage);
+
+    try {
+      let updatedCase: ImplantCase;
+      if (USE_SUPABASE) {
+        updatedCase = await sbCaseRepo.claimCase(caseId, state.currentUser);
+      } else {
+        const updatedStages = normalizeCaseStages(
+          c.stages.map((s) =>
+            normalizeWorkflowStageName(s.stage) === stageName
+              ? {
+                  ...s,
+                  assignedEmployee: state.currentUser,
+                  assignedAt,
+                  status: 'Assigned' as const,
+                }
+              : s,
+          ),
+        );
+        updatedCase = await taskRepository.update(caseId, {
+          assignedEmployee: state.currentUser,
+          status: 'Active',
+          currentDepartment: normalizeDepartment(state.currentUser.department) ?? state.currentUser.department,
+          stages: updatedStages,
+        });
+      }
+
+      const claimLog = {
+        id: `log-${Date.now()}`,
+        caseId,
+        action: `Claimed: ${stageName}`,
+        performedBy: state.currentUser.name,
+        performedByRole: 'employee' as const,
+        department: state.currentUser.department,
+        timestamp: assignedAt,
+        details: `${state.currentUser.name} claimed ${c.caseNumber} for ${stageName} (FCFS).`,
+      };
+
+      updatedCase = await taskRepository.update(caseId, {
+        activityLogs: [...updatedCase.activityLogs, claimLog],
+      });
+
+      let updatedEmployees = state.employees;
+      const target = state.employees.find((e) => e.id === state.currentUser.id);
+      if (target) {
+        const updated = await employeeRepository.update(state.currentUser.id, {
+          casesActive: target.casesActive + 1,
+        });
+        updatedEmployees = state.employees.map((e) => (e.id === state.currentUser.id ? updated : e));
+      }
+
+      const activity = createActivityEvent(
+        `Claimed: ${stageName}`,
+        'case',
+        caseId,
+        c.caseNumber,
+        state.currentUser.name,
+        'employee',
+        `${state.currentUser.name} claimed case for ${stageName}.`,
+      );
+      persistActivity(activity);
+
+      const notif = createNotification(
+        'Case Claimed',
+        `${state.currentUser.name} claimed ${c.caseNumber} — ${stageName}.`,
+        'info',
+        caseId,
+      );
+      persistNotification(notif);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        employees: updatedEmployees,
+        activityLog: [activity, ...s.activityLog],
+        notifications: [notif, ...s.notifications],
+      }));
+
+      void notifyCaseAssignment(caseId, state.currentUser.id);
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to claim case';
+      return { error: message };
+    }
+  },
+
+  getAvailableFcfsCasesForCurrentUser: () => {
+    const state = get();
+    return getAvailableFcfsCases(state.cases, state.currentUser);
   },
 
   reactivateAssignedCase: async (caseId) => {
@@ -1721,7 +1834,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const returnRecord = findStageRecord(updatedStages, returnStage);
-    const nextEmp = returnRecord?.assignedEmployee ?? null;
+    const nextEmp =
+      returnStage && isFcfsStage(returnStage) ? null : (returnRecord?.assignedEmployee ?? null);
     const stagesWithReturn = normalizeCaseStages(
       updatedStages.map((s) =>
         normalizeWorkflowStageName(s.stage) === returnStage

@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
-import { isPostSurgeryStage, UNUSED_IMPLANTS_REMARK } from '../lib/caseWorkflow';
+import { isPostSurgeryStage, UNUSED_IMPLANTS_REMARK, isFcfsPoolCase } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -161,6 +161,11 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
           {c.postponeReason && !closedCancelled && !returning ? (
             <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#38bdf8', color: '#0f172a' }}>
               Postponed
+            </span>
+          ) : null}
+          {isFcfsPoolCase(c) ? (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#fbbf24', color: '#111' }}>
+              Pool
             </span>
           ) : null}
         </div>

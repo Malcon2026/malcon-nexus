@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
   CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn, MapPin,
+  Hand,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -10,7 +11,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseAssignedToEmployee, canClaimCase } from '../lib/caseWorkflow';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
@@ -231,11 +232,15 @@ const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) 
 };
 
 const EmployeeCasesPanel: React.FC<{
-  employee: Pick<import('../types').Employee, 'id' | 'email'>;
+  employee: Pick<import('../types').Employee, 'id' | 'email' | 'department'>;
   onViewCase: (c: ImplantCase) => void;
   onSubmitCase: (c: ImplantCase) => void;
 }> = ({ employee, onViewCase, onSubmitCase }) => {
   const currentUser = useStore((s) => s.currentUser);
+  const claimCase = useStore((s) => s.claimCase);
+  const getAvailableFcfsCasesForCurrentUser = useStore((s) => s.getAvailableFcfsCasesForCurrentUser);
+  const poolCases = getAvailableFcfsCasesForCurrentUser();
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const myCases = useMyCases(employee);
   const completedCases = myCases.filter((c) =>
     c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
@@ -246,7 +251,71 @@ const EmployeeCasesPanel: React.FC<{
       <div className="lg:col-span-2 space-y-4">
         <h2 className="text-sm font-bold text-gray-900 sm:hidden">My Cases</h2>
 
-        {myCases.length === 0 ? (
+        {poolCases.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-amber-800">Available (FCFS)</h3>
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">{poolCases.length}</Badge>
+            </div>
+            <p className="text-xs text-amber-700/80">First to claim gets the case — pickup, billing, or bill submission.</p>
+            {poolCases.map((c, idx) => {
+              const sc = getStageStyle(c.currentStage);
+              const pc = getPriorityStyle(c.priority);
+              const claiming = claimingId === c.id;
+              return (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <Card className="border-amber-200 bg-amber-50/30">
+                    <CardBody>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="text-sm font-bold text-indigo-600">{c.caseNumber}</span>
+                            <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
+                              <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                              {c.currentStage}
+                            </Badge>
+                            <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">Pool</Badge>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">{c.hospital?.name ?? 'Unknown Hospital'}</p>
+                          <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
+                        </div>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <Button variant="outline" size="sm" icon={<FileText className="h-3.5 w-3.5" />} onClick={() => onViewCase(c)}>
+                            View
+                          </Button>
+                          {canClaimCase(c, currentUser) && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              disabled={claiming}
+                              icon={<Hand className="h-3.5 w-3.5" />}
+                              onClick={async () => {
+                                setClaimingId(c.id);
+                                const { error } = await claimCase(c.id);
+                                setClaimingId(null);
+                                if (error) alert(error);
+                              }}
+                            >
+                              {claiming ? 'Claiming…' : 'Claim'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+
+        {myCases.length === 0 && poolCases.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="h-12 w-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="h-6 w-6 text-gray-400" />

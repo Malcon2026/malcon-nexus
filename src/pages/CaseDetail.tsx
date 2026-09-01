@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban, CalendarClock
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban, CalendarClock, Hand
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage, canClaimCase, isFcfsPoolCase } from '../lib/caseWorkflow';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -366,7 +366,7 @@ interface CaseDetailProps {
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
-  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase } = useStore();
+  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase, claimCase } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
@@ -374,6 +374,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showPostpone, setShowPostpone] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
   const currentStageIdx = getStageIndex(c.currentStage);
@@ -400,6 +401,8 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     c.status !== 'Waiting For Approval';
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseAssignedToEmployee(c, currentUser);
+  const inFcfsPool = isFcfsPoolCase(c);
+  const canClaim = viewMode === 'employee' && canClaimCase(c, currentUser);
 
   useEffect(() => {
     if (viewMode !== 'employee') return;
@@ -477,7 +480,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                   <Button variant="warning" size="sm" icon={<AlertTriangle className="h-4 w-4" />} onClick={() => setApprovalModal('changes')}>Request Changes</Button>
                 </>
               )}
-              {c.status === 'Draft' && (
+              {inFcfsPool && (
+                <Button variant="primary" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>
+                  Assign from Pool
+                </Button>
+              )}
+              {c.status === 'Draft' && !inFcfsPool && (
                 <Button variant="primary" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>Assign Employee</Button>
               )}
               {isApproved && nextStage && nextStage !== 'Completed' && !c.stages.find((s) => s.stage === nextStage)?.assignedEmployee && (
@@ -527,6 +535,22 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               )}
             </>
           )}
+          {viewMode === 'employee' && canClaim && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Hand className="h-4 w-4" />}
+              disabled={claiming}
+              onClick={async () => {
+                setClaiming(true);
+                const { error } = await claimCase(c.id);
+                setClaiming(false);
+                if (error) alert(error);
+              }}
+            >
+              {claiming ? 'Claiming…' : 'Claim Case'}
+            </Button>
+          )}
           {viewMode === 'employee' && canEmployeeSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
               {STAGE_ACTIONS[c.currentStage]}
@@ -552,6 +576,20 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           )}
         </div>
       </div>
+
+      {inFcfsPool && (
+        <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">FCFS pool — {c.currentStage}</p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              {viewMode === 'admin'
+                ? 'Unclaimed. Staff in the matching department can claim first-come-first-served, or assign someone manually.'
+                : 'Available to claim. First eligible person in your department to claim gets this case.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {returningUnused && (
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
