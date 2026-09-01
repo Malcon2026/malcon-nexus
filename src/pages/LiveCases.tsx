@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, RefreshCw, Building2, User, Calendar, Eye, Edit3,
-  AlertTriangle, IndianRupee, X, Trash2,
+  AlertTriangle, IndianRupee, X, Trash2, Stethoscope, Package,
 } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
@@ -58,6 +58,7 @@ export const LiveCases: React.FC = () => {
         c.hospital.name.toLowerCase().includes(q) ||
         c.doctor.name.toLowerCase().includes(q) ||
         c.implantRequired.toLowerCase().includes(q) ||
+        (c.implantType?.toLowerCase().includes(q) ?? false) ||
         (c.implantCompany?.toLowerCase().includes(q) ?? false) ||
         (c.assignedEmployee?.name.toLowerCase().includes(q) ?? false)
       );
@@ -100,7 +101,7 @@ export const LiveCases: React.FC = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search case, hospital, doctor, employee..."
+            placeholder="Search case, hospital, surgery, doctor, product..."
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -171,12 +172,45 @@ export const LiveCases: React.FC = () => {
 
                   <div className="flex items-center gap-1.5 mb-1">
                     <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    <span className="text-sm font-semibold text-gray-900 truncate">{c.hospital.name}</span>
+                    <span className="text-sm font-semibold text-gray-900 truncate">
+                      {c.hospital.name}
+                      {c.hospital.branch ? (
+                        <span className="font-normal text-gray-500"> · {c.hospital.branch}</span>
+                      ) : null}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    <span className="text-xs text-gray-600 truncate">{c.doctor.name}</span>
+
+                  {c.implantRequired ? (
+                    <div className="flex items-start gap-1.5 mb-1.5">
+                      <Stethoscope className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Surgery</p>
+                        <p className="text-xs font-medium text-gray-800 line-clamp-2">{c.implantRequired}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-start gap-1.5 mb-1.5">
+                    <User className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Doctor</p>
+                      <p className="text-xs text-gray-700 truncate">Dr. {c.doctor.name}</p>
+                    </div>
                   </div>
+
+                  {(c.implantType || c.implantCompany) && (
+                    <div className="flex items-start gap-1.5 mb-3">
+                      <Package className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400">Product</p>
+                        <p className="text-xs text-gray-600 truncate">
+                          {[c.implantType, c.implantCompany].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {!c.implantType && !c.implantCompany && <div className="mb-2" />}
 
                   <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[11px] mb-2`}>
                     <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
