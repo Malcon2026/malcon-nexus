@@ -239,7 +239,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           </p>
         ) : (
           <p className="text-xs text-gray-400">
-            Your photos and notes will be visible to the admin in the Approval Queue.
+            Your photos and notes are saved and the case moves to the next stage automatically.
           </p>
         )}
       </div>

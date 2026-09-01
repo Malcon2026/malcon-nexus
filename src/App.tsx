@@ -100,6 +100,10 @@ function MainApp() {
           await useStore.getState().repairStuckAssignmentsForCurrentUser();
           reloadFromDatabase();
         }
+        if (role === 'admin') {
+          await useStore.getState().repairPendingStageSubmissions();
+          reloadFromDatabase();
+        }
         persistBootstrapCache(employee.id, role);
         setIsHydrating(false);
         console.info(`[perf] full hydration (incl. deferred) done in ${Math.round(performance.now() - startedAt)}ms`);

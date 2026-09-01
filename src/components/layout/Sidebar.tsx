@@ -26,6 +26,7 @@ import {
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { countPendingLeaveSubmissions } from '../../lib/leave';
+import { AUTO_APPROVE_STAGE_SUBMISSIONS } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
 
 interface NavItem {
@@ -71,7 +72,9 @@ export const Sidebar: React.FC = () => {
     petrolRequests,
   } = useStore();
 
-  const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval').length;
+  const pendingApprovals = AUTO_APPROVE_STAGE_SUBMISSIONS
+    ? 0
+    : cases.filter(c => c.status === 'Waiting For Approval').length;
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval').length;
   const pendingAttendanceApprovals =
     countPendingLeaveSubmissions(leaveRequests) +
@@ -131,6 +134,7 @@ export const Sidebar: React.FC = () => {
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
         {navItems
           .filter((item) => {
+            if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
             if (currentUser.role === 'petrol') {
               return item.id === 'dashboard' || item.id === 'petrol-dashboard' || item.id === 'settings';
             }

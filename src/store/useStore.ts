@@ -39,7 +39,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS } from '../lib/caseWorkflow';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -118,6 +118,7 @@ interface AppState {
   assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
   reactivateAssignedCase: (caseId: string) => Promise<void>;
   repairStuckAssignmentsForCurrentUser: () => Promise<void>;
+  repairPendingStageSubmissions: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -1432,12 +1433,29 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  repairPendingStageSubmissions: async () => {
+    if (!AUTO_APPROVE_STAGE_SUBMISSIONS) return;
+    const pending = get().cases.filter((c) => c.status === 'Waiting For Approval');
+    for (const c of pending) {
+      try {
+        await get().approveStage(c.id, 'Auto-advanced (approval queue disabled).');
+      } catch (err) {
+        console.error('[repairPendingStageSubmissions]', c.caseNumber, err);
+      }
+    }
+  },
+
   submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
     if (c.status === 'Waiting For Approval') {
       return { error: 'This stage is already submitted and waiting for admin approval.' };
+    }
+    const stageIdxCheck = WORKFLOW_STAGES.indexOf(c.currentStage);
+    const currentStageRecord = stageIdxCheck >= 0 ? c.stages[stageIdxCheck] : undefined;
+    if (currentStageRecord?.status === 'Submitted') {
+      return { error: 'This stage is already submitted.' };
     }
     if (photos.length === 0) {
       return { error: 'At least one photo is required.' };
@@ -1486,9 +1504,43 @@ export const useStore = create<AppState>((set, get) => ({
 
       const updatedCase = await taskRepository.update(caseId, {
         stages: updatedStages,
-        status: 'Waiting For Approval',
+        status: AUTO_APPROVE_STAGE_SUBMISSIONS ? 'Active' : 'Waiting For Approval',
         activityLogs: [...c.activityLogs, newLog],
       });
+
+      const activity = createActivityEvent(
+        `Submitted: ${c.currentStage}`,
+        'case',
+        caseId,
+        c.caseNumber,
+        uploadedBy,
+        'employee',
+        AUTO_APPROVE_STAGE_SUBMISSIONS
+          ? `${c.currentStage} submitted with ${photoLabel} — auto-advanced.`
+          : `${c.currentStage} submitted with ${photoLabel} for review.`,
+      );
+      void persistActivity(activity);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        activityLog: [activity, ...s.activityLog],
+      }));
+
+      if (AUTO_APPROVE_STAGE_SUBMISSIONS) {
+        await get().approveStage(caseId, `Auto-advanced after submit by ${uploadedBy}.`);
+        const advanced = get().cases.find((x) => x.id === caseId);
+        const successNotif = createNotification(
+          'Stage Submitted',
+          advanced
+            ? `Case ${advanced.caseNumber} advanced to ${advanced.currentStage}.`
+            : `Case ${c.caseNumber} ${c.currentStage} submitted successfully.`,
+          'success',
+          caseId,
+        );
+        void persistNotification(successNotif);
+        set((s) => ({ notifications: [successNotif, ...s.notifications] }));
+        return { error: null };
+      }
 
       const newApproval: Approval = {
         id: newId(),
@@ -1504,17 +1556,6 @@ export const useStore = create<AppState>((set, get) => ({
       await approvalRepository.create(newApproval).catch((err) => {
         console.error('[submitStage] approval create failed:', err);
       });
-
-      const activity = createActivityEvent(
-        `Submitted: ${c.currentStage}`,
-        'case',
-        caseId,
-        c.caseNumber,
-        uploadedBy,
-        'employee',
-        `${c.currentStage} submitted with ${photoLabel} for review.`,
-      );
-      void persistActivity(activity);
 
       const notif = createNotification(
         'Approval Required',

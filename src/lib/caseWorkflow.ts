@@ -47,6 +47,9 @@ export type StageAssignments = Partial<
 
 export type AssignableStage = (typeof ASSIGNABLE_WORKFLOW_STAGES)[number];
 
+/** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
+export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
+
 const STAGE_STATUS_RANK: Record<string, number> = {
   Pending: 0,
   Assigned: 1,
