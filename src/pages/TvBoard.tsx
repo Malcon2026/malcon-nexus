@@ -28,7 +28,6 @@ const STAGE_COLOR: Record<WorkflowStage, string> = {
   'Completed': '#16a34a',
 };
 
-const PAGE_SIZE = 5;
 const ROTATE_MS = 60000;
 const REFRESH_MS = 30000;
 
@@ -36,12 +35,14 @@ const REFRESH_MS = 30000;
 const SHOW_TEAM_STATUS_SLIDE = false;
 
 /** Auto-scrolls an overflowing list up and down, pausing at each end — no user input needed on a TV. */
-function useAutoScroll<T extends HTMLElement>() {
+function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
   const ref = useRef<T | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    el.scrollTop = 0;
 
     const SPEED_PX_PER_SEC = 26;
     const PAUSE_MS = 2200;
@@ -79,7 +80,7 @@ function useAutoScroll<T extends HTMLElement>() {
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [resetKey]);
 
   return ref;
 }
@@ -207,17 +208,20 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   );
 }
 
-function CasesSlide({ cases, page }: { cases: ImplantCase[]; page: number }) {
-  const visible = cases.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+function CasesSlide({ cases }: { cases: ImplantCase[] }) {
+  const scrollRef = useAutoScroll<HTMLDivElement>(cases.length);
 
   return (
-    <div className="flex-1 px-6 flex flex-col gap-2 overflow-hidden">
-      {visible.length === 0 && (
+    <div className="flex-1 px-6 flex flex-col overflow-hidden min-h-0">
+      {cases.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
         </div>
+      ) : (
+        <div ref={scrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden min-h-0">
+          {cases.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
+        </div>
       )}
-      {visible.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
     </div>
   );
 }
@@ -356,7 +360,7 @@ export const TvBoard: React.FC = () => {
   }, [cases]);
   const liveCases = openCases;
 
-  const caseTagCount = Math.max(1, Math.ceil(boardCases.length / PAGE_SIZE));
+  const caseTagCount = 1;
   const totalSlides = caseTagCount + (SHOW_TEAM_STATUS_SLIDE ? 1 : 0);
 
   const restartTimer = useCallback(() => {
@@ -472,7 +476,7 @@ export const TvBoard: React.FC = () => {
         {isEmployeeSlide ? (
           <EmployeeStatusSlide cases={liveCases} employees={employees} />
         ) : (
-          <CasesSlide cases={boardCases} page={Math.min(slide, caseTagCount - 1)} />
+          <CasesSlide cases={boardCases} />
         )}
       </div>
 
