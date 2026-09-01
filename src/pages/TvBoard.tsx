@@ -32,6 +32,9 @@ const PAGE_SIZE = 5;
 const ROTATE_MS = 60000;
 const REFRESH_MS = 30000;
 
+/** Set true to restore the rotating Team Status slide on the TV board. */
+const SHOW_TEAM_STATUS_SLIDE = false;
+
 /** Auto-scrolls an overflowing list up and down, pausing at each end — no user input needed on a TV. */
 function useAutoScroll<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
@@ -354,8 +357,7 @@ export const TvBoard: React.FC = () => {
   const liveCases = openCases;
 
   const caseTagCount = Math.max(1, Math.ceil(boardCases.length / PAGE_SIZE));
-  // Slides = one per case page, plus one final slide for employee status.
-  const totalSlides = caseTagCount + 1;
+  const totalSlides = caseTagCount + (SHOW_TEAM_STATUS_SLIDE ? 1 : 0);
 
   const restartTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -395,7 +397,7 @@ export const TvBoard: React.FC = () => {
   }).length;
 
   const critical = liveCases.filter((c) => c.priority === 'Critical').length;
-  const isEmployeeSlide = slide === totalSlides - 1;
+  const isEmployeeSlide = SHOW_TEAM_STATUS_SLIDE && slide === totalSlides - 1;
   const activeEmployeeCount = employees.filter((e) => e.status === 'Active').length;
 
   return (
