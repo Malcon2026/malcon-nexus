@@ -693,6 +693,15 @@ textarea {
   }
 }
 
+/* ── TV Board auto-scroll list (scrollbar hidden, programmatic scroll) ── */
+.tv-board-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tv-board-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── TV Board live case pulse (ambulance red / blue) ── */
 .tv-dot-pulse {
   animation: tv-dot-ambulance 0.4s step-end infinite;

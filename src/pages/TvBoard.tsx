@@ -43,8 +43,6 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
     const el = ref.current;
     if (!el) return;
 
-    el.scrollTop = 0;
-
     const SPEED_PX_PER_SEC = 26;
     const PAUSE_MS = 2200;
     let raf = 0;
@@ -52,26 +50,40 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
     let phase: 'down' | 'pause-bottom' | 'pause-top' = 'down';
     let pauseUntil = 0;
 
-    const tick = (t: number) => {
-      const dt = (t - last) / 1000;
-      last = t;
-      const maxScroll = el.scrollHeight - el.clientHeight;
+    const maxScroll = () => Math.max(0, el.scrollHeight - el.clientHeight);
 
-      if (maxScroll <= 1) {
+    const resetScroll = () => {
+      el.scrollTop = 0;
+      phase = 'down';
+      pauseUntil = 0;
+      last = performance.now();
+    };
+
+    resetScroll();
+
+    const tick = (t: number) => {
+      const dt = Math.min((t - last) / 1000, 0.05);
+      last = t;
+      const overflow = maxScroll();
+
+      if (overflow <= 1) {
         raf = requestAnimationFrame(tick);
         return;
       }
 
       if (phase === 'down') {
-        el.scrollTop = Math.min(maxScroll, el.scrollTop + SPEED_PX_PER_SEC * dt);
-        if (el.scrollTop >= maxScroll - 0.5) {
+        el.scrollTop = Math.min(overflow, el.scrollTop + SPEED_PX_PER_SEC * dt);
+        if (el.scrollTop >= overflow - 0.5) {
+          el.scrollTop = overflow;
           phase = 'pause-bottom';
           pauseUntil = t + PAUSE_MS;
         }
-      } else if (phase === 'pause-bottom' && t >= pauseUntil) {
-        el.scrollTop = 0;
-        phase = 'pause-top';
-        pauseUntil = t + PAUSE_MS;
+      } else if (phase === 'pause-bottom') {
+        if (t >= pauseUntil) {
+          el.scrollTop = 0;
+          phase = 'pause-top';
+          pauseUntil = t + PAUSE_MS;
+        }
       } else if (phase === 'pause-top' && t >= pauseUntil) {
         phase = 'down';
       }
@@ -80,7 +92,34 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
     };
 
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    // Re-measure when layout/content changes (data refresh, fonts, ticker wrap, etc.)
+    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleReset = () => {
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => {
+        resizeDebounce = null;
+        resetScroll();
+      }, 80);
+    };
+
+    const ro = new ResizeObserver(scheduleReset);
+    ro.observe(el);
+    for (const child of el.children) {
+      ro.observe(child);
+    }
+
+    // First paint often reports zero height before flex layout settles.
+    const layoutKick = window.setTimeout(resetScroll, 150);
+    const layoutKick2 = window.setTimeout(resetScroll, 600);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      window.clearTimeout(layoutKick);
+      window.clearTimeout(layoutKick2);
+    };
   }, [resetKey]);
 
   return ref;
@@ -215,7 +254,11 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
 }
 
 function CasesSlide({ cases }: { cases: ImplantCase[] }) {
-  const scrollRef = useAutoScroll<HTMLDivElement>(cases.length);
+  const scrollResetKey = useMemo(
+    () => cases.map((c) => `${c.id}:${c.updatedAt}:${c.currentStage}`).join('|'),
+    [cases],
+  );
+  const scrollRef = useAutoScroll<HTMLDivElement>(scrollResetKey);
 
   return (
     <div className="flex-1 px-6 flex flex-col overflow-hidden min-h-0">
@@ -224,7 +267,10 @@ function CasesSlide({ cases }: { cases: ImplantCase[] }) {
           <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
         </div>
       ) : (
-        <div ref={scrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden min-h-0">
+        <div
+          ref={scrollRef}
+          className="tv-board-scroll flex-1 flex flex-col gap-2 overflow-y-auto min-h-0"
+        >
           {cases.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
         </div>
       )}
@@ -278,7 +324,7 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
           <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>On A Case</p>
           <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({busy.length})</span>
         </div>
-        <div ref={busyScrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden">
+        <div ref={busyScrollRef} className="tv-board-scroll flex-1 flex flex-col gap-2 overflow-y-auto min-h-0">
           {busy.length === 0 && (
             <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Nobody is on a case right now.</p>
           )}
@@ -300,7 +346,7 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
           <p className="text-sm font-bold uppercase tracking-wider" style={{ color: INK }}>Idle / Available</p>
           <span className="text-sm font-semibold" style={{ color: INK_DIM }}>({idle.length})</span>
         </div>
-        <div ref={idleScrollRef} className="flex-1 flex flex-col gap-2 overflow-hidden">
+        <div ref={idleScrollRef} className="tv-board-scroll flex-1 flex flex-col gap-2 overflow-y-auto min-h-0">
           {idle.length === 0 && (
             <p className="text-lg font-medium mt-4" style={{ color: INK_DIM }}>Everyone is currently on a case.</p>
           )}
