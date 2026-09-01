@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone } from 'lucide-react';
+import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
+import { TvNoticeBoardEditor } from '../components/TvNoticeBoardEditor';
 
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
   { id: 'notice', label: 'Notice Board', icon: <Megaphone className="h-4 w-4" />, adminOnly: true },
+  { id: 'tv-notice', label: 'TV Notice', icon: <Tv className="h-4 w-4" />, adminOnly: true },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   { id: 'security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
   { id: 'company', label: 'Company', icon: <Building2 className="h-4 w-4" /> },
@@ -82,7 +84,7 @@ export const Settings: React.FC = () => {
   const isAdmin = viewMode === 'admin' || currentUser.role === 'admin';
   const visibleTabs = tabs.filter((tab) => {
     if (tab.adminOnly && !isAdmin) return false;
-    if (viewMode === 'petrol' && (tab.id === 'company' || tab.id === 'data' || tab.id === 'notice')) {
+    if (viewMode === 'petrol' && (tab.id === 'company' || tab.id === 'data' || tab.id === 'notice' || tab.id === 'tv-notice')) {
       return false;
     }
     return true;
@@ -232,6 +234,10 @@ export const Settings: React.FC = () => {
 
             {activeTab === 'notice' && isAdmin && (
               <NoticeBoardEditor />
+            )}
+
+            {activeTab === 'tv-notice' && isAdmin && (
+              <TvNoticeBoardEditor />
             )}
 
             {activeTab === 'notifications' && (

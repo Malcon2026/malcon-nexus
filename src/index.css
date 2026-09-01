@@ -780,3 +780,49 @@ textarea {
     color: #fbbf24;
   }
 }
+
+/* ── TV board scrolling notice ticker ── */
+.tv-notice-ticker {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+
+.tv-notice-ticker-track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  width: max-content;
+  animation: tv-notice-scroll linear infinite;
+}
+
+.tv-notice-ticker-text {
+  font-size: clamp(1.25rem, 2.2vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fbbf24;
+  text-transform: uppercase;
+}
+
+.tv-notice-ticker-sep {
+  padding: 0 2.5rem;
+  font-size: 0.85rem;
+  color: #9a8cff;
+  opacity: 0.85;
+}
+
+@keyframes tv-notice-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-notice-ticker-track {
+    animation: none;
+    transform: none;
+  }
+}

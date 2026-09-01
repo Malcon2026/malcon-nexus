@@ -265,6 +265,8 @@ interface AppState {
   setIncentiveRatePerKm: (rate: number) => Promise<{ error: string | null }>;
   getEmployeeNotice: () => string;
   setEmployeeNotice: (notice: string) => Promise<{ error: string | null }>;
+  getTvNotice: () => string;
+  setTvNotice: (notice: string) => Promise<{ error: string | null }>;
   getAdminDashboardNotes: () => string;
   setAdminDashboardNotes: (notes: string) => Promise<{ error: string | null }>;
   getAdminDashboardNoteCards: () => DashboardNote[];
@@ -2950,6 +2952,27 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: message };
     }
     set((s) => ({ appSettings: { ...s.appSettings, employee_notice: value } }));
+    return { error: null };
+  },
+
+  getTvNotice: () => {
+    return (get().appSettings.tv_notice ?? '').trim();
+  },
+
+  setTvNotice: async (notice) => {
+    const state = get();
+    if (state.currentUser.role !== 'admin') {
+      return { error: 'Only admins can update the TV notice.' };
+    }
+    const value = notice.trim().slice(0, 400);
+    try {
+      await sbSettingsRepo.set('tv_notice', value, state.currentUser.name);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save the TV notice.';
+      console.error('[settings] tv notice save failed:', err);
+      return { error: message };
+    }
+    set((s) => ({ appSettings: { ...s.appSettings, tv_notice: value } }));
     return { error: null };
   },
 

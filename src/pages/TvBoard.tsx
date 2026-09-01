@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
-import { isPostSurgeryStage } from '../lib/caseWorkflow';
+import { TvNoticeTicker } from '../components/TvNoticeTicker';
+import { isPostSurgeryStage, UNUSED_IMPLANTS_REMARK } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -314,10 +315,15 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
 }
 
 export const TvBoard: React.FC = () => {
-  const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser } = useStore();
+  const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser, loadAppSettings, getTvNotice } = useStore();
   const [now, setNow] = useState(new Date());
   const [slide, setSlide] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tvNotice = getTvNotice();
+
+  useEffect(() => {
+    void loadAppSettings();
+  }, [loadAppSettings]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -331,12 +337,13 @@ export const TvBoard: React.FC = () => {
         const role = viewMode === 'admin' ? 'admin' : 'employee';
         await bootstrapSupabaseData(role, role === 'employee' ? { employeeId: currentUser.id } : undefined, { force: true });
         reloadFromDatabase();
+        await loadAppSettings();
       } catch (err) {
         console.error('[TvBoard] refresh failed:', err);
       }
     }, REFRESH_MS);
     return () => clearInterval(t);
-  }, [viewMode, currentUser.id, reloadFromDatabase]);
+  }, [viewMode, currentUser.id, reloadFromDatabase, loadAppSettings]);
 
   const { openCases, boardCases } = useMemo(() => {
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
@@ -434,15 +441,17 @@ export const TvBoard: React.FC = () => {
       </button>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-8 pt-6 pb-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <div>
+      <div className="flex items-center gap-4 px-8 pt-6 pb-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="shrink-0">
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9a8cff' }}>Malcon Nexus</p>
           <h1 className="text-2xl font-bold tracking-tight mt-0.5" style={{ color: INK }}>
             {isEmployeeSlide ? 'Team Status' : 'Live Case Board'}
           </h1>
         </div>
 
-        <div className="flex items-center gap-8">
+        {tvNotice ? <TvNoticeTicker text={tvNotice} /> : null}
+
+        <div className="flex items-center gap-8 shrink-0 ml-auto">
           {isEmployeeSlide ? (
             <div className="text-center">
               <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>On Duty</p>
