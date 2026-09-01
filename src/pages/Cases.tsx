@@ -276,7 +276,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                   </div>
                   {fcfs ? (
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                      FCFS — staff claim when this stage opens (or you assign manually later)
+                      FCFS — employees request; admin assigns when this stage opens
                     </p>
                   ) : (
                   <select

@@ -200,6 +200,25 @@ export interface Approval {
   adminNotes?: string;
 }
 
+export type CaseTaskRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+/** Employee requested an open pool-stage case; admin picks who gets assigned. */
+export interface CaseTaskRequest {
+  id: string;
+  caseId: string;
+  caseNumber: string;
+  stage: WorkflowStage;
+  employeeId: string;
+  employeeName: string;
+  employeeDepartment: Department;
+  status: CaseTaskRequestStatus;
+  requestedAt: string;
+  reviewedBy?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  adminNotes?: string;
+}
+
 export interface DepartmentInfo {
   id: string;
   name: Department;

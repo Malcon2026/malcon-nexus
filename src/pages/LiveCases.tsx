@@ -129,7 +129,7 @@ export const LiveCases: React.FC = () => {
             onChange={(e) => setFilterPoolOnly(e.target.checked)}
             className="rounded border-gray-300"
           />
-          <span className="text-gray-700 whitespace-nowrap">FCFS pool only</span>
+          <span className="text-gray-700 whitespace-nowrap">Open pool only</span>
         </label>
         {(filterStage || filterPriority || search || filterPoolOnly) && (
           <button
@@ -204,7 +204,7 @@ export const LiveCases: React.FC = () => {
 
                   {isFcfsPoolCase(c) && (
                     <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
-                      <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">FCFS Pool</span>
+                      <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">Open pool</span>
                     </div>
                   )}
 

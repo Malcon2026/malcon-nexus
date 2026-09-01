@@ -8,6 +8,7 @@ import { LiveCases } from './pages/LiveCases';
 import { TvBoard } from './pages/TvBoard';
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
+import { TaskRequestQueue } from './pages/TaskRequestQueue';
 import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
@@ -207,6 +208,7 @@ function MainApp() {
       case 'notes':      return <Notes />;
       case 'workflow':   return <WorkflowBoard />;
       case 'approvals':  return <ApprovalQueue />;
+      case 'task-requests': return <TaskRequestQueue />;
       case 'employees':  return <Employees />;
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;

@@ -13,6 +13,7 @@ import type {
   DailyExpense,
   PetrolRequest,
   LocationTrip,
+  CaseTaskRequest,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
@@ -641,6 +642,125 @@ export const sbApprovalRepo = {
       admin_notes: a.adminNotes ?? null,
     }, { onConflict: 'id' });
     if (error) throw error;
+  },
+};
+
+
+// ─── CASE TASK REQUESTS (pool stage assignment) ──────────────
+
+function mapCaseTaskRequestRow(row: Record<string, unknown>): CaseTaskRequest {
+  return {
+    id: row.id as string,
+    caseId: row.case_id as string,
+    caseNumber: row.case_number as string,
+    stage: row.stage as CaseTaskRequest['stage'],
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    employeeDepartment: row.employee_department as CaseTaskRequest['employeeDepartment'],
+    status: row.status as CaseTaskRequest['status'],
+    requestedAt: row.requested_at as string,
+    reviewedBy: (row.reviewed_by as string | null) ?? null,
+    reviewedById: (row.reviewed_by_id as string | null) ?? null,
+    reviewedAt: (row.reviewed_at as string | null) ?? null,
+    adminNotes: (row.admin_notes as string | null) ?? undefined,
+  };
+}
+
+export const sbCaseTaskRequestRepo = {
+  async getAll(): Promise<CaseTaskRequest[]> {
+    const { data, error } = await supabase
+      .from('case_task_requests')
+      .select('*')
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapCaseTaskRequestRow(row as Record<string, unknown>));
+  },
+
+  async getForEmployee(employeeId: string): Promise<CaseTaskRequest[]> {
+    const { data, error } = await supabase
+      .from('case_task_requests')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('requested_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapCaseTaskRequestRow(row as Record<string, unknown>));
+  },
+
+  async getPendingForCase(caseId: string): Promise<CaseTaskRequest[]> {
+    const { data, error } = await supabase
+      .from('case_task_requests')
+      .select('*')
+      .eq('case_id', caseId)
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapCaseTaskRequestRow(row as Record<string, unknown>));
+  },
+
+  async create(req: CaseTaskRequest): Promise<CaseTaskRequest> {
+    const { data, error } = await supabase
+      .from('case_task_requests')
+      .insert({
+        id: req.id,
+        case_id: req.caseId,
+        case_number: req.caseNumber,
+        stage: req.stage,
+        employee_id: req.employeeId,
+        employee_name: req.employeeName,
+        employee_department: req.employeeDepartment,
+        status: req.status,
+        requested_at: req.requestedAt,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapCaseTaskRequestRow(data as Record<string, unknown>);
+  },
+
+  async updateStatus(
+    id: string,
+    status: CaseTaskRequest['status'],
+    reviewed: { reviewedBy: string; reviewedById: string; adminNotes?: string },
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('case_task_requests')
+      .update({
+        status,
+        reviewed_by: reviewed.reviewedBy,
+        reviewed_by_id: reviewed.reviewedById,
+        reviewed_at: new Date().toISOString(),
+        admin_notes: reviewed.adminNotes ?? null,
+      })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async resolvePendingForCase(
+    caseId: string,
+    approvedRequestId: string | null,
+    assignedEmployeeId: string | null,
+    reviewed: { reviewedBy: string; reviewedById: string; adminNotes?: string },
+  ): Promise<void> {
+    const pending = await this.getPendingForCase(caseId);
+    const reviewedAt = new Date().toISOString();
+    for (const r of pending) {
+      const approved = approvedRequestId
+        ? r.id === approvedRequestId
+        : assignedEmployeeId != null && r.employeeId === assignedEmployeeId;
+      const { error } = await supabase
+        .from('case_task_requests')
+        .update({
+          status: approved ? 'approved' : 'rejected',
+          reviewed_by: reviewed.reviewedBy,
+          reviewed_by_id: reviewed.reviewedById,
+          reviewed_at: reviewedAt,
+          admin_notes: approved
+            ? reviewed.adminNotes ?? 'Assigned by admin.'
+            : 'Another employee was selected for this case.',
+        })
+        .eq('id', r.id);
+      if (error) throw error;
+    }
   },
 };
 

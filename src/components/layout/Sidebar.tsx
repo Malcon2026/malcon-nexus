@@ -22,10 +22,12 @@ import {
   LayoutGrid,
   Tv,
   StickyNote,
+  HandMetal,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { countPendingLeaveSubmissions } from '../../lib/leave';
+import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
 
@@ -46,6 +48,7 @@ const navItems: NavItem[] = [
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },
   { id: 'tv-board', label: 'TV Board', icon: <Tv className="h-4 w-4" />, adminOnly: true },
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
+  { id: 'task-requests', label: 'Task Requests', icon: <HandMetal className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
   { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
@@ -70,11 +73,13 @@ export const Sidebar: React.FC = () => {
     leaveRequests,
     attendanceApprovalRequests,
     petrolRequests,
+    caseTaskRequests,
   } = useStore();
 
   const pendingApprovals = AUTO_APPROVE_STAGE_SUBMISSIONS
     ? 0
     : cases.filter(c => c.status === 'Waiting For Approval').length;
+  const pendingTaskRequests = countPendingTaskRequests(caseTaskRequests);
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval').length;
   const pendingAttendanceApprovals =
     countPendingLeaveSubmissions(leaveRequests) +
@@ -82,6 +87,7 @@ export const Sidebar: React.FC = () => {
 
   const getBadge = (id: string) => {
     if (id === 'approvals') return pendingApprovals;
+    if (id === 'task-requests') return pendingTaskRequests || undefined;
     if (id === 'cases' || id === 'live-cases') return activeCases;
     if (id === 'attendance') return pendingAttendanceApprovals;
     if (id === 'petrol-dashboard') return petrolRequests.filter((r) => r.status === 'pending').length;

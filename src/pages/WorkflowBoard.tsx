@@ -137,7 +137,7 @@ export const WorkflowBoard: React.FC = () => {
 
                         {inPool && (
                           <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
-                            <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">FCFS Pool</span>
+                            <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wide">Open pool</span>
                           </div>
                         )}
 

@@ -4,6 +4,7 @@ import {
   sbHospitalRepo,
   sbDoctorRepo,
   sbCaseRepo,
+  sbCaseTaskRequestRepo,
   sbNotificationRepo,
   sbApprovalRepo,
   sbActivityRepo,
@@ -37,7 +38,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v10';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v11';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
@@ -106,6 +107,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
         const dept = self?.department ?? '';
         return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, dept);
       } },
+    { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getForEmployee(employeeId) },
     { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
   ];
 }
@@ -145,6 +147,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
     { key: 'doctors', run: () => sbDoctorRepo.getAll() },
     { key: 'approvals', run: () => sbApprovalRepo.getAll() },
+    { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getAll() },
   ];
 }
 
@@ -264,6 +267,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'hospitals',
           'doctors',
           'approvals',
+          'caseTaskRequests',
           'kits',
           'activityLog',
         ]
@@ -278,6 +282,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceApprovalRequests',
           'departments',
           'cases',
+          'caseTaskRequests',
           'notifications',
           'hospitals',
         ];
@@ -302,6 +307,7 @@ export async function refreshApprovalQueues(): Promise<void> {
       { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
       { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
       { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+      { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getAll() },
     ],
     'approvals',
   );

@@ -50,7 +50,7 @@ export type AssignableStage = (typeof ASSIGNABLE_WORKFLOW_STAGES)[number];
 /** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
 
-/** FCFS stages — open pool; first eligible employee to claim (or admin assigns manually). */
+/** FCFS stages — open pool; employees request, admin assigns. */
 export const FCFS_STAGES = [
   'Pickup from Hospital',
   'Billing',
@@ -103,7 +103,7 @@ export function isFcfsClaimedCase(c: ImplantCase): boolean {
   return isFcfsStage(c.currentStage) && Boolean(c.assignedEmployee) && c.status === 'Active';
 }
 
-export function canClaimCase(
+export function canRequestTaskCase(
   c: ImplantCase,
   employee: Pick<Employee, 'id' | 'email' | 'department'>,
 ): boolean {
@@ -115,12 +115,15 @@ export function canClaimCase(
   return true;
 }
 
-export function getAvailableFcfsCases(
+/** @deprecated Use canRequestTaskCase */
+export const canClaimCase = canRequestTaskCase;
+
+export function getAvailablePoolCases(
   cases: ImplantCase[],
   employee: Pick<Employee, 'id' | 'email' | 'department'>,
 ): ImplantCase[] {
   return cases
-    .filter((c) => canClaimCase(c, employee))
+    .filter((c) => canRequestTaskCase(c, employee))
     .sort((a, b) => {
       const po = { Critical: 0, High: 1, Medium: 2, Low: 3 } as const;
       const p = po[a.priority] - po[b.priority];
@@ -128,6 +131,9 @@ export function getAvailableFcfsCases(
       return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
     });
 }
+
+/** @deprecated Use getAvailablePoolCases */
+export const getAvailableFcfsCases = getAvailablePoolCases;
 
 export function countFcfsPoolCases(cases: ImplantCase[], stage?: FcfsStage): number {
   return cases.filter((c) => {

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
   CheckCircle, XCircle, MessageSquare, Clock, ChevronRight,
-  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban, CalendarClock, Hand
+  Download, Upload, AlertTriangle, Send, Clipboard, Edit3, FastForward, Trash2, Ban, CalendarClock, HandMetal
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -21,7 +21,8 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage, canClaimCase, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -366,7 +367,7 @@ interface CaseDetailProps {
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
-  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase, claimCase } = useStore();
+  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase, requestTask, approveTaskRequest, caseTaskRequests } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
@@ -374,7 +375,8 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showPostpone, setShowPostpone] = useState(false);
-  const [claiming, setClaiming] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
   const currentStageIdx = getStageIndex(c.currentStage);
@@ -402,7 +404,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseAssignedToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
-  const canClaim = viewMode === 'employee' && canClaimCase(c, currentUser);
+  const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
+  const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
+  const canRequest = viewMode === 'employee' && canEmployeeRequestTask(c, caseTaskRequests, currentUser);
 
   useEffect(() => {
     if (viewMode !== 'employee') return;
@@ -535,21 +539,24 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               )}
             </>
           )}
-          {viewMode === 'employee' && canClaim && (
+          {viewMode === 'employee' && canRequest && (
             <Button
               variant="primary"
               size="sm"
-              icon={<Hand className="h-4 w-4" />}
-              disabled={claiming}
+              icon={<HandMetal className="h-4 w-4" />}
+              disabled={requesting}
               onClick={async () => {
-                setClaiming(true);
-                const { error } = await claimCase(c.id);
-                setClaiming(false);
+                setRequesting(true);
+                const { error } = await requestTask(c.id);
+                setRequesting(false);
                 if (error) alert(error);
               }}
             >
-              {claiming ? 'Claiming…' : 'Claim Case'}
+              {requesting ? 'Sending…' : 'Request Task'}
             </Button>
+          )}
+          {viewMode === 'employee' && myPendingRequest && inFcfsPool && (
+            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">Request pending</Badge>
           )}
           {viewMode === 'employee' && canEmployeeSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
@@ -580,13 +587,41 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       {inFcfsPool && (
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-900">FCFS pool — {c.currentStage}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">Open pool — {c.currentStage}</p>
             <p className="text-xs text-amber-800 mt-0.5">
               {viewMode === 'admin'
-                ? 'Unclaimed. Staff in the matching department can claim first-come-first-served, or assign someone manually.'
-                : 'Available to claim. First eligible person in your department to claim gets this case.'}
+                ? `${pendingForCase.length} pending request${pendingForCase.length === 1 ? '' : 's'}. Assign from the list below, Task Requests page, or pick anyone manually.`
+                : myPendingRequest
+                  ? 'Your request is waiting for admin approval.'
+                  : 'Request this case — admin will assign who handles it.'}
             </p>
+            {viewMode === 'admin' && pendingForCase.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {pendingForCase.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-100">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar name={r.employeeName} size="xs" />
+                      <span className="text-xs font-medium text-gray-800 truncate">{r.employeeName}</span>
+                      <span className="text-[10px] text-gray-500">{r.employeeDepartment} · {timeAgo(r.requestedAt)}</span>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={approvingRequestId === r.id}
+                      onClick={async () => {
+                        setApprovingRequestId(r.id);
+                        const { error } = await approveTaskRequest(r.id);
+                        setApprovingRequestId(null);
+                        if (error) alert(error);
+                      }}
+                    >
+                      {approvingRequestId === r.id ? '…' : 'Assign'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

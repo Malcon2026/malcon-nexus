@@ -8,6 +8,7 @@ import type {
   PetrolRequest,
   RestockOutcome,
   LocationTrip,
+  CaseTaskRequest,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -32,7 +33,7 @@ import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } fro
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -40,7 +41,8 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canClaimCase, getAvailableFcfsCases, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
@@ -81,6 +83,7 @@ interface AppState {
   leaveRequests: LeaveRequest[];
   petrolRequests: PetrolRequest[];
   locationTrips: LocationTrip[];
+  caseTaskRequests: CaseTaskRequest[];
   dailyExpenses: DailyExpense[];
   dailyExpensesLoaded: boolean;
   appSettings: Record<string, string>;
@@ -116,9 +119,16 @@ interface AppState {
   ) => void;
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
-  assignEmployee: (caseId: string, employee: Employee, nextStage?: WorkflowStage) => void;
-  claimCase: (caseId: string) => Promise<{ error: string | null }>;
-  getAvailableFcfsCasesForCurrentUser: () => ImplantCase[];
+  assignEmployee: (
+    caseId: string,
+    employee: Employee,
+    nextStage?: WorkflowStage,
+    options?: { approvedRequestId?: string },
+  ) => void;
+  requestTask: (caseId: string) => Promise<{ error: string | null }>;
+  approveTaskRequest: (requestId: string) => Promise<{ error: string | null }>;
+  getPoolCasesAvailableForCurrentUser: () => ImplantCase[];
+  getMyPendingTaskRequests: () => CaseTaskRequest[];
   reactivateAssignedCase: (caseId: string) => Promise<void>;
   repairStuckAssignmentsForCurrentUser: () => Promise<void>;
   repairPendingStageSubmissions: () => Promise<void>;
@@ -770,7 +780,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard'];
+const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard'];
 const PETROL_DESK_TABS = ['dashboard', 'petrol-dashboard', 'settings'];
 
 const applyUserSession = (
@@ -808,6 +818,7 @@ export const useStore = create<AppState>((set, get) => ({
   leaveRequests: initialLeaveRequests,
   petrolRequests: initialPetrolRequests,
   locationTrips: initialLocationTrips,
+  caseTaskRequests: [],
   dailyExpenses: [],
   dailyExpensesLoaded: false,
   appSettings: {},
@@ -1040,7 +1051,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: approvedAt,
       details: advancingToFcfs
-        ? `Case entered FCFS pool at ${next}. Staff can claim or admin can assign. ${adminNotes}`
+        ? `Case entered open pool at ${next}. Staff can request; admin assigns. ${adminNotes}`
         : advancingUnassigned
           ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}. ${adminNotes}`
           : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
@@ -1331,7 +1342,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  assignEmployee: async (caseId, employee, nextStage) => {
+  assignEmployee: async (caseId, employee, nextStage, options) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
@@ -1379,6 +1390,43 @@ export const useStore = create<AppState>((set, get) => ({
       updatedEmployees = state.employees.map(e => (e.id === employee.id ? updated : e));
     }
 
+    let updatedTaskRequests = state.caseTaskRequests;
+    if (isFcfsStage(targetStage) && get().caseTaskRequests.some((r) => r.caseId === caseId && r.status === 'pending')) {
+      const reviewed = {
+        reviewedBy: state.currentUser.name,
+        reviewedById: state.currentUser.id,
+        adminNotes: options?.approvedRequestId ? 'Approved from task request.' : 'Assigned by admin.',
+      };
+      if (USE_SUPABASE) {
+        await sbCaseTaskRequestRepo.resolvePendingForCase(
+          caseId,
+          options?.approvedRequestId ?? null,
+          employee.id,
+          reviewed,
+        );
+        if (state.viewMode === 'admin') {
+          updatedTaskRequests = await sbCaseTaskRequestRepo.getAll();
+        } else {
+          updatedTaskRequests = await sbCaseTaskRequestRepo.getForEmployee(state.currentUser.id);
+        }
+      } else {
+        updatedTaskRequests = state.caseTaskRequests.map((r) => {
+          if (r.caseId !== caseId || r.status !== 'pending') return r;
+          const approved = options?.approvedRequestId
+            ? r.id === options.approvedRequestId
+            : r.employeeId === employee.id;
+          return {
+            ...r,
+            status: approved ? ('approved' as const) : ('rejected' as const),
+            reviewedBy: state.currentUser.name,
+            reviewedById: state.currentUser.id,
+            reviewedAt: assignedAt,
+            adminNotes: approved ? reviewed.adminNotes : 'Another employee was selected for this case.',
+          };
+        });
+      }
+    }
+
     const activity = createActivityEvent(`Assigned to ${employee.department}`, 'case', caseId, c.caseNumber, state.currentUser.name, 'admin', `${employee.name} assigned to ${targetStage}.`);
     persistActivity(activity);
 
@@ -1390,108 +1438,125 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [notif, ...s.notifications],
       employees: updatedEmployees,
       activityLog: [activity, ...s.activityLog],
+      caseTaskRequests: updatedTaskRequests,
     }));
 
     void notifyCaseAssignment(caseId, employee.id);
   },
 
-  claimCase: async (caseId) => {
+  requestTask: async (caseId) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
-    if (!canClaimCase(c, state.currentUser)) {
-      return { error: 'You cannot claim this case. It may already be assigned or not in your department.' };
+    if (!canEmployeeRequestTask(c, state.caseTaskRequests, state.currentUser)) {
+      return { error: 'You cannot request this case. It may already be assigned or you already have a pending request.' };
     }
 
-    const assignedAt = new Date().toISOString();
     const stageName = normalizeWorkflowStageName(c.currentStage);
+    const requestedAt = new Date().toISOString();
+    const req: CaseTaskRequest = {
+      id: newId(),
+      caseId,
+      caseNumber: c.caseNumber,
+      stage: stageName,
+      employeeId: state.currentUser.id,
+      employeeName: state.currentUser.name,
+      employeeDepartment: state.currentUser.department,
+      status: 'pending',
+      requestedAt,
+    };
 
     try {
-      let updatedCase: ImplantCase;
-      if (USE_SUPABASE) {
-        updatedCase = await sbCaseRepo.claimCase(caseId, state.currentUser);
-      } else {
-        const updatedStages = normalizeCaseStages(
-          c.stages.map((s) =>
-            normalizeWorkflowStageName(s.stage) === stageName
-              ? {
-                  ...s,
-                  assignedEmployee: state.currentUser,
-                  assignedAt,
-                  status: 'Assigned' as const,
-                }
-              : s,
-          ),
-        );
-        updatedCase = await taskRepository.update(caseId, {
-          assignedEmployee: state.currentUser,
-          status: 'Active',
-          currentDepartment: normalizeDepartment(state.currentUser.department) ?? state.currentUser.department,
-          stages: updatedStages,
-        });
-      }
+      const created = USE_SUPABASE ? await sbCaseTaskRequestRepo.create(req) : req;
 
-      const claimLog = {
+      const requestLog = {
         id: `log-${Date.now()}`,
         caseId,
-        action: `Claimed: ${stageName}`,
+        action: `Task Requested: ${stageName}`,
         performedBy: state.currentUser.name,
         performedByRole: 'employee' as const,
         department: state.currentUser.department,
-        timestamp: assignedAt,
-        details: `${state.currentUser.name} claimed ${c.caseNumber} for ${stageName} (FCFS).`,
+        timestamp: requestedAt,
+        details: `${state.currentUser.name} requested ${c.caseNumber} for ${stageName} — awaiting admin assignment.`,
       };
 
-      updatedCase = await taskRepository.update(caseId, {
-        activityLogs: [...updatedCase.activityLogs, claimLog],
+      const updatedCase = await taskRepository.update(caseId, {
+        activityLogs: [...c.activityLogs, requestLog],
       });
 
-      let updatedEmployees = state.employees;
-      const target = state.employees.find((e) => e.id === state.currentUser.id);
-      if (target) {
-        const updated = await employeeRepository.update(state.currentUser.id, {
-          casesActive: target.casesActive + 1,
-        });
-        updatedEmployees = state.employees.map((e) => (e.id === state.currentUser.id ? updated : e));
-      }
-
       const activity = createActivityEvent(
-        `Claimed: ${stageName}`,
+        `Task Requested: ${stageName}`,
         'case',
         caseId,
         c.caseNumber,
         state.currentUser.name,
         'employee',
-        `${state.currentUser.name} claimed case for ${stageName}.`,
+        `${state.currentUser.name} requested assignment for ${stageName}.`,
       );
       persistActivity(activity);
 
-      const notif = createNotification(
-        'Case Claimed',
-        `${state.currentUser.name} claimed ${c.caseNumber} — ${stageName}.`,
-        'info',
+      const adminNotif = createNotification(
+        'Task Request',
+        `${state.currentUser.name} requested ${c.caseNumber} — ${stageName}. Review in Task Requests.`,
+        'warning',
         caseId,
       );
-      persistNotification(notif);
+      persistNotification(adminNotif);
 
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-        employees: updatedEmployees,
+        caseTaskRequests: [created, ...s.caseTaskRequests],
         activityLog: [activity, ...s.activityLog],
-        notifications: [notif, ...s.notifications],
+        notifications: [adminNotif, ...s.notifications],
       }));
 
-      void notifyCaseAssignment(caseId, state.currentUser.id);
       return { error: null };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to claim case';
+      const message = err instanceof Error ? err.message : 'Failed to submit request';
       return { error: message };
     }
   },
 
-  getAvailableFcfsCasesForCurrentUser: () => {
+  approveTaskRequest: async (requestId) => {
     const state = get();
-    return getAvailableFcfsCases(state.cases, state.currentUser);
+    const req = state.caseTaskRequests.find((r) => r.id === requestId);
+    if (!req) return { error: 'Request not found' };
+    if (req.status !== 'pending') return { error: 'This request is no longer pending.' };
+
+    const c = state.cases.find((x) => x.id === req.caseId);
+    if (!c) return { error: 'Case not found' };
+    if (!isFcfsPoolCase(c)) return { error: 'This case is already assigned or no longer in the pool.' };
+
+    const employee = state.employees.find((e) => e.id === req.employeeId);
+    if (!employee) return { error: 'Employee not found' };
+
+    try {
+      await get().assignEmployee(req.caseId, employee, req.stage, { approvedRequestId: requestId });
+
+      const empNotif = createNotification(
+        'Task Approved',
+        `You were assigned ${req.caseNumber} — ${req.stage}.`,
+        'success',
+        req.caseId,
+      );
+      persistNotification(empNotif);
+      set((s) => ({ notifications: [empNotif, ...s.notifications] }));
+
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to approve request';
+      return { error: message };
+    }
+  },
+
+  getPoolCasesAvailableForCurrentUser: () => {
+    const state = get();
+    return getPoolCasesAvailableToRequest(state.cases, state.caseTaskRequests, state.currentUser);
+  },
+
+  getMyPendingTaskRequests: () => {
+    const state = get();
+    return filterMyPendingTaskRequests(state.caseTaskRequests, state.currentUser.id);
   },
 
   reactivateAssignedCase: async (caseId) => {
@@ -4305,6 +4370,7 @@ export const useStore = create<AppState>((set, get) => ({
       leaveRequests: [],
       petrolRequests: [],
       locationTrips: [],
+      caseTaskRequests: [],
       employees: resetEmployees,
       selectedCaseId: null,
     });
@@ -4334,6 +4400,7 @@ export const useStore = create<AppState>((set, get) => ({
       leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
       petrolRequests: Database.getAll<PetrolRequest>('petrolRequests'),
       locationTrips: Database.getAll<LocationTrip>('locationTrips'),
+      caseTaskRequests: Database.getAll<CaseTaskRequest>('caseTaskRequests'),
       ...session,
     });
   },
