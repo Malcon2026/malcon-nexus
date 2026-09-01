@@ -315,11 +315,11 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
 }
 
 export const TvBoard: React.FC = () => {
-  const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser, loadAppSettings, getTvNotice } = useStore();
+  const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser, loadAppSettings, getTvNoticeConfig } = useStore();
   const [now, setNow] = useState(new Date());
   const [slide, setSlide] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tvNotice = getTvNotice();
+  const tvNotice = getTvNoticeConfig();
 
   useEffect(() => {
     void loadAppSettings();
@@ -449,7 +449,9 @@ export const TvBoard: React.FC = () => {
           </h1>
         </div>
 
-        {tvNotice ? <TvNoticeTicker text={tvNotice} /> : null}
+        {tvNotice.text ? (
+          <TvNoticeTicker text={tvNotice.text} color={tvNotice.color} sepColor={tvNotice.sepColor} />
+        ) : null}
 
         <div className="flex items-center gap-8 shrink-0 ml-auto">
           {isEmployeeSlide ? (

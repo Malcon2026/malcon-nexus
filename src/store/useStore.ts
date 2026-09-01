@@ -31,6 +31,7 @@ import type { HospitalPlace } from '../lib/hospitalSearch';
 import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
 import type { PetrolTripEvidence } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
+import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo } from '../lib/database/repositories/supabaseRepositories';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
 import {
@@ -265,8 +266,8 @@ interface AppState {
   setIncentiveRatePerKm: (rate: number) => Promise<{ error: string | null }>;
   getEmployeeNotice: () => string;
   setEmployeeNotice: (notice: string) => Promise<{ error: string | null }>;
-  getTvNotice: () => string;
-  setTvNotice: (notice: string) => Promise<{ error: string | null }>;
+  getTvNoticeConfig: () => TvNoticeConfig;
+  setTvNoticeConfig: (config: TvNoticeConfig) => Promise<{ error: string | null }>;
   getAdminDashboardNotes: () => string;
   setAdminDashboardNotes: (notes: string) => Promise<{ error: string | null }>;
   getAdminDashboardNoteCards: () => DashboardNote[];
@@ -2956,15 +2957,23 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   getTvNotice: () => {
-    return (get().appSettings.tv_notice ?? '').trim();
+    return parseTvNotice(get().appSettings.tv_notice ?? '').text;
+  },
+
+  getTvNoticeConfig: () => {
+    return parseTvNotice(get().appSettings.tv_notice ?? '');
   },
 
   setTvNotice: async (notice) => {
+    return get().setTvNoticeConfig(parseTvNotice(notice));
+  },
+
+  setTvNoticeConfig: async (config) => {
     const state = get();
     if (state.currentUser.role !== 'admin') {
       return { error: 'Only admins can update the TV notice.' };
     }
-    const value = notice.trim().slice(0, 400);
+    const value = serializeTvNotice(config);
     try {
       await sbSettingsRepo.set('tv_notice', value, state.currentUser.name);
     } catch (err) {

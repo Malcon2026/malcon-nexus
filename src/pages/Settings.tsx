@@ -179,7 +179,7 @@ export const Settings: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0 max-w-full overflow-hidden">
           <motion.div key={activeTab} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
             {activeTab === 'profile' && (
               <Card>
