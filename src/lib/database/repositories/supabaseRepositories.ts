@@ -17,7 +17,7 @@ import type {
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
 import { normalizeDepartment } from '../../../constants/departments';
-import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP } from '../../caseWorkflow';
+import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployeeDepartment } from '../../caseWorkflow';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -453,21 +453,24 @@ export const sbCaseRepo = {
 
   async getFcfsPoolForEmployee(employeeId: string, department: string): Promise<ImplantCase[]> {
     const dept = normalizeDepartment(department) ?? department;
-    const fcfsStages = ['Pickup from Hospital', 'Billing', 'Bill Submission'].filter(
-      (stage) => STAGE_DEPARTMENT_MAP[stage as keyof typeof STAGE_DEPARTMENT_MAP] === dept,
-    );
+    const fcfsStages = fcfsStagesForEmployeeDepartment(dept);
     if (fcfsStages.length === 0) return [];
 
     const { data, error } = await supabase
       .from('cases')
       .select('*')
       .is('assigned_employee_id', null)
-      .eq('status', 'Active')
+      .in('status', ['Active', 'Draft'])
       .in('current_stage', fcfsStages)
-      .eq('current_department', dept)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
+
+    return (data ?? [])
+      .map((row) => rowToCase(row as Record<string, unknown>))
+      .filter((c) => {
+        const stageDept = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(c.currentStage)];
+        return !stageDept || c.currentDepartment === stageDept;
+      });
   },
 
   async getCasesForEmployeeIncludingPool(employeeId: string, department: string): Promise<ImplantCase[]> {

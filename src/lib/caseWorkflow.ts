@@ -59,26 +59,42 @@ export const FCFS_STAGES = [
 
 export type FcfsStage = (typeof FCFS_STAGES)[number];
 
+/** Departments allowed to claim each FCFS stage (RTD: Delivery outbound + Drivers for hospital pickup). */
+export const FCFS_ELIGIBLE_DEPARTMENTS: Record<FcfsStage, readonly Department[]> = {
+  'Pickup from Hospital': ['Delivery', 'Drivers'],
+  'Billing': ['Accounts'],
+  'Bill Submission': ['Bill Submission'],
+};
+
+export function fcfsStagesForEmployeeDepartment(dept: string | null | undefined): FcfsStage[] {
+  const normalized = normalizeDepartment(dept ?? '');
+  if (!normalized) return [];
+  return FCFS_STAGES.filter((stage) =>
+    (FCFS_ELIGIBLE_DEPARTMENTS[stage] as readonly Department[]).includes(normalized),
+  );
+}
+
 export function isFcfsStage(stage: WorkflowStage | string): boolean {
   return (FCFS_STAGES as readonly string[]).includes(normalizeWorkflowStageName(stage));
 }
 
-/** Department on the employee must match the stage department map for FCFS claim. */
+/** Employee department must be in the FCFS allow-list for that stage. */
 export function employeeDepartmentMatchesFcfsStage(
   employeeDept: string | null | undefined,
   stage: WorkflowStage | string,
 ): boolean {
   const normalized = normalizeDepartment(employeeDept ?? '');
-  const required = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(stage as WorkflowStage)];
-  if (!normalized || !required) return false;
-  return normalized === required;
+  const stageName = normalizeWorkflowStageName(stage as WorkflowStage);
+  if (!normalized || !isFcfsStage(stageName)) return false;
+  const eligible = FCFS_ELIGIBLE_DEPARTMENTS[stageName as FcfsStage];
+  return (eligible as readonly Department[]).includes(normalized);
 }
 
-/** Unclaimed case sitting in an FCFS stage pool. */
 export function isFcfsPoolCase(c: ImplantCase): boolean {
   if (!isFcfsStage(c.currentStage)) return false;
   if (c.assignedEmployee) return false;
-  if (c.status !== 'Active') return false;
+  // Active = normal pool; Draft = legacy rows advanced before FCFS went live.
+  if (c.status !== 'Active' && c.status !== 'Draft') return false;
   if (c.currentStage === 'Completed') return false;
   return true;
 }

@@ -16,7 +16,7 @@ const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
   'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
   'Delivery': { title: 'Delivery', desc: 'Delivery dept' },
   'Surgery': { title: 'Surgery', desc: 'Scrub person' },
-  'Pickup from Hospital': { title: 'Pickup from Hospital', desc: 'Delivery dept (RTD)' },
+  'Pickup from Hospital': { title: 'Pickup from Hospital', desc: 'Delivery / Drivers (RTD pool)' },
   'Cleaning & Audit': { title: 'Cleaning & Audit', desc: 'Cleaning & Audit dept' },
   'Restock': { title: 'Restock', desc: 'Stores — refill kits from stock' },
   'Billing': { title: 'Billing', desc: 'Accounts' },

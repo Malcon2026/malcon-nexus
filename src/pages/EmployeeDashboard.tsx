@@ -472,9 +472,27 @@ const EmployeeAlertsPage: React.FC = () => {
 
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
+  const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const [page, setPage] = useState<EmployeePage>('home');
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
+
+  useEffect(() => {
+    if (page !== 'cases') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { bootstrapEssential } = await import('../lib/database/bootstrap');
+        await bootstrapEssential('employee', { employeeId: currentUser.id }, { force: true });
+        if (!cancelled) reloadFromDatabase();
+      } catch (err) {
+        console.warn('[EmployeeDashboard] cases refresh failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [page, currentUser.id, reloadFromDatabase]);
 
   if (viewCase) {
     return <CaseDetail case={viewCase} onBack={() => setViewCase(null)} />;

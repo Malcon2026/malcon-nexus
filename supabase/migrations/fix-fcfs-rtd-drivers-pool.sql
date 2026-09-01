@@ -1,5 +1,5 @@
--- FCFS case pool: employees can see and claim unassigned RTD / Billing / Bill Submission cases.
--- Run in Supabase Dashboard → SQL Editor
+-- Fix FCFS pool visibility: RTD (Pickup from Hospital) can be claimed by Drivers OR Delivery staff.
+-- Run in Supabase Dashboard → SQL Editor (after add-fcfs-case-pool.sql).
 
 BEGIN;
 
@@ -40,5 +40,12 @@ USING (
   AND employee_can_claim_fcfs_case(current_stage, current_department)
 )
 WITH CHECK (assigned_employee_id = current_employee_id());
+
+-- Promote legacy Draft FCFS pool rows so they show on Live/TV boards.
+UPDATE cases
+SET status = 'Active', updated_at = NOW()
+WHERE assigned_employee_id IS NULL
+  AND status = 'Draft'
+  AND current_stage IN ('Pickup from Hospital', 'Billing', 'Bill Submission');
 
 COMMIT;
