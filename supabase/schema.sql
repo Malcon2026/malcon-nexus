@@ -400,7 +400,9 @@ DROP POLICY IF EXISTS "cases_employee_assigned" ON cases;
 DROP POLICY IF EXISTS "cases_employee_update"   ON cases;
 CREATE POLICY "cases_admin_all"         ON cases FOR ALL    USING (current_user_role() = 'admin');
 CREATE POLICY "cases_employee_assigned" ON cases FOR SELECT USING (assigned_employee_id = current_employee_id());
-CREATE POLICY "cases_employee_update"   ON cases FOR UPDATE USING (assigned_employee_id = current_employee_id());
+CREATE POLICY "cases_employee_update"   ON cases FOR UPDATE
+  USING (assigned_employee_id = current_employee_id())
+  WITH CHECK (true);
 
 -- NOTIFICATIONS
 DROP POLICY IF EXISTS "notifications_own" ON notifications;

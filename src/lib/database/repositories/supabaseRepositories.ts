@@ -5,6 +5,7 @@
 // Supabase snake_case database columns.
 
 import { supabase } from '../../supabase';
+import { formatUnknownError } from '../../../utils/errors';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
   Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
@@ -553,7 +554,15 @@ export const sbCaseRepo = {
     if (!existing) throw new Error(`Case ${id} not found`);
     const merged = { ...existing, ...updates };
     const { error } = await supabase.from('cases').update(caseToRow(merged) as never).eq('id', id);
-    if (error) throw error;
+    if (error) {
+      const message = formatUnknownError(error);
+      if (message.toLowerCase().includes('row-level security') && message.toLowerCase().includes('cases')) {
+        throw new Error(
+          'Submit blocked by database permissions. Ask admin to run fix-cases-employee-stage-handoff-rls.sql in Supabase.',
+        );
+      }
+      throw error;
+    }
     return merged;
   },
 
