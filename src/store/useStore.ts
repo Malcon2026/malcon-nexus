@@ -21,6 +21,7 @@ import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
+import { formatUnknownError } from '../utils/errors';
 import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
@@ -1078,7 +1079,9 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     let updatedEmployees = state.employees;
-    if (advancingUnassigned && c.assignedEmployee) {
+    // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
+    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+    if (advancingUnassigned && c.assignedEmployee && canUpdateEmployeeStats) {
       const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
       if (prev) {
         const updated = await employeeRepository.update(prev.id, {
@@ -1195,13 +1198,16 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     let updatedEmployees = state.employees;
-    const employeeList = Database.getAll<Employee>('employees');
-    const target = employeeList.find((e) => e.id === employee.id);
-    if (target) {
-      const updated = await employeeRepository.update(employee.id, {
-        casesActive: target.casesActive + 1,
-      });
-      updatedEmployees = state.employees.map((e) => (e.id === employee.id ? updated : e));
+    // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
+    if (state.currentUser.role === 'admin') {
+      const employeeList = Database.getAll<Employee>('employees');
+      const target = employeeList.find((e) => e.id === employee.id);
+      if (target) {
+        const updated = await employeeRepository.update(employee.id, {
+          casesActive: target.casesActive + 1,
+        });
+        updatedEmployees = state.employees.map((e) => (e.id === employee.id ? updated : e));
+      }
     }
 
     const approveActivity = createActivityEvent(
@@ -1757,8 +1763,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: null };
     } catch (err) {
       console.error('[submitStage] failed:', err);
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      return { error: `Failed to submit: ${message}` };
+      return { error: `Failed to submit: ${formatUnknownError(err)}` };
     }
   },
 

@@ -1,16 +1,13 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { formatUnknownError } from '../utils/errors';
 import type { Document, WorkflowStage } from '../types';
-
-const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-stage-photo`
-  : '';
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 const MAX_PHOTOS_PER_SUBMISSION = 10;
 /** Raw camera/library files from iPhones can be large — we compress before upload. */
 export const MAX_RAW_PHOTO_BYTES = 25 * 1024 * 1024;
-/** After compress, keep under edge-function limit. */
+/** After compress, keep under storage limit. */
 export const MAX_UPLOAD_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1600;
 const TARGET_UPLOAD_BYTES = 550 * 1024;
@@ -40,25 +37,6 @@ function formatStampDateTime(date: Date): string {
     hour12: true,
     timeZone: 'Asia/Kolkata',
   });
-}
-
-async function fetchWithTimeout(
-  url: string,
-  options: RequestInit,
-  timeoutMs = UPLOAD_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Upload timed out. Check your connection and try again.');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 async function fileToDataUrl(file: File): Promise<string> {
@@ -263,18 +241,90 @@ export async function stampPhotoForUpload(
   }
 }
 
-async function getUploadSession() {
+function sanitizeStage(stage: string): string {
+  return stage.toLowerCase().replace(/\s+/g, '-');
+}
+
+async function ensureUploadSession() {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) {
     throw new Error('You must be logged in to upload a photo');
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
     throw new Error('Session expired. Please sign in again.');
   }
 
+  // Refresh if token expires within 2 minutes (common on mobile after camera opens).
+  const expiresAtMs = (session.expires_at ?? 0) * 1000;
+  if (expiresAtMs > 0 && expiresAtMs - Date.now() < 120_000) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed.session?.access_token) {
+      throw new Error('Session expired. Please sign in again.');
+    }
+    return refreshed.session;
+  }
+
   return session;
+}
+
+function mapStorageUploadError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes('bucket') || lower.includes('not found')) {
+    return 'Stage photo storage is not set up yet. Ask admin to run add-stage-photos-storage.sql in Supabase.';
+  }
+  if (lower.includes('row-level security') || lower.includes('policy') || lower.includes('permission')) {
+    return 'Photo upload blocked by storage permissions. Contact admin.';
+  }
+  if (lower.includes('payload too large') || lower.includes('file size')) {
+    return 'Photo is too large (max 5 MB). Retake or use a simpler photo.';
+  }
+  return message || 'Photo upload failed';
+}
+
+/** Upload directly to Supabase Storage (same pattern as petrol receipts — reliable on mobile). */
+async function uploadStagePhotoToStorage(
+  caseId: string,
+  stage: WorkflowStage,
+  file: File,
+  uploadedBy: string,
+): Promise<Document> {
+  if (file.size === 0) {
+    throw new Error('Photo file is empty. Please retake the photo and try again.');
+  }
+  if (file.size > MAX_UPLOAD_PHOTO_BYTES) {
+    throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
+  }
+
+  await ensureUploadSession();
+
+  const photoId = crypto.randomUUID();
+  const path = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}.jpg`;
+
+  const { error } = await supabase.storage.from('stage-photos').upload(path, file, {
+    contentType: file.type || 'image/jpeg',
+    upsert: false,
+  });
+
+  if (error) {
+    throw new Error(mapStorageUploadError(error.message));
+  }
+
+  const { data } = supabase.storage.from('stage-photos').getPublicUrl(path);
+  if (!data.publicUrl) {
+    throw new Error('Photo uploaded but the URL could not be created.');
+  }
+
+  return {
+    id: photoId,
+    name: `${stage} photo`,
+    type: file.type || 'image/jpeg',
+    size: formatFileSize(file.size),
+    uploadedBy,
+    uploadedAt: new Date().toISOString(),
+    url: data.publicUrl,
+  };
 }
 
 /** Upload a stage completion photo and return a Document record for the case stage. */
@@ -297,37 +347,11 @@ export async function uploadStagePhoto(
     };
   }
 
-  const session = await getUploadSession();
-
-  const form = new FormData();
-  form.append('caseId', caseId);
-  form.append('stage', stage);
-  form.append('uploadedBy', uploadedBy);
-  form.append('photo', file, file.name || 'stage-photo.jpg');
-
-  const res = await fetchWithTimeout(FUNCTIONS_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    },
-    body: form,
-  });
-
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(typeof payload.error === 'string' ? payload.error : 'Photo upload failed');
+  try {
+    return await uploadStagePhotoToStorage(caseId, stage, file, uploadedBy);
+  } catch (err) {
+    throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
   }
-
-  const doc = payload.document as Document | undefined;
-  if (!doc?.url) {
-    throw new Error('Photo upload failed — no image URL returned');
-  }
-
-  return {
-    ...doc,
-    size: formatFileSize(Number(doc.size) || file.size),
-  };
 }
 
 /** Upload multiple stage photos sequentially (shows progress in UI). */

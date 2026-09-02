@@ -6,6 +6,7 @@ import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, RestockOutcome, WorkflowStage } from '../types';
 import { normalizeWorkflowStage } from '../utils/helpers';
+import { formatUnknownError } from '../utils/errors';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
@@ -106,7 +107,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       resetForm();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit. Please try again.');
+      setError(formatUnknownError(err, 'Failed to submit. Please try again.'));
     } finally {
       setSubmitting(false);
       setUploadProgress(null);
