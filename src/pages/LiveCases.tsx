@@ -123,7 +123,7 @@ export const LiveCases: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4 mb-6">
+      <div className="flex flex-col gap-2 mb-6">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -135,20 +135,18 @@ export const LiveCases: React.FC = () => {
           />
         </div>
 
-        {/* Stage filter tiles — tap a card to filter; tap again or All to reset */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        {/* Stage filter chips — compact; tap to filter */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           <button
             type="button"
             onClick={() => setFilterStage('')}
-            className={`rounded-xl border-2 p-3 text-left transition-all min-h-[72px] ${
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-full border transition-colors truncate ${
               !filterStage
-                ? 'border-gray-900 bg-gray-900 text-white shadow-md scale-[1.02]'
-                : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:shadow-sm'
+                ? 'border-gray-900 bg-gray-900 text-white ring-2 ring-gray-900 ring-offset-1'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">All</p>
-            <p className="text-2xl font-bold leading-none mt-1">{stageCounts.all}</p>
-            <p className="text-[10px] mt-1 opacity-70">Live cases</p>
+            All {stageCounts.all}
           </button>
 
           {STAGES.map((stage) => {
@@ -159,20 +157,13 @@ export const LiveCases: React.FC = () => {
                 key={stage}
                 type="button"
                 onClick={() => setFilterStage(active ? '' : stage)}
-                className={`rounded-xl border-2 p-3 text-left transition-all min-h-[72px] ${
+                className={`px-2.5 py-1.5 text-xs font-semibold rounded-full border transition-colors truncate ${
                   active
-                    ? `border-gray-900 ${sc.bg} shadow-md scale-[1.02] ring-2 ring-gray-900 ring-offset-1`
-                    : `${sc.border} ${sc.bg} hover:shadow-sm hover:scale-[1.01]`
+                    ? `${sc.bg} ${sc.text} ${sc.border} ring-2 ring-gray-900 ring-offset-1`
+                    : `${sc.bg} ${sc.text} ${sc.border} opacity-85 hover:opacity-100`
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${sc.dot}`} />
-                  <p className={`text-[11px] font-semibold leading-tight ${sc.text}`}>
-                    {STAGE_TILE_LABELS[stage]}
-                  </p>
-                </div>
-                <p className={`text-2xl font-bold leading-none mt-1 ${sc.text}`}>{stageCounts[stage]}</p>
-                <p className={`text-[10px] mt-1 ${sc.text} opacity-70`}>cases</p>
+                {STAGE_TILE_LABELS[stage]} {stageCounts[stage]}
               </button>
             );
           })}
