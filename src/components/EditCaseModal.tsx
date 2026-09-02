@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { EmployeeSearchSelect } from './EmployeeSearchSelect';
 import { useStore } from '../store/useStore';
-import type { Employee, ImplantCase, Priority } from '../types';
+import type { ImplantCase, Priority } from '../types';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
@@ -65,14 +66,6 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
     [employees],
   );
-
-  const employeesForStage = (stage: AssignableStage): Employee[] => {
-    const preferredDept = STAGE_DEPARTMENT_MAP[stage];
-    if (!preferredDept) return activeEmployees;
-    const preferred = activeEmployees.filter((e) => e.department === preferredDept);
-    const others = activeEmployees.filter((e) => e.department !== preferredDept);
-    return [...preferred, ...others];
-  };
 
   const initialStageIds = useMemo(() => stageAssignmentsFromCase(c), [c]);
 
@@ -350,7 +343,6 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                 {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => {
                   const deptHint = STAGE_DEPARTMENT_MAP[stage];
                   const fcfs = isFcfsStage(stage);
-                  const options = employeesForStage(stage);
                   const isCurrent = stage === c.currentStage;
                   const stageRecord = findStageRecord(c.stages, stage);
                   const isDone = stageRecord?.status === 'Approved';
@@ -379,25 +371,16 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                           <p className="text-[10px] text-amber-600 mt-0.5">FCFS pool when stage opens</p>
                         )}
                       </div>
-                      <select
-                        className={inputClass}
+                      <EmployeeSearchSelect
+                        employees={activeEmployees}
                         value={stageEmployeeIds[stage]}
-                        onChange={(e) =>
-                          setStageEmployeeIds({ ...stageEmployeeIds, [stage]: e.target.value })
+                        onChange={(value) =>
+                          setStageEmployeeIds({ ...stageEmployeeIds, [stage]: value })
                         }
-                      >
-                        <option value="">Unassigned</option>
-                        {stage === 'Surgery' && (
-                          <option value={SURGERY_SELF_ASSIGNMENT_VALUE}>
-                            Self — Hospital performs surgery
-                          </option>
-                        )}
-                        {options.map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.name} — {emp.department}
-                          </option>
-                        ))}
-                      </select>
+                        suggestedDepartment={deptHint}
+                        allowSelf={stage === 'Surgery'}
+                        placeholder="Unassigned"
+                      />
                     </div>
                   );
                 })}

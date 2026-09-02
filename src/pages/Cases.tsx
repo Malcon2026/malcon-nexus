@@ -10,11 +10,12 @@ import { Avatar } from '../components/ui/Avatar';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, Priority, WorkflowStage, CaseStatus, Employee } from '../types';
+import type { ImplantCase, Priority, WorkflowStage, CaseStatus } from '../types';
 import { priorityColors, statusColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { EditCaseModal } from '../components/EditCaseModal';
+import { EmployeeSearchSelect } from '../components/EmployeeSearchSelect';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
@@ -62,14 +63,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
     [employees],
   );
-
-  const employeesForStage = (stage: AssignableStage): Employee[] => {
-    const preferredDept = STAGE_DEPARTMENT_MAP[stage];
-    if (!preferredDept) return activeEmployees;
-    const preferred = activeEmployees.filter((e) => e.department === preferredDept);
-    const others = activeEmployees.filter((e) => e.department !== preferredDept);
-    return [...preferred, ...others];
-  };
 
   const resetForm = () => {
     setForm({
@@ -264,7 +257,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
             {activeStages.map((stage) => {
               const deptHint = STAGE_DEPARTMENT_MAP[stage];
               const fcfs = isFcfsStage(stage);
-              const options = employeesForStage(stage);
               return (
                 <div key={stage} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 sm:gap-3 items-start sm:items-center">
                   <div>
@@ -283,26 +275,19 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                       FCFS — employees request; admin assigns when this stage opens
                     </p>
                   ) : (
-                  <select
-                    className={inputClass}
-                    value={form.stageEmployeeIds[stage]}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: e.target.value },
-                      })
-                    }
-                  >
-                    <option value="">Assign later...</option>
-                    {stage === 'Surgery' && (
-                      <option value={SURGERY_SELF_ASSIGNMENT_VALUE}>Self — Hospital performs surgery</option>
-                    )}
-                    {options.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} — {emp.department}
-                      </option>
-                    ))}
-                  </select>
+                    <EmployeeSearchSelect
+                      employees={activeEmployees}
+                      value={form.stageEmployeeIds[stage]}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
+                        })
+                      }
+                      suggestedDepartment={deptHint}
+                      allowSelf={stage === 'Surgery'}
+                      placeholder="Assign later..."
+                    />
                   )}
                 </div>
               );
