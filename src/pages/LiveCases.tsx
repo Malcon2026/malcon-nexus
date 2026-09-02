@@ -7,6 +7,7 @@ import {
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
+import { QuickFilterMenu } from '../components/QuickFilterMenu';
 import { useStore } from '../store/useStore';
 import { isCaseAssignedToEmployee, isFcfsPoolCase } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
@@ -22,6 +23,26 @@ const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = 
   Partial: 'bg-amber-50 text-amber-700 border-amber-200',
   Collected: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
+
+const STAGE_FILTER_OPTIONS = STAGES.map((s) => {
+  const sc = stageColors[s];
+  return {
+    value: s,
+    label: s,
+    activeClass: `${sc.bg} ${sc.text} font-semibold ring-2 ring-offset-1 ring-gray-300`,
+    idleClass: `${sc.bg} ${sc.text} ${sc.border} border hover:opacity-90`,
+  };
+});
+
+const PRIORITY_FILTER_OPTIONS = PRIORITIES.map((p) => {
+  const pc = priorityColors[p];
+  return {
+    value: p,
+    label: p,
+    activeClass: `${pc} font-semibold ring-2 ring-offset-1 ring-gray-300`,
+    idleClass: `${pc} border hover:opacity-90`,
+  };
+});
 
 export const LiveCases: React.FC = () => {
   const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase, deleteCase } = useStore();
@@ -96,50 +117,53 @@ export const LiveCases: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 mb-6">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Search case, hospital, surgery, doctor, product..."
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
-          value={filterStage}
-          onChange={(e) => setFilterStage(e.target.value as WorkflowStage | '')}
-        >
-          <option value="">All Stages</option>
-          {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
-          value={filterPriority}
-          onChange={(e) => setFilterPriority(e.target.value as Priority | '')}
-        >
-          <option value="">All Priorities</option>
-          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <label className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white cursor-pointer shrink-0">
-          <input
-            type="checkbox"
-            checked={filterPoolOnly}
-            onChange={(e) => setFilterPoolOnly(e.target.checked)}
-            className="rounded border-gray-300"
+        <div className="flex flex-wrap items-center gap-2">
+          <QuickFilterMenu
+            title="Stage"
+            value={filterStage}
+            options={STAGE_FILTER_OPTIONS}
+            allLabel="All stages"
+            onChange={setFilterStage}
           />
-          <span className="text-gray-700 whitespace-nowrap">Open pool only</span>
-        </label>
-        {(filterStage || filterPriority || search || filterPoolOnly) && (
+          <QuickFilterMenu
+            title="Priority"
+            value={filterPriority}
+            options={PRIORITY_FILTER_OPTIONS}
+            allLabel="All priorities"
+            onChange={setFilterPriority}
+          />
           <button
-            onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); setFilterPoolOnly(false); }}
-            className="flex items-center gap-1 px-3 py-2 text-xs text-red-600 hover:text-red-800 font-medium shrink-0"
+            type="button"
+            onClick={() => setFilterPoolOnly((v) => !v)}
+            className={`px-3 py-2 text-sm font-medium border rounded-lg transition-colors min-h-[40px] ${
+              filterPoolOnly
+                ? 'border-amber-300 bg-amber-50 text-amber-800'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            <X className="h-3.5 w-3.5" /> Clear
+            Open pool only
           </button>
-        )}
+          {(filterStage || filterPriority || search || filterPoolOnly) && (
+            <button
+              type="button"
+              onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); setFilterPoolOnly(false); }}
+              className="flex items-center gap-1 px-3 py-2 text-xs text-red-600 hover:text-red-800 font-medium min-h-[40px]"
+            >
+              <X className="h-3.5 w-3.5" /> Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tile grid */}
