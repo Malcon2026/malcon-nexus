@@ -35,6 +35,9 @@ export function normalizeDepartment(value: string | null | undefined): Departmen
   ) {
     return CLEANING_AUDIT_DEPARTMENT;
   }
+  if (trimmed === 'Billing' || trimmed === 'Billing Department') {
+    return 'Accounts';
+  }
   if ((DEPARTMENTS as string[]).includes(trimmed)) {
     return trimmed as Department;
   }

@@ -755,8 +755,93 @@ const updateCaseApproval = async (
 ): Promise<void> => {
   const approval = await approvalRepository.findByCaseAndStage(caseId, stage);
   if (!approval) return;
-  await approvalRepository.update(approval.id, updates);
+  try {
+    await approvalRepository.update(approval.id, updates);
+  } catch (err) {
+    // Employees can INSERT approvals but not UPDATE them (RLS). Stale rows must
+    // not block auto-advance after submit — especially Billing → Bill Submission.
+    console.warn('[updateCaseApproval] skipped:', formatUnknownError(err));
+  }
 };
+
+/** Single-pass submit + auto-advance (avoids two DB writes and FCFS handoff RLS races). */
+function buildAutoAdvanceFromSubmit(
+  c: ImplantCase,
+  stageIdx: number,
+  opts: {
+    now: string;
+    notes: string;
+    autoNotes: string;
+    uploadedBy: string;
+    stageDocuments: ImplantCase['stages'][0]['documents'];
+    atRestock: boolean;
+    restockOutcome?: RestockOutcome;
+  },
+): {
+  stages: ImplantCase['stages'];
+  status: ImplantCase['status'];
+  currentStage: WorkflowStage;
+  currentDepartment: Department | null;
+  assignedEmployee: ImplantCase['assignedEmployee'];
+  advanceLog: ImplantCase['activityLogs'][0];
+  nextStage: WorkflowStage | null;
+} {
+  const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
+  const advancingUnassigned = Boolean(next && next !== 'Completed');
+  const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
+
+  let updatedStages = normalizeCaseStages(
+    c.stages.map((s, i) =>
+      i === stageIdx
+        ? {
+            ...s,
+            status: 'Approved' as const,
+            submittedAt: opts.now,
+            approvedAt: opts.now,
+            notes: opts.notes,
+            adminNotes: opts.autoNotes,
+            documents: [...s.documents, ...opts.stageDocuments],
+            ...(opts.atRestock && opts.restockOutcome ? { restockOutcome: opts.restockOutcome } : {}),
+          }
+        : s,
+    ),
+  );
+
+  if (advancingToFcfs && next) {
+    const nextName = normalizeWorkflowStageName(next);
+    updatedStages = normalizeCaseStages(
+      updatedStages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === nextName
+          ? { ...s, assignedEmployee: null, assignedAt: null, status: 'Pending' as const }
+          : s,
+      ),
+    );
+  }
+
+  const advanceLog = {
+    id: `log-${Date.now()}-adv`,
+    caseId: c.id,
+    action: advancingUnassigned ? `Stage Advanced: ${c.currentStage}` : `Stage Approved: ${c.currentStage}`,
+    performedBy: opts.uploadedBy,
+    performedByRole: 'employee' as const,
+    timestamp: opts.now,
+    details: advancingToFcfs
+      ? `Case entered open pool at ${next}. ${opts.autoNotes}`
+      : advancingUnassigned
+        ? `${c.currentStage} submitted and advanced to ${next}. ${opts.autoNotes}`
+        : `${c.currentStage} submitted and approved. ${opts.autoNotes}`,
+  };
+
+  return {
+    stages: updatedStages,
+    status: advancingUnassigned ? (advancingToFcfs ? 'Active' : 'Draft') : 'Approved',
+    currentStage: advancingUnassigned && next ? next : c.currentStage,
+    currentDepartment: advancingUnassigned && next ? getDepartmentForStage(next) : c.currentDepartment,
+    assignedEmployee: advancingUnassigned ? null : c.assignedEmployee,
+    advanceLog,
+    nextStage: next,
+  };
+}
 
 // --- Initialize DB and fetch collections ---
 const initialEmployees = Database.getAll<Employee>('employees');
@@ -1899,61 +1984,103 @@ export const useStore = create<AppState>((set, get) => ({
       );
 
       const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
-      const updatedStages = c.stages.map((s, i) =>
-        i === stageIdx
-          ? {
-              ...s,
-              status: 'Submitted' as const,
-              submittedAt: new Date().toISOString(),
-              notes,
-              ...(atRestock && restockOutcome ? { restockOutcome } : {}),
-              documents: [...s.documents, ...stageDocuments],
-            }
-          : s
-      );
+      const now = new Date().toISOString();
       const photoLabel = stageDocuments.length === 1 ? 'photo' : `${stageDocuments.length} photos`;
       const outcomeDetail = restockLabel ? ` Outcome: ${restockLabel}.` : '';
-      const newLog = {
+      const submitLog = {
         id: `log-${Date.now()}`,
         caseId,
         action: `Submitted: ${c.currentStage}`,
         performedBy: uploadedBy,
         performedByRole: 'employee' as const,
-        timestamp: new Date().toISOString(),
+        timestamp: now,
         details: `Stage ${c.currentStage} submitted with ${photoLabel}.${outcomeDetail} Notes: ${notes}`,
       };
-
-      const updatedCase = await taskRepository.update(caseId, {
-        stages: updatedStages,
-        status: AUTO_APPROVE_STAGE_SUBMISSIONS ? 'Active' : 'Waiting For Approval',
-        activityLogs: [...c.activityLogs, newLog],
-      }, c);
-
-      const activity = createActivityEvent(
-        `Submitted: ${c.currentStage}`,
-        'case',
-        caseId,
-        c.caseNumber,
-        uploadedBy,
-        'employee',
-        AUTO_APPROVE_STAGE_SUBMISSIONS
-          ? `${c.currentStage} submitted with ${photoLabel} — auto-advanced.`
-          : `${c.currentStage} submitted with ${photoLabel} for review.`,
-      );
-      void persistActivity(activity);
-
-      set((s) => ({
-        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-        activityLog: [activity, ...s.activityLog],
-      }));
+      const autoNotes = `Auto-advanced after submit by ${uploadedBy}.`;
 
       if (AUTO_APPROVE_STAGE_SUBMISSIONS) {
-        await get().approveStage(caseId, `Auto-advanced after submit by ${uploadedBy}.`);
-        const advanced = get().cases.find((x) => x.id === caseId);
+        const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
+        const nextEmp =
+          next && next !== 'Completed' && !isFcfsStage(next)
+            ? findStageRecord(c.stages, next)?.assignedEmployee
+            : null;
+
+        // Pre-assigned next stage (non-FCFS): keep two-step assign path.
+        if (nextEmp) {
+          const updatedStages = c.stages.map((s, i) =>
+            i === stageIdx
+              ? {
+                  ...s,
+                  status: 'Submitted' as const,
+                  submittedAt: now,
+                  notes,
+                  ...(atRestock && restockOutcome ? { restockOutcome } : {}),
+                  documents: [...s.documents, ...stageDocuments],
+                }
+              : s,
+          );
+          const updatedCase = await taskRepository.update(
+            caseId,
+            {
+              stages: updatedStages,
+              status: 'Active',
+              activityLogs: [...c.activityLogs, submitLog],
+            },
+            c,
+          );
+          set((s) => ({
+            cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+          }));
+          await get().approveStageAndAssign(caseId, autoNotes, nextEmp, next);
+        } else {
+          const advanced = buildAutoAdvanceFromSubmit(c, stageIdx, {
+            now,
+            notes,
+            autoNotes,
+            uploadedBy,
+            stageDocuments,
+            atRestock,
+            restockOutcome,
+          });
+          const updatedCase = await taskRepository.update(
+            caseId,
+            {
+              stages: advanced.stages,
+              status: advanced.status,
+              currentStage: advanced.currentStage,
+              currentDepartment: advanced.currentDepartment,
+              assignedEmployee: advanced.assignedEmployee,
+              activityLogs: [...c.activityLogs, submitLog, advanced.advanceLog],
+            },
+            c,
+          );
+
+          const activity = createActivityEvent(
+            `Submitted: ${c.currentStage}`,
+            'case',
+            caseId,
+            c.caseNumber,
+            uploadedBy,
+            'employee',
+            `${c.currentStage} submitted with ${photoLabel} — auto-advanced.`,
+          );
+          void persistActivity(activity);
+
+          set((s) => ({
+            cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+            activityLog: [activity, ...s.activityLog],
+          }));
+
+          if (advanced.nextStage === 'Completed') {
+            await get().closeCase(caseId);
+          }
+        }
+
+        const advancedCase = get().cases.find((x) => x.id === caseId);
         const successNotif = createNotification(
           'Stage Submitted',
-          advanced
-            ? `Case ${advanced.caseNumber} advanced to ${advanced.currentStage}.`
+          advancedCase
+            ? `Case ${advancedCase.caseNumber} advanced to ${advancedCase.currentStage}.`
             : `Case ${c.caseNumber} ${c.currentStage} submitted successfully.`,
           'success',
           caseId,
@@ -1962,6 +2089,45 @@ export const useStore = create<AppState>((set, get) => ({
         set((s) => ({ notifications: [successNotif, ...s.notifications] }));
         return { error: null };
       }
+
+      const updatedStages = c.stages.map((s, i) =>
+        i === stageIdx
+          ? {
+              ...s,
+              status: 'Submitted' as const,
+              submittedAt: now,
+              notes,
+              ...(atRestock && restockOutcome ? { restockOutcome } : {}),
+              documents: [...s.documents, ...stageDocuments],
+            }
+          : s,
+      );
+
+      const updatedCase = await taskRepository.update(
+        caseId,
+        {
+          stages: updatedStages,
+          status: 'Waiting For Approval',
+          activityLogs: [...c.activityLogs, submitLog],
+        },
+        c,
+      );
+
+      const activity = createActivityEvent(
+        `Submitted: ${c.currentStage}`,
+        'case',
+        caseId,
+        c.caseNumber,
+        uploadedBy,
+        'employee',
+        `${c.currentStage} submitted with ${photoLabel} for review.`,
+      );
+      void persistActivity(activity);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        activityLog: [activity, ...s.activityLog],
+      }));
 
       const newApproval: Approval = {
         id: newId(),
@@ -1991,13 +2157,22 @@ export const useStore = create<AppState>((set, get) => ({
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
         notifications: [notif, ...s.notifications],
-        activityLog: [activity, ...s.activityLog],
       }));
 
       return { error: null };
     } catch (err) {
       console.error('[submitStage] failed:', err);
-      return { error: `Failed to submit: ${formatUnknownError(err)}` };
+      const message = formatUnknownError(err);
+      if (message.toLowerCase().includes('row-level security')) {
+        return {
+          error:
+            'Submit blocked by database permissions. Ask admin to run fix-cases-employee-submit-rpc.sql in Supabase, then retry.',
+        };
+      }
+      if (message.toLowerCase().includes('not assigned') || message.toLowerCase().includes('not you')) {
+        return { error: message };
+      }
+      return { error: `Failed to submit: ${message}` };
     }
   },
 
