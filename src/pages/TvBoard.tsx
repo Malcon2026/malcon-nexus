@@ -52,6 +52,15 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
 
     const maxScroll = () => Math.max(0, el.scrollHeight - el.clientHeight);
 
+    const clampScroll = () => {
+      const overflow = maxScroll();
+      if (overflow <= 1) {
+        el.scrollTop = 0;
+        return;
+      }
+      if (el.scrollTop > overflow) el.scrollTop = overflow;
+    };
+
     const resetScroll = () => {
       el.scrollTop = 0;
       phase = 'down';
@@ -93,17 +102,17 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
 
     raf = requestAnimationFrame(tick);
 
-    // Re-measure when layout/content changes (data refresh, fonts, ticker wrap, etc.)
+    // Re-measure on layout changes — clamp only; avoid jumping to top on zoom/resize.
     let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-    const scheduleReset = () => {
+    const scheduleRemeasure = () => {
       if (resizeDebounce) clearTimeout(resizeDebounce);
       resizeDebounce = setTimeout(() => {
         resizeDebounce = null;
-        resetScroll();
-      }, 80);
+        clampScroll();
+      }, 150);
     };
 
-    const ro = new ResizeObserver(scheduleReset);
+    const ro = new ResizeObserver(scheduleRemeasure);
     ro.observe(el);
     for (const child of el.children) {
       ro.observe(child);
@@ -111,7 +120,7 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
 
     // First paint often reports zero height before flex layout settles.
     const layoutKick = window.setTimeout(resetScroll, 150);
-    const layoutKick2 = window.setTimeout(resetScroll, 600);
+    const layoutKick2 = window.setTimeout(clampScroll, 600);
 
     return () => {
       cancelAnimationFrame(raf);

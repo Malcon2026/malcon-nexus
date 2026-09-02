@@ -808,16 +808,13 @@ textarea {
   white-space: nowrap;
   width: max-content;
   max-width: none;
-  animation: tv-notice-scroll linear infinite;
   will-change: transform;
 }
 
-.tv-notice-ticker--contained .tv-notice-ticker-track {
+.tv-notice-ticker-track--contained {
   position: absolute;
   left: 0;
   top: 50%;
-  transform: translateY(-50%);
-  animation-name: tv-notice-scroll-contained;
 }
 
 .tv-notice-ticker-text {
@@ -833,30 +830,11 @@ textarea {
   opacity: 0.85;
 }
 
-@keyframes tv-notice-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes tv-notice-scroll-contained {
-  0% {
-    transform: translateY(-50%) translateX(0);
-  }
-  100% {
-    transform: translateY(-50%) translateX(-50%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .tv-notice-ticker-track {
-    animation: none;
+    transform: none !important;
   }
-  .tv-notice-ticker--contained .tv-notice-ticker-track {
+  .tv-notice-ticker-track--contained {
     position: static;
-    transform: none;
   }
 }
