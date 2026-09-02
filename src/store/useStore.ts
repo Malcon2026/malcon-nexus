@@ -1076,7 +1076,7 @@ export const useStore = create<AppState>((set, get) => ({
           }
         : {}),
       activityLogs: [...c.activityLogs, newLog],
-    });
+    }, c);
 
     let updatedEmployees = state.employees;
     // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
@@ -1195,7 +1195,7 @@ export const useStore = create<AppState>((set, get) => ({
       assignedEmployee: employee,
       status: 'Active',
       activityLogs: [...c.activityLogs, approveLog, assignLog],
-    });
+    }, c);
 
     let updatedEmployees = state.employees;
     // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
@@ -1383,7 +1383,7 @@ export const useStore = create<AppState>((set, get) => ({
       status: 'Active',
       stages: updatedStages,
       activityLogs: [...c.activityLogs, newLog],
-    });
+    }, c);
 
     // Update employee active count
     let updatedEmployees = state.employees;
@@ -1650,6 +1650,17 @@ export const useStore = create<AppState>((set, get) => ({
     if (normalizeWorkflowStage(c.currentStage) === 'Restock' && !restockOutcome) {
       return { error: 'Please choose Restocked or Order.' };
     }
+    if (state.currentUser.role !== 'admin') {
+      const assignedId = c.assignedEmployee?.id;
+      if (!assignedId) {
+        return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
+      }
+      if (assignedId !== state.currentUser.id) {
+        return {
+          error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
+        };
+      }
+    }
 
     const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
     const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
@@ -1693,7 +1704,7 @@ export const useStore = create<AppState>((set, get) => ({
         stages: updatedStages,
         status: AUTO_APPROVE_STAGE_SUBMISSIONS ? 'Active' : 'Waiting For Approval',
         activityLogs: [...c.activityLogs, newLog],
-      });
+      }, c);
 
       const activity = createActivityEvent(
         `Submitted: ${c.currentStage}`,

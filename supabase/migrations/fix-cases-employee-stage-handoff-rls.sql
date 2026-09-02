@@ -20,3 +20,8 @@ CREATE POLICY "cases_employee_update" ON cases FOR UPDATE
   WITH CHECK (true);
 
 COMMIT;
+
+-- ── Verify (run separately; should return 1 row with with_check = 'true') ──
+-- SELECT policyname, cmd, qual AS using_clause, with_check
+-- FROM pg_policies
+-- WHERE schemaname = 'public' AND tablename = 'cases' AND policyname = 'cases_employee_update';

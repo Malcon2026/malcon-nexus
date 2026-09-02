@@ -34,9 +34,9 @@ export const taskRepository = {
     return item;
   },
 
-  async update(id: string, updates: Partial<ImplantCase>): Promise<ImplantCase> {
+  async update(id: string, updates: Partial<ImplantCase>, existing?: ImplantCase): Promise<ImplantCase> {
     if (USE_SUPABASE) {
-      const updated = await sbCaseRepo.update(id, updates);
+      const updated = await sbCaseRepo.update(id, updates, existing);
       const list = await this.getAll();
       setCache('cases', list.map(c => (c.id === id ? updated : c)));
       return updated;

@@ -549,19 +549,38 @@ export const sbCaseRepo = {
     return c;
   },
 
-  async update(id: string, updates: Partial<ImplantCase>): Promise<ImplantCase> {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error(`Case ${id} not found`);
-    const merged = { ...existing, ...updates };
-    const { error } = await supabase.from('cases').update(caseToRow(merged) as never).eq('id', id);
+  async update(id: string, updates: Partial<ImplantCase>, existing?: ImplantCase): Promise<ImplantCase> {
+    const base = existing ?? (await this.getById(id));
+    if (!base) {
+      throw new Error(
+        'Case not found — it may not be saved yet or you are not assigned to it. Refresh the page or ask admin to reassign.',
+      );
+    }
+    const merged = { ...base, ...updates, updatedAt: new Date().toISOString() };
+    const row = caseToRow(merged);
+
+    const { error: rpcError } = await supabase.rpc('save_case_for_session', { p_case: row });
+    if (!rpcError) return merged;
+
+    const rpcMessage = formatUnknownError(rpcError);
+    const rpcMissing =
+      rpcError.code === 'PGRST202' ||
+      rpcMessage.toLowerCase().includes('save_case_for_session') ||
+      rpcMessage.toLowerCase().includes('could not find the function');
+    if (!rpcMissing) {
+      throw new Error(rpcMessage);
+    }
+
+    // Fallback when RPC migration not applied yet (legacy direct update + handoff RLS fix).
+    const { error } = await supabase.from('cases').update(row as never).eq('id', id);
     if (error) {
       const message = formatUnknownError(error);
-      if (message.toLowerCase().includes('row-level security') && message.toLowerCase().includes('cases')) {
+      if (message.toLowerCase().includes('row-level security')) {
         throw new Error(
-          'Submit blocked by database permissions. Ask admin to run fix-cases-employee-stage-handoff-rls.sql in Supabase.',
+          'Submit blocked — run fix-cases-employee-submit-rpc.sql in Supabase SQL Editor, then retry.',
         );
       }
-      throw error;
+      throw new Error(message);
     }
     return merged;
   },
