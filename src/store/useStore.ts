@@ -42,7 +42,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import { normalizeDepartment } from '../constants/departments';
 import {
@@ -116,6 +116,11 @@ interface AppState {
   approveStage: (caseId: string, adminNotes: string) => void;
   /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
   markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
+  /** Update pre-assigned / historical assignees for any workflow stage on a case. */
+  updateCaseStageAssignments: (
+    caseId: string,
+    draft: Partial<Record<AssignableStage, string>>,
+  ) => Promise<{ error: string | null }>;
   approveStageAndAssign: (
     caseId: string,
     adminNotes: string,
@@ -1178,6 +1183,174 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err) {
       return { error: formatUnknownError(err, 'Failed to mark surgery as self-performed.') };
     }
+  },
+
+  updateCaseStageAssignments: async (caseId, draft) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return { error: 'Case not found' };
+
+    const currentStageName = normalizeWorkflowStageName(c.currentStage);
+    const now = new Date().toISOString();
+
+    const stageValue = (stage: AssignableStage): string => {
+      const rec = findStageRecord(c.stages, stage);
+      if (rec?.selfPerformed) return SURGERY_SELF_ASSIGNMENT_VALUE;
+      return rec?.assignedEmployee?.id ?? '';
+    };
+
+    const changedEntries = (Object.entries(draft) as [AssignableStage, string][]).filter(
+      ([stage, value]) => value !== stageValue(stage),
+    );
+    if (changedEntries.length === 0) return { error: null };
+
+    const surgeryRecord = findStageRecord(c.stages, 'Surgery');
+    const surgeryDraft = draft.Surgery;
+    const surgeryNowSelf = surgeryDraft === SURGERY_SELF_ASSIGNMENT_VALUE;
+    const surgeryWasSelf = Boolean(surgeryRecord?.selfPerformed);
+    const advanceSurgerySelf =
+      currentStageName === 'Surgery' &&
+      surgeryDraft !== undefined &&
+      surgeryNowSelf &&
+      !surgeryWasSelf &&
+      surgeryRecord?.status !== 'Approved';
+
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((raw) => {
+        const stageName = normalizeWorkflowStageName(raw.stage) as AssignableStage;
+        const draftValue = draft[stageName];
+        if (draftValue === undefined || draftValue === stageValue(stageName)) return raw;
+
+        if (stageName === 'Surgery' && draftValue === SURGERY_SELF_ASSIGNMENT_VALUE) {
+          return {
+            ...raw,
+            assignedEmployee: null,
+            selfPerformed: true,
+            assignedAt: raw.assignedAt ?? now,
+          };
+        }
+
+        const employee = draftValue ? state.employees.find((e) => e.id === draftValue) ?? null : null;
+        const sameEmployee = employee?.id === raw.assignedEmployee?.id;
+        const isCurrent = stageName === currentStageName;
+
+        return {
+          ...raw,
+          assignedEmployee: employee,
+          assignedAt: employee ? (sameEmployee ? raw.assignedAt : now) : null,
+          ...(stageName === 'Surgery' ? { selfPerformed: false } : {}),
+          ...(isCurrent && employee && (raw.status === 'Pending' || raw.status === 'Assigned')
+            ? { status: 'Assigned' as const }
+            : {}),
+        };
+      }),
+    );
+
+    let topAssigned = c.assignedEmployee;
+    let topDepartment = c.currentDepartment;
+    let topStatus = c.status;
+    const currentDraft = draft[currentStageName as AssignableStage];
+
+    if (currentDraft !== undefined && !advanceSurgerySelf) {
+      if (currentStageName === 'Surgery' && currentDraft === SURGERY_SELF_ASSIGNMENT_VALUE) {
+        topAssigned = null;
+      } else if (currentDraft) {
+        const emp = state.employees.find((e) => e.id === currentDraft);
+        if (emp) {
+          topAssigned = emp;
+          topDepartment = normalizeDepartment(emp.department) ?? emp.department;
+          if (c.status === 'Draft') topStatus = 'Active';
+        }
+      } else {
+        topAssigned = null;
+      }
+    }
+
+    const changeSummary = changedEntries
+      .map(([stage, val]) => {
+        if (val === SURGERY_SELF_ASSIGNMENT_VALUE) return `${stage}: Self`;
+        const emp = val ? state.employees.find((e) => e.id === val) : null;
+        return `${stage}: ${emp?.name ?? 'Unassigned'}`;
+      })
+      .join('; ');
+
+    const newLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: 'Team Updated',
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: now,
+      details: `Stage assignments updated — ${changeSummary}.`,
+    };
+
+    const updatedCase = await taskRepository.update(
+      caseId,
+      {
+        stages: updatedStages,
+        assignedEmployee: topAssigned,
+        currentDepartment: topDepartment,
+        status: topStatus,
+        activityLogs: [...c.activityLogs, newLog],
+      },
+      c,
+    );
+
+    let updatedEmployees = state.employees;
+    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+    if (
+      canUpdateEmployeeStats &&
+      currentDraft !== undefined &&
+      !advanceSurgerySelf &&
+      c.status === 'Active'
+    ) {
+      const prevId = c.assignedEmployee?.id;
+      const nextId = topAssigned?.id;
+      if (prevId && prevId !== nextId) {
+        const prev = state.employees.find((e) => e.id === prevId);
+        if (prev) {
+          const updated = await employeeRepository.update(prevId, {
+            casesActive: Math.max(0, prev.casesActive - 1),
+          });
+          updatedEmployees = updatedEmployees.map((e) => (e.id === prevId ? updated : e));
+        }
+      }
+      if (nextId && nextId !== prevId) {
+        const next = updatedEmployees.find((e) => e.id === nextId);
+        if (next) {
+          const updated = await employeeRepository.update(nextId, {
+            casesActive: next.casesActive + 1,
+          });
+          updatedEmployees = updatedEmployees.map((e) => (e.id === nextId ? updated : e));
+        }
+      }
+    }
+
+    const activity = createActivityEvent(
+      'Team Updated',
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      changeSummary,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      employees: updatedEmployees,
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    if (advanceSurgerySelf) {
+      return get().markSurgerySelfPerformed(
+        caseId,
+        'Updated via Edit Case — hospital performs surgery independently.',
+      );
+    }
+
+    return { error: null };
   },
 
   approveStageAndAssign: async (caseId, adminNotes, employee, nextStage) => {

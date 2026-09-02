@@ -47,6 +47,9 @@ export type StageAssignments = Partial<
 
 export type AssignableStage = (typeof ASSIGNABLE_WORKFLOW_STAGES)[number];
 
+/** Sentinel for Surgery — hospital performs independently (no scrub person). */
+export const SURGERY_SELF_ASSIGNMENT_VALUE = '__self__';
+
 /** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
 
