@@ -7,7 +7,6 @@ import {
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
-import { QuickFilterMenu } from '../components/QuickFilterMenu';
 import { useStore } from '../store/useStore';
 import { isCaseAssignedToEmployee, isFcfsPoolCase } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
@@ -24,25 +23,17 @@ const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = 
   Collected: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
-const STAGE_FILTER_OPTIONS = STAGES.map((s) => {
-  const sc = stageColors[s];
-  return {
-    value: s,
-    label: s,
-    activeClass: `${sc.bg} ${sc.text} font-semibold ring-2 ring-offset-1 ring-gray-300`,
-    idleClass: `${sc.bg} ${sc.text} ${sc.border} border hover:opacity-90`,
-  };
-});
-
-const PRIORITY_FILTER_OPTIONS = PRIORITIES.map((p) => {
-  const pc = priorityColors[p];
-  return {
-    value: p,
-    label: p,
-    activeClass: `${pc} font-semibold ring-2 ring-offset-1 ring-gray-300`,
-    idleClass: `${pc} border hover:opacity-90`,
-  };
-});
+const STAGE_TILE_LABELS: Record<WorkflowStage, string> = {
+  'Kit Preparation': 'Kit Prep',
+  'Delivery': 'Delivery',
+  'Surgery': 'Surgery',
+  'Pickup from Hospital': 'Pickup',
+  'Cleaning & Audit': 'Cleaning',
+  'Restock': 'Restock',
+  'Billing': 'Billing',
+  'Bill Submission': 'Bill Submit',
+  'Completed': 'Completed',
+};
 
 export const LiveCases: React.FC = () => {
   const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase, deleteCase } = useStore();
@@ -69,7 +60,7 @@ export const LiveCases: React.FC = () => {
     }
   };
 
-  const liveCases = useMemo(() => {
+  const baseLiveCases = useMemo(() => {
     let result = cases.filter((c) => c.status !== 'Completed' && c.status !== 'Cancelled' && c.currentStage !== 'Completed');
 
     if (search) {
@@ -84,17 +75,32 @@ export const LiveCases: React.FC = () => {
         (c.assignedEmployee?.name.toLowerCase().includes(q) ?? false)
       );
     }
-    if (filterStage) result = result.filter((c) => c.currentStage === filterStage);
     if (filterPriority) result = result.filter((c) => c.priority === filterPriority);
     if (filterPoolOnly) result = result.filter(isFcfsPoolCase);
 
+    return result;
+  }, [cases, search, filterPriority, filterPoolOnly]);
+
+  const stageCounts = useMemo(() => {
+    const counts = { all: baseLiveCases.length } as Record<'all' | WorkflowStage, number>;
+    for (const stage of STAGES) {
+      counts[stage] = baseLiveCases.filter((c) => c.currentStage === stage).length;
+    }
+    return counts;
+  }, [baseLiveCases]);
+
+  const liveCases = useMemo(() => {
+    let result = filterStage
+      ? baseLiveCases.filter((c) => c.currentStage === filterStage)
+      : baseLiveCases;
+
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
-    return result.sort((a, b) => {
+    return [...result].sort((a, b) => {
       const p = priorityOrder[a.priority] - priorityOrder[b.priority];
       if (p !== 0) return p;
       return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
     });
-  }, [cases, search, filterStage, filterPriority, filterPoolOnly]);
+  }, [baseLiveCases, filterStage]);
 
   return (
     <div className="p-4 sm:p-6 max-w-[1800px] mx-auto w-full min-w-0">
@@ -117,7 +123,7 @@ export const LiveCases: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -128,37 +134,83 @@ export const LiveCases: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Stage filter tiles — tap a card to filter; tap again or All to reset */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <button
+            type="button"
+            onClick={() => setFilterStage('')}
+            className={`rounded-xl border-2 p-3 text-left transition-all min-h-[72px] ${
+              !filterStage
+                ? 'border-gray-900 bg-gray-900 text-white shadow-md scale-[1.02]'
+                : 'border-gray-200 bg-white text-gray-800 hover:border-gray-300 hover:shadow-sm'
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">All</p>
+            <p className="text-2xl font-bold leading-none mt-1">{stageCounts.all}</p>
+            <p className="text-[10px] mt-1 opacity-70">Live cases</p>
+          </button>
+
+          {STAGES.map((stage) => {
+            const sc = stageColors[stage];
+            const active = filterStage === stage;
+            return (
+              <button
+                key={stage}
+                type="button"
+                onClick={() => setFilterStage(active ? '' : stage)}
+                className={`rounded-xl border-2 p-3 text-left transition-all min-h-[72px] ${
+                  active
+                    ? `border-gray-900 ${sc.bg} shadow-md scale-[1.02] ring-2 ring-gray-900 ring-offset-1`
+                    : `${sc.border} ${sc.bg} hover:shadow-sm hover:scale-[1.01]`
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${sc.dot}`} />
+                  <p className={`text-[11px] font-semibold leading-tight ${sc.text}`}>
+                    {STAGE_TILE_LABELS[stage]}
+                  </p>
+                </div>
+                <p className={`text-2xl font-bold leading-none mt-1 ${sc.text}`}>{stageCounts[stage]}</p>
+                <p className={`text-[10px] mt-1 ${sc.text} opacity-70`}>cases</p>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <QuickFilterMenu
-            title="Stage"
-            value={filterStage}
-            options={STAGE_FILTER_OPTIONS}
-            allLabel="All stages"
-            onChange={setFilterStage}
-          />
-          <QuickFilterMenu
-            title="Priority"
-            value={filterPriority}
-            options={PRIORITY_FILTER_OPTIONS}
-            allLabel="All priorities"
-            onChange={setFilterPriority}
-          />
+          {PRIORITIES.map((p) => {
+            const pc = priorityColors[p];
+            const active = filterPriority === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setFilterPriority(active ? '' : p)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                  active ? `${pc} ring-2 ring-gray-900 ring-offset-1` : `${pc} opacity-80 hover:opacity-100`
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
           <button
             type="button"
             onClick={() => setFilterPoolOnly((v) => !v)}
-            className={`px-3 py-2 text-sm font-medium border rounded-lg transition-colors min-h-[40px] ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
               filterPoolOnly
-                ? 'border-amber-300 bg-amber-50 text-amber-800'
-                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                ? 'border-amber-400 bg-amber-50 text-amber-800 ring-2 ring-amber-400 ring-offset-1'
+                : 'border-amber-200 bg-amber-50/60 text-amber-700 hover:bg-amber-50'
             }`}
           >
-            Open pool only
+            Open pool
           </button>
           {(filterStage || filterPriority || search || filterPoolOnly) && (
             <button
               type="button"
               onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); setFilterPoolOnly(false); }}
-              className="flex items-center gap-1 px-3 py-2 text-xs text-red-600 hover:text-red-800 font-medium min-h-[40px]"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-red-600 hover:text-red-800 font-medium"
             >
               <X className="h-3.5 w-3.5" /> Clear all
             </button>
