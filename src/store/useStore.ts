@@ -108,10 +108,14 @@ interface AppState {
       stageAssignments?: StageAssignments;
       /** Case can begin at any stage; earlier stages are marked skipped. */
       startStage?: WorkflowStage;
+      /** Hospital will perform surgery independently — no scrub person needed. */
+      surgerySelfPerformed?: boolean;
     },
   ) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
+  /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
+  markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
   approveStageAndAssign: (
     caseId: string,
     adminNotes: string,
@@ -883,7 +887,8 @@ export const useStore = create<AppState>((set, get) => ({
           documents: [],
         };
       }
-      const emp = isFcfsStage(stage) ? null : (assignments[stage as keyof typeof assignments] ?? null);
+      const isSelfSurgery = stage === 'Surgery' && Boolean(caseData.surgerySelfPerformed);
+      const emp = isFcfsStage(stage) || isSelfSurgery ? null : (assignments[stage as keyof typeof assignments] ?? null);
       const stageIdx = WORKFLOW_STAGES.indexOf(stage);
       const isSkipped = stageIdx < startIdx;
       const isStart = stageIdx === startIdx;
@@ -902,6 +907,7 @@ export const useStore = create<AppState>((set, get) => ({
         notes: '',
         adminNotes: isSkipped ? skippedNote : '',
         documents: [],
+        ...(isSelfSurgery && !isSkipped ? { selfPerformed: true } : {}),
       };
     });
 
@@ -1127,6 +1133,50 @@ export const useStore = create<AppState>((set, get) => ({
     // leaving it stuck at status 'Approved' with nowhere to go.
     if (next === 'Completed') {
       await get().closeCase(caseId);
+    }
+  },
+
+  markSurgerySelfPerformed: async (caseId, notes) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return { error: 'Case not found' };
+    if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') {
+      return { error: 'This case is not at the Surgery stage.' };
+    }
+    if (c.status === 'Waiting For Approval') {
+      return { error: 'This stage is already submitted and waiting for admin approval.' };
+    }
+    const surgeryRecord = findStageRecord(c.stages, 'Surgery');
+    if (surgeryRecord?.status === 'Approved') {
+      return { error: 'Surgery stage is already completed for this case.' };
+    }
+
+    const trimmedNotes =
+      notes.trim() || 'Hospital performed the surgery independently (Self) — no Malcon scrub person required.';
+
+    // Tag the Surgery stage record before handing off to approveStage, which
+    // preserves these fields (spreads the existing record) while it marks the
+    // stage Approved and advances the case — same well-tested path as Force Advance.
+    set((s) => ({
+      cases: s.cases.map((x) =>
+        x.id === caseId
+          ? {
+              ...x,
+              stages: x.stages.map((stg) =>
+                normalizeWorkflowStageName(stg.stage) === 'Surgery'
+                  ? { ...stg, selfPerformed: true, assignedEmployee: null }
+                  : stg,
+              ),
+            }
+          : x,
+      ),
+    }));
+
+    try {
+      await get().approveStage(caseId, trimmedNotes);
+      return { error: null };
+    } catch (err) {
+      return { error: formatUnknownError(err, 'Failed to mark surgery as self-performed.') };
     }
   },
 

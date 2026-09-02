@@ -29,6 +29,8 @@ type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
+/** Sentinel value for "Self — hospital performs surgery independently" in the Surgery assignment dropdown. */
+const SELF_OPTION_VALUE = 'self';
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 const emptyStageIds = (): Record<AssignableStage, string> =>
@@ -103,9 +105,11 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       phone: '',
     };
 
+    const surgerySelfPerformed = form.stageEmployeeIds.Surgery === SELF_OPTION_VALUE;
     const stageAssignments: StageAssignments = {};
     for (const stage of activeStages) {
       if (isFcfsStage(stage)) continue;
+      if (stage === 'Surgery' && surgerySelfPerformed) continue;
       const empId = form.stageEmployeeIds[stage];
       if (!empId) continue;
       const emp = employees.find((e) => e.id === empId);
@@ -130,6 +134,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         dueDate: form.surgeryDate,
         startStage: form.startStage,
         stageAssignments,
+        surgerySelfPerformed,
       });
       onClose();
       resetForm();
@@ -290,6 +295,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                     }
                   >
                     <option value="">Assign later...</option>
+                    {stage === 'Surgery' && (
+                      <option value={SELF_OPTION_VALUE}>Self — Hospital performs surgery</option>
+                    )}
                     {options.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.name} — {emp.department}

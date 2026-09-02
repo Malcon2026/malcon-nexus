@@ -169,17 +169,41 @@ interface AssignModalProps {
 }
 
 const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage }) => {
-  const { assignEmployee, employees } = useStore();
+  const { assignEmployee, markSurgerySelfPerformed, employees } = useStore();
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+  const [selfChosen, setSelfChosen] = useState(false);
+  const [selfNotes, setSelfNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const suggestedDept = STAGE_TO_DEPT[nextStage] ?? null;
+  const allowSelf = nextStage === 'Surgery';
+
+  const resetLocal = () => {
+    setSelectedEmp(null);
+    setSelfChosen(false);
+    setSelfNotes('');
+  };
 
   const handleAssign = async () => {
+    if (selfChosen) {
+      setSubmitting(true);
+      try {
+        const { error } = await markSurgerySelfPerformed(caseId, selfNotes);
+        if (error) {
+          alert(error);
+          return;
+        }
+        resetLocal();
+        onClose();
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (!selectedEmp) return;
     setSubmitting(true);
     try {
       await assignEmployee(caseId, selectedEmp, nextStage);
-      setSelectedEmp(null);
+      resetLocal();
       onClose();
     } catch (err) {
       alert(err instanceof Error ? `Failed to assign: ${err.message}` : 'Failed to assign employee. Please try again.');
@@ -191,15 +215,20 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
   return (
     <Modal
       isOpen={isOpen}
-      onClose={() => { onClose(); setSelectedEmp(null); }}
+      onClose={() => { onClose(); resetLocal(); }}
       title="Assign Workflow Stage"
       subtitle={`Assign ${nextStage} to any employee`}
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={() => { onClose(); setSelectedEmp(null); }} disabled={submitting}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={() => void handleAssign()} disabled={!selectedEmp || submitting}>
-            {submitting ? 'Assigning...' : 'Assign Employee'}
+          <Button variant="outline" size="sm" onClick={() => { onClose(); resetLocal(); }} disabled={submitting}>Cancel</Button>
+          <Button
+            variant={selfChosen ? 'warning' : 'primary'}
+            size="sm"
+            onClick={() => void handleAssign()}
+            disabled={(!selectedEmp && !selfChosen) || submitting}
+          >
+            {submitting ? 'Saving...' : selfChosen ? 'Confirm — Self Performed' : 'Assign Employee'}
           </Button>
         </div>
       }
@@ -208,9 +237,26 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
         <EmployeeAssignPicker
           employees={employees}
           selected={selectedEmp}
-          onSelect={setSelectedEmp}
+          onSelect={(emp) => { setSelectedEmp(emp); setSelfChosen(false); }}
           suggestedDepartment={suggestedDept}
+          allowSelfOption={allowSelf}
+          selfLabel="Self — Hospital performs surgery"
+          selfDescription="No scrub person needed. Marks Surgery done and moves the case to Pickup from Hospital."
+          isSelfSelected={selfChosen}
+          onSelectSelf={() => { setSelfChosen(true); setSelectedEmp(null); }}
         />
+        {selfChosen && (
+          <div className="mt-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Notes (optional)</label>
+            <textarea
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              rows={2}
+              placeholder="e.g. Confirmed with hospital OT staff."
+              value={selfNotes}
+              onChange={(e) => setSelfNotes(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -865,7 +911,14 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                           </div>
                         </div>
                         {stage.stage !== 'Completed' && (
-                          stage.assignedEmployee ? (
+                          stage.selfPerformed ? (
+                            <div className="flex items-center gap-2 mt-2">
+                              <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                <HandMetal className="h-3.5 w-3.5 text-amber-700" />
+                              </div>
+                              <span className="text-xs text-amber-700 font-medium">Self — Hospital performed independently</span>
+                            </div>
+                          ) : stage.assignedEmployee ? (
                             <div className="flex items-center gap-2 mt-2">
                               <Avatar name={stage.assignedEmployee.name} size="xs" />
                               <span className="text-xs text-gray-600">{stage.assignedEmployee.name}</span>

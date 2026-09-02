@@ -13,9 +13,11 @@ interface EditCaseModalProps {
 }
 
 export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, case: c }) => {
-  const { updateCase, assignEmployee, hospitals, employees, viewMode, currentUser } = useStore();
+  const { updateCase, assignEmployee, markSurgerySelfPerformed, hospitals, employees, viewMode, currentUser } = useStore();
   const isAdmin = viewMode === 'admin';
   const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
+  const isSurgeryStage = c.currentStage === 'Surgery';
+  const surgeryRecord = c.stages.find((s) => s.stage === 'Surgery');
 
   const [form, setForm] = useState({
     hospitalId: c.hospital.id,
@@ -32,6 +34,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
   });
   const [reassignPicker, setReassignPicker] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState(c.assignedEmployee);
+  const [selfChosen, setSelfChosen] = useState(Boolean(surgeryRecord?.selfPerformed));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,7 +91,14 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
         paymentStatus: form.paymentStatus,
       });
 
-      if (selectedEmp && selectedEmp.id !== c.assignedEmployee?.id) {
+      if (isSurgeryStage && selfChosen && !surgeryRecord?.selfPerformed) {
+        const { error: selfError } = await markSurgerySelfPerformed(c.id, '');
+        if (selfError) {
+          setError(selfError);
+          setSubmitting(false);
+          return;
+        }
+      } else if (selectedEmp && selectedEmp.id !== c.assignedEmployee?.id) {
         await assignEmployee(c.id, selectedEmp, c.currentStage);
       }
 
@@ -243,14 +253,23 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               </div>
               {!reassignPicker ? (
                 <p className="text-sm text-gray-600">
-                  {selectedEmp ? `${selectedEmp.name} (${selectedEmp.department})` : 'Unassigned'}
+                  {selfChosen
+                    ? 'Self — Hospital performs surgery'
+                    : selectedEmp
+                      ? `${selectedEmp.name} (${selectedEmp.department})`
+                      : 'Unassigned'}
                 </p>
               ) : (
                 <EmployeeAssignPicker
                   employees={employees}
                   selected={selectedEmp}
-                  onSelect={setSelectedEmp}
+                  onSelect={(emp) => { setSelectedEmp(emp); setSelfChosen(false); }}
                   suggestedDepartment={suggestedDept}
+                  allowSelfOption={isSurgeryStage}
+                  selfLabel="Self — Hospital performs surgery"
+                  selfDescription="No scrub person needed. Marks Surgery done and moves the case to Pickup from Hospital."
+                  isSelfSelected={selfChosen}
+                  onSelectSelf={() => { setSelfChosen(true); setSelectedEmp(null); }}
                 />
               )}
             </div>

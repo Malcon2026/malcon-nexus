@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { HandMetal } from 'lucide-react';
 import { Avatar } from './ui/Avatar';
 import { Badge } from './ui/Badge';
 import type { Department, Employee } from '../types';
@@ -24,6 +25,12 @@ interface EmployeeAssignPickerProps {
   /** Typical department for the workflow stage — shown as a hint only. */
   suggestedDepartment?: string | null;
   defaultFilter?: DeptFilter;
+  /** Show a "Self" choice above the employee list (e.g. Surgery — hospital performs it independently). */
+  allowSelfOption?: boolean;
+  selfLabel?: string;
+  selfDescription?: string;
+  isSelfSelected?: boolean;
+  onSelectSelf?: () => void;
 }
 
 export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
@@ -32,6 +39,11 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
   onSelect,
   suggestedDepartment,
   defaultFilter = 'All',
+  allowSelfOption = false,
+  selfLabel = 'Self — Hospital performs this independently',
+  selfDescription = 'No Malcon staff needed. Marks this stage done and moves the case forward.',
+  isSelfSelected = false,
+  onSelectSelf,
 }) => {
   const [deptFilter, setDeptFilter] = useState<DeptFilter>(defaultFilter);
 
@@ -71,6 +83,26 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
           </option>
         ))}
       </select>
+
+      {allowSelfOption && (
+        <div
+          onClick={onSelectSelf}
+          className={`flex items-center gap-4 p-3 mb-3 rounded-xl border-2 cursor-pointer transition-all ${
+            isSelfSelected ? 'border-amber-400 bg-amber-50' : 'border-amber-200 bg-amber-50/40 hover:border-amber-300 hover:bg-amber-50'
+          }`}
+        >
+          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+            <HandMetal className="h-5 w-5 text-amber-700" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">{selfLabel}</p>
+            <p className="text-xs text-amber-700/90 mt-0.5">{selfDescription}</p>
+          </div>
+          <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 border-amber-400">
+            {isSelfSelected && <div className="h-2 w-2 bg-amber-600 rounded-full" />}
+          </div>
+        </div>
+      )}
 
       <label className={labelClass}>
         Select employee{deptFilter === 'All' ? '' : ` — ${deptFilter}`}

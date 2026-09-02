@@ -83,6 +83,8 @@ export interface StageRecord {
   documents: Document[];
   /** Restock stage only — kit refilled vs order placed when stock unavailable. */
   restockOutcome?: RestockOutcome;
+  /** Surgery stage only — hospital performed the surgery independently; no Malcon staff involved. */
+  selfPerformed?: boolean;
 }
 
 export interface Document {
