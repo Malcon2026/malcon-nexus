@@ -192,11 +192,14 @@ export const Sidebar: React.FC = () => {
 
       {/* Status indicator */}
       {showLabels && (
-        <div className="px-4 py-3 border-t border-gray-200">
+        <div className="px-4 py-3 border-t border-gray-200 space-y-1">
           <div className="flex items-center gap-2">
             <ActivityIcon className="h-3.5 w-3.5 text-emerald-500" />
             <span className="text-xs text-gray-500">All systems operational</span>
           </div>
+          <p className="text-[10px] text-gray-300 leading-none" title="Build time — confirms you're on the latest deploy">
+            Build: {new Date(__BUILD_TIME__).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+          </p>
         </div>
       )}
     </>

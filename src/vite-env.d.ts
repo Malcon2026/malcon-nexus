@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __BUILD_TIME__: string;
+
 // Allow importing image files as URLs
 declare module '*.png' {
   const src: string;

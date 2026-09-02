@@ -16,4 +16,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  define: {
+    // Lets the running app prove which deploy it's on — helps confirm a
+    // phone isn't stuck on a stale cached build after a fix ships.
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
 });
