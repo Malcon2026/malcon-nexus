@@ -26,6 +26,8 @@ import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
+import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import type { Employee } from './types';
 
@@ -60,6 +62,14 @@ function MainApp() {
   const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
   const [isAuthenticated, setIsAuthenticated] = useState(!SUPABASE_ENABLED);
   const [isHydrating, setIsHydrating] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
+  const showShortcutsHelp = useCallback(() => setShortcutsHelpOpen(true), []);
+  useAppShortcuts({
+    enabled: isAuthenticated && authChecked,
+    onShowHelp: showShortcutsHelp,
+    shortcutsHelpOpen,
+  });
 
   const hydrateGeneration = useRef(0);
 
@@ -270,6 +280,8 @@ function MainApp() {
           </AnimatePresence>
         </main>
       </div>
+
+      <ShortcutsHelpModal isOpen={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
     </div>
     </AppErrorBoundary>
   );

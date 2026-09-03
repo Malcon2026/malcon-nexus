@@ -100,6 +100,9 @@ interface AppState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
+  /** Incremented to open Create Case from keyboard shortcuts. */
+  createCaseSignal: number;
+  requestCreateCase: () => void;
 
   // Case Actions
   createCase: (
@@ -920,6 +923,7 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
+  createCaseSignal: 0,
 
   setCurrentUser: (user) => {
     const state = get();
@@ -929,6 +933,12 @@ export const useStore = create<AppState>((set, get) => ({
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
   setActiveTab: (tab) => set({ activeTab: tab, mobileSidebarOpen: false }),
+  requestCreateCase: () =>
+    set((s) => ({
+      createCaseSignal: s.createCaseSignal + 1,
+      activeTab: 'cases',
+      mobileSidebarOpen: false,
+    })),
 
   // ========== CASE ACTIONS ==========
 

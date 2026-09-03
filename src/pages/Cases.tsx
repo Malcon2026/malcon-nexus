@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Filter, Download, Plus, ChevronUp, ChevronDown,
@@ -372,7 +372,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 };
 
 export const Cases: React.FC = () => {
-  const { cases, selectedCaseId, setSelectedCase, viewMode, currentUser, deleteCase } = useStore();
+  const { cases, selectedCaseId, setSelectedCase, viewMode, currentUser, deleteCase, createCaseSignal } = useStore();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('caseNumber');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -385,6 +385,14 @@ export const Cases: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editCaseId, setEditCaseId] = useState<string | null>(null);
   const PAGE_SIZE = 8;
+  const lastCreateSignal = useRef(0);
+
+  useEffect(() => {
+    if (createCaseSignal > lastCreateSignal.current) {
+      lastCreateSignal.current = createCaseSignal;
+      setShowCreate(true);
+    }
+  }, [createCaseSignal]);
 
   const canEdit = (c: ImplantCase) => viewMode === 'admin' || isCaseAssignedToEmployee(c, currentUser);
 
