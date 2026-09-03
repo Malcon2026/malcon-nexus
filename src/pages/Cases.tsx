@@ -16,6 +16,7 @@ import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { EmployeeSearchSelect } from '../components/EmployeeSearchSelect';
+import { HospitalSearchSelect } from '../components/HospitalSearchSelect';
 import {
   SurgeryDateQuickPick,
   getTodaySurgeryDateKey,
@@ -167,14 +168,12 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Hospital *</label>
-            <select className={inputClass} value={form.hospitalId} onChange={(e) => setForm({ ...form, hospitalId: e.target.value, doctorName: '' })}>
-              <option value="">Select hospital...</option>
-              {hospitals.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.branch ? `${h.name} — ${h.branch}` : h.name}
-                </option>
-              ))}
-            </select>
+            <HospitalSearchSelect
+              hospitals={hospitals}
+              value={form.hospitalId}
+              onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
+              placeholder="Search hospital..."
+            />
           </div>
           <div>
             <label className={labelClass}>Doctor Name *</label>

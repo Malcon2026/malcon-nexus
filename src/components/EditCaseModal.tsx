@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { EmployeeSearchSelect } from './EmployeeSearchSelect';
+import { HospitalSearchSelect } from './HospitalSearchSelect';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Priority } from '../types';
 import {
@@ -190,18 +191,12 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Hospital *</label>
-                <select
-                  className={inputClass}
+                <HospitalSearchSelect
+                  hospitals={hospitals}
                   value={form.hospitalId}
-                  onChange={(e) => setForm({ ...form, hospitalId: e.target.value, doctorName: '' })}
-                >
-                  <option value="">Select hospital...</option>
-                  {hospitals.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.branch ? `${h.name} — ${h.branch}` : h.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
+                  placeholder="Search hospital..."
+                />
               </div>
               <div>
                 <label className={labelClass}>Doctor Name *</label>
