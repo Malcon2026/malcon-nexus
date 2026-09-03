@@ -17,6 +17,11 @@ import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { EmployeeSearchSelect } from '../components/EmployeeSearchSelect';
 import {
+  SurgeryDateQuickPick,
+  getTodaySurgeryDateKey,
+  type SurgeryDateMode,
+} from '../components/SurgeryDateQuickPick';
+import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
   SURGERY_SELF_ASSIGNMENT_VALUE,
@@ -45,7 +50,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
   const [form, setForm] = useState({
     hospitalId: '',
     doctorName: '',
-    surgeryDate: '',
+    surgeryDate: getTodaySurgeryDateKey(),
+    surgeryDateMode: 'today' as SurgeryDateMode,
     implantRequired: '',
     implantType: '',
     implantCompany: '',
@@ -68,7 +74,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     setForm({
       hospitalId: '',
       doctorName: '',
-      surgeryDate: '',
+      surgeryDate: getTodaySurgeryDateKey(),
+      surgeryDateMode: 'today',
       implantRequired: '',
       implantType: '',
       implantCompany: '',
@@ -184,7 +191,13 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Surgery Date *</label>
-            <input type="date" className={inputClass} value={form.surgeryDate} onChange={(e) => setForm({ ...form, surgeryDate: e.target.value })} />
+            <SurgeryDateQuickPick
+              value={form.surgeryDate}
+              mode={form.surgeryDateMode}
+              onChange={(surgeryDate, surgeryDateMode) =>
+                setForm({ ...form, surgeryDate, surgeryDateMode })
+              }
+            />
           </div>
           <div>
             <label className={labelClass}>Priority</label>
