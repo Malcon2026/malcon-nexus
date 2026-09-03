@@ -88,6 +88,9 @@ export interface StageRecord {
   restockOutcome?: RestockOutcome;
   /** Surgery stage only — hospital performed the surgery independently; no Malcon staff involved. */
   selfPerformed?: boolean;
+  /** Delivery / Surgery only — optional extra helper; primary assignee submits the stage. */
+  assistantEmployee?: Employee | null;
+  assistantAssignedAt?: string | null;
 }
 
 export interface Document {

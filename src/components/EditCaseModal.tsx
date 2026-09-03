@@ -12,8 +12,15 @@ import {
   findStageRecord,
   isCaseAssignedToEmployee,
   isFcfsStage,
+  stageSupportsAssistant,
   type AssignableStage,
+  type StageWithAssistant,
 } from '../lib/caseWorkflow';
+import {
+  StageExtraPersonFields,
+  stageAssistantsFromCase,
+  stageExtraFlagsFromCase,
+} from './StageExtraPersonFields';
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -60,6 +67,8 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     paymentStatus: c.paymentStatus || 'Pending',
   });
   const [stageEmployeeIds, setStageEmployeeIds] = useState(() => stageAssignmentsFromCase(c));
+  const [stageAssistantIds, setStageAssistantIds] = useState(() => stageAssistantsFromCase(c.stages));
+  const [stageExtraPerson, setStageExtraPerson] = useState(() => stageExtraFlagsFromCase(c.stages));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +78,8 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
   );
 
   const initialStageIds = useMemo(() => stageAssignmentsFromCase(c), [c]);
+  const initialAssistantIds = useMemo(() => stageAssistantsFromCase(c.stages), [c.stages]);
+  const initialExtraFlags = useMemo(() => stageExtraFlagsFromCase(c.stages), [c.stages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +121,30 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
       }
     }
 
+    const assistantDraft: Partial<Record<StageWithAssistant, string>> = {};
+    for (const stage of ['Delivery', 'Surgery'] as const) {
+      const wantsExtra = stageExtraPerson[stage];
+      const assistantId = wantsExtra ? stageAssistantIds[stage] : '';
+      if (!wantsExtra && !initialAssistantIds[stage]) continue;
+      if (assistantId !== initialAssistantIds[stage]) {
+        if (wantsExtra && !assistantId) {
+          setError(`Please pick an extra person for ${stage}, or uncheck Extra person required.`);
+          return;
+        }
+        assistantDraft[stage] = assistantId;
+      }
+    }
+
+    for (const stage of ['Delivery', 'Surgery'] as const) {
+      if (!stageExtraPerson[stage]) continue;
+      const primaryId = stageEmployeeIds[stage];
+      const assistantId = stageAssistantIds[stage];
+      if (primaryId && assistantId && primaryId === assistantId) {
+        setError(`Extra person for ${stage} must be different from the primary assignee.`);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       await updateCase(c.id, {
@@ -127,8 +162,12 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
         paymentStatus: form.paymentStatus,
       });
 
-      if (Object.keys(stageDraft).length > 0) {
-        const { error: teamError } = await updateCaseStageAssignments(c.id, stageDraft);
+      if (Object.keys(stageDraft).length > 0 || Object.keys(assistantDraft).length > 0) {
+        const { error: teamError } = await updateCaseStageAssignments(
+          c.id,
+          stageDraft,
+          Object.keys(assistantDraft).length > 0 ? assistantDraft : undefined,
+        );
         if (teamError) {
           setError(teamError);
           return;
@@ -369,13 +408,32 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                       <EmployeeSearchSelect
                         employees={activeEmployees}
                         value={stageEmployeeIds[stage]}
-                        onChange={(value) =>
-                          setStageEmployeeIds({ ...stageEmployeeIds, [stage]: value })
-                        }
+                        onChange={(value) => {
+                          setStageEmployeeIds({ ...stageEmployeeIds, [stage]: value });
+                          if (stageSupportsAssistant(stage) && stageAssistantIds[stage] === value) {
+                            setStageAssistantIds({ ...stageAssistantIds, [stage]: '' });
+                          }
+                        }}
                         suggestedDepartment={deptHint}
                         allowSelf={stage === 'Surgery'}
                         placeholder="Unassigned"
                       />
+                      {stageSupportsAssistant(stage) && !fcfs ? (
+                        <StageExtraPersonFields
+                          stage={stage}
+                          employees={activeEmployees}
+                          primaryEmployeeId={stageEmployeeIds[stage]}
+                          extraEnabled={stageExtraPerson[stage]}
+                          assistantId={stageAssistantIds[stage]}
+                          onExtraEnabledChange={(enabled) => {
+                            setStageExtraPerson({ ...stageExtraPerson, [stage]: enabled });
+                            if (!enabled) setStageAssistantIds({ ...stageAssistantIds, [stage]: '' });
+                          }}
+                          onAssistantChange={(value) =>
+                            setStageAssistantIds({ ...stageAssistantIds, [stage]: value })
+                          }
+                        />
+                      ) : null}
                     </div>
                   );
                 })}

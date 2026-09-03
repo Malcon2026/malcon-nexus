@@ -28,10 +28,19 @@ import {
   STAGE_DEPARTMENT_MAP,
   SURGERY_SELF_ASSIGNMENT_VALUE,
   isCaseAssignedToEmployee,
+  isCaseVisibleToEmployee,
   isFcfsStage,
+  stageSupportsAssistant,
   type AssignableStage,
   type StageAssignments,
+  type StageAssistantAssignments,
+  type StageWithAssistant,
 } from '../lib/caseWorkflow';
+import {
+  StageExtraPersonFields,
+  emptyStageAssistantIds,
+  emptyStageExtraFlags,
+} from '../components/StageExtraPersonFields';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -61,6 +70,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     remarks: '',
     startStage: 'Kit Preparation' as AssignableStage,
     stageEmployeeIds: emptyStageIds(),
+    stageAssistantIds: emptyStageAssistantIds(),
+    stageExtraPerson: emptyStageExtraFlags(),
   });
 
   const startIdx = ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage);
@@ -85,6 +96,8 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       remarks: '',
       startStage: 'Kit Preparation',
       stageEmployeeIds: emptyStageIds(),
+      stageAssistantIds: emptyStageAssistantIds(),
+      stageExtraPerson: emptyStageExtraFlags(),
     });
   };
 
@@ -121,6 +134,28 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       stageAssignments[stage] = emp;
     }
 
+    const stageAssistantAssignments: StageAssistantAssignments = {};
+    for (const stage of ['Delivery', 'Surgery'] as const) {
+      if (!activeStages.includes(stage)) continue;
+      if (!form.stageExtraPerson[stage]) continue;
+      const assistantId = form.stageAssistantIds[stage];
+      if (!assistantId) {
+        alert(`Please pick an extra person for ${stage}, or uncheck Extra person required.`);
+        return;
+      }
+      const assistant = employees.find((e) => e.id === assistantId);
+      if (!assistant) {
+        alert(`Could not find extra person for ${stage}. Please reselect.`);
+        return;
+      }
+      const primaryId = form.stageEmployeeIds[stage];
+      if (primaryId && assistantId === primaryId) {
+        alert(`Extra person for ${stage} must be different from the primary assignee.`);
+        return;
+      }
+      stageAssistantAssignments[stage] = assistant;
+    }
+
     setSubmitting(true);
     try {
       await createCase({
@@ -135,6 +170,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
         dueDate: form.surgeryDate,
         startStage: form.startStage,
         stageAssignments,
+        stageAssistantAssignments,
         surgerySelfPerformed,
       });
       onClose();
@@ -352,6 +388,14 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                             setForm({
                               ...form,
                               stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
+                              ...(value && form.stageAssistantIds[stage as StageWithAssistant] === value
+                                ? {
+                                    stageAssistantIds: {
+                                      ...form.stageAssistantIds,
+                                      [stage as StageWithAssistant]: '',
+                                    },
+                                  }
+                                : {}),
                             })
                           }
                           suggestedDepartment={deptHint}
@@ -359,6 +403,28 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                           placeholder="Assign later..."
                         />
                       )}
+                      {stageSupportsAssistant(stage) && !fcfs ? (
+                        <StageExtraPersonFields
+                          stage={stage}
+                          employees={activeEmployees}
+                          primaryEmployeeId={form.stageEmployeeIds[stage]}
+                          extraEnabled={form.stageExtraPerson[stage]}
+                          assistantId={form.stageAssistantIds[stage]}
+                          onExtraEnabledChange={(enabled) =>
+                            setForm({
+                              ...form,
+                              stageExtraPerson: { ...form.stageExtraPerson, [stage]: enabled },
+                              ...(!enabled ? { stageAssistantIds: { ...form.stageAssistantIds, [stage]: '' } } : {}),
+                            })
+                          }
+                          onAssistantChange={(value) =>
+                            setForm({
+                              ...form,
+                              stageAssistantIds: { ...form.stageAssistantIds, [stage]: value },
+                            })
+                          }
+                        />
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -394,7 +460,7 @@ export const Cases: React.FC = () => {
     }
   }, [createCaseSignal]);
 
-  const canEdit = (c: ImplantCase) => viewMode === 'admin' || isCaseAssignedToEmployee(c, currentUser);
+  const canEdit = (c: ImplantCase) => viewMode === 'admin' || isCaseVisibleToEmployee(c, currentUser);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');

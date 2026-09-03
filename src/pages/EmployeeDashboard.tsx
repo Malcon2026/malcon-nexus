@@ -11,7 +11,7 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseAssignedToEmployee } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, isCaseAssistantOnCurrentStage } from '../lib/caseWorkflow';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase } from '../lib/caseTaskRequests';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
@@ -34,7 +34,7 @@ const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: Implan
 
 function useMyCases(employee: Pick<import('../types').Employee, 'id' | 'email'>) {
   const cases = useStore((s) => s.cases);
-  return cases.filter((c) => isCaseAssignedToEmployee(c, employee));
+  return cases.filter((c) => isCaseVisibleToEmployee(c, employee));
 }
 
 const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void }> = ({
@@ -361,6 +361,7 @@ const EmployeeCasesPanel: React.FC<{
             const pc = getPriorityStyle(c.priority);
             const isSubmitted = c.status === 'Waiting For Approval';
             const canSubmit = canEmployeeSubmitCase(c, currentUser);
+            const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
             return (
               <motion.div
@@ -383,6 +384,11 @@ const EmployeeCasesPanel: React.FC<{
                           {isSubmitted && (
                             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
                               Waiting for admin
+                            </Badge>
+                          )}
+                          {isExtraPerson && (
+                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">
+                              Extra person
                             </Badge>
                           )}
                         </div>

@@ -42,7 +42,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant } from '../lib/caseWorkflow';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -114,6 +114,7 @@ interface AppState {
   createCase: (
     caseData: Partial<ImplantCase> & {
       stageAssignments?: StageAssignments;
+      stageAssistantAssignments?: StageAssistantAssignments;
       /** Case can begin at any stage; earlier stages are marked skipped. */
       startStage?: WorkflowStage;
       /** Hospital will perform surgery independently — no scrub person needed. */
@@ -130,6 +131,7 @@ interface AppState {
   updateCaseStageAssignments: (
     caseId: string,
     draft: Partial<Record<AssignableStage, string>>,
+    assistantDraft?: StageAssistantIds,
   ) => Promise<{ error: string | null }>;
   approveStageAndAssign: (
     caseId: string,
@@ -954,6 +956,7 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const caseId = newId();
     const assignments = caseData.stageAssignments ?? {};
+    const assistantAssignments = caseData.stageAssistantAssignments ?? {};
 
     const startStage = normalizeWorkflowStageName(caseData.startStage ?? 'Kit Preparation');
     if (startStage === 'Completed') {
@@ -971,6 +974,16 @@ export const useStore = create<AppState>((set, get) => ({
       const emp = assignments[stage];
       if (emp && !emp.id) {
         throw new Error(`Cannot assign ${stage}: missing employee id. Refresh and try again.`);
+      }
+    }
+    for (const stage of ['Delivery', 'Surgery'] as const) {
+      const assistant = assistantAssignments[stage];
+      const primary = assignments[stage];
+      if (assistant && !assistant.id) {
+        throw new Error(`Cannot assign extra person for ${stage}: missing employee id.`);
+      }
+      if (assistant && primary && assistant.id === primary.id) {
+        throw new Error(`Extra person for ${stage} must be different from the primary assignee.`);
       }
     }
 
@@ -996,6 +1009,10 @@ export const useStore = create<AppState>((set, get) => ({
       }
       const isSelfSurgery = stage === 'Surgery' && Boolean(caseData.surgerySelfPerformed);
       const emp = isFcfsStage(stage) || isSelfSurgery ? null : (assignments[stage as keyof typeof assignments] ?? null);
+      const assistantEmp =
+        stageSupportsAssistant(stage) && !isSelfSurgery
+          ? (assistantAssignments[stage] ?? null)
+          : null;
       const stageIdx = WORKFLOW_STAGES.indexOf(stage);
       const isSkipped = stageIdx < startIdx;
       const isStart = stageIdx === startIdx;
@@ -1004,6 +1021,8 @@ export const useStore = create<AppState>((set, get) => ({
         department: (getDepartmentForStage(stage) ?? 'Stores') as Department,
         assignedEmployee: emp,
         assignedAt: emp ? now : null,
+        assistantEmployee: assistantEmp,
+        assistantAssignedAt: assistantEmp ? now : null,
         submittedAt: null,
         approvedAt: isSkipped ? now : null,
         status: isSkipped
@@ -1457,7 +1476,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  updateCaseStageAssignments: async (caseId, draft) => {
+  updateCaseStageAssignments: async (caseId, draft, assistantDraft) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
@@ -1471,10 +1490,30 @@ export const useStore = create<AppState>((set, get) => ({
       return rec?.assignedEmployee?.id ?? '';
     };
 
+    const assistantValue = (stage: StageWithAssistant): string =>
+      findStageRecord(c.stages, stage)?.assistantEmployee?.id ?? '';
+
     const changedEntries = (Object.entries(draft) as [AssignableStage, string][]).filter(
       ([stage, value]) => value !== stageValue(stage),
     );
-    if (changedEntries.length === 0) return { error: null };
+    const changedAssistants = assistantDraft
+      ? (Object.entries(assistantDraft) as [StageWithAssistant, string][]).filter(
+          ([stage, value]) => value !== assistantValue(stage),
+        )
+      : [];
+
+    if (changedEntries.length === 0 && changedAssistants.length === 0) return { error: null };
+
+    for (const [stage, assistantId] of changedAssistants) {
+      const primaryId =
+        draft[stage] !== undefined ? draft[stage] : stageValue(stage);
+      if (assistantId && primaryId && assistantId === primaryId) {
+        return { error: `Extra person for ${stage} must be different from the primary assignee.` };
+      }
+      if (stage === 'Surgery' && primaryId === SURGERY_SELF_ASSIGNMENT_VALUE && assistantId) {
+        return { error: 'Cannot add an extra person when surgery is self-performed.' };
+      }
+    }
 
     const surgeryRecord = findStageRecord(c.stages, 'Surgery');
     const surgeryDraft = draft.Surgery;
@@ -1491,30 +1530,61 @@ export const useStore = create<AppState>((set, get) => ({
       c.stages.map((raw) => {
         const stageName = normalizeWorkflowStageName(raw.stage) as AssignableStage;
         const draftValue = draft[stageName];
-        if (draftValue === undefined || draftValue === stageValue(stageName)) return raw;
+        const assistantDraftValue = stageSupportsAssistant(stageName)
+          ? assistantDraft?.[stageName]
+          : undefined;
 
-        if (stageName === 'Surgery' && draftValue === SURGERY_SELF_ASSIGNMENT_VALUE) {
-          return {
-            ...raw,
-            assignedEmployee: null,
-            selfPerformed: true,
-            assignedAt: raw.assignedAt ?? now,
-          };
+        let next = raw;
+
+        if (draftValue !== undefined && draftValue !== stageValue(stageName)) {
+          if (stageName === 'Surgery' && draftValue === SURGERY_SELF_ASSIGNMENT_VALUE) {
+            next = {
+              ...next,
+              assignedEmployee: null,
+              assistantEmployee: null,
+              assistantAssignedAt: null,
+              selfPerformed: true,
+              assignedAt: raw.assignedAt ?? now,
+            };
+          } else {
+            const employee = draftValue ? state.employees.find((e) => e.id === draftValue) ?? null : null;
+            const sameEmployee = employee?.id === raw.assignedEmployee?.id;
+            const isCurrent = stageName === currentStageName;
+            next = {
+              ...next,
+              assignedEmployee: employee,
+              assignedAt: employee ? (sameEmployee ? raw.assignedAt : now) : null,
+              ...(stageName === 'Surgery' ? { selfPerformed: false } : {}),
+              ...(isCurrent && employee && (raw.status === 'Pending' || raw.status === 'Assigned')
+                ? { status: 'Assigned' as const }
+                : {}),
+            };
+            if (employee && next.assistantEmployee?.id === employee.id) {
+              next = { ...next, assistantEmployee: null, assistantAssignedAt: null };
+            }
+          }
         }
 
-        const employee = draftValue ? state.employees.find((e) => e.id === draftValue) ?? null : null;
-        const sameEmployee = employee?.id === raw.assignedEmployee?.id;
-        const isCurrent = stageName === currentStageName;
+        if (assistantDraftValue !== undefined && stageSupportsAssistant(stageName)) {
+          const currentAssistantId = assistantValue(stageName);
+          if (assistantDraftValue !== currentAssistantId) {
+            const assistant = assistantDraftValue
+              ? state.employees.find((e) => e.id === assistantDraftValue) ?? null
+              : null;
+            const primaryId =
+              draft[stageName] !== undefined ? draft[stageName] : stageValue(stageName);
+            if (assistant && primaryId && assistant.id === primaryId) {
+              return raw;
+            }
+            next = {
+              ...next,
+              assistantEmployee: assistant,
+              assistantAssignedAt: assistant ? now : null,
+            };
+          }
+        }
 
-        return {
-          ...raw,
-          assignedEmployee: employee,
-          assignedAt: employee ? (sameEmployee ? raw.assignedAt : now) : null,
-          ...(stageName === 'Surgery' ? { selfPerformed: false } : {}),
-          ...(isCurrent && employee && (raw.status === 'Pending' || raw.status === 'Assigned')
-            ? { status: 'Assigned' as const }
-            : {}),
-        };
+        return next;
       }),
     );
 
@@ -1538,13 +1608,20 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    const changeSummary = changedEntries
+    const primarySummary = changedEntries
       .map(([stage, val]) => {
         if (val === SURGERY_SELF_ASSIGNMENT_VALUE) return `${stage}: Self`;
         const emp = val ? state.employees.find((e) => e.id === val) : null;
         return `${stage}: ${emp?.name ?? 'Unassigned'}`;
       })
       .join('; ');
+    const assistantSummary = changedAssistants
+      .map(([stage, val]) => {
+        const emp = val ? state.employees.find((e) => e.id === val) : null;
+        return `${stage} extra: ${emp?.name ?? 'None'}`;
+      })
+      .join('; ');
+    const changeSummary = [primarySummary, assistantSummary].filter(Boolean).join('; ');
 
     const newLog = {
       id: `log-${Date.now()}`,

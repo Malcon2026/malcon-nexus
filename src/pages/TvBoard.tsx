@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
-import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase, getCurrentStageTeamDisplay } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -245,7 +245,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
         <Detail label="Product" value={c.implantType || '—'} muted />
         <Detail label="Company" value={c.implantCompany || '—'} muted />
         <Detail label="Doctor" value={`Dr. ${c.doctor.name}`} muted />
-        <Detail label="Assigned" value={c.assignedEmployee?.name.split(' ')[0] ?? 'Unassigned'} />
+        <Detail label="Assigned" value={getCurrentStageTeamDisplay(c)} />
         <Detail
           label="Billing"
           value={billing}

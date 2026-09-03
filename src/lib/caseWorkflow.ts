@@ -47,8 +47,18 @@ export type StageAssignments = Partial<
 
 export type AssignableStage = (typeof ASSIGNABLE_WORKFLOW_STAGES)[number];
 
+/** Stages that support an optional second person at assignment time. */
+export const STAGES_WITH_ASSISTANT = ['Delivery', 'Surgery'] as const;
+export type StageWithAssistant = (typeof STAGES_WITH_ASSISTANT)[number];
+export type StageAssistantIds = Partial<Record<StageWithAssistant, string>>;
+export type StageAssistantAssignments = Partial<Record<StageWithAssistant, Employee>>;
+
 /** Sentinel for Surgery — hospital performs independently (no scrub person). */
 export const SURGERY_SELF_ASSIGNMENT_VALUE = '__self__';
+
+export function stageSupportsAssistant(stage: WorkflowStage | string): stage is StageWithAssistant {
+  return (STAGES_WITH_ASSISTANT as readonly string[]).includes(normalizeWorkflowStageName(stage as WorkflowStage));
+}
 
 /** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
@@ -242,6 +252,14 @@ export function normalizeCaseStages(stages: StageRecord[] | null | undefined): S
               normalizeDepartment(raw.assignedEmployee.department) ?? raw.assignedEmployee.department,
           }
         : null,
+      assistantEmployee: raw.assistantEmployee
+        ? {
+            ...raw.assistantEmployee,
+            department:
+              normalizeDepartment(raw.assistantEmployee.department) ??
+              raw.assistantEmployee.department,
+          }
+        : (raw.assistantEmployee ?? null),
     };
 
     const existing = byStage.get(stage);
@@ -331,17 +349,56 @@ export function returnStageAfterCancel(current: WorkflowStage): WorkflowStage | 
   return null;
 }
 
+function employeeMatches(
+  candidate: Pick<Employee, 'id' | 'email'> | null | undefined,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  if (!candidate) return false;
+  if (candidate.id && candidate.id === employee.id) return true;
+  if (candidate.email && employee.email) {
+    return candidate.email.trim().toLowerCase() === employee.email.trim().toLowerCase();
+  }
+  return false;
+}
+
 export function isCaseAssignedToEmployee(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email'>,
 ): boolean {
-  const assignee = implantCase.assignedEmployee;
-  if (!assignee) return false;
-  if (assignee.id && assignee.id === employee.id) return true;
-  if (assignee.email && employee.email) {
-    return assignee.email.trim().toLowerCase() === employee.email.trim().toLowerCase();
-  }
-  return false;
+  return employeeMatches(implantCase.assignedEmployee, employee);
+}
+
+/** Extra person on the current stage (Delivery / Surgery) — can view, cannot submit. */
+export function isCaseAssistantOnCurrentStage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  const rec = findStageRecord(implantCase.stages, implantCase.currentStage);
+  return employeeMatches(rec?.assistantEmployee, employee);
+}
+
+export function isCaseVisibleToEmployee(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  return isCaseAssignedToEmployee(implantCase, employee) || isCaseAssistantOnCurrentStage(implantCase, employee);
+}
+
+export function formatAssigneeDisplay(
+  primary: Employee | null | undefined,
+  assistant: Employee | null | undefined,
+): string {
+  const p = primary?.name.split(' ')[0];
+  const a = assistant?.name.split(' ')[0];
+  if (p && a) return `${p} + ${a}`;
+  if (p) return p;
+  if (a) return `${a} (extra)`;
+  return 'Unassigned';
+}
+
+export function getCurrentStageTeamDisplay(implantCase: ImplantCase): string {
+  const rec = findStageRecord(implantCase.stages, implantCase.currentStage);
+  return formatAssigneeDisplay(implantCase.assignedEmployee ?? rec?.assignedEmployee, rec?.assistantEmployee);
 }
 
 /**

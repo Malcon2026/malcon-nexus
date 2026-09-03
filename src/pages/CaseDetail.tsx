@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
@@ -578,7 +578,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     c.status !== 'Cancelled' &&
     c.status !== 'Waiting For Approval';
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
-  const canEmployeeEdit = viewMode === 'employee' && isCaseAssignedToEmployee(c, currentUser);
+  const canEmployeeEdit = viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
   const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
   const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
@@ -920,14 +920,42 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                 </CardHeader>
                 <CardBody>
                   {c.assignedEmployee ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-4">
+                        <Avatar name={c.assignedEmployee.name} size="lg" />
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{c.assignedEmployee.name}</p>
+                          <p className="text-xs text-gray-500">{c.assignedEmployee.email}</p>
+                          <Badge className={`${departmentColors[c.assignedEmployee.department]} mt-1 text-xs`}>
+                            Primary · {c.assignedEmployee.department}
+                          </Badge>
+                        </div>
+                      </div>
+                      {findStageRecord(c.stages, c.currentStage)?.assistantEmployee ? (
+                        <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
+                          <Avatar name={findStageRecord(c.stages, c.currentStage)!.assistantEmployee!.name} size="lg" />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {findStageRecord(c.stages, c.currentStage)!.assistantEmployee!.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {findStageRecord(c.stages, c.currentStage)!.assistantEmployee!.email}
+                            </p>
+                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 mt-1 text-xs">
+                              Extra person · submits by primary only
+                            </Badge>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : findStageRecord(c.stages, c.currentStage)?.assistantEmployee ? (
                     <div className="flex items-center gap-4">
-                      <Avatar name={c.assignedEmployee.name} size="lg" />
+                      <Avatar name={findStageRecord(c.stages, c.currentStage)!.assistantEmployee!.name} size="lg" />
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{c.assignedEmployee.name}</p>
-                        <p className="text-xs text-gray-500">{c.assignedEmployee.email}</p>
-                        <Badge className={`${departmentColors[c.assignedEmployee.department]} mt-1 text-xs`}>
-                          {c.assignedEmployee.department}
-                        </Badge>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {findStageRecord(c.stages, c.currentStage)!.assistantEmployee!.name}
+                        </p>
+                        <Badge className="bg-sky-50 text-sky-700 border-sky-200 mt-1 text-xs">Extra person only</Badge>
                       </div>
                     </div>
                   ) : (
@@ -1049,10 +1077,18 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                               <span className="text-xs text-amber-700 font-medium">Self — Hospital performed independently</span>
                             </div>
                           ) : stage.assignedEmployee ? (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Avatar name={stage.assignedEmployee.name} size="xs" />
-                              <span className="text-xs text-gray-600">{stage.assignedEmployee.name}</span>
-                              <Badge className={`${departmentColors[stage.assignedEmployee.department]} text-[10px]`}>{stage.assignedEmployee.department}</Badge>
+                            <div className="flex flex-col gap-1 mt-2">
+                              <div className="flex items-center gap-2">
+                                <Avatar name={stage.assignedEmployee.name} size="xs" />
+                                <span className="text-xs text-gray-600">{stage.assignedEmployee.name}</span>
+                                <Badge className={`${departmentColors[stage.assignedEmployee.department]} text-[10px]`}>{stage.assignedEmployee.department}</Badge>
+                              </div>
+                              {stage.assistantEmployee ? (
+                                <div className="flex items-center gap-2 pl-1">
+                                  <span className="text-[10px] text-sky-600 font-medium">+ {stage.assistantEmployee.name}</span>
+                                  <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">Extra</Badge>
+                                </div>
+                              ) : null}
                             </div>
                           ) : (
                             <p className="text-xs text-amber-600 mt-2">No employee assigned yet</p>

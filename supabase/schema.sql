@@ -399,7 +399,15 @@ DROP POLICY IF EXISTS "cases_admin_all"         ON cases;
 DROP POLICY IF EXISTS "cases_employee_assigned" ON cases;
 DROP POLICY IF EXISTS "cases_employee_update"   ON cases;
 CREATE POLICY "cases_admin_all"         ON cases FOR ALL    USING (current_user_role() = 'admin');
-CREATE POLICY "cases_employee_assigned" ON cases FOR SELECT USING (assigned_employee_id = current_employee_id());
+CREATE POLICY "cases_employee_assigned" ON cases FOR SELECT USING (
+  assigned_employee_id = current_employee_id()
+  OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(COALESCE(stages, '[]'::jsonb)) AS elem
+    WHERE elem->'assistantEmployee'->>'id' = current_employee_id()::text
+      AND elem->>'stage' = cases.current_stage
+  )
+);
 CREATE POLICY "cases_employee_update"   ON cases FOR UPDATE
   USING (assigned_employee_id = current_employee_id())
   WITH CHECK (true);

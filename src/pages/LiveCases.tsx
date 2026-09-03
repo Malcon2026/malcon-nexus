@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { useStore } from '../store/useStore';
-import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED } from '../lib/caseWorkflow';
+import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED, getCurrentStageTeamDisplay, findStageRecord } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 
@@ -312,10 +312,16 @@ export const LiveCases: React.FC = () => {
                   )}
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                    {c.assignedEmployee ? (
+                    {(c.assignedEmployee || findStageRecord(c.stages, c.currentStage)?.assistantEmployee) ? (
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <Avatar name={c.assignedEmployee.name} size="xs" />
-                        <span className="text-xs text-gray-700 truncate max-w-[90px]">{c.assignedEmployee.name.split(' ')[0]}</span>
+                        {c.assignedEmployee ? (
+                          <Avatar name={c.assignedEmployee.name} size="xs" />
+                        ) : (
+                          <User className="h-3.5 w-3.5 text-sky-600" />
+                        )}
+                        <span className="text-xs text-gray-700 truncate max-w-[120px]">
+                          {getCurrentStageTeamDisplay(c)}
+                        </span>
                       </div>
                     ) : isFcfsPoolCase(c) ? (
                       <div className="flex items-center gap-1 text-amber-600">

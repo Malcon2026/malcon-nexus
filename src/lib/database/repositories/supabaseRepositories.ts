@@ -443,11 +443,10 @@ export const sbCaseRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
-    // Primary: current assignee FK (required for RLS).
+    // RLS returns rows where employee is primary assignee OR assistant on current stage.
     const { data, error } = await supabase
       .from('cases')
       .select('*')
-      .eq('assigned_employee_id', employeeId)
       .order('created_at', { ascending: false });
     if (error) throw error;
 
@@ -457,8 +456,7 @@ export const sbCaseRepo = {
       byId.set(c.id, c);
     }
 
-    // Fallback: snapshot id match (older rows where FK was null but snapshot
-    // still had the assignee — RLS may hide these; try anyway).
+    // Legacy fallback: snapshot id match for older rows.
     const { data: snapshotRows, error: snapshotError } = await supabase
       .from('cases')
       .select('*')
