@@ -86,9 +86,9 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 };
 
 export const Dashboard: React.FC = () => {
-  const { cases, employees, activityLog, setActiveTab, setSelectedCase, getMonthlyData, getDepartmentPerformance, getStageDistribution } = useStore();
+  const { cases, employees, activityLog, setActiveTab, setSelectedCase, getDailyData, getDepartmentPerformance, getStageDistribution } = useStore();
 
-  const monthlyData = getMonthlyData();
+  const dailyData = getDailyData();
   const departmentPerformance = getDepartmentPerformance();
   const stageDistribution = getStageDistribution();
 
@@ -151,7 +151,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
-        {/* Monthly Cases Chart */}
+        {/* Daily Cases Chart */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -162,8 +162,8 @@ export const Dashboard: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Monthly Performance</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Cases over the last 6 months</p>
+                  <h3 className="text-sm font-semibold text-gray-900">Daily Performance</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Cases over the last 14 days</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
@@ -173,7 +173,7 @@ export const Dashboard: React.FC = () => {
             </CardHeader>
             <CardBody>
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={monthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <AreaChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#9a8cff" stopOpacity={0.25} />
@@ -185,11 +185,11 @@ export const Dashboard: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#8b97ab' }} axisLine={false} tickLine={false} interval={0} angle={-35} textAnchor="end" height={50} />
+                  <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="cases" name="Cases" stroke="#9a8cff" strokeWidth={2} fill="url(#colorCases)" dot={false} />
-                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#34d399" strokeWidth={2} fill="url(#colorCompleted)" dot={false} />
+                  <Area type="monotone" dataKey="cases" name="Cases" stroke="#9a8cff" strokeWidth={2} fill="url(#colorCases)" dot={{ r: 2, fill: '#9a8cff' }} />
+                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#34d399" strokeWidth={2} fill="url(#colorCompleted)" dot={{ r: 2, fill: '#34d399' }} />
                 </AreaChart>
               </ResponsiveContainer>
             </CardBody>

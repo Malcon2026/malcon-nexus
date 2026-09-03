@@ -295,7 +295,7 @@ interface AppState {
   setAdminDashboardNoteCards: (notes: DashboardNote[]) => Promise<{ error: string | null }>;
 
   // Dynamic Metrics
-  getMonthlyData: () => { month: string; cases: number; revenue: number; completed: number }[];
+  getDailyData: () => { day: string; dateKey: string; cases: number; revenue: number; completed: number }[];
   getDepartmentPerformance: () => { department: string; avgTime: number; casesHandled: number; onTime: number }[];
   getStageDistribution: () => { stage: WorkflowStage; count: number; color: string }[];
 
@@ -4677,35 +4677,30 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ========== DYNAMIC METRICS ==========
 
-  getMonthlyData: () => {
+  getDailyData: () => {
     const cases = get().cases;
-    const result = [];
+    const result: { day: string; dateKey: string; cases: number; revenue: number; completed: number }[] = [];
     const now = new Date();
+    const DAYS = 14;
 
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
-      const monthNum = d.getMonth();
-      const year = d.getFullYear();
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateKey = getISTDateKey(d);
+      const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
-      const casesInMonth = cases.filter(c => {
-        const cDate = new Date(c.createdAt);
-        return cDate.getMonth() === monthNum && cDate.getFullYear() === year;
-      });
-
-      const completedInMonth = cases.filter(c => {
-        if (c.status !== 'Completed') return false;
-        const uDate = new Date(c.updatedAt);
-        return uDate.getMonth() === monthNum && uDate.getFullYear() === year;
-      });
-
-      const revenueInMonth = casesInMonth.reduce((sum, c) => sum + (c.invoiceAmount || 0), 0);
+      const casesInDay = cases.filter((c) => getISTDateKey(c.createdAt) === dateKey);
+      const completedInDay = cases.filter(
+        (c) => c.status === 'Completed' && getISTDateKey(c.updatedAt) === dateKey,
+      );
+      const revenueInDay = casesInDay.reduce((sum, c) => sum + (c.invoiceAmount || 0), 0);
 
       result.push({
-        month: monthName,
-        cases: casesInMonth.length,
-        revenue: revenueInMonth,
-        completed: completedInMonth.length,
+        day: dayLabel,
+        dateKey,
+        cases: casesInDay.length,
+        revenue: revenueInDay,
+        completed: completedInDay.length,
       });
     }
     return result;
