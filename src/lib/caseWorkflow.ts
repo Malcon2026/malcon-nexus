@@ -270,6 +270,28 @@ export function isPostSurgeryStage(stage: WorkflowStage): boolean {
   return idx > surgeryIdx && stage !== 'Completed';
 }
 
+/** Stages shown on the office TV board — Kit Prep through Billing (inclusive). Postponed cases always show. */
+const TV_BOARD_STAGES = new Set<WorkflowStage>([
+  'Kit Preparation',
+  'Delivery',
+  'Surgery',
+  'Pickup from Hospital',
+  'Cleaning & Audit',
+  'Restock',
+  'Billing',
+]);
+
+/**
+ * Office TV board: open cases up to Billing, plus postponed. Bill Submission and cancelled cases are excluded.
+ */
+export function isTvBoardVisibleCase(c: ImplantCase): boolean {
+  if (c.status === 'Completed' || c.status === 'Cancelled' || c.currentStage === 'Completed') {
+    return false;
+  }
+  if (c.cancelReason) return false;
+  return TV_BOARD_STAGES.has(normalizeWorkflowStageName(c.currentStage));
+}
+
 /** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
 export function getNextWorkflowStage(
   current: WorkflowStage,

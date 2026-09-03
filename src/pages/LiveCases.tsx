@@ -288,7 +288,7 @@ export const LiveCases: React.FC = () => {
 
                   {c.cancelReason && (
                     <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
-                      <span className="text-[10px] text-amber-800 font-medium">Cancelled — return unused kit</span>
+                      <span className="text-[10px] text-amber-800 font-medium">Cancelled — {c.cancelReason}</span>
                     </div>
                   )}
 

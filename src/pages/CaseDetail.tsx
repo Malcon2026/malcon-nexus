@@ -22,6 +22,8 @@ import {
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
 import { canEmployeeSubmitCase, needsAssignmentReactivation, isCaseAssignedToEmployee, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
+import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -348,16 +350,27 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
   isOpen, onClose, caseId, currentStage,
 }) => {
   const { cancelCase } = useStore();
-  const [reason, setReason] = useState('');
+  const [reasonType, setReasonType] = useState<CancelCaseReasonType | null>(null);
+  const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const canSubmit = reason.trim().length > 0;
+  const selected = CANCEL_CASE_REASONS.find((r) => r.id === reasonType);
+  const canSubmit =
+    reasonType !== null &&
+    (reasonType !== 'other' || details.trim().length > 0);
+
+  const handleClose = () => {
+    setReasonType(null);
+    setDetails('');
+    onClose();
+  };
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !reasonType) return;
     setSubmitting(true);
     try {
-      await cancelCase(caseId, reason);
-      setReason('');
+      await cancelCase(caseId, reasonType, details);
+      setReasonType(null);
+      setDetails('');
       onClose();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to cancel case.');
@@ -369,37 +382,82 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title="Cancel Case — Unused Implants"
-      subtitle="Surgery not done. Kit comes back; billing is skipped."
+      onClose={handleClose}
+      title="Cancel Case"
+      subtitle="Pick a reason. Billing is skipped for all cancel types."
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Keep Case</Button>
+          <Button variant="outline" size="sm" onClick={handleClose} disabled={submitting}>Keep Case</Button>
           <Button variant="danger" size="sm" onClick={() => void handleSubmit()} disabled={submitting || !canSubmit}>
             {submitting ? 'Cancelling...' : 'Cancel Case'}
           </Button>
         </div>
       }
     >
-      <div className="p-6">
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+      <div className="p-6 space-y-4">
+        <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">
-            Use this when the surgery did not happen and <strong>no implants were used</strong>.
-            If the kit already left Stores (currently <strong>{currentStage}</strong>), the case
-            moves to Pickup → Cleaning & Audit → Restock so unused implants come back.
-            Billing and Bill Submission are skipped.
+            {selected?.hint ?? (
+              <>
+                Use when the case will not complete normally. If the kit already left Stores
+                (currently <strong>{currentStage}</strong>), it returns via Pickup → Cleaning & Audit → Restock.
+              </>
+            )}
           </p>
         </div>
-        <label className="block text-xs font-medium text-gray-700 mb-1.5">Reason (required)</label>
-        <textarea
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
-          rows={4}
-          placeholder="e.g. Patient postponed. Kit unused at Apollo — returning to Stores."
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-2">Reason (required)</label>
+          <div className="space-y-2">
+            {CANCEL_CASE_REASONS.map((option) => {
+              const active = reasonType === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setReasonType(option.id)}
+                  className={cn(
+                    'w-full text-left px-3 py-2.5 rounded-lg border transition-colors',
+                    active
+                      ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-200'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+                  )}
+                >
+                  <span className="text-sm font-semibold text-gray-900">{option.label}</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">{option.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {reasonType === 'other' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Details (required)</label>
+            <textarea
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              rows={3}
+              placeholder="Describe why this case is being cancelled..."
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+            />
+          </div>
+        )}
+
+        {reasonType && reasonType !== 'other' && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Notes (optional)</label>
+            <textarea
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              rows={2}
+              placeholder="e.g. Patient postponed at Apollo — kit unused."
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -748,9 +806,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <Ban className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-900">Surgery cancelled — unused implants returning</p>
+            <p className="text-sm font-semibold text-amber-900">Case cancelled — kit returning</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              No implants were used. Kit comes back through Pickup → Cleaning & Audit → Restock. Billing is skipped.
+              Kit comes back through Pickup → Cleaning & Audit → Restock. Billing is skipped.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
             </p>
           </div>

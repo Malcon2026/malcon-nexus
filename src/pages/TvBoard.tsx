@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
-import { isPostSurgeryStage, UNUSED_IMPLANTS_REMARK, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase } from '../lib/caseWorkflow';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -161,7 +161,6 @@ function isTodayIST(value: string | undefined): boolean {
 function tvRemark(c: ImplantCase): string {
   const remarks = (c.remarks ?? '').trim();
   if (remarks) return remarks;
-  if (c.cancelReason || c.status === 'Cancelled') return UNUSED_IMPLANTS_REMARK;
   if (c.postponeReason) return `Postponed${c.surgeryDate ? ` to ${c.surgeryDate}` : ''}`;
   return '';
 }
@@ -273,7 +272,7 @@ function CasesSlide({ cases }: { cases: ImplantCase[] }) {
     <div className="flex-1 px-6 flex flex-col overflow-hidden min-h-0">
       {cases.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No live cases right now</p>
+          <p className="text-2xl font-semibold" style={{ color: INK_DIM }}>No upcoming surgeries right now</p>
         </div>
       ) : (
         <div
@@ -408,21 +407,14 @@ export const TvBoard: React.FC = () => {
   const { openCases, boardCases } = useMemo(() => {
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
     const sortFn = (a: ImplantCase, b: ImplantCase) => {
-      const closed = Number(a.status === 'Cancelled') - Number(b.status === 'Cancelled');
-      if (closed !== 0) return closed;
       const p = priorityOrder[a.priority] - priorityOrder[b.priority];
       if (p !== 0) return p;
       return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
     };
-    const open = cases.filter(
-      (c) => c.status !== 'Completed' && c.status !== 'Cancelled' && c.currentStage !== 'Completed',
-    );
-    const cancelledToday = cases.filter(
-      (c) => c.status === 'Cancelled' && (isTodayIST(c.surgeryDate) || isTodayIST(c.updatedAt)),
-    );
+    const board = cases.filter(isTvBoardVisibleCase).sort(sortFn);
     return {
-      openCases: [...open].sort(sortFn),
-      boardCases: [...open, ...cancelledToday].sort(sortFn),
+      openCases: board,
+      boardCases: board,
     };
   }, [cases]);
   const liveCases = openCases;
@@ -461,11 +453,7 @@ export const TvBoard: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [slide, goToSlide, setActiveTab]);
 
-  const surgeryToday = boardCases.filter((c) => {
-    const d = new Date(c.surgeryDate);
-    const t = new Date();
-    return d.toDateString() === t.toDateString();
-  }).length;
+  const surgeryToday = boardCases.filter((c) => isTodayIST(c.surgeryDate)).length;
 
   const critical = liveCases.filter((c) => c.priority === 'Critical').length;
   const isEmployeeSlide = SHOW_TEAM_STATUS_SLIDE && slide === totalSlides - 1;
@@ -505,7 +493,7 @@ export const TvBoard: React.FC = () => {
         <div className="shrink-0">
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#9a8cff' }}>Malcon Nexus</p>
           <h1 className="text-2xl font-bold tracking-tight mt-0.5" style={{ color: INK }}>
-            {isEmployeeSlide ? 'Team Status' : 'Live Case Board'}
+            {isEmployeeSlide ? 'Team Status' : 'Upcoming Surgeries'}
           </h1>
         </div>
 

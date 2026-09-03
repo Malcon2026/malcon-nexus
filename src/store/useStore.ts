@@ -42,7 +42,13 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import {
+  type CancelCaseReasonType,
+  cancelCaseLogPhrase,
+  formatCancelReason,
+  withCancelCaseRemark,
+} from '../lib/cancelCase';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -154,7 +160,7 @@ interface AppState {
     restockOutcome?: RestockOutcome,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
-  cancelCase: (caseId: string, reason: string) => Promise<void>;
+  cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
   postponeCase: (caseId: string, newSurgeryDate: string, reason: string) => Promise<void>;
   deleteCase: (id: string) => void;
 
@@ -2433,9 +2439,13 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  cancelCase: async (caseId, reason) => {
-    const trimmed = reason.trim();
-    if (!trimmed) throw new Error('Please enter a reason for cancelling.');
+  cancelCase: async (caseId, reasonType, details) => {
+    const trimmedDetails = (details ?? '').trim();
+    if (reasonType === 'other' && !trimmedDetails) {
+      throw new Error('Please enter details for Other.');
+    }
+    const trimmed = formatCancelReason(reasonType, trimmedDetails);
+    const logPhrase = cancelCaseLogPhrase(reasonType);
 
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
@@ -2445,8 +2455,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const now = new Date().toISOString();
-    const skipNote = `Skipped — case cancelled, no implants used. ${trimmed}`;
-    const cancelNote = `Cancelled — no implants used. ${trimmed}`;
+    const skipNote = `Skipped — case cancelled. ${trimmed}`;
+    const cancelNote = `Cancelled. ${trimmed}`;
     const returnStage = returnStageAfterCancel(c.currentStage);
     const currentName = normalizeWorkflowStageName(c.currentStage);
     const billing = new Set<WorkflowStage>(['Billing', 'Bill Submission']);
@@ -2479,11 +2489,11 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: now,
       details: returnStage
-        ? `Surgery cancelled — no implants used. Unused kit will return via ${returnStage} → Cleaning & Audit → Restock. Billing skipped. Reason: ${trimmed}`
-        : `Surgery cancelled — no implants used. Case closed. Reason: ${trimmed}`,
+        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Billing skipped. Reason: ${trimmed}`
+        : `${logPhrase} Case closed. Reason: ${trimmed}`,
     };
 
-    const remarks = withUnusedImplantsRemark(c.remarks);
+    const remarks = withCancelCaseRemark(c.remarks, reasonType);
 
     if (!returnStage) {
       const updatedCase = await taskRepository.update(caseId, {
@@ -2553,13 +2563,13 @@ export const useStore = create<AppState>((set, get) => ({
       c.caseNumber,
       state.currentUser.name,
       'admin',
-      `Case ${c.caseNumber} cancelled. Unused implants returning via ${returnStage}.`,
+      `Case ${c.caseNumber} cancelled (${trimmed}). Kit returning via ${returnStage}.`,
     );
     persistActivity(activity);
 
     const notif = createNotification(
       'Case Cancelled — Return Kit',
-      `${c.caseNumber}: unused implants coming back via ${returnStage}. Billing skipped.`,
+      `${c.caseNumber}: ${trimmed}. Kit coming back via ${returnStage}. Billing skipped.`,
       'warning',
       caseId,
     );
