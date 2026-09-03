@@ -53,7 +53,10 @@ export const SURGERY_SELF_ASSIGNMENT_VALUE = '__self__';
 /** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
 
-/** FCFS stages — open pool; employees request, admin assigns. */
+/** Set false to use direct assignment only (no open pool / task requests). */
+export const FCFS_POOL_ENABLED = false;
+
+/** Stages that use the FCFS pool when {@link FCFS_POOL_ENABLED} is true. */
 export const FCFS_STAGES = [
   'Pickup from Hospital',
   'Billing',
@@ -70,6 +73,7 @@ export const FCFS_ELIGIBLE_DEPARTMENTS: Record<FcfsStage, readonly Department[]>
 };
 
 export function fcfsStagesForEmployeeDepartment(dept: string | null | undefined): FcfsStage[] {
+  if (!FCFS_POOL_ENABLED) return [];
   const normalized = normalizeDepartment(dept ?? '');
   if (!normalized) return [];
   return FCFS_STAGES.filter((stage) =>
@@ -79,6 +83,7 @@ export function fcfsStagesForEmployeeDepartment(dept: string | null | undefined)
 
 /** FCFS pool stages this employee can claim (any of their departments). */
 export function fcfsStagesForEmployee(emp: Pick<Employee, 'department' | 'departments'>): FcfsStage[] {
+  if (!FCFS_POOL_ENABLED) return [];
   const stages = new Set<FcfsStage>();
   for (const dept of getEmployeeDepartments(emp)) {
     for (const stage of fcfsStagesForEmployeeDepartment(dept)) stages.add(stage);
@@ -87,6 +92,7 @@ export function fcfsStagesForEmployee(emp: Pick<Employee, 'department' | 'depart
 }
 
 export function isFcfsStage(stage: WorkflowStage | string): boolean {
+  if (!FCFS_POOL_ENABLED) return false;
   return (FCFS_STAGES as readonly string[]).includes(normalizeWorkflowStageName(stage));
 }
 
@@ -127,6 +133,7 @@ export function canRequestTaskCase(
   c: ImplantCase,
   employee: Pick<Employee, 'id' | 'email' | 'department' | 'departments'>,
 ): boolean {
+  if (!FCFS_POOL_ENABLED) return false;
   if (!isFcfsPoolCase(c)) return false;
   if (!employeeMatchesFcfsStage(employee, c.currentStage)) return false;
   const stageIdx = getStageIndex(c.currentStage);

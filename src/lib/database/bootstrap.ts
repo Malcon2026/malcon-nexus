@@ -16,6 +16,7 @@ import {
   sbPetrolRepo,
   sbLocationTripRepo,
 } from './repositories/supabaseRepositories';
+import { FCFS_POOL_ENABLED } from '../caseWorkflow';
 
 type BootstrapRole = 'admin' | 'employee' | 'petrol';
 
@@ -107,7 +108,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
         if (!self) return [];
         return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, self);
       } },
-    { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getForEmployee(employeeId) },
+    { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getForEmployee(employeeId) : Promise.resolve([])) },
     { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
   ];
 }
@@ -147,7 +148,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
     { key: 'doctors', run: () => sbDoctorRepo.getAll() },
     { key: 'approvals', run: () => sbApprovalRepo.getAll() },
-    { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getAll() },
+    { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
   ];
 }
 
@@ -307,7 +308,7 @@ export async function refreshApprovalQueues(): Promise<void> {
       { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
       { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
       { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
-      { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getAll() },
+      { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
     ],
     'approvals',
   );

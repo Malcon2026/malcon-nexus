@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { useStore } from '../store/useStore';
-import { isCaseAssignedToEmployee, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 
@@ -186,6 +186,7 @@ export const LiveCases: React.FC = () => {
               </button>
             );
           })}
+          {FCFS_POOL_ENABLED && (
           <button
             type="button"
             onClick={() => setFilterPoolOnly((v) => !v)}
@@ -197,7 +198,8 @@ export const LiveCases: React.FC = () => {
           >
             Open pool
           </button>
-          {(filterStage || filterPriority || search || filterPoolOnly) && (
+          )}
+          {(filterStage || filterPriority || search || (FCFS_POOL_ENABLED && filterPoolOnly)) && (
             <button
               type="button"
               onClick={() => { setFilterStage(''); setFilterPriority(''); setSearch(''); setFilterPoolOnly(false); }}

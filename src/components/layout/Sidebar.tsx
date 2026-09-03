@@ -28,7 +28,7 @@ import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
-import { AUTO_APPROVE_STAGE_SUBMISSIONS } from '../../lib/caseWorkflow';
+import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
 
 interface NavItem {
@@ -141,6 +141,7 @@ export const Sidebar: React.FC = () => {
         {navItems
           .filter((item) => {
             if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
+            if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
             if (currentUser.role === 'petrol') {
               return item.id === 'dashboard' || item.id === 'petrol-dashboard' || item.id === 'settings';
             }

@@ -42,7 +42,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -1758,6 +1758,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   requestTask: async (caseId) => {
+    if (!FCFS_POOL_ENABLED) {
+      return { error: 'Open pool is disabled. Ask admin to assign you to this case.' };
+    }
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
@@ -1831,6 +1834,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   approveTaskRequest: async (requestId) => {
+    if (!FCFS_POOL_ENABLED) {
+      return { error: 'Open pool is disabled.' };
+    }
     const state = get();
     const req = state.caseTaskRequests.find((r) => r.id === requestId);
     if (!req) return { error: 'Request not found' };

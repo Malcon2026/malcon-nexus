@@ -22,6 +22,7 @@ import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
 import { Notes } from './pages/Notes';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
+import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
@@ -208,7 +209,7 @@ function MainApp() {
       case 'notes':      return <Notes />;
       case 'workflow':   return <WorkflowBoard />;
       case 'approvals':  return <ApprovalQueue />;
-      case 'task-requests': return <TaskRequestQueue />;
+      case 'task-requests': return FCFS_POOL_ENABLED ? <TaskRequestQueue /> : <Dashboard />;
       case 'employees':  return <Employees />;
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
