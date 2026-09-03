@@ -17,6 +17,7 @@ import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { EmployeeSearchSelect } from '../components/EmployeeSearchSelect';
 import { HospitalSearchSelect } from '../components/HospitalSearchSelect';
+import { PriorityQuickPick } from '../components/PriorityQuickPick';
 import {
   SurgeryDateQuickPick,
   getTodaySurgeryDateKey,
@@ -147,164 +148,223 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
 
   const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400';
   const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
+  const sectionTitleClass = 'text-xs font-bold uppercase tracking-wide text-gray-400 mb-3';
+  const panelClass = 'p-4 overflow-y-auto min-h-0 lg:max-h-none';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Create New Implant Case"
-      subtitle="Fill in case details. Assign staff now or later."
-      size="xl"
-      footer={
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={submitting}>
+      subtitle="All details in one workspace — assign staff now or later"
+      size="workspace"
+      fixedHeight
+      bodyClassName="overflow-hidden flex flex-col"
+      headerActions={
+        <>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="sm" type="submit" form="create-case-form" disabled={submitting}>
             {submitting ? 'Creating...' : 'Create Case'}
           </Button>
-        </div>
+        </>
       }
     >
-      <form onSubmit={handleSubmit} className="p-6 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Hospital *</label>
-            <HospitalSearchSelect
-              hospitals={hospitals}
-              value={form.hospitalId}
-              onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
-              placeholder="Search hospital..."
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Doctor Name *</label>
-            <input
-              type="text"
-              placeholder="Enter doctor's name"
-              className={inputClass}
-              value={form.doctorName}
-              onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
-              disabled={!form.hospitalId}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Surgery Date *</label>
-            <SurgeryDateQuickPick
-              value={form.surgeryDate}
-              mode={form.surgeryDateMode}
-              onChange={(surgeryDate, surgeryDateMode) =>
-                setForm({ ...form, surgeryDate, surgeryDateMode })
-              }
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Priority</label>
-            <select className={inputClass} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Surgery *</label>
-          <input type="text" className={inputClass} placeholder="e.g. Total Knee Replacement" value={form.implantRequired} onChange={(e) => setForm({ ...form, implantRequired: e.target.value })} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Implant Type</label>
-            <input type="text" className={inputClass} placeholder="e.g. Knee Implant, Hip Implant" value={form.implantType} onChange={(e) => setForm({ ...form, implantType: e.target.value })} />
-          </div>
-          <div>
-            <label className={labelClass}>Implant Company</label>
-            <input type="text" className={inputClass} placeholder="e.g. Zimmer Biomet, Stryker" value={form.implantCompany} onChange={(e) => setForm({ ...form, implantCompany: e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Remarks</label>
-          <textarea className={`${inputClass} resize-none`} rows={3} placeholder="Any special instructions or notes..." value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
-        </div>
+      <form id="create-case-form" onSubmit={handleSubmit} className="h-full min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+          {/* Left — case details */}
+          <section className={`lg:col-span-4 ${panelClass} space-y-3`}>
+            <h2 className={sectionTitleClass}>Case details</h2>
 
-        <div className="border-t border-gray-100 pt-4">
-          <label className={labelClass}>Start case at stage *</label>
-          <select
-            className={inputClass}
-            value={form.startStage}
-            onChange={(e) => setForm({ ...form, startStage: e.target.value as AssignableStage })}
-          >
-            {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => (
-              <option key={stage} value={stage}>
-                {stage}
-                {stage === 'Kit Preparation' ? ' (normal start)' : ''}
-              </option>
-            ))}
-          </select>
-          <p className="text-[11px] text-gray-500 mt-1.5">
-            Use this when work already happened outside the app — for example a kit is
-            already at the hospital, so start at Surgery.
-          </p>
-        </div>
+            <div>
+              <label className={labelClass}>Hospital *</label>
+              <HospitalSearchSelect
+                hospitals={hospitals}
+                value={form.hospitalId}
+                onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
+                placeholder="Search hospital..."
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Doctor Name *</label>
+              <input
+                type="text"
+                placeholder="Enter doctor's name"
+                className={inputClass}
+                value={form.doctorName}
+                onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
+                disabled={!form.hospitalId}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Surgery Date *</label>
+              <SurgeryDateQuickPick
+                value={form.surgeryDate}
+                mode={form.surgeryDateMode}
+                onChange={(surgeryDate, surgeryDateMode) =>
+                  setForm({ ...form, surgeryDate, surgeryDateMode })
+                }
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Priority *</label>
+              <PriorityQuickPick
+                value={form.priority}
+                onChange={(priority) => setForm({ ...form, priority })}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Surgery *</label>
+              <input
+                type="text"
+                className={inputClass}
+                placeholder="e.g. Total Knee Replacement"
+                value={form.implantRequired}
+                onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Implant Type</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="e.g. Knee Implant"
+                  value={form.implantType}
+                  onChange={(e) => setForm({ ...form, implantType: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Implant Company</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="e.g. Zimmer Biomet"
+                  value={form.implantCompany}
+                  onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Remarks</label>
+              <textarea
+                className={`${inputClass} resize-none`}
+                rows={2}
+                placeholder="Any special instructions or notes..."
+                value={form.remarks}
+                onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+              />
+            </div>
+          </section>
 
-        {skippedStages.length > 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <p className="text-xs font-semibold text-amber-900">
-              Skipped: {skippedStages.join(', ')}
+          {/* Center — workflow */}
+          <section className={`lg:col-span-3 ${panelClass} space-y-3`}>
+            <h2 className={sectionTitleClass}>Workflow</h2>
+
+            <div>
+              <label className={labelClass}>Start case at stage *</label>
+              <select
+                className={inputClass}
+                value={form.startStage}
+                onChange={(e) => setForm({ ...form, startStage: e.target.value as AssignableStage })}
+              >
+                {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => (
+                  <option key={stage} value={stage}>
+                    {stage}
+                    {stage === 'Kit Preparation' ? ' (normal start)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1.5">
+                Use when work already started outside the app — e.g. start at Surgery.
+              </p>
+            </div>
+
+            {skippedStages.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="text-xs font-semibold text-amber-900">
+                  Skipped: {skippedStages.join(', ')}
+                </p>
+                <p className="text-[11px] text-amber-800/90 mt-0.5">
+                  These stages are marked done automatically and need no employee.
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <p className="text-[11px] font-semibold text-gray-500 mb-2">Stage pipeline</p>
+              <div className="space-y-1">
+                {skippedStages.length > 0 && (
+                  <p className="text-[11px] text-gray-400 line-through truncate">
+                    {skippedStages.join(' · ')}
+                  </p>
+                )}
+                <p className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-2 py-1">
+                  ▶ {form.startStage} (starts here)
+                </p>
+                {activeStages.length > 1 && (
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    {activeStages.slice(1).join(' → ')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Right — team assignments */}
+          <section className={`lg:col-span-5 ${panelClass}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className={sectionTitleClass.replace(' mb-3', '')}>Assign team (optional)</h2>
+              <span className="text-[10px] text-gray-400">{activeStages.length} stages</span>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Assign now or leave blank and add people later from the case page.
             </p>
-            <p className="text-[11px] text-amber-800/90 mt-0.5">
-              These stages are marked done automatically and need no employee.
-            </p>
-          </div>
-        )}
-
-        <div className="border-t border-gray-100 pt-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-1">
-            Assign team (optional)
-          </h3>
-          <p className="text-xs text-gray-500 mb-3">
-            Assign now if you know who is handling each stage. Leave blank and add people
-            later from the case page.
-          </p>
-          <div className="space-y-3">
-            {activeStages.map((stage) => {
-              const deptHint = STAGE_DEPARTMENT_MAP[stage];
-              const fcfs = isFcfsStage(stage);
-              return (
-                <div key={stage} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 sm:gap-3 items-start sm:items-center">
-                  <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {activeStages.map((stage) => {
+                const deptHint = STAGE_DEPARTMENT_MAP[stage];
+                const fcfs = isFcfsStage(stage);
+                return (
+                  <div
+                    key={stage}
+                    className="rounded-lg border border-gray-100 p-2.5 bg-white"
+                  >
                     <p className="text-xs font-medium text-gray-800">
                       {stage}
                       {stage === form.startStage && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5">
+                        <span className="ml-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1 py-0.5">
                           Starts here
                         </span>
                       )}
                     </p>
-                    {deptHint && <p className="text-[11px] text-gray-400">{deptHint}</p>}
+                    {deptHint && <p className="text-[10px] text-gray-400">{deptHint}</p>}
+                    <div className="mt-1.5">
+                      {fcfs ? (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
+                          Pool disabled — assign when stage opens
+                        </p>
+                      ) : (
+                        <EmployeeSearchSelect
+                          employees={activeEmployees}
+                          value={form.stageEmployeeIds[stage]}
+                          onChange={(value) =>
+                            setForm({
+                              ...form,
+                              stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
+                            })
+                          }
+                          suggestedDepartment={deptHint}
+                          allowSelf={stage === 'Surgery'}
+                          placeholder="Assign later..."
+                        />
+                      )}
+                    </div>
                   </div>
-                  {fcfs ? (
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                      FCFS — employees request; admin assigns when this stage opens
-                    </p>
-                  ) : (
-                    <EmployeeSearchSelect
-                      employees={activeEmployees}
-                      value={form.stageEmployeeIds[stage]}
-                      onChange={(value) =>
-                        setForm({
-                          ...form,
-                          stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
-                        })
-                      }
-                      suggestedDepartment={deptHint}
-                      allowSelf={stage === 'Surgery'}
-                      placeholder="Assign later..."
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       </form>
     </Modal>
