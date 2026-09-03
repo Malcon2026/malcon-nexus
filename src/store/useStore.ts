@@ -116,6 +116,8 @@ interface AppState {
   ) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
+  /** Admin: skip one or more stages and jump to a later stage (or close). */
+  forceAdvanceCase: (caseId: string, targetStage: WorkflowStage, adminNotes: string) => Promise<void>;
   /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
   markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
   /** Update pre-assigned / historical assignees for any workflow stage on a case. */
@@ -1233,6 +1235,176 @@ export const useStore = create<AppState>((set, get) => ({
     if (next === 'Completed') {
       await get().closeCase(caseId);
     }
+  },
+
+  forceAdvanceCase: async (caseId, targetStage, adminNotes) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) throw new Error('Case not found');
+
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const targetName = normalizeWorkflowStageName(targetStage);
+    const currentIdx = WORKFLOW_STAGES.indexOf(currentName);
+    const targetIdx = WORKFLOW_STAGES.indexOf(targetName);
+
+    if (currentIdx < 0 || targetIdx < 0) {
+      throw new Error('Invalid workflow stage.');
+    }
+    if (targetIdx <= currentIdx) {
+      throw new Error('Pick a stage after the current one.');
+    }
+
+    const now = new Date().toISOString();
+    const skipNote = `Skipped by admin force advance → ${targetName}. ${adminNotes}`;
+    const skippedLabels = WORKFLOW_STAGES.slice(currentIdx, targetIdx).join(', ');
+
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s) => {
+        const name = normalizeWorkflowStageName(s.stage);
+        const sIdx = WORKFLOW_STAGES.indexOf(name);
+        if (sIdx >= currentIdx && sIdx < targetIdx) {
+          return {
+            ...s,
+            status: 'Approved' as const,
+            approvedAt: s.approvedAt ?? now,
+            adminNotes: skipNote,
+          };
+        }
+        if (name === targetName && targetName !== 'Completed') {
+          const emp = s.assignedEmployee;
+          if (emp) {
+            return {
+              ...s,
+              assignedEmployee: emp,
+              assignedAt: s.assignedAt ?? now,
+              status: 'Assigned' as const,
+            };
+          }
+          return {
+            ...s,
+            assignedEmployee: null,
+            assignedAt: null,
+            status: 'Pending' as const,
+          };
+        }
+        return s;
+      }),
+    );
+
+    const advanceLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: `Force Advanced: ${currentName} → ${targetName}`,
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: now,
+      details: `Skipped: ${skippedLabels}. ${adminNotes}`,
+    };
+
+    await updateCaseApproval(caseId, c.currentStage, {
+      status: 'Approved',
+      approvedAt: now,
+      adminNotes: skipNote,
+    });
+
+    let updatedEmployees = state.employees;
+    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+
+    if (canUpdateEmployeeStats && c.assignedEmployee) {
+      const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
+      if (prev) {
+        const updated = await employeeRepository.update(prev.id, {
+          casesActive: Math.max(0, prev.casesActive - 1),
+        });
+        updatedEmployees = state.employees.map((e) => (e.id === prev.id ? updated : e));
+      }
+    }
+
+    if (targetName === 'Completed') {
+      const stagedCase = await taskRepository.update(
+        caseId,
+        {
+          stages: updatedStages,
+          activityLogs: [...c.activityLogs, advanceLog],
+        },
+        c,
+      );
+
+      const activity = createActivityEvent(
+        `Force Advanced: ${currentName} → Completed`,
+        'case',
+        caseId,
+        c.caseNumber,
+        state.currentUser.name,
+        'admin',
+        `Skipped ${skippedLabels} and closed case. ${adminNotes}`,
+      );
+      persistActivity(activity);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? stagedCase : x)),
+        activityLog: [activity, ...s.activityLog],
+        employees: updatedEmployees,
+      }));
+
+      await get().closeCase(caseId);
+      return;
+    }
+
+    const targetRecord = findStageRecord(updatedStages, targetName);
+    const nextEmp = targetRecord?.assignedEmployee ?? null;
+
+    const updatedCase = await taskRepository.update(
+      caseId,
+      {
+        stages: updatedStages,
+        currentStage: targetName,
+        currentDepartment: getDepartmentForStage(targetName),
+        assignedEmployee: nextEmp,
+        status: nextEmp ? 'Active' : 'Draft',
+        activityLogs: [...c.activityLogs, advanceLog],
+      },
+      c,
+    );
+
+    if (canUpdateEmployeeStats && nextEmp) {
+      const target = state.employees.find((e) => e.id === nextEmp.id);
+      if (target) {
+        const updated = await employeeRepository.update(nextEmp.id, {
+          casesActive: target.casesActive + 1,
+        });
+        updatedEmployees = updatedEmployees.map((e) => (e.id === nextEmp.id ? updated : e));
+        void notifyCaseAssignment(caseId, nextEmp.id);
+      }
+    }
+
+    const activity = createActivityEvent(
+      `Force Advanced: ${currentName} → ${targetName}`,
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `Skipped ${skippedLabels}. ${adminNotes}`,
+    );
+    persistActivity(activity);
+
+    const notif = createNotification(
+      'Stage Force Advanced',
+      nextEmp
+        ? `${c.caseNumber} jumped to ${targetName} for ${nextEmp.name}.`
+        : `${c.caseNumber} jumped to ${targetName} (unassigned).`,
+      'warning',
+      caseId,
+    );
+    persistNotification(notif);
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      employees: updatedEmployees,
+      activityLog: [activity, ...s.activityLog],
+      notifications: [notif, ...s.notifications],
+    }));
   },
 
   markSurgerySelfPerformed: async (caseId, notes) => {

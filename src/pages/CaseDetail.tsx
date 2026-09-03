@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Building2, User, FileText,
@@ -48,16 +48,44 @@ interface ApprovalModalProps {
 }
 
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
-  const { approveStage, rejectStage, requestChanges, cases } = useStore();
+  const { approveStage, rejectStage, requestChanges, forceAdvanceCase, cases } = useStore();
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const implantCase = cases.find((x) => x.id === caseId);
   const stageIdx = implantCase ? WORKFLOW_STAGES.indexOf(implantCase.currentStage) : -1;
   const nextStage = stageIdx >= 0 ? WORKFLOW_STAGES[stageIdx + 1] : undefined;
-  const nextAssignee =
-    nextStage && nextStage !== 'Completed'
-      ? implantCase?.stages.find((s) => s.stage === nextStage)?.assignedEmployee
+
+  const forceTargetOptions = useMemo(() => {
+    if (stageIdx < 0) return [] as WorkflowStage[];
+    return WORKFLOW_STAGES.slice(stageIdx + 1);
+  }, [stageIdx]);
+
+  const [forceTarget, setForceTarget] = useState<WorkflowStage>('Completed');
+
+  useEffect(() => {
+    if (!isOpen || type !== 'force') return;
+    setForceTarget(forceTargetOptions[0] ?? 'Completed');
+    setNotes('');
+  }, [isOpen, type, caseId, forceTargetOptions]);
+
+  const skippedStageLabels =
+    stageIdx >= 0 && forceTarget
+      ? WORKFLOW_STAGES.slice(stageIdx, WORKFLOW_STAGES.indexOf(forceTarget)).join(', ')
+      : '';
+
+  const forceTargetAssignee =
+    forceTarget && forceTarget !== 'Completed'
+      ? implantCase?.stages.find((s) => s.stage === forceTarget)?.assignedEmployee
       : null;
+
+  const nextAssignee =
+    type === 'force' && forceTarget && forceTarget !== 'Completed'
+      ? forceTargetAssignee
+      : nextStage && nextStage !== 'Completed'
+        ? implantCase?.stages.find((s) => s.stage === nextStage)?.assignedEmployee
+        : null;
+
+  const previewStage = type === 'force' ? forceTarget : nextStage;
 
   const config = {
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
@@ -67,9 +95,9 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
       title: 'Force Advance Stage',
       subtitle: implantCase?.assignedEmployee
         ? `${implantCase.assignedEmployee.name} hasn't submitted this stage yet`
-        : 'No employee is assigned — this will skip the current stage anyway',
+        : 'No employee is assigned — skip ahead to any later stage',
       color: 'warning' as const,
-      label: 'Force Advance',
+      label: forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
     },
   };
 
@@ -81,7 +109,13 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     setSubmitting(true);
     try {
       if (type === 'approve') await approveStage(caseId, notes);
-      else if (type === 'force') await approveStage(caseId, `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`);
+      else if (type === 'force') {
+        await forceAdvanceCase(
+          caseId,
+          forceTarget,
+          `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`,
+        );
+      }
       else if (type === 'reject') await rejectStage(caseId, notes);
       else await requestChanges(caseId, notes);
       setNotes('');
@@ -108,14 +142,45 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     >
       <div className="p-6">
         {type === 'force' && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700">
-              This skips <strong>{implantCase?.currentStage}</strong> and moves the case to the next stage,
-              even if nobody is assigned. Use it when work already happened outside the app, or the
-              employee forgot to submit. It is logged in the case activity history.
-            </p>
-          </div>
+          <>
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                Skips <strong>{implantCase?.currentStage}</strong>
+                {forceTarget === 'Completed' ? (
+                  ' and all remaining stages, then closes the case.'
+                ) : (
+                  <>
+                    {' '}
+                    and every stage until <strong>{forceTarget}</strong>.
+                  </>
+                )}
+                {' '}Logged in activity history.
+              </p>
+            </div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Jump to stage *</label>
+            <select
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white mb-3"
+              value={forceTarget}
+              onChange={(e) => setForceTarget(e.target.value as WorkflowStage)}
+            >
+              {forceTargetOptions.map((stage) => (
+                <option key={stage} value={stage}>
+                  {stage === 'Completed' ? 'Close case (Completed)' : stage}
+                </option>
+              ))}
+            </select>
+            {skippedStageLabels && forceTarget !== 'Completed' && (
+              <p className="text-[11px] text-gray-500 mb-3">
+                Will mark as skipped: {skippedStageLabels}
+              </p>
+            )}
+            {forceTarget === 'Completed' && skippedStageLabels && (
+              <p className="text-[11px] text-gray-500 mb-3">
+                Will skip and close from: {skippedStageLabels}
+              </p>
+            )}
+          </>
         )}
         <label className="block text-xs font-medium text-gray-700 mb-1.5">
           {notesRequired ? 'Reason (required)' : 'Notes'}
@@ -130,17 +195,24 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
         {notesRequired && !canSubmit && (
           <p className="text-xs text-amber-600 mt-1">A reason is required so there's a record of why this was overridden.</p>
         )}
-        {(type === 'approve' || type === 'force') && nextStage === 'Completed' && (
+        {(type === 'approve' || type === 'force') && previewStage === 'Completed' && (
           <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             <p className="text-xs text-blue-700 font-medium">
-              This is the final stage — approving will mark the case as Completed and close it.
+              This will mark the case as Completed and close it.
             </p>
           </div>
         )}
-        {(type === 'approve' || type === 'force') && nextAssignee && nextStage && nextStage !== 'Completed' && (
+        {(type === 'approve' || type === 'force') && nextAssignee && previewStage && previewStage !== 'Completed' && (
           <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
             <p className="text-xs text-blue-700 font-medium">
-              Next: <strong>{nextStage}</strong> will activate for <strong>{nextAssignee.name}</strong> automatically.
+              Next: <strong>{previewStage}</strong> will activate for <strong>{nextAssignee.name}</strong> automatically.
+            </p>
+          </div>
+        )}
+        {(type === 'force') && previewStage && previewStage !== 'Completed' && !nextAssignee && (
+          <div className="mt-3 p-3 bg-gray-50 border border-gray-100 rounded-lg">
+            <p className="text-xs text-gray-600">
+              No one is pre-assigned for <strong>{previewStage}</strong> — assign from Edit Case after jumping.
             </p>
           </div>
         )}
@@ -807,7 +879,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">No employee assigned</p>
-                        <p className="text-xs text-gray-400">Assign someone, or Force Advance to skip this stage</p>
+                        <p className="text-xs text-gray-400">Assign someone, or Force Advance to skip to a later stage</p>
                       </div>
                     </div>
                   )}
