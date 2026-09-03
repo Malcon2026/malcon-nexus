@@ -1,4 +1,4 @@
-import type { Department } from '../types';
+import type { Department, Employee } from '../types';
 
 /** Canonical department after merging Cleaning Department + Stores Audit. */
 export const CLEANING_AUDIT_DEPARTMENT: Department = 'Cleaning & Audit';
@@ -42,4 +42,50 @@ export function normalizeDepartment(value: string | null | undefined): Departmen
     return trimmed as Department;
   }
   return null;
+}
+
+/** All departments an employee is eligible for (primary + extra roles). */
+export function getEmployeeDepartments(emp: Pick<Employee, 'department' | 'departments'>): Department[] {
+  const seen = new Set<Department>();
+  const out: Department[] = [];
+  const add = (raw: string | Department | null | undefined) => {
+    const n = normalizeDepartment(String(raw ?? ''));
+    if (!n || seen.has(n)) return;
+    seen.add(n);
+    out.push(n);
+  };
+  add(emp.department);
+  for (const d of emp.departments ?? []) add(d);
+  if (out.length === 0 && emp.department) return [emp.department];
+  return out;
+}
+
+export function employeeCoversDepartment(
+  emp: Pick<Employee, 'department' | 'departments'>,
+  dept: string | null | undefined,
+): boolean {
+  const normalized = normalizeDepartment(dept ?? '');
+  if (!normalized) return false;
+  return getEmployeeDepartments(emp).includes(normalized);
+}
+
+export function formatEmployeeDepartments(
+  emp: Pick<Employee, 'department' | 'departments'>,
+  join = ' · ',
+): string {
+  return getEmployeeDepartments(emp).join(join);
+}
+
+/** Persist primary + full list from admin multi-select. */
+export function buildEmployeeDepartmentFields(
+  primary: Department,
+  selected: Department[],
+): Pick<Employee, 'department' | 'departments'> {
+  const unique = Array.from(
+    new Set(
+      (selected.length ? selected : [primary]).map((d) => normalizeDepartment(d) ?? d),
+    ),
+  ) as Department[];
+  const dept = unique.includes(primary) ? primary : unique[0] ?? primary;
+  return { department: dept, departments: unique };
 }

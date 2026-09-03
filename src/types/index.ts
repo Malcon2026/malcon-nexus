@@ -37,7 +37,10 @@ export type Department =
 export interface Employee {
   id: string;
   name: string;
+  /** Primary department — shown on cards and used when a single label is needed. */
   department: Department;
+  /** All departments this person can work in (includes `department` when set in admin). */
+  departments?: Department[];
   email: string;
   avatar: string;
   role: 'admin' | 'employee' | 'petrol';

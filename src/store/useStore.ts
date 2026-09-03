@@ -27,7 +27,7 @@ import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
 import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { graceWarning, kmBetween, metersFromPin, nextTripNo, openLocationTrip } from '../lib/locationTrip';
-import { encodePlusCode } from '../lib/plusCode';
+import { buildEmployeeDepartmentFields, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { fetchBikeRouteKm } from '../lib/bikeRoute';
 import type { HospitalPlace } from '../lib/hospitalSearch';
 import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
@@ -44,7 +44,6 @@ import {
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation, type StageAssignments, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, withUnusedImplantsRemark, AUTO_APPROVE_STAGE_SUBMISSIONS, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
-import { normalizeDepartment } from '../constants/departments';
 import {
   validateCompOffWorkDate,
   validateLeaveApplication,
@@ -2505,10 +2504,16 @@ export const useStore = create<AppState>((set, get) => ({
     const phone = employeeData.phone || '';
     const name = employeeData.name || '';
     const typedEmail = (employeeData.email || '').trim().toLowerCase();
+    const deptFields = buildEmployeeDepartmentFields(
+      employeeData.department || 'Stores',
+      employeeData.departments?.length
+        ? employeeData.departments
+        : [employeeData.department || 'Stores'],
+    );
     const newEmp: Employee = {
       id: newId(),
       name,
-      department: employeeData.department || 'Stores',
+      ...deptFields,
       email: typedEmail || placeholderStaffEmail(name, phone),
       avatar: initials || 'EE',
       role: state.currentUser.role === 'petrol' ? 'employee' : (employeeData.role || 'employee'),
@@ -2539,10 +2544,10 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    const activity = createActivityEvent('Employee Created', 'employee', newEmp.id, newEmp.name, state.currentUser.name, state.currentUser.role, `New employee ${newEmp.name} added to ${newEmp.department}.`);
+    const activity = createActivityEvent('Employee Created', 'employee', newEmp.id, newEmp.name, state.currentUser.name, state.currentUser.role, `New employee ${newEmp.name} added (${getEmployeeDepartments(newEmp).join(', ')}).`);
     persistActivity(activity);
 
-    const notif = createNotification('Employee Added', `${newEmp.name} has been added to ${newEmp.department}.`, 'info');
+    const notif = createNotification('Employee Added', `${newEmp.name} has been added (${getEmployeeDepartments(newEmp).join(', ')}).`, 'info');
     persistNotification(notif);
 
     set((s) => ({

@@ -104,8 +104,8 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     // deferred fetch (or stale session cache) finishes.
     { key: 'cases', run: async () => {
         const self = await sbEmployeeRepo.getById(employeeId);
-        const dept = self?.department ?? '';
-        return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, dept);
+        if (!self) return [];
+        return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, self);
       } },
     { key: 'caseTaskRequests', run: () => sbCaseTaskRequestRepo.getForEmployee(employeeId) },
     { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },

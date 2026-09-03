@@ -4,6 +4,7 @@ import { Avatar } from './ui/Avatar';
 import { Badge } from './ui/Badge';
 import type { Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
+import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
 import { SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
 
 interface EmployeeSearchSelectProps {
@@ -23,10 +24,10 @@ function sortEmployees(employees: Employee[], suggestedDepartment?: string | nul
     return [...employees].sort((a, b) => a.name.localeCompare(b.name));
   }
   const preferred = employees
-    .filter((e) => e.department === suggestedDepartment)
+    .filter((e) => employeeCoversDepartment(e, suggestedDepartment))
     .sort((a, b) => a.name.localeCompare(b.name));
   const others = employees
-    .filter((e) => e.department !== suggestedDepartment)
+    .filter((e) => !employeeCoversDepartment(e, suggestedDepartment))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [...preferred, ...others];
 }
@@ -36,7 +37,7 @@ function matchesQuery(emp: Employee, query: string): boolean {
   if (!q) return true;
   return (
     emp.name.toLowerCase().includes(q) ||
-    emp.department.toLowerCase().includes(q) ||
+    getEmployeeDepartments(emp).some((d) => d.toLowerCase().includes(q)) ||
     emp.email.toLowerCase().includes(q) ||
     emp.employeeCode.toLowerCase().includes(q)
   );
@@ -79,7 +80,7 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
   const displayLabel = value === SURGERY_SELF_ASSIGNMENT_VALUE
     ? selfLabel
     : selectedEmployee
-      ? `${selectedEmployee.name} — ${selectedEmployee.department}`
+      ? `${selectedEmployee.name} — ${getEmployeeDepartments(selectedEmployee).join(', ')}`
       : placeholder;
 
   useEffect(() => {
@@ -228,7 +229,9 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm font-medium text-gray-900 truncate">{emp.name}</span>
-                    <Badge className={`${departmentColors[emp.department]} text-[10px]`}>{emp.department}</Badge>
+                    {getEmployeeDepartments(emp).map((d) => (
+                      <Badge key={d} className={`${departmentColors[d]} text-[10px]`}>{d}</Badge>
+                    ))}
                   </div>
                   <p className="text-[11px] text-gray-400 truncate">
                     {emp.employeeCode ? `#${emp.employeeCode}` : emp.email}

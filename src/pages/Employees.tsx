@@ -11,7 +11,7 @@ import { departmentColors } from '../utils/helpers';
 import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { filterAttendanceStaff } from '../lib/staff';
-import { DEPARTMENTS_WITH_ALL } from '../constants/departments';
+import { buildEmployeeDepartmentFields, DEPARTMENTS_WITH_ALL, employeeCoversDepartment, getEmployeeDepartments, ASSIGNABLE_DEPARTMENTS } from '../constants/departments';
 
 const DEPARTMENTS = DEPARTMENTS_WITH_ALL;
 
@@ -21,6 +21,7 @@ const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 const emptyForm = {
   name: '',
   department: 'Stores' as Department,
+  departments: ['Stores'] as Department[],
   email: '',
   phone: '',
   employeeCode: '',
@@ -43,9 +44,11 @@ export const Employees: React.FC = () => {
   };
 
   const handleOpenEdit = (emp: Employee) => {
+    const departments = getEmployeeDepartments(emp);
     setForm({
       name: emp.name,
-      department: emp.department,
+      department: departments.includes(emp.department) ? emp.department : departments[0],
+      departments,
       email: emp.email,
       phone: emp.phone,
       employeeCode: emp.employeeCode || '',
@@ -55,17 +58,31 @@ export const Employees: React.FC = () => {
     setShowModal(true);
   };
 
+  const toggleDepartment = (dept: Department) => {
+    setForm((prev) => {
+      const has = prev.departments.includes(dept);
+      const nextDepts = has
+        ? prev.departments.filter((d) => d !== dept)
+        : [...prev.departments, dept];
+      if (nextDepts.length === 0) return prev;
+      const nextPrimary = nextDepts.includes(prev.department) ? prev.department : nextDepts[0];
+      return { ...prev, departments: nextDepts, department: nextPrimary };
+    });
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!form.name || !form.email || !form.phone || !form.department) {
+    if (!form.name || !form.email || !form.phone || !form.department || form.departments.length === 0) {
       alert('Please fill in all required fields marked with an asterisk (*).');
       return;
     }
 
+    const deptFields = buildEmployeeDepartmentFields(form.department, form.departments);
+
     if (editingEmployee) {
       const { error } = await updateEmployee(editingEmployee.id, {
         name: form.name,
-        department: form.department,
+        ...deptFields,
         email: form.email,
         phone: form.phone,
         employeeCode: form.employeeCode.trim(),
@@ -79,7 +96,7 @@ export const Employees: React.FC = () => {
     } else {
       createEmployee({
         name: form.name,
-        department: form.department,
+        ...deptFields,
         email: form.email,
         phone: form.phone,
         employeeCode: form.employeeCode.trim(),
@@ -94,7 +111,7 @@ export const Employees: React.FC = () => {
 
   const filtered = employees
     .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol')
-    .filter((e) => filterDept === 'All' || e.department === filterDept)
+    .filter((e) => filterDept === 'All' || employeeCoversDepartment(e, filterDept))
     .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()) || (e.employeeCode || '').includes(search.trim()));
 
   // Same roster as Attendance register: Active employees + admins.
@@ -107,7 +124,7 @@ export const Employees: React.FC = () => {
   ).length;
 
   const deptStats = DEPARTMENTS.slice(1).map((dept) => {
-    const emps = rosterStaff.filter((e) => e.department === dept);
+    const emps = rosterStaff.filter((e) => employeeCoversDepartment(e, dept));
     return {
       dept,
       employees: emps,
@@ -213,7 +230,13 @@ export const Employees: React.FC = () => {
                           <span className="text-sm font-semibold">{emp.name}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3"><Badge className="text-xs">{emp.department}</Badge></td>
+                      <td className="px-5 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {getEmployeeDepartments(emp).map((d) => (
+                            <Badge key={d} className="text-xs">{d}</Badge>
+                          ))}
+                        </div>
+                      </td>
                       <td className="px-5 py-3 font-bold">{emp.casesCompleted}</td>
                       <td className="px-5 py-3">{emp.casesActive}</td>
                     </tr>
@@ -266,7 +289,9 @@ export const Employees: React.FC = () => {
                       <div className="min-w-0 flex-grow mr-2">
                         <p className="text-sm font-bold text-gray-900 truncate" title={emp.name}>{emp.name}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <Badge className={`${departmentColors[emp.department]} text-[10px]`}>{emp.department}</Badge>
+                          {getEmployeeDepartments(emp).map((d) => (
+                            <Badge key={d} className={`${departmentColors[d]} text-[10px]`}>{d}</Badge>
+                          ))}
                           {emp.role === 'petrol' && (
                             <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-[10px]">Petrol desk</Badge>
                           )}
@@ -427,16 +452,41 @@ export const Employees: React.FC = () => {
               />
             </div>
             <div>
-              <label className={labelClass}>Department *</label>
+              <label className={labelClass}>Departments *</label>
+              <p className="text-[11px] text-gray-500 mb-2">Select every role this person covers (e.g. Scrub Person + Delivery).</p>
+              <div className="grid grid-cols-2 gap-2">
+                {ASSIGNABLE_DEPARTMENTS.map((dept) => (
+                  <label
+                    key={dept}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
+                      form.departments.includes(dept)
+                        ? 'border-gray-900 bg-gray-50 text-gray-900'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={form.departments.includes(dept)}
+                      onChange={() => toggleDepartment(dept)}
+                    />
+                    <span className="text-xs font-medium">{dept}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>Primary department *</label>
               <select
                 className={inputClass}
                 value={form.department}
                 onChange={e => setForm({ ...form, department: e.target.value as Department })}
               >
-                {DEPARTMENTS.slice(1).map(dept => (
+                {form.departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
+              <p className="text-[11px] text-gray-500 mt-1">Shown on their profile and attendance when one label is needed.</p>
             </div>
             <div>
               <label className={labelClass}>Role *</label>

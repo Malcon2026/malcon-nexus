@@ -8,7 +8,7 @@ import { supabase } from '../../supabase';
 import { formatUnknownError } from '../../../utils/errors';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
-  Notification, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
+  Notification, Approval, Department, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
   AttendanceApprovalRequest,
   LeaveRequest,
   DailyExpense,
@@ -18,8 +18,8 @@ import type {
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
-import { normalizeDepartment } from '../../../constants/departments';
-import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployeeDepartment } from '../../caseWorkflow';
+import { getEmployeeDepartments, normalizeDepartment } from '../../../constants/departments';
+import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployee } from '../../caseWorkflow';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -86,11 +86,19 @@ function rowToAttendance(row: Record<string, unknown>): AttendanceRecord {
 
 function rowToEmployee(row: Record<string, unknown>): Employee {
   const rawDept = String(row.department ?? '');
+  const rawDepartments = row.departments;
+  const departments: Department[] | undefined = Array.isArray(rawDepartments)
+    ? (rawDepartments as unknown[])
+        .map((d) => normalizeDepartment(String(d)))
+        .filter((d): d is Department => Boolean(d))
+    : undefined;
+
   return {
     id: row.id as string,
     name: row.name as string,
     email: row.email as string,
     department: normalizeDepartment(rawDept) ?? (rawDept as Employee['department']),
+    departments: departments?.length ? departments : undefined,
     role: row.role as Employee['role'],
     status: row.status as Employee['status'],
     avatar: row.avatar as string,
@@ -136,11 +144,16 @@ export const sbEmployeeRepo = {
   },
 
   async create(e: Employee): Promise<Employee> {
+    const deptFields = {
+      department: e.department,
+      departments: getEmployeeDepartments(e),
+    };
     const { error } = await supabase.from('employees').insert({
       id: e.id,
       name: e.name,
       email: e.email,
-      department: e.department,
+      department: deptFields.department,
+      departments: deptFields.departments,
       role: e.role,
       status: e.status,
       avatar: e.avatar,
@@ -159,6 +172,14 @@ export const sbEmployeeRepo = {
     if (updates.name)           patch.name = updates.name;
     if (updates.email)          patch.email = updates.email;
     if (updates.department)     patch.department = updates.department;
+    if (updates.departments !== undefined) {
+      patch.departments = updates.departments;
+    } else if (updates.department) {
+      const existing = await this.getById(id);
+      if (existing) {
+        patch.departments = getEmployeeDepartments({ ...existing, department: updates.department });
+      }
+    }
     if (updates.role)           patch.role = updates.role;
     if (updates.status)         patch.status = updates.status;
     if (updates.avatar)         patch.avatar = updates.avatar;
@@ -453,9 +474,11 @@ export const sbCaseRepo = {
     return [...byId.values()];
   },
 
-  async getFcfsPoolForEmployee(employeeId: string, department: string): Promise<ImplantCase[]> {
-    const dept = normalizeDepartment(department) ?? department;
-    const fcfsStages = fcfsStagesForEmployeeDepartment(dept);
+  async getFcfsPoolForEmployee(
+    employeeId: string,
+    employee: Pick<Employee, 'department' | 'departments'>,
+  ): Promise<ImplantCase[]> {
+    const fcfsStages = fcfsStagesForEmployee(employee);
     if (fcfsStages.length === 0) return [];
 
     const { data, error } = await supabase
@@ -475,10 +498,13 @@ export const sbCaseRepo = {
       });
   },
 
-  async getCasesForEmployeeIncludingPool(employeeId: string, department: string): Promise<ImplantCase[]> {
+  async getCasesForEmployeeIncludingPool(
+    employeeId: string,
+    employee: Pick<Employee, 'department' | 'departments'>,
+  ): Promise<ImplantCase[]> {
     const [assigned, pool] = await Promise.all([
       this.getForEmployee(employeeId),
-      this.getFcfsPoolForEmployee(employeeId, department),
+      this.getFcfsPoolForEmployee(employeeId, employee),
     ]);
     const byId = new Map<string, ImplantCase>();
     for (const c of [...assigned, ...pool]) byId.set(c.id, c);

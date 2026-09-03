@@ -1,5 +1,5 @@
 import type { Department, Employee, ImplantCase, StageRecord, WorkflowStage } from '../types';
-import { CLEANING_AUDIT_DEPARTMENT, normalizeDepartment } from '../constants/departments';
+import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation',
@@ -77,6 +77,15 @@ export function fcfsStagesForEmployeeDepartment(dept: string | null | undefined)
   );
 }
 
+/** FCFS pool stages this employee can claim (any of their departments). */
+export function fcfsStagesForEmployee(emp: Pick<Employee, 'department' | 'departments'>): FcfsStage[] {
+  const stages = new Set<FcfsStage>();
+  for (const dept of getEmployeeDepartments(emp)) {
+    for (const stage of fcfsStagesForEmployeeDepartment(dept)) stages.add(stage);
+  }
+  return FCFS_STAGES.filter((s) => stages.has(s));
+}
+
 export function isFcfsStage(stage: WorkflowStage | string): boolean {
   return (FCFS_STAGES as readonly string[]).includes(normalizeWorkflowStageName(stage));
 }
@@ -91,6 +100,14 @@ export function employeeDepartmentMatchesFcfsStage(
   if (!normalized || !isFcfsStage(stageName)) return false;
   const eligible = FCFS_ELIGIBLE_DEPARTMENTS[stageName as FcfsStage];
   return (eligible as readonly Department[]).includes(normalized);
+}
+
+/** True if any of the employee's departments can claim this FCFS stage. */
+export function employeeMatchesFcfsStage(
+  emp: Pick<Employee, 'department' | 'departments'>,
+  stage: WorkflowStage | string,
+): boolean {
+  return getEmployeeDepartments(emp).some((d) => employeeDepartmentMatchesFcfsStage(d, stage));
 }
 
 export function isFcfsPoolCase(c: ImplantCase): boolean {
@@ -108,10 +125,10 @@ export function isFcfsClaimedCase(c: ImplantCase): boolean {
 
 export function canRequestTaskCase(
   c: ImplantCase,
-  employee: Pick<Employee, 'id' | 'email' | 'department'>,
+  employee: Pick<Employee, 'id' | 'email' | 'department' | 'departments'>,
 ): boolean {
   if (!isFcfsPoolCase(c)) return false;
-  if (!employeeDepartmentMatchesFcfsStage(employee.department, c.currentStage)) return false;
+  if (!employeeMatchesFcfsStage(employee, c.currentStage)) return false;
   const stageIdx = getStageIndex(c.currentStage);
   const record = stageIdx >= 0 ? c.stages[stageIdx] : undefined;
   if (record?.status === 'Submitted') return false;
@@ -123,7 +140,7 @@ export const canClaimCase = canRequestTaskCase;
 
 export function getAvailablePoolCases(
   cases: ImplantCase[],
-  employee: Pick<Employee, 'id' | 'email' | 'department'>,
+  employee: Pick<Employee, 'id' | 'email' | 'department' | 'departments'>,
 ): ImplantCase[] {
   return cases
     .filter((c) => canRequestTaskCase(c, employee))

@@ -4,6 +4,7 @@ import { Avatar } from './ui/Avatar';
 import { Badge } from './ui/Badge';
 import type { Department, Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
+import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
 
 export const ASSIGN_DEPARTMENTS: Department[] = [
   'Stores',
@@ -54,7 +55,7 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
 
   const visibleEmployees = useMemo(() => {
     if (deptFilter === 'All') return activeEmployees;
-    return activeEmployees.filter((e) => e.department === deptFilter);
+    return activeEmployees.filter((e) => employeeCoversDepartment(e, deptFilter));
   }, [activeEmployees, deptFilter]);
 
   const inputClass =
@@ -120,7 +121,9 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-gray-900">{emp.name}</p>
-                <Badge className={`${departmentColors[emp.department]} text-[10px]`}>{emp.department}</Badge>
+                {getEmployeeDepartments(emp).map((d) => (
+                  <Badge key={d} className={`${departmentColors[d]} text-[10px]`}>{d}</Badge>
+                ))}
               </div>
               <p className="text-xs text-gray-500 truncate">{emp.email}</p>
               <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">

@@ -44,7 +44,7 @@ export function getMyPendingTaskRequests(
 export function getPoolCasesAvailableToRequest(
   cases: ImplantCase[],
   requests: CaseTaskRequest[],
-  employee: Pick<import('../types').Employee, 'id' | 'email' | 'department'>,
+  employee: Pick<import('../types').Employee, 'id' | 'email' | 'department' | 'departments'>,
 ): ImplantCase[] {
   return getAvailablePoolCases(cases, employee).filter(
     (c) => !hasEmployeePendingTaskRequest(requests, c.id, employee.id),
@@ -54,7 +54,7 @@ export function getPoolCasesAvailableToRequest(
 export function canEmployeeRequestTask(
   c: ImplantCase,
   requests: CaseTaskRequest[],
-  employee: Pick<import('../types').Employee, 'id' | 'email' | 'department'>,
+  employee: Pick<import('../types').Employee, 'id' | 'email' | 'department' | 'departments'>,
 ): boolean {
   if (!canRequestTaskCase(c, employee)) return false;
   return !hasEmployeePendingTaskRequest(requests, c.id, employee.id);

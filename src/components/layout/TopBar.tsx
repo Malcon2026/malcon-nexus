@@ -5,6 +5,7 @@ import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../utils/helpers';
+import { formatEmployeeDepartments } from '../../constants/departments';
 
 export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   const {
@@ -88,7 +89,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
       {/* Role badge */}
       <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 shrink-0 capitalize">
-        {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'petrol' ? 'Petrol desk' : currentUser.department}
+        {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'petrol' ? 'Petrol desk' : formatEmployeeDepartments(currentUser)}
       </span>
 
       {/* Notifications */}
@@ -165,7 +166,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
           <Avatar name={currentUser.name} size="sm" />
           <div className="hidden md:block text-left">
             <p className="text-xs font-semibold text-gray-900 leading-none">{currentUser.name}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5 leading-none capitalize">{currentUser.department}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5 leading-none capitalize">{formatEmployeeDepartments(currentUser)}</p>
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-gray-400 hidden sm:block" />
         </button>
