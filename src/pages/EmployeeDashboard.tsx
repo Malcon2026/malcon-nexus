@@ -11,7 +11,12 @@ import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, isCaseAssistantOnCurrentStage } from '../lib/caseWorkflow';
+import {
+  canEmployeeSubmitCase,
+  isCaseVisibleToEmployee,
+  isCaseAssistantOnCurrentStage,
+  isCaseAssignedToEmployee,
+} from '../lib/caseWorkflow';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase } from '../lib/caseTaskRequests';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
