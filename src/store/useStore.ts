@@ -50,7 +50,7 @@ import {
   formatCancelReason,
   withCancelCaseRemark,
 } from '../lib/cancelCase';
-import { surgeryOutcomeLogAction } from '../lib/surgeryOutcome';
+import { surgeryOutcomeLogAction, buildAdvanceToBillingAfterSurgeryOutcome } from '../lib/surgeryOutcome';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -2516,29 +2516,51 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     try {
-      const updatedStages = c.stages.map((s, i) =>
-        i === stageIdx
-          ? {
-              ...s,
-              status: 'Submitted' as const,
-              submittedAt: now,
-              notes: notes.trim() || outcomeDetail,
-            }
-          : s,
-      );
+      const advanced = buildAdvanceToBillingAfterSurgeryOutcome(c, {
+        now,
+        notes,
+        outcome,
+        outcomeDetail,
+        uploadedBy,
+      });
 
       const updatedCase = await taskRepository.update(
         caseId,
         {
-          stages: updatedStages,
-          status: 'Active',
-          currentStage: 'Surgery',
+          stages: advanced.stages,
+          status: advanced.status,
+          currentStage: advanced.currentStage,
+          currentDepartment: advanced.currentDepartment,
+          assignedEmployee: advanced.assignedEmployee,
           surgeryOutcome: outcome,
           surgeryOutcomeDetail: outcomeDetail,
-          activityLogs: [...c.activityLogs, submitLog],
+          activityLogs: [...c.activityLogs, submitLog, advanced.advanceLog],
         },
         c,
       );
+
+      let updatedEmployees = state.employees;
+      const prevEmp = c.assignedEmployee;
+      if (prevEmp && prevEmp.id !== advanced.assignedEmployee?.id) {
+        const target = updatedEmployees.find((e) => e.id === prevEmp.id);
+        if (target) {
+          const updated = await employeeRepository.update(prevEmp.id, {
+            casesActive: Math.max(0, target.casesActive - 1),
+          });
+          updatedEmployees = updatedEmployees.map((e) => (e.id === prevEmp.id ? updated : e));
+        }
+      }
+      if (advanced.assignedEmployee && advanced.assignedEmployee.id !== prevEmp?.id) {
+        const target = updatedEmployees.find((e) => e.id === advanced.assignedEmployee!.id);
+        if (target) {
+          const updated = await employeeRepository.update(advanced.assignedEmployee.id, {
+            casesActive: target.casesActive + 1,
+          });
+          updatedEmployees = updatedEmployees.map((e) =>
+            e.id === advanced.assignedEmployee!.id ? updated : e,
+          );
+        }
+      }
 
       const activity = createActivityEvent(
         surgeryOutcomeLogAction(outcome),
@@ -2547,13 +2569,13 @@ export const useStore = create<AppState>((set, get) => ({
         c.caseNumber,
         uploadedBy,
         'employee',
-        `Case ${c.caseNumber} — Surgery ${outcomeLabel.toLowerCase()}.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
+        `Case ${c.caseNumber} — Surgery ${outcomeLabel.toLowerCase()}, advanced to Billing.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
       );
       void persistActivity(activity);
 
       const notif = createNotification(
         `Surgery ${outcomeLabel}`,
-        `Case ${c.caseNumber} marked ${outcomeLabel.toLowerCase()} at Surgery. Admin will close when ready.`,
+        `Case ${c.caseNumber} marked ${outcomeLabel.toLowerCase()} — now at Billing for admin review.`,
         outcome === 'cancelled' ? 'warning' : 'info',
         caseId,
       );
@@ -2561,6 +2583,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        employees: updatedEmployees,
         activityLog: [activity, ...s.activityLog],
         notifications: [notif, ...s.notifications],
       }));

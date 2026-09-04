@@ -829,7 +829,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               Surgery {surgeryOutcomeLabel?.toLowerCase()} — awaiting admin close
             </p>
             <p className={`text-xs mt-0.5 ${c.surgeryOutcome === 'cancelled' ? 'text-red-800' : 'text-amber-800'}`}>
-              Case stays at Surgery. Admin closes manually when ready.
+              Case moved to Billing. Admin closes when ready.
               {c.surgeryOutcomeDetail ? ` ${c.surgeryOutcome === 'cancelled' ? 'Reason' : 'Notes'}: ${c.surgeryOutcomeDetail}` : ''}
             </p>
           </div>

@@ -307,7 +307,6 @@ export function isTvBoardVisibleCase(c: ImplantCase): boolean {
     return false;
   }
   if (c.cancelReason) return false;
-  if (c.surgeryOutcome === 'cancelled' || c.surgeryOutcome === 'parked') return false;
   return TV_BOARD_STAGES.has(normalizeWorkflowStageName(c.currentStage));
 }
 

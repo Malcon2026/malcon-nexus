@@ -196,7 +196,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         isRestock
           ? 'Add photo + notes, then tap Restocked or Order'
           : isSurgery
-            ? 'Choose outcome — completed advances to Pickup; cancelled or parked stay here for admin'
+            ? 'Choose outcome — completed advances to Pickup; cancelled or parked go to Billing for admin'
             : 'Photo from camera or gallery + notes — admin will review before the next stage'
       }
       size={isRestock || isSurgery ? 'lg' : 'md'}
@@ -315,8 +315,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {([
               { id: 'completed' as const, label: 'Surgery completed', hint: 'Photos + notes required. Advances to Pickup.', icon: CheckCircle, activeClass: 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200', textClass: 'text-emerald-800' },
-              { id: 'cancelled' as const, label: 'Case cancelled', hint: 'Same reasons as admin cancel. Stays here — admin closes.', icon: Ban, activeClass: 'border-red-400 bg-red-50 ring-2 ring-red-200', textClass: 'text-red-800' },
-              { id: 'parked' as const, label: 'Case parked', hint: 'Surgery on hold. Stays parked — admin closes.', icon: PauseCircle, activeClass: 'border-amber-400 bg-amber-50 ring-2 ring-amber-200', textClass: 'text-amber-800' },
+              { id: 'cancelled' as const, label: 'Case cancelled', hint: 'Same reasons as admin cancel. Moves to Billing — admin closes.', icon: Ban, activeClass: 'border-red-400 bg-red-50 ring-2 ring-red-200', textClass: 'text-red-800' },
+              { id: 'parked' as const, label: 'Case parked', hint: 'Surgery on hold. Moves to Billing — admin closes.', icon: PauseCircle, activeClass: 'border-amber-400 bg-amber-50 ring-2 ring-amber-200', textClass: 'text-amber-800' },
             ]).map(({ id, label, hint, icon: Icon, activeClass, textClass }) => {
               const active = surgeryMode === id;
               return (
@@ -430,8 +430,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               : surgeryMode === 'completed'
                 ? 'Add photo + notes, then tap Surgery Completed.'
                 : surgeryMode === 'cancelled'
-                  ? 'Pick a reason, then tap Submit Cancelled. Case stays at Surgery until admin closes.'
-                  : 'Optionally add notes, then tap Submit Parked. Admin will close when ready.'}
+                  ? 'Pick a reason, then tap Submit Cancelled. Case moves to Billing until admin closes.'
+                  : 'Optionally add notes, then tap Submit Parked. Case moves to Billing until admin closes.'}
           </p>
         ) : (
           <p className="text-xs text-gray-400">
