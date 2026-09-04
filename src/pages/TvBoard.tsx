@@ -49,6 +49,7 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
     let last = performance.now();
     let phase: 'down' | 'pause-bottom' | 'pause-top' = 'down';
     let pauseUntil = 0;
+    let lastOverflow = 0;
 
     const maxScroll = () => Math.max(0, el.scrollHeight - el.clientHeight);
 
@@ -66,6 +67,17 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
       phase = 'down';
       pauseUntil = 0;
       last = performance.now();
+      lastOverflow = maxScroll();
+    };
+
+    const onOverflowAvailable = () => {
+      const overflow = maxScroll();
+      if (lastOverflow <= 1 && overflow > 1) {
+        resetScroll();
+      } else {
+        clampScroll();
+      }
+      lastOverflow = overflow;
     };
 
     resetScroll();
@@ -74,6 +86,7 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
       const dt = Math.min((t - last) / 1000, 0.05);
       last = t;
       const overflow = maxScroll();
+      lastOverflow = overflow;
 
       if (overflow <= 1) {
         raf = requestAnimationFrame(tick);
@@ -100,34 +113,44 @@ function useAutoScroll<T extends HTMLElement>(resetKey?: string | number) {
       raf = requestAnimationFrame(tick);
     };
 
-    raf = requestAnimationFrame(tick);
-
-    // Re-measure on layout changes — clamp only; avoid jumping to top on zoom/resize.
-    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-    const scheduleRemeasure = () => {
-      if (resizeDebounce) clearTimeout(resizeDebounce);
-      resizeDebounce = setTimeout(() => {
-        resizeDebounce = null;
-        clampScroll();
-      }, 150);
+    const startLoop = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(tick);
     };
 
-    const ro = new ResizeObserver(scheduleRemeasure);
+    startLoop();
+
+    const ro = new ResizeObserver(onOverflowAvailable);
     ro.observe(el);
     for (const child of el.children) {
       ro.observe(child);
     }
 
-    // First paint often reports zero height before flex layout settles.
-    const layoutKick = window.setTimeout(resetScroll, 150);
-    const layoutKick2 = window.setTimeout(clampScroll, 600);
+    const mo = new MutationObserver(onOverflowAvailable);
+    mo.observe(el, { childList: true, subtree: true });
+
+    const layoutKick = window.setTimeout(onOverflowAvailable, 150);
+    const layoutKick2 = window.setTimeout(onOverflowAvailable, 600);
+    const layoutKick3 = window.setTimeout(onOverflowAvailable, 1500);
+    const poll = window.setInterval(onOverflowAvailable, 2500);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        resetScroll();
+        startLoop();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      if (resizeDebounce) clearTimeout(resizeDebounce);
+      mo.disconnect();
       window.clearTimeout(layoutKick);
       window.clearTimeout(layoutKick2);
+      window.clearTimeout(layoutKick3);
+      window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [resetKey]);
 
@@ -167,10 +190,11 @@ function tvRemark(c: ImplantCase): string {
 
 function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const closedCancelled = c.status === 'Cancelled';
+  const isCompleted = c.status === 'Completed';
   const returning = Boolean(c.cancelReason) && !closedCancelled;
   const stageColor = closedCancelled ? '#d97706' : (STAGE_COLOR[c.currentStage] ?? STAGE_COLOR['Kit Preparation']);
   const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
-  const isOverdue = !closedCancelled && new Date(c.surgeryDate) < new Date();
+  const isOverdue = !closedCancelled && !isCompleted && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);
   const billing = tvBillingStatus(c);
   const isLiveActive = c.status === 'Active';
@@ -188,13 +212,22 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
             className={`h-2.5 w-2.5 rounded-full shrink-0 overflow-hidden ${
               isPreSurgeryActive ? 'tv-dot-pulse' : isPostSurgery ? 'tv-dot-pulse-yellow' : ''
             }`}
-            style={isLiveActive ? undefined : { background: INK_DIM }}
+            style={
+              isPreSurgeryActive || isPostSurgery
+                ? undefined
+                : { background: isCompleted ? '#34d399' : INK_DIM }
+            }
           />
           <span className="text-xl font-bold truncate" style={{ color: INK }}>{c.hospital.name}</span>
           {c.hospital.branch ? (
             <span className="text-sm font-medium truncate shrink-0" style={{ color: INK_MUTED }}>{c.hospital.branch}</span>
           ) : null}
           <span className="text-xs font-medium shrink-0" style={{ color: INK_DIM }}>{c.caseNumber}</span>
+          {isCompleted ? (
+            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#34d399', color: '#0f172a' }}>
+              Completed
+            </span>
+          ) : null}
           {returning ? (
             <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded shrink-0" style={{ background: '#f59e0b', color: '#111' }}>
               Return kit
@@ -277,7 +310,8 @@ function CasesSlide({ cases }: { cases: ImplantCase[] }) {
       ) : (
         <div
           ref={scrollRef}
-          className="tv-board-scroll flex-1 flex flex-col gap-2 overflow-y-auto min-h-0"
+          className="tv-board-scroll flex-1 flex flex-col gap-2 overflow-y-scroll min-h-0"
+          style={{ overflowAnchor: 'none' }}
         >
           {cases.map((c, i) => <CaseRow key={c.id} c={c} zebra={i % 2 === 1} />)}
         </div>
@@ -454,6 +488,7 @@ export const TvBoard: React.FC = () => {
   }, [slide, goToSlide, setActiveTab]);
 
   const surgeryToday = boardCases.filter((c) => isTodayIST(c.surgeryDate)).length;
+  const completedToday = boardCases.filter((c) => c.status === 'Completed').length;
 
   const critical = liveCases.filter((c) => c.priority === 'Critical').length;
   const isEmployeeSlide = SHOW_TEAM_STATUS_SLIDE && slide === totalSlides - 1;
@@ -516,6 +551,10 @@ export const TvBoard: React.FC = () => {
               <div className="text-center">
                 <p className="text-xs font-medium uppercase tracking-wide" style={{ color: INK_MUTED }}>Today</p>
                 <p className="text-2xl font-extrabold mt-0.5" style={{ color: INK }}>{surgeryToday}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#34d399' }}>Done</p>
+                <p className="text-2xl font-extrabold mt-0.5" style={{ color: '#34d399' }}>{completedToday}</p>
               </div>
               <div className="text-center">
                 <p className="text-xs font-medium uppercase tracking-wide" style={{ color: '#f87171' }}>Critical</p>

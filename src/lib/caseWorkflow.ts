@@ -1,5 +1,6 @@
 import type { Department, Employee, ImplantCase, StageRecord, WorkflowStage } from '../types';
 import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
+import { getISTDateKey } from './attendance';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation',
@@ -288,7 +289,7 @@ export function isPostSurgeryStage(stage: WorkflowStage): boolean {
   return idx > surgeryIdx && stage !== 'Completed';
 }
 
-/** Stages shown on the office TV board — Kit Prep through Billing (inclusive). Postponed cases always show. */
+/** Stages shown on the office TV board — Kit Prep through Billing (inclusive). Completed cases for today also show. */
 const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Kit Preparation',
   'Delivery',
@@ -299,15 +300,24 @@ const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Billing',
 ]);
 
+function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
+  if (!surgeryDate) return false;
+  return getISTDateKey(surgeryDate) === getISTDateKey();
+}
+
 /**
- * Office TV board: open cases up to Billing, plus postponed. Bill Submission and cancelled cases are excluded.
+ * Office TV board: open cases through Billing, plus completed cases for today's surgery date.
+ * Cancelled / kit-return cases are excluded.
  */
 export function isTvBoardVisibleCase(c: ImplantCase): boolean {
-  if (c.status === 'Completed' || c.status === 'Cancelled' || c.currentStage === 'Completed') {
-    return false;
+  if (c.status === 'Cancelled' || c.cancelReason) return false;
+
+  const stage = normalizeWorkflowStageName(c.currentStage);
+  if (c.status === 'Completed' || stage === 'Completed') {
+    return isTvBoardSurgeryToday(c.surgeryDate);
   }
-  if (c.cancelReason) return false;
-  return TV_BOARD_STAGES.has(normalizeWorkflowStageName(c.currentStage));
+
+  return TV_BOARD_STAGES.has(stage);
 }
 
 /** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
