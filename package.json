@@ -11,6 +11,7 @@
     "photos:sync": "node scripts/windows-photo-sync.mjs",
     "photos:purge": "node scripts/purge-old-photos.mjs",
     "attendance:whatsapp": "node scripts/daily-attendance-whatsapp.mjs",
+    "attendance:whatsapp:install": "npm install --prefix scripts",
     "attendance:whatsapp:png": "node scripts/daily-attendance-whatsapp.mjs --png-only",
     "attendance:whatsapp:groups": "node scripts/daily-attendance-whatsapp.mjs --list-groups",
     "attendance:whatsapp:noon": "node scripts/daily-attendance-whatsapp.mjs --filters=in,absent,unclosed",
@@ -34,11 +35,6 @@
     "recharts": "^3.9.2",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.14"
-  },
-  "optionalDependencies": {
-    "puppeteer": "^24.36.1",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
