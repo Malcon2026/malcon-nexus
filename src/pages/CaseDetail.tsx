@@ -23,6 +23,7 @@ import {
 } from '../utils/helpers';
 import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
+import { getSurgeryOutcomeLabel, getStageStatusLabel, isSurgeryAwaitingAdminClose } from '../lib/surgeryOutcome';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
@@ -33,7 +34,7 @@ const WORKFLOW_STAGES: WorkflowStage[] = [
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
   'Delivery': 'Delivery Completed',
-  'Surgery': 'Surgery Completed',
+  'Surgery': 'Submit Surgery',
   'Pickup from Hospital': 'Pickup Completed',
   'Cleaning & Audit': 'Cleaning & Audit Completed',
   'Restock': 'Restock Completed',
@@ -565,18 +566,22 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
-  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
+  const surgeryAwaitingClose = isSurgeryAwaitingAdminClose(c);
+  const surgeryOutcomeLabel = getSurgeryOutcomeLabel(c.surgeryOutcome);
+  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason && !surgeryAwaitingClose;
   const canPostpone =
     viewMode === 'admin' &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
-    !c.cancelReason;
+    !c.cancelReason &&
+    !surgeryAwaitingClose;
   const canForceAdvance =
     viewMode === 'admin' &&
     c.currentStage !== 'Completed' &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
-    c.status !== 'Waiting For Approval';
+    c.status !== 'Waiting For Approval' &&
+    !surgeryAwaitingClose;
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
@@ -698,7 +703,17 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                   Force Advance
                 </Button>
               )}
-              {isApproved && nextStage === 'Completed' && (
+              {surgeryAwaitingClose && (
+                <Button
+                  variant="success"
+                  size="sm"
+                  icon={<CheckCircle className="h-4 w-4" />}
+                  onClick={() => closeCase(c.id)}
+                >
+                  {c.surgeryOutcome === 'cancelled' ? 'Close as Cancelled' : 'Close Case'}
+                </Button>
+              )}
+              {isApproved && nextStage === 'Completed' && !surgeryAwaitingClose && (
                 <Button variant="success" size="sm" icon={<CheckCircle className="h-4 w-4" />} onClick={() => closeCase(c.id)}>
                   {c.cancelReason ? 'Close as Cancelled' : 'Close Case'}
                 </Button>
@@ -802,6 +817,25 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         </div>
       )}
 
+      {surgeryAwaitingClose && (
+        <div className={`mb-6 p-3 rounded-xl border flex items-start gap-2 ${c.surgeryOutcome === 'cancelled' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+          {c.surgeryOutcome === 'cancelled' ? (
+            <Ban className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
+          )}
+          <div>
+            <p className={`text-sm font-semibold ${c.surgeryOutcome === 'cancelled' ? 'text-red-900' : 'text-amber-900'}`}>
+              Surgery {surgeryOutcomeLabel?.toLowerCase()} — awaiting admin close
+            </p>
+            <p className={`text-xs mt-0.5 ${c.surgeryOutcome === 'cancelled' ? 'text-red-800' : 'text-amber-800'}`}>
+              Case stays at Surgery. Admin closes manually when ready.
+              {c.surgeryOutcomeDetail ? ` ${c.surgeryOutcome === 'cancelled' ? 'Reason' : 'Notes'}: ${c.surgeryOutcomeDetail}` : ''}
+            </p>
+          </div>
+        </div>
+      )}
+
       {returningUnused && (
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <Ban className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
@@ -886,6 +920,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       { label: 'Due Date', value: formatDate(c.dueDate) },
                       { label: 'Created By', value: c.createdBy },
                       { label: 'Created At', value: formatDate(c.createdAt) },
+                      ...(c.surgeryOutcome && c.surgeryOutcomeDetail
+                        ? [{ label: `Surgery ${surgeryOutcomeLabel ?? 'Outcome'}`, value: c.surgeryOutcomeDetail }]
+                        : []),
                       ...(c.cancelReason ? [{ label: 'Cancel Reason', value: c.cancelReason }] : []),
                       ...(c.postponeReason ? [
                         { label: 'Postpone Reason', value: c.postponeReason },
@@ -1059,7 +1096,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                           <div className="flex items-center gap-3">
                             <h4 className="text-sm font-semibold text-gray-900">{stage.stage}</h4>
                             <Badge className={`text-xs ${isDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : isCurrentStage ? `${sc2.bg} ${sc2.text} ${sc2.border}` : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                              {stage.status}
+                              {getStageStatusLabel(stage, c)}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-4 text-xs text-gray-400">

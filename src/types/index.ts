@@ -22,6 +22,7 @@ export type WorkflowStage =
   | 'Completed';
 
 export type RestockOutcome = 'restocked' | 'order';
+export type SurgeryOutcome = 'cancelled' | 'parked';
 
 export type Department =
   | 'Stores'
@@ -156,6 +157,13 @@ export interface ImplantCase {
    * Case stays live through Pickup → Cleaning → Restock, then closes as Cancelled (no billing).
    */
   cancelReason?: string;
+  /**
+   * Set when scrub submits Surgery as Cancelled or Parked — admin closes manually; no auto-advance.
+   * Does not set cancelReason (no Pickup/return auto-flow).
+   */
+  surgeryOutcome?: SurgeryOutcome | '';
+  /** Cancel reason text when surgeryOutcome is cancelled; optional notes when parked. */
+  surgeryOutcomeDetail?: string;
   /** Set when surgery is postponed to a later date. Case stays live at the current stage. */
   postponeReason?: string;
   /** Surgery date before the latest postpone. */

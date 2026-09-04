@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS cases (
   implant_type        TEXT NOT NULL DEFAULT '',
   implant_company     TEXT NOT NULL DEFAULT '', -- Manufacturer / brand supplying the implant
   cancel_reason       TEXT NOT NULL DEFAULT '', -- Set when surgery is cancelled; unused kit returns via Pickup → Restock
+  surgery_outcome     TEXT NOT NULL DEFAULT '' CHECK (surgery_outcome IN ('', 'cancelled', 'parked')),
+  surgery_outcome_detail TEXT NOT NULL DEFAULT '', -- Cancel reason or notes when scrub submits Cancelled/Parked at Surgery
   postpone_reason     TEXT NOT NULL DEFAULT '', -- Surgery rescheduled; case stays live at current stage
   postponed_from      DATE,                     -- Original surgery date before postpone
   priority            TEXT NOT NULL DEFAULT 'Medium' CHECK (priority IN ('Critical','High','Medium','Low')),

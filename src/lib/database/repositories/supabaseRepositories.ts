@@ -381,6 +381,8 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     collectedAmount: row.collected_amount as number | undefined,
     paymentStatus: row.payment_status as ImplantCase['paymentStatus'],
     cancelReason: (row.cancel_reason as string) ?? '',
+    surgeryOutcome: (row.surgery_outcome as ImplantCase['surgeryOutcome']) ?? '',
+    surgeryOutcomeDetail: (row.surgery_outcome_detail as string) ?? '',
     postponeReason: (row.postpone_reason as string) ?? '',
     postponedFrom: (row.postponed_from as string) ?? '',
   };
@@ -414,6 +416,8 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
     collected_amount: c.collectedAmount ?? null,
     payment_status: c.paymentStatus ?? null,
     cancel_reason: c.cancelReason ?? '',
+    surgery_outcome: c.surgeryOutcome ?? '',
+    surgery_outcome_detail: c.surgeryOutcomeDetail ?? '',
     postpone_reason: c.postponeReason ?? '',
     postponed_from: c.postponedFrom || null,
   };

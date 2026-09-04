@@ -17,6 +17,7 @@ import {
   isCaseAssistantOnCurrentStage,
   isCaseAssignedToEmployee,
 } from '../lib/caseWorkflow';
+import { getSurgeryOutcomeLabel } from '../lib/surgeryOutcome';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase } from '../lib/caseTaskRequests';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
@@ -365,6 +366,7 @@ const EmployeeCasesPanel: React.FC<{
             const sc = getStageStyle(c.currentStage);
             const pc = getPriorityStyle(c.priority);
             const isSubmitted = c.status === 'Waiting For Approval';
+            const surgeryOutcomeLabel = getSurgeryOutcomeLabel(c.surgeryOutcome);
             const canSubmit = canEmployeeSubmitCase(c, currentUser);
             const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
@@ -389,6 +391,11 @@ const EmployeeCasesPanel: React.FC<{
                           {isSubmitted && (
                             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
                               Waiting for admin
+                            </Badge>
+                          )}
+                          {surgeryOutcomeLabel && (
+                            <Badge className={`text-xs ${c.surgeryOutcome === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                              {surgeryOutcomeLabel}
                             </Badge>
                           )}
                           {isExtraPerson && (

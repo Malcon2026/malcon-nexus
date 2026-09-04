@@ -7,6 +7,7 @@ import type {
   DailyExpense,
   PetrolRequest,
   RestockOutcome,
+  SurgeryOutcome,
   LocationTrip,
   CaseTaskRequest,
 } from '../types';
@@ -49,6 +50,7 @@ import {
   formatCancelReason,
   withCancelCaseRemark,
 } from '../lib/cancelCase';
+import { surgeryOutcomeLogAction } from '../lib/surgeryOutcome';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -160,6 +162,13 @@ interface AppState {
     photos: File[],
     onUploadProgress?: (completed: number, total: number) => void,
     restockOutcome?: RestockOutcome,
+  ) => Promise<{ error: string | null }>;
+  submitSurgeryOutcome: (
+    caseId: string,
+    outcome: SurgeryOutcome,
+    notes: string,
+    cancelReasonType?: CancelCaseReasonType,
+    cancelDetails?: string,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
@@ -1075,6 +1084,8 @@ export const useStore = create<AppState>((set, get) => ({
       invoiceAmount: 0,
       paymentStatus: 'Pending',
       cancelReason: '',
+      surgeryOutcome: '',
+      surgeryOutcomeDetail: '',
       postponeReason: '',
       postponedFrom: '',
     };
@@ -2446,12 +2457,134 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  submitSurgeryOutcome: async (caseId, outcome, notes, cancelReasonType, cancelDetails) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return { error: 'Case not found' };
+    if (normalizeWorkflowStage(c.currentStage) !== 'Surgery') {
+      return { error: 'Surgery outcome can only be submitted at the Surgery stage.' };
+    }
+    if (c.surgeryOutcome === 'cancelled' || c.surgeryOutcome === 'parked') {
+      return { error: 'Surgery outcome was already submitted for this case.' };
+    }
+
+    const stageIdx = WORKFLOW_STAGES.indexOf('Surgery');
+    const surgeryStage = c.stages[stageIdx];
+    if (surgeryStage?.status === 'Submitted') {
+      return { error: 'Surgery was already submitted.' };
+    }
+
+    if (outcome === 'cancelled') {
+      if (!cancelReasonType) {
+        return { error: 'Please select a cancel reason.' };
+      }
+      if (cancelReasonType === 'other' && !(cancelDetails ?? '').trim()) {
+        return { error: 'Please add details for Other.' };
+      }
+    }
+
+    if (state.currentUser.role !== 'admin') {
+      const assignedId = c.assignedEmployee?.id;
+      if (!assignedId) {
+        return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
+      }
+      if (assignedId !== state.currentUser.id) {
+        return {
+          error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
+        };
+      }
+    }
+
+    const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
+    const now = new Date().toISOString();
+    const outcomeDetail =
+      outcome === 'cancelled' && cancelReasonType
+        ? formatCancelReason(cancelReasonType, cancelDetails)
+        : notes.trim();
+    const outcomeLabel = outcome === 'parked' ? 'Parked' : 'Cancelled';
+    const submitLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: surgeryOutcomeLogAction(outcome),
+      performedBy: uploadedBy,
+      performedByRole: 'employee' as const,
+      timestamp: now,
+      details:
+        outcome === 'cancelled'
+          ? `Surgery marked cancelled. Reason: ${outcomeDetail}.${notes.trim() ? ` Notes: ${notes.trim()}` : ''}`
+          : `Surgery marked parked.${notes.trim() ? ` Notes: ${notes.trim()}` : ''}`,
+    };
+
+    try {
+      const updatedStages = c.stages.map((s, i) =>
+        i === stageIdx
+          ? {
+              ...s,
+              status: 'Submitted' as const,
+              submittedAt: now,
+              notes: notes.trim() || outcomeDetail,
+            }
+          : s,
+      );
+
+      const updatedCase = await taskRepository.update(
+        caseId,
+        {
+          stages: updatedStages,
+          status: 'Active',
+          currentStage: 'Surgery',
+          surgeryOutcome: outcome,
+          surgeryOutcomeDetail: outcomeDetail,
+          activityLogs: [...c.activityLogs, submitLog],
+        },
+        c,
+      );
+
+      const activity = createActivityEvent(
+        surgeryOutcomeLogAction(outcome),
+        'case',
+        caseId,
+        c.caseNumber,
+        uploadedBy,
+        'employee',
+        `Case ${c.caseNumber} — Surgery ${outcomeLabel.toLowerCase()}.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
+      );
+      void persistActivity(activity);
+
+      const notif = createNotification(
+        `Surgery ${outcomeLabel}`,
+        `Case ${c.caseNumber} marked ${outcomeLabel.toLowerCase()} at Surgery. Admin will close when ready.`,
+        outcome === 'cancelled' ? 'warning' : 'info',
+        caseId,
+      );
+      void persistNotification(notif);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        activityLog: [activity, ...s.activityLog],
+        notifications: [notif, ...s.notifications],
+      }));
+
+      return { error: null };
+    } catch (err) {
+      console.error('[submitSurgeryOutcome] failed:', err);
+      const message = formatUnknownError(err);
+      if (message.toLowerCase().includes('row-level security')) {
+        return {
+          error:
+            'Submit blocked by database permissions. Ask admin to run add-surgery-outcome.sql in Supabase, then retry.',
+        };
+      }
+      return { error: `Failed to submit: ${message}` };
+    }
+  },
+
   closeCase: async (caseId) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
-    const cancelled = Boolean(c.cancelReason);
+    const cancelled = Boolean(c.cancelReason) || c.surgeryOutcome === 'cancelled';
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
@@ -2460,8 +2593,14 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: new Date().toISOString(),
       details: cancelled
-        ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
-        : 'Admin closed the case. All stages complete.',
+        ? c.cancelReason
+          ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
+          : c.surgeryOutcomeDetail
+            ? `Surgery cancelled at hospital. Case closed as Cancelled. Reason: ${c.surgeryOutcomeDetail}`
+            : 'Surgery cancelled at hospital. Case closed as Cancelled.'
+        : c.surgeryOutcome === 'parked'
+          ? `Case was parked at Surgery. Admin closed.${c.surgeryOutcomeDetail ? ` Notes: ${c.surgeryOutcomeDetail}` : ''}`
+          : 'Admin closed the case. All stages complete.',
     };
 
     const updatedCase = await taskRepository.update(caseId, {
@@ -2493,8 +2632,12 @@ export const useStore = create<AppState>((set, get) => ({
       state.currentUser.name,
       'admin',
       cancelled
-        ? `Case ${c.caseNumber} cancelled — unused implants returned.`
-        : `Case ${c.caseNumber} completed and closed.`,
+        ? c.cancelReason
+          ? `Case ${c.caseNumber} cancelled — unused implants returned.`
+          : `Case ${c.caseNumber} closed as Cancelled (surgery cancelled at hospital).`
+        : c.surgeryOutcome === 'parked'
+          ? `Case ${c.caseNumber} closed after being parked at Surgery.`
+          : `Case ${c.caseNumber} completed and closed.`,
     );
     persistActivity(activity);
 

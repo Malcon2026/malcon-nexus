@@ -1,13 +1,11 @@
--- Production fix: employee stage submit (photos + auto-advance) must save case updates
--- even when RLS blocks direct table UPDATE (handoff to next assignee).
---
--- Also fixes "Case not found" when the app has the case in memory but getById()
--- is hidden by RLS — the RPC validates assignee server-side with SECURITY DEFINER.
---
--- Run in Supabase Dashboard → SQL Editor (after fix-cases-employee-stage-handoff-rls.sql).
+-- Surgery submit outcomes: scrub can mark case Cancelled or Parked at Surgery without auto-advance.
+-- Admin closes manually later. Distinct from cancel_reason (admin cancel + kit return flow).
 
-BEGIN;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS surgery_outcome TEXT NOT NULL DEFAULT ''
+  CHECK (surgery_outcome IN ('', 'cancelled', 'parked'));
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS surgery_outcome_detail TEXT NOT NULL DEFAULT '';
 
+-- Keep save_case_for_session RPC in sync (employee submit path).
 CREATE OR REPLACE FUNCTION public.save_case_for_session(p_case jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -80,7 +78,3 @@ $$;
 
 REVOKE ALL ON FUNCTION public.save_case_for_session(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.save_case_for_session(jsonb) TO authenticated;
-
-COMMIT;
-
--- Verify: SELECT proname FROM pg_proc WHERE proname = 'save_case_for_session';
