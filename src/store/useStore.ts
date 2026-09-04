@@ -125,7 +125,7 @@ interface AppState {
   approveStage: (caseId: string, adminNotes: string) => void;
   /** Admin: skip one or more stages and jump to a later stage (or close). */
   forceAdvanceCase: (caseId: string, targetStage: WorkflowStage, adminNotes: string) => Promise<void>;
-  setMarkerCompleteCase: (caseId: string, reason: string) => Promise<void>;
+  setParkedCompleteCase: (caseId: string, reason: string) => Promise<void>;
   /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
   markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
   /** Update pre-assigned / historical assignees for any workflow stage on a case. */
@@ -1435,7 +1435,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  setMarkerCompleteCase: async (caseId, reason) => {
+  setParkedCompleteCase: async (caseId, reason) => {
     const trimmed = reason.trim();
     if (!trimmed) throw new Error('Reason is required.');
 
@@ -1451,8 +1451,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (currentIdx < 0) throw new Error('Invalid workflow stage.');
 
     const now = new Date().toISOString();
-    const adminNotes = `Set Marker: ${trimmed}`;
-    const skipNote = `Skipped — Set Marker. ${adminNotes}`;
+    const adminNotes = `Set Parked: ${trimmed}`;
+    const skipNote = `Skipped — Set Parked. ${adminNotes}`;
     const skippedLabels = WORKFLOW_STAGES.slice(currentIdx).join(', ');
 
     const updatedStages = normalizeCaseStages(
@@ -1469,14 +1469,14 @@ export const useStore = create<AppState>((set, get) => ({
       }),
     );
 
-    const markerLog = {
+    const parkedLog = {
       id: `log-${Date.now()}`,
       caseId,
-      action: 'Set Marker',
+      action: 'Set Parked',
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: now,
-      details: `Set Marker — case completed. Skipped: ${skippedLabels}. Reason: ${trimmed}`,
+      details: `Set Parked — case completed. Skipped: ${skippedLabels}. Reason: ${trimmed}`,
     };
 
     let updatedEmployees = state.employees;
@@ -1494,19 +1494,19 @@ export const useStore = create<AppState>((set, get) => ({
       caseId,
       {
         stages: updatedStages,
-        activityLogs: [...c.activityLogs, markerLog],
+        activityLogs: [...c.activityLogs, parkedLog],
       },
       c,
     );
 
     const activity = createActivityEvent(
-      'Set Marker',
+      'Set Parked',
       'case',
       caseId,
       c.caseNumber,
       state.currentUser.name,
       'admin',
-      `Set Marker — ${c.caseNumber} completed. ${trimmed}`,
+      `Set Parked — ${c.caseNumber} completed. ${trimmed}`,
     );
     persistActivity(activity);
 

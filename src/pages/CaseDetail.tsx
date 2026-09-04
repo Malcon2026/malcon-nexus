@@ -49,11 +49,11 @@ interface ApprovalModalProps {
   caseId: string;
 }
 
-const SET_MARKER = 'SetMarker' as const;
-type ForceTarget = WorkflowStage | typeof SET_MARKER;
+const SET_PARKED = 'SetParked' as const;
+type ForceTarget = WorkflowStage | typeof SET_PARKED;
 
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
-  const { approveStage, rejectStage, requestChanges, forceAdvanceCase, setMarkerCompleteCase, cases } = useStore();
+  const { approveStage, rejectStage, requestChanges, forceAdvanceCase, setParkedCompleteCase, cases } = useStore();
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const implantCase = cases.find((x) => x.id === caseId);
@@ -66,34 +66,34 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
   }, [stageIdx]);
 
   const [forceTarget, setForceTarget] = useState<ForceTarget>('Completed');
-  const isSetMarker = forceTarget === SET_MARKER;
+  const isSetParked = forceTarget === SET_PARKED;
 
   useEffect(() => {
     if (!isOpen || type !== 'force') return;
-    setForceTarget(SET_MARKER);
+    setForceTarget(SET_PARKED);
     setNotes('');
   }, [isOpen, type, caseId, forceTargetOptions]);
 
   const skippedStageLabels =
-    stageIdx >= 0 && !isSetMarker && forceTarget !== SET_MARKER
+    stageIdx >= 0 && !isSetParked
       ? WORKFLOW_STAGES.slice(stageIdx, WORKFLOW_STAGES.indexOf(forceTarget as WorkflowStage)).join(', ')
       : stageIdx >= 0
         ? WORKFLOW_STAGES.slice(stageIdx).join(', ')
         : '';
 
   const forceTargetAssignee =
-    !isSetMarker && forceTarget && forceTarget !== 'Completed'
+    !isSetParked && forceTarget && forceTarget !== 'Completed'
       ? implantCase?.stages.find((s) => s.stage === forceTarget)?.assignedEmployee
       : null;
 
   const nextAssignee =
-    type === 'force' && !isSetMarker && forceTarget && forceTarget !== 'Completed'
+    type === 'force' && !isSetParked && forceTarget && forceTarget !== 'Completed'
       ? forceTargetAssignee
       : nextStage && nextStage !== 'Completed'
         ? implantCase?.stages.find((s) => s.stage === nextStage)?.assignedEmployee
         : null;
 
-  const previewStage = type === 'force' ? (isSetMarker ? 'Completed' : forceTarget) : nextStage;
+  const previewStage = type === 'force' ? (isSetParked ? 'Completed' : forceTarget) : nextStage;
 
   const config = {
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
@@ -105,7 +105,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
         ? `${implantCase.assignedEmployee.name} hasn't submitted this stage yet`
         : 'No employee is assigned — skip ahead to any later stage',
       color: 'warning' as const,
-      label: isSetMarker ? 'Set Marker & Complete' : forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
+      label: isSetParked ? 'Set Parked & Complete' : forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
     },
   };
 
@@ -118,8 +118,8 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     try {
       if (type === 'approve') await approveStage(caseId, notes);
       else if (type === 'force') {
-        if (isSetMarker) {
-          await setMarkerCompleteCase(caseId, notes.trim());
+        if (isSetParked) {
+          await setParkedCompleteCase(caseId, notes.trim());
         } else {
           await forceAdvanceCase(
             caseId,
@@ -159,7 +159,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">
                 Skips <strong>{implantCase?.currentStage}</strong>
-                {isSetMarker || forceTarget === 'Completed' ? (
+                {isSetParked || forceTarget === 'Completed' ? (
                   ' and all remaining stages, then closes the case.'
                 ) : (
                   <>
@@ -176,24 +176,24 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
               value={forceTarget}
               onChange={(e) => setForceTarget(e.target.value as ForceTarget)}
             >
-              <option value={SET_MARKER}>Set Marker (complete case)</option>
+              <option value={SET_PARKED}>Set Parked (complete case)</option>
               {forceTargetOptions.map((stage) => (
                 <option key={stage} value={stage}>
                   {stage === 'Completed' ? 'Close case (Completed)' : stage}
                 </option>
               ))}
             </select>
-            {isSetMarker && skippedStageLabels && (
+            {isSetParked && skippedStageLabels && (
               <p className="text-[11px] text-gray-500 mb-3">
                 Will skip and complete from: {skippedStageLabels}
               </p>
             )}
-            {!isSetMarker && skippedStageLabels && forceTarget !== 'Completed' && (
+            {!isSetParked && skippedStageLabels && forceTarget !== 'Completed' && (
               <p className="text-[11px] text-gray-500 mb-3">
                 Will mark as skipped: {skippedStageLabels}
               </p>
             )}
-            {!isSetMarker && forceTarget === 'Completed' && skippedStageLabels && (
+            {!isSetParked && forceTarget === 'Completed' && skippedStageLabels && (
               <p className="text-[11px] text-gray-500 mb-3">
                 Will skip and close from: {skippedStageLabels}
               </p>
