@@ -158,7 +158,7 @@ export interface ImplantCase {
    */
   cancelReason?: string;
   /**
-   * Set when scrub submits Surgery as Cancelled or Parked — admin closes manually; no auto-advance.
+   * Set when scrub submits Surgery as Cancelled (admin closes at Billing) or Parked (case completes immediately).
    * Does not set cancelReason (no Pickup/return auto-flow).
    */
   surgeryOutcome?: SurgeryOutcome | '';

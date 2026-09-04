@@ -50,7 +50,7 @@ import {
   formatCancelReason,
   withCancelCaseRemark,
 } from '../lib/cancelCase';
-import { surgeryOutcomeLogAction, buildAdvanceToBillingAfterSurgeryOutcome } from '../lib/surgeryOutcome';
+import { surgeryOutcomeLogAction, buildAdvanceToBillingAfterSurgeryCancelled, buildCompleteCaseAfterSurgeryParked } from '../lib/surgeryOutcome';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -2516,10 +2516,74 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     try {
-      const advanced = buildAdvanceToBillingAfterSurgeryOutcome(c, {
+      if (outcome === 'parked') {
+        const completed = buildCompleteCaseAfterSurgeryParked(c, {
+          now,
+          notes,
+          outcomeDetail,
+          uploadedBy,
+        });
+
+        const updatedCase = await taskRepository.update(
+          caseId,
+          {
+            stages: completed.stages,
+            status: completed.status,
+            currentStage: completed.currentStage,
+            currentDepartment: completed.currentDepartment,
+            assignedEmployee: completed.assignedEmployee,
+            surgeryOutcome: outcome,
+            surgeryOutcomeDetail: outcomeDetail,
+            activityLogs: [...c.activityLogs, submitLog, completed.advanceLog, completed.closeLog],
+          },
+          c,
+        );
+
+        let updatedEmployees = state.employees;
+        const prevEmp = c.assignedEmployee;
+        if (prevEmp) {
+          const target = updatedEmployees.find((e) => e.id === prevEmp.id);
+          if (target) {
+            const updated = await employeeRepository.update(prevEmp.id, {
+              casesActive: Math.max(0, target.casesActive - 1),
+              casesCompleted: target.casesCompleted + 1,
+            });
+            updatedEmployees = updatedEmployees.map((e) => (e.id === prevEmp.id ? updated : e));
+          }
+        }
+
+        const activity = createActivityEvent(
+          'Surgery: Parked — Case Completed',
+          'case',
+          caseId,
+          c.caseNumber,
+          uploadedBy,
+          'employee',
+          `Case ${c.caseNumber} parked at Surgery and completed.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
+        );
+        void persistActivity(activity);
+
+        const notif = createNotification(
+          'Surgery Parked',
+          `Case ${c.caseNumber} marked parked — completed, all remaining stages skipped.`,
+          'success',
+          caseId,
+        );
+        void persistNotification(notif);
+
+        set((s) => ({
+          cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+          employees: updatedEmployees,
+          activityLog: [activity, ...s.activityLog],
+          notifications: [notif, ...s.notifications],
+        }));
+
+        return { error: null };
+      }
+
+      const advanced = buildAdvanceToBillingAfterSurgeryCancelled(c, {
         now,
         notes,
-        outcome,
         outcomeDetail,
         uploadedBy,
       });
@@ -2569,14 +2633,14 @@ export const useStore = create<AppState>((set, get) => ({
         c.caseNumber,
         uploadedBy,
         'employee',
-        `Case ${c.caseNumber} — Surgery ${outcomeLabel.toLowerCase()}, advanced to Billing.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
+        `Case ${c.caseNumber} — Surgery cancelled, advanced to Billing.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
       );
       void persistActivity(activity);
 
       const notif = createNotification(
         `Surgery ${outcomeLabel}`,
-        `Case ${c.caseNumber} marked ${outcomeLabel.toLowerCase()} — now at Billing for admin review.`,
-        outcome === 'cancelled' ? 'warning' : 'info',
+        `Case ${c.caseNumber} marked cancelled — now at Billing for admin review.`,
+        'warning',
         caseId,
       );
       void persistNotification(notif);

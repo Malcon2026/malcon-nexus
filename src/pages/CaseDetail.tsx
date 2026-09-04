@@ -826,10 +826,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           )}
           <div>
             <p className={`text-sm font-semibold ${c.surgeryOutcome === 'cancelled' ? 'text-red-900' : 'text-amber-900'}`}>
-              Surgery {surgeryOutcomeLabel?.toLowerCase()} — awaiting admin close
+              Surgery cancelled — awaiting admin close at Billing
             </p>
             <p className={`text-xs mt-0.5 ${c.surgeryOutcome === 'cancelled' ? 'text-red-800' : 'text-amber-800'}`}>
-              Case moved to Billing. Admin closes when ready.
+              Case is at Billing. Admin closes when ready.
               {c.surgeryOutcomeDetail ? ` ${c.surgeryOutcome === 'cancelled' ? 'Reason' : 'Notes'}: ${c.surgeryOutcomeDetail}` : ''}
             </p>
           </div>
