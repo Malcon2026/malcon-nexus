@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, User, AlertTriangle, ArrowRight, Eye } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
@@ -7,6 +7,12 @@ import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
 import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases } from '../lib/caseWorkflow';
+import { getISTDateKey } from '../lib/attendance';
+import {
+  getTodaySurgeryDateKey,
+  SurgeryDateQuickPick,
+  type SurgeryDateMode,
+} from '../components/SurgeryDateQuickPick';
 
 const KANBAN_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -26,6 +32,8 @@ const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
 
 export const WorkflowBoard: React.FC = () => {
   const { cases, viewMode, currentUser, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
+  const [surgeryDate, setSurgeryDate] = useState(getTodaySurgeryDateKey);
+  const [surgeryDateMode, setSurgeryDateMode] = useState<SurgeryDateMode>('today');
 
   // The board reads cases straight from Zustand state, which only reflects
   // whatever this browser tab has fetched. Refresh from the DB whenever the
@@ -47,8 +55,23 @@ export const WorkflowBoard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const boardCases = useMemo(
+    () =>
+      cases.filter(
+        (c) => c.surgeryDate && getISTDateKey(c.surgeryDate) === getISTDateKey(surgeryDate),
+      ),
+    [cases, surgeryDate],
+  );
+
   const getCasesForStage = (stage: WorkflowStage) =>
-    cases.filter((c) => normalizeWorkflowStage(c.currentStage) === stage);
+    boardCases.filter((c) => normalizeWorkflowStage(c.currentStage) === stage);
+
+  const dateLabel =
+    surgeryDateMode === 'today'
+      ? 'Today'
+      : surgeryDateMode === 'tomorrow'
+        ? 'Tomorrow'
+        : formatDate(surgeryDate);
 
   return (
     <div className="p-4 sm:p-6 h-full flex flex-col max-w-[1800px] mx-auto w-full min-w-0">
@@ -56,11 +79,24 @@ export const WorkflowBoard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Workflow Board</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Visual overview of all cases across workflow stages</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Cases for surgery on <span className="font-medium text-gray-700">{dateLabel}</span>
+            {' '}({boardCases.length} case{boardCases.length === 1 ? '' : 's'})
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" /><span className="text-xs sm:text-sm">Cards move when the assignee submits that stage</span></div>
+        <div className="flex flex-col sm:items-end gap-3 min-w-0 sm:max-w-xs w-full sm:w-auto">
+          <SurgeryDateQuickPick
+            value={surgeryDate}
+            mode={surgeryDateMode}
+            onChange={(nextDate, nextMode) => {
+              setSurgeryDate(nextDate);
+              setSurgeryDateMode(nextMode);
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" /><span className="text-xs sm:text-sm">Cards move when the assignee submits that stage</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -69,7 +105,7 @@ export const WorkflowBoard: React.FC = () => {
       <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-w-full">
         {KANBAN_STAGES.map((stage) => {
           const stageCases = getCasesForStage(stage);
-          const poolCount = isFcfsStage(stage) ? countFcfsPoolCases(cases, stage as 'Pickup from Hospital' | 'Billing' | 'Bill Submission') : 0;
+          const poolCount = isFcfsStage(stage) ? countFcfsPoolCases(boardCases, stage as 'Pickup from Hospital' | 'Billing' | 'Bill Submission') : 0;
           const sc = stageColors[stage];
           const info = STAGE_LABELS[stage];
 
