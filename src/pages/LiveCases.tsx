@@ -9,7 +9,6 @@ import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { useStore } from '../store/useStore';
 import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED, getCurrentStageTeamDisplay, findStageRecord } from '../lib/caseWorkflow';
-import { getSurgeryOutcomeLabel } from '../lib/surgeryOutcome';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 
@@ -293,16 +292,7 @@ export const LiveCases: React.FC = () => {
                     </div>
                   )}
 
-                  {c.surgeryOutcome && !c.cancelReason && (
-                    <div className={`flex items-center gap-1 mt-1 mb-2 px-2 py-1 border rounded-lg ${c.surgeryOutcome === 'cancelled' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
-                      <span className={`text-[10px] font-medium ${c.surgeryOutcome === 'cancelled' ? 'text-red-800' : 'text-amber-800'}`}>
-                        {getSurgeryOutcomeLabel(c.surgeryOutcome)}
-                        {c.surgeryOutcomeDetail ? ` — ${c.surgeryOutcomeDetail}` : ''}
-                      </span>
-                    </div>
-                  )}
-
-                  {c.postponeReason && !c.cancelReason && !c.surgeryOutcome && (
+                  {c.postponeReason && !c.cancelReason && (
                     <div className="flex items-center gap-1 mt-1 mb-2 px-2 py-1 bg-sky-50 border border-sky-100 rounded-lg">
                       <span className="text-[10px] text-sky-800 font-medium">Postponed</span>
                     </div>

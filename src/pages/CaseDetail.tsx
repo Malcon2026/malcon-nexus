@@ -23,7 +23,6 @@ import {
 } from '../utils/helpers';
 import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
-import { getSurgeryOutcomeLabel, getStageStatusLabel, isSurgeryAwaitingAdminClose } from '../lib/surgeryOutcome';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
@@ -34,7 +33,7 @@ const WORKFLOW_STAGES: WorkflowStage[] = [
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Kit Preparation': 'Submit to Admin',
   'Delivery': 'Delivery Completed',
-  'Surgery': 'Submit Surgery',
+  'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Pickup Completed',
   'Cleaning & Audit': 'Cleaning & Audit Completed',
   'Restock': 'Restock Completed',
@@ -50,8 +49,11 @@ interface ApprovalModalProps {
   caseId: string;
 }
 
+const SET_MARKER = 'SetMarker' as const;
+type ForceTarget = WorkflowStage | typeof SET_MARKER;
+
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
-  const { approveStage, rejectStage, requestChanges, forceAdvanceCase, cases } = useStore();
+  const { approveStage, rejectStage, requestChanges, forceAdvanceCase, setMarkerCompleteCase, cases } = useStore();
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const implantCase = cases.find((x) => x.id === caseId);
@@ -63,32 +65,35 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     return WORKFLOW_STAGES.slice(stageIdx + 1);
   }, [stageIdx]);
 
-  const [forceTarget, setForceTarget] = useState<WorkflowStage>('Completed');
+  const [forceTarget, setForceTarget] = useState<ForceTarget>('Completed');
+  const isSetMarker = forceTarget === SET_MARKER;
 
   useEffect(() => {
     if (!isOpen || type !== 'force') return;
-    setForceTarget(forceTargetOptions[0] ?? 'Completed');
+    setForceTarget(SET_MARKER);
     setNotes('');
   }, [isOpen, type, caseId, forceTargetOptions]);
 
   const skippedStageLabels =
-    stageIdx >= 0 && forceTarget
-      ? WORKFLOW_STAGES.slice(stageIdx, WORKFLOW_STAGES.indexOf(forceTarget)).join(', ')
-      : '';
+    stageIdx >= 0 && !isSetMarker && forceTarget !== SET_MARKER
+      ? WORKFLOW_STAGES.slice(stageIdx, WORKFLOW_STAGES.indexOf(forceTarget as WorkflowStage)).join(', ')
+      : stageIdx >= 0
+        ? WORKFLOW_STAGES.slice(stageIdx).join(', ')
+        : '';
 
   const forceTargetAssignee =
-    forceTarget && forceTarget !== 'Completed'
+    !isSetMarker && forceTarget && forceTarget !== 'Completed'
       ? implantCase?.stages.find((s) => s.stage === forceTarget)?.assignedEmployee
       : null;
 
   const nextAssignee =
-    type === 'force' && forceTarget && forceTarget !== 'Completed'
+    type === 'force' && !isSetMarker && forceTarget && forceTarget !== 'Completed'
       ? forceTargetAssignee
       : nextStage && nextStage !== 'Completed'
         ? implantCase?.stages.find((s) => s.stage === nextStage)?.assignedEmployee
         : null;
 
-  const previewStage = type === 'force' ? forceTarget : nextStage;
+  const previewStage = type === 'force' ? (isSetMarker ? 'Completed' : forceTarget) : nextStage;
 
   const config = {
     approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
@@ -100,7 +105,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
         ? `${implantCase.assignedEmployee.name} hasn't submitted this stage yet`
         : 'No employee is assigned — skip ahead to any later stage',
       color: 'warning' as const,
-      label: forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
+      label: isSetMarker ? 'Set Marker & Complete' : forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
     },
   };
 
@@ -113,11 +118,15 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     try {
       if (type === 'approve') await approveStage(caseId, notes);
       else if (type === 'force') {
-        await forceAdvanceCase(
-          caseId,
-          forceTarget,
-          `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`,
-        );
+        if (isSetMarker) {
+          await setMarkerCompleteCase(caseId, notes.trim());
+        } else {
+          await forceAdvanceCase(
+            caseId,
+            forceTarget as WorkflowStage,
+            `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`,
+          );
+        }
       }
       else if (type === 'reject') await rejectStage(caseId, notes);
       else await requestChanges(caseId, notes);
@@ -150,7 +159,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700">
                 Skips <strong>{implantCase?.currentStage}</strong>
-                {forceTarget === 'Completed' ? (
+                {isSetMarker || forceTarget === 'Completed' ? (
                   ' and all remaining stages, then closes the case.'
                 ) : (
                   <>
@@ -165,20 +174,26 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
             <select
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white mb-3"
               value={forceTarget}
-              onChange={(e) => setForceTarget(e.target.value as WorkflowStage)}
+              onChange={(e) => setForceTarget(e.target.value as ForceTarget)}
             >
+              <option value={SET_MARKER}>Set Marker (complete case)</option>
               {forceTargetOptions.map((stage) => (
                 <option key={stage} value={stage}>
                   {stage === 'Completed' ? 'Close case (Completed)' : stage}
                 </option>
               ))}
             </select>
-            {skippedStageLabels && forceTarget !== 'Completed' && (
+            {isSetMarker && skippedStageLabels && (
+              <p className="text-[11px] text-gray-500 mb-3">
+                Will skip and complete from: {skippedStageLabels}
+              </p>
+            )}
+            {!isSetMarker && skippedStageLabels && forceTarget !== 'Completed' && (
               <p className="text-[11px] text-gray-500 mb-3">
                 Will mark as skipped: {skippedStageLabels}
               </p>
             )}
-            {forceTarget === 'Completed' && skippedStageLabels && (
+            {!isSetMarker && forceTarget === 'Completed' && skippedStageLabels && (
               <p className="text-[11px] text-gray-500 mb-3">
                 Will skip and close from: {skippedStageLabels}
               </p>
@@ -566,22 +581,18 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
-  const surgeryAwaitingClose = isSurgeryAwaitingAdminClose(c);
-  const surgeryOutcomeLabel = getSurgeryOutcomeLabel(c.surgeryOutcome);
-  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason && !surgeryAwaitingClose;
+  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canPostpone =
     viewMode === 'admin' &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
-    !c.cancelReason &&
-    !surgeryAwaitingClose;
+    !c.cancelReason;
   const canForceAdvance =
     viewMode === 'admin' &&
     c.currentStage !== 'Completed' &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
-    c.status !== 'Waiting For Approval' &&
-    !surgeryAwaitingClose;
+    c.status !== 'Waiting For Approval';
   const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit = viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
@@ -703,17 +714,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                   Force Advance
                 </Button>
               )}
-              {surgeryAwaitingClose && (
-                <Button
-                  variant="success"
-                  size="sm"
-                  icon={<CheckCircle className="h-4 w-4" />}
-                  onClick={() => closeCase(c.id)}
-                >
-                  {c.surgeryOutcome === 'cancelled' ? 'Close as Cancelled' : 'Close Case'}
-                </Button>
-              )}
-              {isApproved && nextStage === 'Completed' && !surgeryAwaitingClose && (
+              {isApproved && nextStage === 'Completed' && (
                 <Button variant="success" size="sm" icon={<CheckCircle className="h-4 w-4" />} onClick={() => closeCase(c.id)}>
                   {c.cancelReason ? 'Close as Cancelled' : 'Close Case'}
                 </Button>
@@ -817,25 +818,6 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         </div>
       )}
 
-      {surgeryAwaitingClose && (
-        <div className={`mb-6 p-3 rounded-xl border flex items-start gap-2 ${c.surgeryOutcome === 'cancelled' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-          {c.surgeryOutcome === 'cancelled' ? (
-            <Ban className="h-4 w-4 text-red-700 shrink-0 mt-0.5" />
-          ) : (
-            <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-          )}
-          <div>
-            <p className={`text-sm font-semibold ${c.surgeryOutcome === 'cancelled' ? 'text-red-900' : 'text-amber-900'}`}>
-              Surgery cancelled — awaiting admin close at Billing
-            </p>
-            <p className={`text-xs mt-0.5 ${c.surgeryOutcome === 'cancelled' ? 'text-red-800' : 'text-amber-800'}`}>
-              Case is at Billing. Admin closes when ready.
-              {c.surgeryOutcomeDetail ? ` ${c.surgeryOutcome === 'cancelled' ? 'Reason' : 'Notes'}: ${c.surgeryOutcomeDetail}` : ''}
-            </p>
-          </div>
-        </div>
-      )}
-
       {returningUnused && (
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <Ban className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
@@ -920,9 +902,6 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       { label: 'Due Date', value: formatDate(c.dueDate) },
                       { label: 'Created By', value: c.createdBy },
                       { label: 'Created At', value: formatDate(c.createdAt) },
-                      ...(c.surgeryOutcome && c.surgeryOutcomeDetail
-                        ? [{ label: `Surgery ${surgeryOutcomeLabel ?? 'Outcome'}`, value: c.surgeryOutcomeDetail }]
-                        : []),
                       ...(c.cancelReason ? [{ label: 'Cancel Reason', value: c.cancelReason }] : []),
                       ...(c.postponeReason ? [
                         { label: 'Postpone Reason', value: c.postponeReason },
@@ -1096,7 +1075,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                           <div className="flex items-center gap-3">
                             <h4 className="text-sm font-semibold text-gray-900">{stage.stage}</h4>
                             <Badge className={`text-xs ${isDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : isCurrentStage ? `${sc2.bg} ${sc2.text} ${sc2.border}` : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
-                              {getStageStatusLabel(stage, c)}
+                              {stage.status}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-4 text-xs text-gray-400">

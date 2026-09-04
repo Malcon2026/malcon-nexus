@@ -7,7 +7,6 @@ import type {
   DailyExpense,
   PetrolRequest,
   RestockOutcome,
-  SurgeryOutcome,
   LocationTrip,
   CaseTaskRequest,
 } from '../types';
@@ -50,7 +49,6 @@ import {
   formatCancelReason,
   withCancelCaseRemark,
 } from '../lib/cancelCase';
-import { surgeryOutcomeLogAction, buildAdvanceToBillingAfterSurgeryCancelled, buildCompleteCaseAfterSurgeryParked } from '../lib/surgeryOutcome';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   validateCompOffWorkDate,
@@ -127,6 +125,7 @@ interface AppState {
   approveStage: (caseId: string, adminNotes: string) => void;
   /** Admin: skip one or more stages and jump to a later stage (or close). */
   forceAdvanceCase: (caseId: string, targetStage: WorkflowStage, adminNotes: string) => Promise<void>;
+  setMarkerCompleteCase: (caseId: string, reason: string) => Promise<void>;
   /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
   markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
   /** Update pre-assigned / historical assignees for any workflow stage on a case. */
@@ -162,13 +161,6 @@ interface AppState {
     photos: File[],
     onUploadProgress?: (completed: number, total: number) => void,
     restockOutcome?: RestockOutcome,
-  ) => Promise<{ error: string | null }>;
-  submitSurgeryOutcome: (
-    caseId: string,
-    outcome: SurgeryOutcome,
-    notes: string,
-    cancelReasonType?: CancelCaseReasonType,
-    cancelDetails?: string,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
@@ -1443,6 +1435,90 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
+  setMarkerCompleteCase: async (caseId, reason) => {
+    const trimmed = reason.trim();
+    if (!trimmed) throw new Error('Reason is required.');
+
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) throw new Error('Case not found');
+    if (c.status === 'Completed' || c.status === 'Cancelled') {
+      throw new Error('This case is already closed.');
+    }
+
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const currentIdx = WORKFLOW_STAGES.indexOf(currentName);
+    if (currentIdx < 0) throw new Error('Invalid workflow stage.');
+
+    const now = new Date().toISOString();
+    const adminNotes = `Set Marker: ${trimmed}`;
+    const skipNote = `Skipped — Set Marker. ${adminNotes}`;
+    const skippedLabels = WORKFLOW_STAGES.slice(currentIdx).join(', ');
+
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s, i) => {
+        if (i >= currentIdx) {
+          return {
+            ...s,
+            status: 'Approved' as const,
+            approvedAt: s.approvedAt ?? now,
+            adminNotes: i === currentIdx ? adminNotes : skipNote,
+          };
+        }
+        return s;
+      }),
+    );
+
+    const markerLog = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: 'Set Marker',
+      performedBy: state.currentUser.name,
+      performedByRole: 'admin' as const,
+      timestamp: now,
+      details: `Set Marker — case completed. Skipped: ${skippedLabels}. Reason: ${trimmed}`,
+    };
+
+    let updatedEmployees = state.employees;
+    if (c.assignedEmployee) {
+      const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
+      if (prev) {
+        const updated = await employeeRepository.update(prev.id, {
+          casesActive: Math.max(0, prev.casesActive - 1),
+        });
+        updatedEmployees = state.employees.map((e) => (e.id === prev.id ? updated : e));
+      }
+    }
+
+    const stagedCase = await taskRepository.update(
+      caseId,
+      {
+        stages: updatedStages,
+        activityLogs: [...c.activityLogs, markerLog],
+      },
+      c,
+    );
+
+    const activity = createActivityEvent(
+      'Set Marker',
+      'case',
+      caseId,
+      c.caseNumber,
+      state.currentUser.name,
+      'admin',
+      `Set Marker — ${c.caseNumber} completed. ${trimmed}`,
+    );
+    persistActivity(activity);
+
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? stagedCase : x)),
+      activityLog: [activity, ...s.activityLog],
+      employees: updatedEmployees,
+    }));
+
+    await get().closeCase(caseId);
+  },
+
   markSurgerySelfPerformed: async (caseId, notes) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
@@ -2457,221 +2533,12 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  submitSurgeryOutcome: async (caseId, outcome, notes, cancelReasonType, cancelDetails) => {
-    const state = get();
-    const c = state.cases.find((x) => x.id === caseId);
-    if (!c) return { error: 'Case not found' };
-    if (normalizeWorkflowStage(c.currentStage) !== 'Surgery') {
-      return { error: 'Surgery outcome can only be submitted at the Surgery stage.' };
-    }
-    if (c.surgeryOutcome === 'cancelled' || c.surgeryOutcome === 'parked') {
-      return { error: 'Surgery outcome was already submitted for this case.' };
-    }
-
-    const stageIdx = WORKFLOW_STAGES.indexOf('Surgery');
-    const surgeryStage = c.stages[stageIdx];
-    if (surgeryStage?.status === 'Submitted') {
-      return { error: 'Surgery was already submitted.' };
-    }
-
-    if (outcome === 'cancelled') {
-      if (!cancelReasonType) {
-        return { error: 'Please select a cancel reason.' };
-      }
-      if (cancelReasonType === 'other' && !(cancelDetails ?? '').trim()) {
-        return { error: 'Please add details for Other.' };
-      }
-    }
-
-    if (state.currentUser.role !== 'admin') {
-      const assignedId = c.assignedEmployee?.id;
-      if (!assignedId) {
-        return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
-      }
-      if (assignedId !== state.currentUser.id) {
-        return {
-          error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
-        };
-      }
-    }
-
-    const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
-    const now = new Date().toISOString();
-    const outcomeDetail =
-      outcome === 'cancelled' && cancelReasonType
-        ? formatCancelReason(cancelReasonType, cancelDetails)
-        : notes.trim();
-    const outcomeLabel = outcome === 'parked' ? 'Parked' : 'Cancelled';
-    const submitLog = {
-      id: `log-${Date.now()}`,
-      caseId,
-      action: surgeryOutcomeLogAction(outcome),
-      performedBy: uploadedBy,
-      performedByRole: 'employee' as const,
-      timestamp: now,
-      details:
-        outcome === 'cancelled'
-          ? `Surgery marked cancelled. Reason: ${outcomeDetail}.${notes.trim() ? ` Notes: ${notes.trim()}` : ''}`
-          : `Surgery marked parked.${notes.trim() ? ` Notes: ${notes.trim()}` : ''}`,
-    };
-
-    try {
-      if (outcome === 'parked') {
-        const completed = buildCompleteCaseAfterSurgeryParked(c, {
-          now,
-          notes,
-          outcomeDetail,
-          uploadedBy,
-        });
-
-        const updatedCase = await taskRepository.update(
-          caseId,
-          {
-            stages: completed.stages,
-            status: completed.status,
-            currentStage: completed.currentStage,
-            currentDepartment: completed.currentDepartment,
-            assignedEmployee: completed.assignedEmployee,
-            surgeryOutcome: outcome,
-            surgeryOutcomeDetail: outcomeDetail,
-            activityLogs: [...c.activityLogs, submitLog, completed.advanceLog, completed.closeLog],
-          },
-          c,
-        );
-
-        let updatedEmployees = state.employees;
-        const prevEmp = c.assignedEmployee;
-        if (prevEmp) {
-          const target = updatedEmployees.find((e) => e.id === prevEmp.id);
-          if (target) {
-            const updated = await employeeRepository.update(prevEmp.id, {
-              casesActive: Math.max(0, target.casesActive - 1),
-              casesCompleted: target.casesCompleted + 1,
-            });
-            updatedEmployees = updatedEmployees.map((e) => (e.id === prevEmp.id ? updated : e));
-          }
-        }
-
-        const activity = createActivityEvent(
-          'Surgery: Parked — Case Completed',
-          'case',
-          caseId,
-          c.caseNumber,
-          uploadedBy,
-          'employee',
-          `Case ${c.caseNumber} parked at Surgery and completed.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
-        );
-        void persistActivity(activity);
-
-        const notif = createNotification(
-          'Surgery Parked',
-          `Case ${c.caseNumber} marked parked — completed, all remaining stages skipped.`,
-          'success',
-          caseId,
-        );
-        void persistNotification(notif);
-
-        set((s) => ({
-          cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-          employees: updatedEmployees,
-          activityLog: [activity, ...s.activityLog],
-          notifications: [notif, ...s.notifications],
-        }));
-
-        return { error: null };
-      }
-
-      const advanced = buildAdvanceToBillingAfterSurgeryCancelled(c, {
-        now,
-        notes,
-        outcomeDetail,
-        uploadedBy,
-      });
-
-      const updatedCase = await taskRepository.update(
-        caseId,
-        {
-          stages: advanced.stages,
-          status: advanced.status,
-          currentStage: advanced.currentStage,
-          currentDepartment: advanced.currentDepartment,
-          assignedEmployee: advanced.assignedEmployee,
-          surgeryOutcome: outcome,
-          surgeryOutcomeDetail: outcomeDetail,
-          activityLogs: [...c.activityLogs, submitLog, advanced.advanceLog],
-        },
-        c,
-      );
-
-      let updatedEmployees = state.employees;
-      const prevEmp = c.assignedEmployee;
-      if (prevEmp && prevEmp.id !== advanced.assignedEmployee?.id) {
-        const target = updatedEmployees.find((e) => e.id === prevEmp.id);
-        if (target) {
-          const updated = await employeeRepository.update(prevEmp.id, {
-            casesActive: Math.max(0, target.casesActive - 1),
-          });
-          updatedEmployees = updatedEmployees.map((e) => (e.id === prevEmp.id ? updated : e));
-        }
-      }
-      if (advanced.assignedEmployee && advanced.assignedEmployee.id !== prevEmp?.id) {
-        const target = updatedEmployees.find((e) => e.id === advanced.assignedEmployee!.id);
-        if (target) {
-          const updated = await employeeRepository.update(advanced.assignedEmployee.id, {
-            casesActive: target.casesActive + 1,
-          });
-          updatedEmployees = updatedEmployees.map((e) =>
-            e.id === advanced.assignedEmployee!.id ? updated : e,
-          );
-        }
-      }
-
-      const activity = createActivityEvent(
-        surgeryOutcomeLogAction(outcome),
-        'case',
-        caseId,
-        c.caseNumber,
-        uploadedBy,
-        'employee',
-        `Case ${c.caseNumber} — Surgery cancelled, advanced to Billing.${outcomeDetail ? ` ${outcomeDetail}` : ''}`,
-      );
-      void persistActivity(activity);
-
-      const notif = createNotification(
-        `Surgery ${outcomeLabel}`,
-        `Case ${c.caseNumber} marked cancelled — now at Billing for admin review.`,
-        'warning',
-        caseId,
-      );
-      void persistNotification(notif);
-
-      set((s) => ({
-        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-        employees: updatedEmployees,
-        activityLog: [activity, ...s.activityLog],
-        notifications: [notif, ...s.notifications],
-      }));
-
-      return { error: null };
-    } catch (err) {
-      console.error('[submitSurgeryOutcome] failed:', err);
-      const message = formatUnknownError(err);
-      if (message.toLowerCase().includes('row-level security')) {
-        return {
-          error:
-            'Submit blocked by database permissions. Ask admin to run add-surgery-outcome.sql in Supabase, then retry.',
-        };
-      }
-      return { error: `Failed to submit: ${message}` };
-    }
-  },
-
   closeCase: async (caseId) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
-    const cancelled = Boolean(c.cancelReason) || c.surgeryOutcome === 'cancelled';
+    const cancelled = Boolean(c.cancelReason);
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
@@ -2680,14 +2547,8 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: new Date().toISOString(),
       details: cancelled
-        ? c.cancelReason
-          ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
-          : c.surgeryOutcomeDetail
-            ? `Surgery cancelled at hospital. Case closed as Cancelled. Reason: ${c.surgeryOutcomeDetail}`
-            : 'Surgery cancelled at hospital. Case closed as Cancelled.'
-        : c.surgeryOutcome === 'parked'
-          ? `Case was parked at Surgery. Admin closed.${c.surgeryOutcomeDetail ? ` Notes: ${c.surgeryOutcomeDetail}` : ''}`
-          : 'Admin closed the case. All stages complete.',
+        ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
+        : 'Admin closed the case. All stages complete.',
     };
 
     const updatedCase = await taskRepository.update(caseId, {
@@ -2719,12 +2580,8 @@ export const useStore = create<AppState>((set, get) => ({
       state.currentUser.name,
       'admin',
       cancelled
-        ? c.cancelReason
-          ? `Case ${c.caseNumber} cancelled — unused implants returned.`
-          : `Case ${c.caseNumber} closed as Cancelled (surgery cancelled at hospital).`
-        : c.surgeryOutcome === 'parked'
-          ? `Case ${c.caseNumber} closed after being parked at Surgery.`
-          : `Case ${c.caseNumber} completed and closed.`,
+        ? `Case ${c.caseNumber} cancelled — unused implants returned.`
+        : `Case ${c.caseNumber} completed and closed.`,
     );
     persistActivity(activity);
 

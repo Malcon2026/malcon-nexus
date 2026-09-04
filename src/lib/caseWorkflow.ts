@@ -436,7 +436,6 @@ export function canEmployeeSubmitCase(
 ): boolean {
   if (implantCase.currentStage === 'Completed') return false;
   if (implantCase.status === 'Waiting For Approval') return false;
-  if (implantCase.surgeryOutcome === 'cancelled') return false;
   if (isFcfsPoolCase(implantCase)) return false;
   if (!isCaseAssignedToEmployee(implantCase, employee)) return false;
 
