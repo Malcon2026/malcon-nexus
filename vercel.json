@@ -1,7 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
+  "installCommand": "npm ci --omit=optional",
   "rewrites": [
     { "source": "/gallery", "destination": "/gallery.html" },
     { "source": "/(.*)", "destination": "/index.html" }
