@@ -58,6 +58,16 @@ export function normalizeDateKey(value: string | null | undefined): string {
   return value.slice(0, 10);
 }
 
+/** Compare calendar surgery dates without timezone drift from ISO timestamps. */
+export function matchesSurgeryDateKey(
+  surgeryDate: string | null | undefined,
+  dateKey: string,
+): boolean {
+  const left = normalizeDateKey(surgeryDate);
+  const right = normalizeDateKey(dateKey);
+  return Boolean(left && right && left === right);
+}
+
 /** DD-MM-YYYY in IST for employee-facing status lines */
 export function formatDateShortIST(date: Date | string = new Date()): string {
   const d = typeof date === 'string' ? new Date(date) : date;

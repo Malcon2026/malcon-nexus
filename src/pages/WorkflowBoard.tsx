@@ -7,7 +7,7 @@ import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
 import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases } from '../lib/caseWorkflow';
-import { getISTDateKey } from '../lib/attendance';
+import { matchesSurgeryDateKey } from '../lib/attendance';
 import {
   getTodaySurgeryDateKey,
   SurgeryDateQuickPick,
@@ -57,9 +57,7 @@ export const WorkflowBoard: React.FC = () => {
 
   const boardCases = useMemo(
     () =>
-      cases.filter(
-        (c) => c.surgeryDate && getISTDateKey(c.surgeryDate) === getISTDateKey(surgeryDate),
-      ),
+      cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, surgeryDate)),
     [cases, surgeryDate],
   );
 
@@ -164,6 +162,12 @@ export const WorkflowBoard: React.FC = () => {
                         <p className="text-[10px] text-gray-400 truncate">{c.doctor.name}</p>
 
                         {/* Status indicator */}
+                        {c.postponeReason && !c.cancelReason && (
+                          <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-sky-50 border border-sky-100 rounded-lg">
+                            <span className="text-[10px] text-sky-700 font-medium">Postponed</span>
+                          </div>
+                        )}
+
                         {isWaiting && (
                           <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-amber-50 border border-amber-100 rounded-lg">
                             <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />

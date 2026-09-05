@@ -35,7 +35,7 @@ import type { PetrolTripEvidence } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo } from '../lib/database/repositories/supabaseRepositories';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey } from '../lib/attendance';
+import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
   planLeaveClearForDate,
@@ -311,7 +311,7 @@ interface AppState {
   // Dynamic Metrics
   getDailyData: () => { day: string; dateKey: string; cases: number; revenue: number; completed: number }[];
   getDepartmentPerformance: () => { department: string; avgTime: number; casesHandled: number; onTime: number }[];
-  getStageDistribution: () => { stage: WorkflowStage; count: number; color: string }[];
+  getStageDistribution: (surgeryDateKey?: string) => { stage: WorkflowStage; count: number; color: string }[];
 
   // Data reset
   clearAllData: () => void;
@@ -2753,7 +2753,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   postponeCase: async (caseId, newSurgeryDate, reason) => {
     const trimmed = reason.trim();
-    const nextDate = newSurgeryDate.trim();
+    const nextDate = normalizeDateKey(newSurgeryDate.trim());
     if (!trimmed) throw new Error('Please enter a reason for postponing.');
     if (!nextDate) throw new Error('Please pick the new surgery date.');
 
@@ -5045,9 +5045,9 @@ export const useStore = create<AppState>((set, get) => ({
       const dateKey = getISTDateKey(d);
       const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
-      const casesInDay = cases.filter((c) => getISTDateKey(c.createdAt) === dateKey);
+      const casesInDay = cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, dateKey));
       const completedInDay = cases.filter(
-        (c) => c.status === 'Completed' && getISTDateKey(c.updatedAt) === dateKey,
+        (c) => c.status === 'Completed' && matchesSurgeryDateKey(c.surgeryDate, dateKey),
       );
       const revenueInDay = casesInDay.reduce((sum, c) => sum + (c.invoiceAmount || 0), 0);
 
@@ -5106,8 +5106,11 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  getStageDistribution: () => {
+  getStageDistribution: (surgeryDateKey?: string) => {
     const cases = get().cases;
+    const scoped = surgeryDateKey
+      ? cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, surgeryDateKey))
+      : cases;
     const stages: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
     const colors: Record<WorkflowStage, string> = {
       'Kit Preparation': '#6366f1',
@@ -5121,11 +5124,13 @@ export const useStore = create<AppState>((set, get) => ({
       'Completed': '#22c55e',
     };
 
-    return stages.map(stage => ({
-      stage,
-      count: cases.filter(c => c.currentStage === stage).length,
-      color: colors[stage],
-    }));
+    return stages
+      .map((stage) => ({
+        stage,
+        count: scoped.filter((c) => c.currentStage === stage).length,
+        color: colors[stage],
+      }))
+      .filter((item) => item.count > 0);
   },
 
   // ========== DATA RESET ==========

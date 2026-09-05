@@ -1,6 +1,6 @@
 import type { Department, Employee, ImplantCase, StageRecord, WorkflowStage } from '../types';
 import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
-import { getISTDateKey } from './attendance';
+import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation',
@@ -301,8 +301,7 @@ const TV_BOARD_STAGES = new Set<WorkflowStage>([
 ]);
 
 function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
-  if (!surgeryDate) return false;
-  return getISTDateKey(surgeryDate) === getISTDateKey();
+  return matchesSurgeryDateKey(surgeryDate, getISTDateKey());
 }
 
 /**

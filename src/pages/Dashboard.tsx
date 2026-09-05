@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Clock, Stethoscope, Sparkles, Receipt, Wallet,
@@ -17,6 +17,11 @@ import { useStore } from '../store/useStore';
 import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { filterAttendanceStaff } from '../lib/staff';
 import { countFcfsPoolCases } from '../lib/caseWorkflow';
+import {
+  getTodaySurgeryDateKey,
+  SurgeryDateQuickPick,
+  type SurgeryDateMode,
+} from '../components/SurgeryDateQuickPick';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -87,10 +92,20 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 
 export const Dashboard: React.FC = () => {
   const { cases, employees, activityLog, setActiveTab, setSelectedCase, getDailyData, getDepartmentPerformance, getStageDistribution } = useStore();
+  const [surgeryDate, setSurgeryDate] = useState(getTodaySurgeryDateKey);
+  const [surgeryDateMode, setSurgeryDateMode] = useState<SurgeryDateMode>('today');
 
   const dailyData = getDailyData();
   const departmentPerformance = getDepartmentPerformance();
-  const stageDistribution = getStageDistribution();
+  const stageDistribution = getStageDistribution(surgeryDate);
+  const stageDistributionTotal = stageDistribution.reduce((sum, item) => sum + item.count, 0);
+
+  const stageDateLabel =
+    surgeryDateMode === 'today'
+      ? 'Today'
+      : surgeryDateMode === 'tomorrow'
+        ? 'Tomorrow'
+        : formatDate(surgeryDate);
 
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval');
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval');
@@ -163,7 +178,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Daily Performance</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Cases over the last 14 days</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Surgeries scheduled per day (last 14 days)</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
@@ -204,31 +219,54 @@ export const Dashboard: React.FC = () => {
         >
           <Card>
             <CardHeader>
-              <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Current distribution</p>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Surgery on <span className="font-medium text-gray-700">{stageDateLabel}</span>
+                    {' '}({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
+                  </p>
+                </div>
+                <SurgeryDateQuickPick
+                  value={surgeryDate}
+                  mode={surgeryDateMode}
+                  onChange={(nextDate, nextMode) => {
+                    setSurgeryDate(nextDate);
+                    setSurgeryDateMode(nextMode);
+                  }}
+                />
+              </div>
             </CardHeader>
             <CardBody>
-              <ResponsiveContainer width="100%" height={140}>
-                <PieChart>
-                  <Pie data={stageDistribution} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="count">
-                    {stageDistribution.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
+              {stageDistributionTotal === 0 ? (
+                <div className="h-[140px] flex items-center justify-center text-xs text-gray-400">
+                  No cases scheduled for this surgery date
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie data={stageDistribution} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="count">
+                        {stageDistribution.map((entry, index) => (
+                          <Cell key={index} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [value, 'Cases']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-1.5 mt-2">
+                    {stageDistribution.map((item) => (
+                      <div key={item.stage} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full" style={{ background: item.color }} />
+                          <span className="text-xs text-gray-600">{item.stage}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900">{item.count}</span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => [value, 'Cases']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="space-y-1.5 mt-2">
-                {stageDistribution.map((item) => (
-                  <div key={item.stage} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full" style={{ background: item.color }} />
-                      <span className="text-xs text-gray-600">{item.stage}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-gray-900">{item.count}</span>
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </CardBody>
           </Card>
         </motion.div>

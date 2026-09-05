@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
-import { formatTimeIST, formatDateIST, getISTDateKey } from '../lib/attendance';
+import { formatTimeIST, formatDateIST, getISTDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
 import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase, getCurrentStageTeamDisplay } from '../lib/caseWorkflow';
 
@@ -177,8 +177,7 @@ function tvBillingStatus(c: ImplantCase): 'Done' | 'Pending' {
 }
 
 function isTodayIST(value: string | undefined): boolean {
-  if (!value) return false;
-  return getISTDateKey(value) === getISTDateKey();
+  return matchesSurgeryDateKey(value, getISTDateKey());
 }
 
 function tvRemark(c: ImplantCase): string {

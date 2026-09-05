@@ -360,7 +360,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
       hospitalId: '',
       phone: '',
     },
-    surgeryDate: (row.surgery_date as string) ?? '',
+    surgeryDate: normalizeDateKey(row.surgery_date as string),
     implantRequired: (row.implant_required as string) ?? '',
     implantType: (row.implant_type as string) ?? '',
     implantCompany: (row.implant_company as string) ?? '',
@@ -372,7 +372,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     createdBy: row.created_by as string,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
-    dueDate: row.due_date as string,
+    dueDate: normalizeDateKey(row.due_date as string),
     remarks: row.remarks as string,
     stages: normalizeCaseStages((row.stages as ImplantCase['stages']) ?? []),
     activityLogs: (row.activity_logs as ImplantCase['activityLogs']) ?? [],
@@ -384,7 +384,7 @@ function rowToCase(row: Record<string, unknown>): ImplantCase {
     surgeryOutcome: (row.surgery_outcome as ImplantCase['surgeryOutcome']) ?? '',
     surgeryOutcomeDetail: (row.surgery_outcome_detail as string) ?? '',
     postponeReason: (row.postpone_reason as string) ?? '',
-    postponedFrom: (row.postponed_from as string) ?? '',
+    postponedFrom: normalizeDateKey(row.postponed_from as string),
   };
 }
 
