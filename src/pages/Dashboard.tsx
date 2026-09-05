@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Clock, Stethoscope, Sparkles, Receipt, Wallet,
@@ -17,11 +17,7 @@ import { useStore } from '../store/useStore';
 import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { filterAttendanceStaff } from '../lib/staff';
 import { countFcfsPoolCases } from '../lib/caseWorkflow';
-import {
-  getTodaySurgeryDateKey,
-  SurgeryDateQuickPick,
-  type SurgeryDateMode,
-} from '../components/SurgeryDateQuickPick';
+import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -92,20 +88,12 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 
 export const Dashboard: React.FC = () => {
   const { cases, employees, activityLog, setActiveTab, setSelectedCase, getDailyData, getDepartmentPerformance, getStageDistribution } = useStore();
-  const [surgeryDate, setSurgeryDate] = useState(getTodaySurgeryDateKey);
-  const [surgeryDateMode, setSurgeryDateMode] = useState<SurgeryDateMode>('today');
 
   const dailyData = getDailyData();
   const departmentPerformance = getDepartmentPerformance();
-  const stageDistribution = getStageDistribution(surgeryDate);
+  const todaySurgeryDate = getTodaySurgeryDateKey();
+  const stageDistribution = getStageDistribution(todaySurgeryDate);
   const stageDistributionTotal = stageDistribution.reduce((sum, item) => sum + item.count, 0);
-
-  const stageDateLabel =
-    surgeryDateMode === 'today'
-      ? 'Today'
-      : surgeryDateMode === 'tomorrow'
-        ? 'Tomorrow'
-        : formatDate(surgeryDate);
 
   const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval');
   const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval');
@@ -219,28 +207,15 @@ export const Dashboard: React.FC = () => {
         >
           <Card>
             <CardHeader>
-              <div className="flex flex-col gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Surgery on <span className="font-medium text-gray-700">{stageDateLabel}</span>
-                    {' '}({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
-                  </p>
-                </div>
-                <SurgeryDateQuickPick
-                  value={surgeryDate}
-                  mode={surgeryDateMode}
-                  onChange={(nextDate, nextMode) => {
-                    setSurgeryDate(nextDate);
-                    setSurgeryDateMode(nextMode);
-                  }}
-                />
-              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Today&apos;s surgeries ({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
+              </p>
             </CardHeader>
             <CardBody>
               {stageDistributionTotal === 0 ? (
                 <div className="h-[140px] flex items-center justify-center text-xs text-gray-400">
-                  No cases scheduled for this surgery date
+                  No cases scheduled for today
                 </div>
               ) : (
                 <>
