@@ -72,7 +72,7 @@ export function buildTelegramAlertMessage(
       '',
       ...detailLines,
       '',
-      '<b>Action required:</b> Tap the button below to open the app.',
+      '<b>Action required:</b> Tap the button below. On iPhone, use the Malcon Nexus home screen icon if the app does not open.',
     ].join('\n');
   }
 

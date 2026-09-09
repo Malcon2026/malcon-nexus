@@ -18,6 +18,11 @@ export function getAppUrl(): string {
   return url.replace(/\/$/, '');
 }
 
+/** Launcher page — escapes Telegram in-app browser on Android; iOS shows home-screen hint. */
+export function getTelegramAppOpenUrl(): string {
+  return `${getAppUrl()}/open?from=telegram`;
+}
+
 async function loadCaseContext(
   supabase: SupabaseClient,
   caseId: string,
@@ -93,7 +98,7 @@ export async function deliverTelegramAlert(
     ...ctx,
     employeeName: (employee.name as string) ?? 'Employee',
   });
-  const sent = await telegramSendMessage(botToken, chatId, text, getAppUrl());
+  const sent = await telegramSendMessage(botToken, chatId, text, getTelegramAppOpenUrl());
   if (!sent.ok) return { ok: false, error: sent.error ?? 'Telegram send failed' };
   return { ok: true };
 }
