@@ -26,11 +26,14 @@ function shouldPlayPostpone(oldRow: CaseRow | undefined, newRow: CaseRow, employ
   );
 }
 
-/** Optional in-app siren (priority 3) when a case is assigned or postponed to this employee. */
+const SIREN_TEST_KEY = 'siren_test_at';
+
+/** In-app siren (priority 3) on assign/postpone and admin broadcast test. */
 export function InAppAlertListener() {
   const currentUser = useStore((s) => s.currentUser);
   const viewMode = useStore((s) => s.viewMode);
   const recentAlerts = useRef(new Set<string>());
+  const lastSirenTestAt = useRef<string | null>(null);
 
   useEffect(() => {
     if (!USE_SUPABASE) return;
@@ -46,6 +49,25 @@ export function InAppAlertListener() {
       window.setTimeout(() => recentAlerts.current.delete(key), 5000);
       return true;
     };
+
+    const testChannel = supabase
+      .channel(`in-app-siren-test-${employeeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'app_settings',
+          filter: `key=eq.${SIREN_TEST_KEY}`,
+        },
+        (payload) => {
+          const value = String((payload.new as { value?: string }).value ?? '');
+          if (!value || value === lastSirenTestAt.current) return;
+          lastSirenTestAt.current = value;
+          if (dedupe(`siren-test-${value}`)) playInAppSiren();
+        },
+      )
+      .subscribe();
 
     const channel = supabase
       .channel(`in-app-alerts-${employeeId}`)
@@ -89,6 +111,7 @@ export function InAppAlertListener() {
       .subscribe();
 
     return () => {
+      void supabase.removeChannel(testChannel);
       void supabase.removeChannel(channel);
     };
   }, [currentUser.id, currentUser.role, viewMode]);

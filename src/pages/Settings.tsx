@@ -17,6 +17,7 @@ import {
   isInAppSoundEnabled,
   setInAppSoundEnabled,
 } from '../lib/inAppAlertSound';
+import { triggerSirenTestForAll } from '../lib/sirenTest';
 
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
@@ -112,6 +113,8 @@ export const Settings: React.FC = () => {
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const [pushPermission, setPushPermission] = useState(webPushPermission());
   const [inAppSound, setInAppSound] = useState(isInAppSoundEnabled);
+  const [sirenTestBusy, setSirenTestBusy] = useState(false);
+  const [sirenTestMessage, setSirenTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setPushPermission(webPushPermission());
@@ -164,6 +167,18 @@ export const Settings: React.FC = () => {
     setInAppSound(next);
     setInAppSoundEnabled(next);
     showSaved();
+  };
+
+  const handleSirenTestAll = async () => {
+    setSirenTestBusy(true);
+    setSirenTestMessage(null);
+    const result = await triggerSirenTestForAll(currentUser.name);
+    setSirenTestBusy(false);
+    if (result.ok) {
+      setSirenTestMessage('Siren test sent. Employees with the app open on screen should hear it now.');
+    } else {
+      setSirenTestMessage(result.error);
+    }
   };
 
   const handleCompanySave = () => {
@@ -283,6 +298,36 @@ export const Settings: React.FC = () => {
               <p className="text-xs text-gray-500 mb-4">
                 Alert priority: Telegram first, phone notifications second, in-app siren third (optional).
               </p>
+
+              {isAdmin && (
+                <Card className="mb-4 border-amber-200 bg-amber-50/40">
+                  <CardHeader>
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                      <Volume2 className="h-4 w-4" />
+                      Test siren for all employees
+                    </h3>
+                  </CardHeader>
+                  <CardBody className="space-y-3">
+                    <p className="text-sm text-gray-600">
+                      Sends the in-app siren to every employee who currently has Malcon Nexus open on their screen.
+                      It does not play on phones where the app is closed or in the background.
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={sirenTestBusy}
+                      onClick={handleSirenTestAll}
+                    >
+                      {sirenTestBusy ? 'Sending…' : 'Test siren now'}
+                    </Button>
+                    {sirenTestMessage && (
+                      <p className={`text-xs ${sirenTestMessage.startsWith('Siren test sent') ? 'text-green-700' : 'text-red-600'}`}>
+                        {sirenTestMessage}
+                      </p>
+                    )}
+                  </CardBody>
+                </Card>
+              )}
 
               <Card className="mb-4">
                 <CardHeader>
