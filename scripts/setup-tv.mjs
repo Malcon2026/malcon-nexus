@@ -25,8 +25,8 @@ function loadEnv() {
 }
 
 const env = loadEnv();
-const token = env.TV_BOARD_TOKEN || 'malcon2026tv';
-const appUrl = env.APP_URL || 'https://malconnexus.com';
+const token = env.TV_BOARD_TOKEN || env.GALLERY_TOKEN || 'malcon2026gallery';
+const appUrl = env.APP_URL || 'https://malcon-nexus-gamma.vercel.app';
 const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
 const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] ?? 'YOUR_PROJECT';
 

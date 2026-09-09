@@ -24,6 +24,14 @@ function safeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
+function tokenMatchesTvBoard(token: string): boolean {
+  const tvToken = Deno.env.get('TV_BOARD_TOKEN') ?? '';
+  const galleryToken = Deno.env.get('GALLERY_TOKEN') ?? '';
+  if (tvToken && safeEqual(token, tvToken)) return true;
+  if (galleryToken && safeEqual(token, galleryToken)) return true;
+  return false;
+}
+
 function istDateKey(iso: string): string {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: IST });
 }
@@ -82,6 +90,43 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get('token') ?? '';
+    const mode = url.searchParams.get('mode') ?? '';
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse({ error: 'Server credentials not configured' }, 500);
+    }
+
+    if (mode === 'tv') {
+      if (!token || !tokenMatchesTvBoard(token)) {
+        return jsonResponse({ error: 'Invalid or missing token' }, 401);
+      }
+
+      const admin = createClient(supabaseUrl, serviceRoleKey);
+      const [casesRes, employeesRes, settingsRes] = await Promise.all([
+        admin.from('cases').select('*').order('updated_at', { ascending: false }),
+        admin.from('employees').select('*').order('name'),
+        admin.from('app_settings').select('value').eq('key', 'tv_notice').maybeSingle(),
+      ]);
+
+      if (casesRes.error) {
+        console.error('[gallery-feed] tv cases', casesRes.error.message);
+        return jsonResponse({ error: 'Failed to load cases' }, 502);
+      }
+      if (employeesRes.error) {
+        console.error('[gallery-feed] tv employees', employeesRes.error.message);
+        return jsonResponse({ error: 'Failed to load employees' }, 502);
+      }
+
+      return jsonResponse({
+        ok: true,
+        cases: casesRes.data ?? [],
+        employees: employeesRes.data ?? [],
+        tvNotice: (settingsRes.data?.value as string | undefined) ?? '',
+      });
+    }
+
     const expected = Deno.env.get('GALLERY_TOKEN') ?? '';
 
     if (!expected) {
@@ -89,12 +134,6 @@ Deno.serve(async (req) => {
     }
     if (!token || !safeEqual(token, expected)) {
       return jsonResponse({ error: 'Invalid or missing token' }, 401);
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      return jsonResponse({ error: 'Server credentials not configured' }, 500);
     }
 
     const days = Math.min(60, Math.max(1, Number(url.searchParams.get('days') ?? DEFAULT_DAYS) || DEFAULT_DAYS));

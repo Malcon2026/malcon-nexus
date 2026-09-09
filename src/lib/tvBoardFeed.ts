@@ -15,17 +15,30 @@ export type TvBoardFeedResponse = {
 };
 
 function tvFeedUrl(token: string): string {
-  const q = new URLSearchParams({ token });
-  return `${SUPABASE_URL}/functions/v1/tv-board-feed?${q.toString()}`;
+  const q = new URLSearchParams({ token, mode: 'tv' });
+  return `${SUPABASE_URL}/functions/v1/gallery-feed?${q.toString()}`;
+}
+
+function feedHeaders(): Record<string, string> {
+  if (!ANON_KEY) return {};
+  return {
+    apikey: ANON_KEY,
+    Authorization: `Bearer ${ANON_KEY}`,
+  };
 }
 
 export async function fetchTvBoardFeed(token: string): Promise<TvBoardFeedResponse> {
   const res = await fetch(tvFeedUrl(token), {
-    headers: ANON_KEY ? { apikey: ANON_KEY } : {},
+    headers: feedHeaders(),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = typeof body.error === 'string' ? body.error : `Request failed (${res.status})`;
+    const msg =
+      typeof body.error === 'string'
+        ? body.error
+        : typeof body.message === 'string'
+          ? body.message
+          : `Request failed (${res.status})`;
     throw new Error(msg);
   }
 
