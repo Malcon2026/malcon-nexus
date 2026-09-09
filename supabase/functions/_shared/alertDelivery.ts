@@ -8,8 +8,13 @@ import {
 
 export const DEFAULT_APP_URL = 'https://malcon-nexus-gamma.vercel.app';
 
+/** Use APP_URL secret when set; falls back to Vercel until malconnexus.com is pointed. */
 export function getAppUrl(): string {
-  const url = Deno.env.get('APP_URL') ?? DEFAULT_APP_URL;
+  const configured = Deno.env.get('APP_URL')?.trim();
+  const url =
+    configured && configured !== 'https://malconnexus.com' && configured !== 'http://malconnexus.com'
+      ? configured
+      : DEFAULT_APP_URL;
   return url.replace(/\/$/, '');
 }
 

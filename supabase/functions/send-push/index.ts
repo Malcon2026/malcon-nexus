@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
+import { getAppUrl } from '../_shared/alertDelivery.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
     const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://malcon-nexus-gamma.vercel.app';
+    const appUrl = getAppUrl();
 
     if (!publicKey || !privateKey) {
       return jsonResponse({ error: 'VAPID keys not configured', skipped: true }, 503);
