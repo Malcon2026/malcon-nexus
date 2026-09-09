@@ -16,7 +16,6 @@ import {
 import {
   isInAppSoundEnabled,
   setInAppSoundEnabled,
-  previewInAppSiren,
 } from '../lib/inAppAlertSound';
 
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
@@ -406,7 +405,7 @@ export const Settings: React.FC = () => {
                 <CardHeader>
                   <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                     <Volume2 className="h-4 w-4" />
-                    In-App Siren (Optional)
+                    In-App Siren
                   </h3>
                 </CardHeader>
                 <CardBody className="space-y-4">
@@ -417,8 +416,8 @@ export const Settings: React.FC = () => {
 
                   <div className="flex items-center justify-between py-2">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Enable in-app siren</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Off by default — turn on if you want audible alerts in the app</p>
+                      <p className="text-sm font-medium text-gray-900">In-app siren</p>
+                      <p className="text-xs text-gray-500 mt-0.5">On by default — turn off only if you don&apos;t want audible alerts in the app</p>
                     </div>
                     <button
                       onClick={toggleInAppSound}
@@ -428,12 +427,6 @@ export const Settings: React.FC = () => {
                       <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${inAppSound ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
-
-                  {inAppSound && (
-                    <Button variant="outline" size="sm" onClick={previewInAppSiren}>
-                      Test siren
-                    </Button>
-                  )}
                 </CardBody>
               </Card>
 

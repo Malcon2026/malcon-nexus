@@ -13,9 +13,11 @@ function getAudio(): HTMLAudioElement {
 
 export function isInAppSoundEnabled(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -41,17 +43,5 @@ export function playInAppSiren(): void {
     vibrateAlert();
   } catch (err) {
     console.warn('[siren] failed:', err);
-  }
-}
-
-/** Settings "Test siren" — requires a user tap; ignores visibility check. */
-export function previewInAppSiren(): void {
-  try {
-    const el = getAudio();
-    el.currentTime = 0;
-    void el.play().catch((err) => console.warn('[siren] preview blocked:', err));
-    vibrateAlert();
-  } catch (err) {
-    console.warn('[siren] preview failed:', err);
   }
 }
