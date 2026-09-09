@@ -18,11 +18,6 @@ export function getAppUrl(): string {
   return url.replace(/\/$/, '');
 }
 
-/** Launcher page — escapes Telegram in-app browser on Android; iOS shows home-screen hint. */
-export function getTelegramAppOpenUrl(): string {
-  return `${getAppUrl()}/open?from=telegram`;
-}
-
 async function loadCaseContext(
   supabase: SupabaseClient,
   caseId: string,
@@ -50,7 +45,6 @@ async function telegramSendMessage(
   botToken: string,
   chatId: string | number,
   text: string,
-  appUrl: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
@@ -60,9 +54,6 @@ async function telegramSendMessage(
       text,
       parse_mode: 'HTML',
       disable_web_page_preview: true,
-      reply_markup: {
-        inline_keyboard: [[{ text: '📲 Open Malcon Nexus', url: appUrl }]],
-      },
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -98,7 +89,7 @@ export async function deliverTelegramAlert(
     ...ctx,
     employeeName: (employee.name as string) ?? 'Employee',
   });
-  const sent = await telegramSendMessage(botToken, chatId, text, getTelegramAppOpenUrl());
+  const sent = await telegramSendMessage(botToken, chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error ?? 'Telegram send failed' };
   return { ok: true };
 }

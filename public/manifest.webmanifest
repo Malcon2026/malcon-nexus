@@ -1,13 +1,10 @@
 {
-  "id": "/",
   "name": "Malcon Nexus",
   "short_name": "Malcon Nexus",
   "description": "Workflow Management by Malcon Life Sciences",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "browser"],
-  "capture_links": "existing-client-navigate",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#4338ca",

@@ -5,7 +5,6 @@
   "rewrites": [
     { "source": "/gallery", "destination": "/gallery.html" },
     { "source": "/tv", "destination": "/tv.html" },
-    { "source": "/open", "destination": "/open.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
