@@ -30,6 +30,7 @@ import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
+import { InAppAlertListener } from './components/InAppAlertListener';
 import type { Employee } from './types';
 
 const SUPABASE_ENABLED =
@@ -288,6 +289,7 @@ function MainApp() {
       </div>
 
       <ShortcutsHelpModal isOpen={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
+      {isAuthenticated && <InAppAlertListener />}
     </div>
     </AppErrorBoundary>
   );
