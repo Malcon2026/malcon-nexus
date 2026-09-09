@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv, MessageCircle, ExternalLink, Volume2 } from 'lucide-react';
+import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv, MessageCircle, ExternalLink } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
@@ -13,12 +13,6 @@ import {
   subscribeToWebPush,
   webPushPermission,
 } from '../lib/webPush';
-import {
-  isInAppSoundEnabled,
-  setInAppSoundEnabled,
-} from '../lib/inAppAlertSound';
-import { triggerSirenTestForAll } from '../lib/sirenTest';
-
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
   { id: 'notice', label: 'Notice Board', icon: <Megaphone className="h-4 w-4" />, adminOnly: true },
@@ -112,9 +106,6 @@ export const Settings: React.FC = () => {
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const [pushPermission, setPushPermission] = useState(webPushPermission());
-  const [inAppSound, setInAppSound] = useState(isInAppSoundEnabled);
-  const [sirenTestBusy, setSirenTestBusy] = useState(false);
-  const [sirenTestMessage, setSirenTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setPushPermission(webPushPermission());
@@ -160,25 +151,6 @@ export const Settings: React.FC = () => {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
     setNotifPrefs(updated);
     localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(updated));
-  };
-
-  const toggleInAppSound = () => {
-    const next = !inAppSound;
-    setInAppSound(next);
-    setInAppSoundEnabled(next);
-    showSaved();
-  };
-
-  const handleSirenTestAll = async () => {
-    setSirenTestBusy(true);
-    setSirenTestMessage(null);
-    const result = await triggerSirenTestForAll(currentUser.name);
-    setSirenTestBusy(false);
-    if (result.ok) {
-      setSirenTestMessage('Siren test sent. Employees with the app open on screen should hear it now.');
-    } else {
-      setSirenTestMessage(result.error);
-    }
   };
 
   const handleCompanySave = () => {
@@ -296,38 +268,8 @@ export const Settings: React.FC = () => {
             {activeTab === 'notifications' && (
               <>
               <p className="text-xs text-gray-500 mb-4">
-                Alert priority: Telegram first, phone notifications second, in-app siren third (optional).
+                Alert priority: Telegram first, then phone notifications.
               </p>
-
-              {isAdmin && (
-                <Card className="mb-4 border-amber-200 bg-amber-50/40">
-                  <CardHeader>
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                      <Volume2 className="h-4 w-4" />
-                      Test siren for all employees
-                    </h3>
-                  </CardHeader>
-                  <CardBody className="space-y-3">
-                    <p className="text-sm text-gray-600">
-                      Sends the in-app siren to every employee who currently has Malcon Nexus open on their screen.
-                      It does not play on phones where the app is closed or in the background.
-                    </p>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      disabled={sirenTestBusy}
-                      onClick={handleSirenTestAll}
-                    >
-                      {sirenTestBusy ? 'Sending…' : 'Test siren now'}
-                    </Button>
-                    {sirenTestMessage && (
-                      <p className={`text-xs ${sirenTestMessage.startsWith('Siren test sent') ? 'text-green-700' : 'text-red-600'}`}>
-                        {sirenTestMessage}
-                      </p>
-                    )}
-                  </CardBody>
-                </Card>
-              )}
 
               <Card className="mb-4">
                 <CardHeader>
@@ -443,35 +385,6 @@ export const Settings: React.FC = () => {
                   <p className="text-xs text-gray-500">
                     iPhone: add Malcon Nexus to home screen first, then enable here.
                   </p>
-                </CardBody>
-              </Card>
-
-              <Card className="mb-4">
-                <CardHeader>
-                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                    <Volume2 className="h-4 w-4" />
-                    In-App Siren
-                  </h3>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Play a siren when a case is assigned or postponed — only while Malcon Nexus is open on your screen.
-                    When the app is closed, use Telegram or phone notifications instead.
-                  </p>
-
-                  <div className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">In-app siren</p>
-                      <p className="text-xs text-gray-500 mt-0.5">On by default — turn off only if you don&apos;t want audible alerts in the app</p>
-                    </div>
-                    <button
-                      onClick={toggleInAppSound}
-                      className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors ${inAppSound ? 'bg-gray-900' : 'bg-gray-200'}`}
-                      aria-label="Toggle in-app siren"
-                    >
-                      <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${inAppSound ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </button>
-                  </div>
                 </CardBody>
               </Card>
 
