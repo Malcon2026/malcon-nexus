@@ -79,5 +79,5 @@ console.log(`  Secret: ${webhookSecret}`);
 console.log('\nEnsure TELEGRAM_WEBHOOK_SECRET matches in Supabase secrets.');
 console.log('\nEmployees connect:');
 console.log('  1. Open https://t.me/Malcon_Nexus_bot');
-console.log('  2. Send: /start EMPLOYEE_CODE  (e.g. /start 0165)');
+console.log('  2. Send: /start EMPLOYEE_CODE');
 console.log('  3. Settings → Notifications in app shows status\n');

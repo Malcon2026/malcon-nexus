@@ -301,10 +301,6 @@ export const Settings: React.FC = () => {
                       </p>
                     )}
                   </div>
-
-                  <p className="text-xs text-gray-500">
-                    To unlink: send <code className="bg-gray-100 px-1 rounded">/disconnect</code> to the bot.
-                  </p>
                 </CardBody>
               </Card>
 

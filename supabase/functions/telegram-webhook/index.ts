@@ -80,26 +80,6 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey);
   const chatIdStr = String(chatId);
 
-  if (text === '/disconnect') {
-    const { data: linked } = await admin
-      .from('employees')
-      .select('id, name')
-      .eq('telegram_chat_id', chatIdStr)
-      .maybeSingle();
-
-    if (linked) {
-      await admin.from('employees').update({ telegram_chat_id: null }).eq('id', linked.id);
-      await telegramSendMessage(
-        botToken,
-        chatId,
-        `Disconnected ${linked.name} from Malcon Nexus alerts.\n\nSend /start YOUR_CODE to connect again.`,
-      );
-    } else {
-      await telegramSendMessage(botToken, chatId, 'No Malcon Nexus account linked to this chat.');
-    }
-    return jsonOk();
-  }
-
   if (text === '/status') {
     const { data: linked } = await admin
       .from('employees')
@@ -127,7 +107,7 @@ Deno.serve(async (req) => {
     await telegramSendMessage(
       botToken,
       chatId,
-      'Malcon Nexus alerts bot\n\nCommands:\n/start YOUR_CODE — connect your account\n/status — check connection\n/disconnect — unlink',
+      'Malcon Nexus alerts bot\n\nSend /start YOUR_CODE to connect.\n/status — check connection',
     );
     return jsonOk();
   }
@@ -137,7 +117,7 @@ Deno.serve(async (req) => {
     await telegramSendMessage(
       botToken,
       chatId,
-      'Welcome to Malcon Nexus!\n\nTo connect, send:\n/start YOUR_CODE\n\nExample: /start 0165\n\nYour employee code is in the app under Settings → Notifications.',
+      'Welcome to Malcon Nexus!\n\nTo connect, send:\n/start YOUR_CODE\n\nYour employee code is in the app under Settings → Notifications.',
     );
     return jsonOk();
   }
@@ -197,7 +177,7 @@ Deno.serve(async (req) => {
   await telegramSendMessage(
     botToken,
     chatId,
-    `Connected!\n\n${match.name} (${match.employee_code})\n\nYou will receive Malcon Nexus alerts here when cases are assigned or postponed.\n\n/status — check link\n/disconnect — unlink`,
+    `Connected!\n\n${match.name} (${match.employee_code})\n\nYou will receive Malcon Nexus alerts here when cases are assigned or postponed.`,
   );
 
   return jsonOk();
