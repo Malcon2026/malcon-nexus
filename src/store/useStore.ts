@@ -19,7 +19,7 @@ import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
-import { notifyTelegramAssignment, notifyTelegramPostpone } from '../lib/telegram';
+import { notifyAssignmentAlerts, notifyPostponeAlerts } from '../lib/alertChannels';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { formatUnknownError } from '../utils/errors';
@@ -1134,7 +1134,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (startEmp) {
       void notifyCaseAssignment(caseId, startEmp.id);
-      notifyTelegramAssignment(caseId, startEmp.id);
+      notifyAssignmentAlerts(caseId, startEmp.id);
     }
   },
 
@@ -1405,7 +1405,7 @@ export const useStore = create<AppState>((set, get) => ({
         });
         updatedEmployees = updatedEmployees.map((e) => (e.id === nextEmp.id ? updated : e));
         void notifyCaseAssignment(caseId, nextEmp.id);
-        notifyTelegramAssignment(caseId, nextEmp.id);
+        notifyAssignmentAlerts(caseId, nextEmp.id);
       }
     }
 
@@ -1918,7 +1918,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     void notifyCaseAssignment(caseId, employee.id);
-    notifyTelegramAssignment(caseId, employee.id);
+    notifyAssignmentAlerts(caseId, employee.id);
   },
 
   rejectStage: async (caseId, adminNotes) => {
@@ -2111,7 +2111,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     void notifyCaseAssignment(caseId, employee.id);
-    notifyTelegramAssignment(caseId, employee.id);
+    notifyAssignmentAlerts(caseId, employee.id);
   },
 
   requestTask: async (caseId) => {
@@ -2753,7 +2753,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (nextEmp) {
       void notifyCaseAssignment(caseId, nextEmp.id);
-      notifyTelegramAssignment(caseId, nextEmp.id);
+      notifyAssignmentAlerts(caseId, nextEmp.id);
     }
   },
 
@@ -2834,7 +2834,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     if (c.assignedEmployee?.id) {
-      notifyTelegramPostpone(caseId, c.assignedEmployee.id);
+      notifyPostponeAlerts(caseId, c.assignedEmployee.id);
     }
   },
 

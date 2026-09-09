@@ -29,6 +29,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
+import { registerServiceWorker } from './lib/webPush';
 import type { Employee } from './types';
 
 const SUPABASE_ENABLED =
@@ -72,6 +73,11 @@ function MainApp() {
   });
 
   const hydrateGeneration = useRef(0);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void registerServiceWorker();
+  }, [isAuthenticated]);
 
   const hydrateForUser = useCallback(async (employee: Employee) => {
     const generation = ++hydrateGeneration.current;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv, MessageCircle, ExternalLink } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
@@ -8,6 +8,11 @@ import { useStore } from '../store/useStore';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { NoticeBoardEditor } from '../components/NoticeBoardEditor';
 import { TvNoticeBoardEditor } from '../components/TvNoticeBoardEditor';
+import {
+  isWebPushSupported,
+  subscribeToWebPush,
+  webPushPermission,
+} from '../lib/webPush';
 
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
@@ -99,6 +104,27 @@ export const Settings: React.FC = () => {
 
   // Notification prefs
   const [notifPrefs, setNotifPrefs] = useState(loadNotifPrefs);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
+  const [pushPermission, setPushPermission] = useState(webPushPermission());
+
+  useEffect(() => {
+    setPushPermission(webPushPermission());
+  }, [activeTab]);
+
+  const handleEnablePush = async () => {
+    setPushBusy(true);
+    setPushMessage(null);
+    const result = await subscribeToWebPush();
+    setPushPermission(webPushPermission());
+    setPushBusy(false);
+    if (result.ok) {
+      setPushMessage('Phone notifications enabled.');
+      showSaved();
+    } else {
+      setPushMessage(result.error);
+    }
+  };
 
   // Company info
   const [companyInfo, setCompanyInfo] = useState(loadCompanyInfo);
@@ -242,6 +268,61 @@ export const Settings: React.FC = () => {
 
             {activeTab === 'notifications' && (
               <>
+              <Card className="mb-4">
+                <CardHeader>
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Phone Notifications (App)
+                  </h3>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Alerts when cases are assigned or postponed — works from your installed Malcon Nexus app.
+                  </p>
+
+                  {!isWebPushSupported() ? (
+                    <div className="p-3 rounded-lg bg-gray-50 border border-gray-100 text-xs text-gray-600">
+                      Not available in this browser. Use Chrome on Android, or install the app to your home screen on iPhone (iOS 16.4+).
+                    </div>
+                  ) : pushPermission === 'granted' ? (
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                      <p className="text-sm font-medium text-green-800">Phone notifications enabled</p>
+                      <p className="text-xs text-green-700 mt-1">
+                        You will get alerts when the app is in the background.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                      <p className="text-sm font-medium text-amber-900">Not enabled yet</p>
+                      <p className="text-xs text-amber-800 mt-1">
+                        Tap below and allow notifications when your phone asks.
+                      </p>
+                    </div>
+                  )}
+
+                  {isWebPushSupported() && pushPermission !== 'granted' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={pushBusy}
+                      onClick={handleEnablePush}
+                    >
+                      {pushBusy ? 'Enabling…' : 'Enable phone notifications'}
+                    </Button>
+                  )}
+
+                  {pushMessage && (
+                    <p className={`text-xs ${pushMessage.includes('enabled') ? 'text-green-700' : 'text-red-600'}`}>
+                      {pushMessage}
+                    </p>
+                  )}
+
+                  <p className="text-xs text-gray-500">
+                    iPhone: add Malcon Nexus to home screen first, then enable here.
+                  </p>
+                </CardBody>
+              </Card>
+
               <Card className="mb-4">
                 <CardHeader>
                   <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
