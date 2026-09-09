@@ -268,7 +268,7 @@ export const Settings: React.FC = () => {
             {activeTab === 'notifications' && (
               <>
               <p className="text-xs text-gray-500 mb-4">
-                Alert priority: Telegram first, then phone notifications.
+                Alert priority: Alert 1 (Telegram) → Alert 2 (+15 min push) → Alert 3 (+30 min Telegram). Then stops.
               </p>
 
               <Card className="mb-4">

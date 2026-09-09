@@ -33,6 +33,18 @@ verify_jwt = true
 [functions.send-push]
 verify_jwt = true
 
+[functions.start-case-alerts]
+verify_jwt = true
+
+[functions.process-alert-escalations]
+verify_jwt = false
+
+[functions.acknowledge-case-alerts]
+verify_jwt = true
+
+[functions.test-case-alerts]
+verify_jwt = true
+
 [functions.location-bike-route]
 verify_jwt = true
 

@@ -1,16 +1,11 @@
-import { notifyTelegramAssignment, notifyTelegramPostpone } from './telegram';
-import { notifyPushAssignment, notifyPushPostpone } from './webPush';
+import { startCaseAlertEscalation } from './caseAlerts';
 
-/** Telegram + Web Push when a case is assigned. */
+/** Alert 1 now (Telegram); Alert 2 (+15m push); Alert 3 (+30m Telegram). Stops after 3 or when acknowledged. */
 export function notifyAssignmentAlerts(caseId: string, employeeId: string | undefined | null): void {
-  if (!employeeId) return;
-  notifyTelegramAssignment(caseId, employeeId);
-  notifyPushAssignment(caseId, employeeId);
+  startCaseAlertEscalation(caseId, employeeId, 'assignment');
 }
 
-/** Telegram + Web Push when a case is postponed. */
+/** Same 3-step ladder for postpone. */
 export function notifyPostponeAlerts(caseId: string, employeeId: string | undefined | null): void {
-  if (!employeeId) return;
-  notifyTelegramPostpone(caseId, employeeId);
-  notifyPushPostpone(caseId, employeeId);
+  startCaseAlertEscalation(caseId, employeeId, 'postpone');
 }

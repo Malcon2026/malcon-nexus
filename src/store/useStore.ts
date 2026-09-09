@@ -20,6 +20,7 @@ import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
 import { notifyCaseAssignment } from '../lib/email';
 import { notifyAssignmentAlerts, notifyPostponeAlerts } from '../lib/alertChannels';
+import { acknowledgeCaseAlerts } from '../lib/caseAlerts';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
 import { formatUnknownError } from '../utils/errors';
@@ -2520,6 +2521,10 @@ export const useStore = create<AppState>((set, get) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
         notifications: [notif, ...s.notifications],
       }));
+
+      if (state.currentUser.role !== 'admin') {
+        acknowledgeCaseAlerts(caseId, state.currentUser.id);
+      }
 
       return { error: null };
     } catch (err) {
