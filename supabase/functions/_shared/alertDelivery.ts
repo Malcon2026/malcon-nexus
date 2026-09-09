@@ -3,13 +3,13 @@ import {
   buildTelegramAlertMessage,
   type AlertEvent,
   type AlertLevel,
-  type CaseAlertContext,
+  type CaseDetails,
 } from './alertMessages.ts';
 
 async function loadCaseContext(
   supabase: SupabaseClient,
   caseId: string,
-): Promise<CaseAlertContext | null> {
+): Promise<CaseDetails | null> {
   const { data: caseRow, error } = await supabase
     .from('cases')
     .select('case_number, current_stage, hospital_snapshot, surgery_date, priority, postpone_reason')
@@ -64,7 +64,7 @@ export async function deliverTelegramAlert(
 
   const { data: employee, error: employeeError } = await supabase
     .from('employees')
-    .select('telegram_chat_id')
+    .select('name, telegram_chat_id')
     .eq('id', employeeId)
     .single();
 
@@ -73,7 +73,10 @@ export async function deliverTelegramAlert(
   const chatId = employee.telegram_chat_id as string | null | undefined;
   if (!chatId) return { ok: true, skipped: true, reason: 'employee_not_linked' };
 
-  const text = buildTelegramAlertMessage(event, level, ctx);
+  const text = buildTelegramAlertMessage(event, level, {
+    ...ctx,
+    employeeName: (employee.name as string) ?? 'Employee',
+  });
   const sent = await telegramSendMessage(botToken, chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error ?? 'Telegram send failed' };
   return { ok: true };

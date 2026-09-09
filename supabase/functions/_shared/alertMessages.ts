@@ -1,7 +1,7 @@
 export type AlertEvent = 'assignment' | 'postpone';
 export type AlertLevel = 1 | 2 | 3;
 
-export type CaseAlertContext = {
+export type CaseDetails = {
   caseNumber: string;
   hospitalName: string;
   currentStage: string;
@@ -9,6 +9,20 @@ export type CaseAlertContext = {
   priority: string;
   postponeReason?: string;
 };
+
+export type CaseAlertContext = CaseDetails & {
+  employeeName: string;
+};
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function greetingFirstName(fullName: string): string {
+  const trimmed = fullName.trim();
+  if (!trimmed) return 'there';
+  return escapeHtml(trimmed.split(/\s+/)[0] ?? trimmed);
+}
 
 function assignmentLines(ctx: CaseAlertContext): string[] {
   return [
@@ -39,6 +53,7 @@ export function buildTelegramAlertMessage(
   level: AlertLevel,
   ctx: CaseAlertContext,
 ): string {
+  const name = greetingFirstName(ctx.employeeName);
   const detailLines = event === 'assignment' ? assignmentLines(ctx) : postponeLines(ctx);
 
   if (level === 1) {
@@ -46,8 +61,14 @@ export function buildTelegramAlertMessage(
       event === 'assignment'
         ? '🚨🔔 <b>ALERT 1 — NEW CASE ASSIGNED</b>'
         : '🚨🔔 <b>ALERT 1 — CASE POSTPONED</b>';
+    const intro =
+      event === 'assignment'
+        ? `Dear <b>${name}</b>, you have a new case assigned:`
+        : `Dear <b>${name}</b>, a case assigned to you has been postponed:`;
     return [
       headline,
+      '',
+      intro,
       '',
       ...detailLines,
       '',
@@ -60,8 +81,14 @@ export function buildTelegramAlertMessage(
       event === 'assignment'
         ? '⚠️📢 <b>ALERT 2 — REMINDER</b>'
         : '⚠️📢 <b>ALERT 2 — POSTPONE REMINDER</b>';
+    const intro =
+      event === 'assignment'
+        ? `Dear <b>${name}</b>, this is a reminder — your case is still waiting:`
+        : `Dear <b>${name}</b>, this is a reminder — please note the postponed case:`;
     return [
       headline,
+      '',
+      intro,
       '',
       '<b>⏱ 15 minutes since Alert 1.</b>',
       '',
@@ -75,8 +102,14 @@ export function buildTelegramAlertMessage(
     event === 'assignment'
       ? '🛑🚨 <b>ALERT 3 — FINAL REMINDER</b>'
       : '🛑🚨 <b>ALERT 3 — FINAL POSTPONE REMINDER</b>';
+  const intro =
+    event === 'assignment'
+      ? `Dear <b>${name}</b>, final reminder — please respond to this case now:`
+      : `Dear <b>${name}</b>, final reminder — please acknowledge this postponed case:`;
   return [
     headline,
+    '',
+    intro,
     '',
     '<b>⏱ 30 minutes since Alert 1.</b>',
     '',
