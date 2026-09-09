@@ -4,11 +4,16 @@
   "installCommand": "npm ci",
   "rewrites": [
     { "source": "/gallery", "destination": "/gallery.html" },
+    { "source": "/tv", "destination": "/tv.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
       "source": "/gallery.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/tv.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {

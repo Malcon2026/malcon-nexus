@@ -84,7 +84,7 @@ function rowToAttendance(row: Record<string, unknown>): AttendanceRecord {
 
 // ─── EMPLOYEES ───────────────────────────────────────────────
 
-function rowToEmployee(row: Record<string, unknown>): Employee {
+export function employeeRowToEmployee(row: Record<string, unknown>): Employee {
   const rawDept = String(row.department ?? '');
   const rawDepartments = row.departments;
   const departments: Department[] | undefined = Array.isArray(rawDepartments)
@@ -114,13 +114,13 @@ export const sbEmployeeRepo = {
   async getAll(): Promise<Employee[]> {
     const { data, error } = await supabase.from('employees').select('*').order('name');
     if (error) throw error;
-    return (data ?? []).map((row) => rowToEmployee(row as Record<string, unknown>));
+    return (data ?? []).map((row) => employeeRowToEmployee(row as Record<string, unknown>));
   },
 
   async getById(id: string): Promise<Employee | null> {
     const { data, error } = await supabase.from('employees').select('*').eq('id', id).single();
     if (error || !data) return null;
-    return rowToEmployee(data as Record<string, unknown>);
+    return employeeRowToEmployee(data as Record<string, unknown>);
   },
 
   async getByEmail(email: string): Promise<Employee | null> {
@@ -128,7 +128,7 @@ export const sbEmployeeRepo = {
     if (error || !data) return null;
     // Build the employee straight from this row — no need for a second
     // round-trip to re-fetch the same row by id.
-    return rowToEmployee(data as Record<string, unknown>);
+    return employeeRowToEmployee(data as Record<string, unknown>);
   },
 
   /** Single round-trip lookup used on login/session-restore — avoids a
@@ -140,7 +140,7 @@ export const sbEmployeeRepo = {
       .eq('auth_user_id', authUserId)
       .maybeSingle();
     if (error || !data) return null;
-    return rowToEmployee(data as Record<string, unknown>);
+    return employeeRowToEmployee(data as Record<string, unknown>);
   },
 
   async create(e: Employee): Promise<Employee> {
@@ -347,7 +347,7 @@ function parseAssignedEmployee(row: Record<string, unknown>): ImplantCase['assig
   return { ...base, department: dept };
 }
 
-function rowToCase(row: Record<string, unknown>): ImplantCase {
+export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase {
   const rawDept = row.current_department as string | null | undefined;
   return {
     id: row.id as string,
@@ -443,7 +443,7 @@ export const sbCaseRepo = {
   async getAll(): Promise<ImplantCase[]> {
     const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((row) => rowToCase(row as Record<string, unknown>));
+    return (data ?? []).map((row) => caseRowToImplantCase(row as Record<string, unknown>));
   },
 
   async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
@@ -456,7 +456,7 @@ export const sbCaseRepo = {
 
     const byId = new Map<string, ImplantCase>();
     for (const row of data ?? []) {
-      const c = rowToCase(row as Record<string, unknown>);
+      const c = caseRowToImplantCase(row as Record<string, unknown>);
       byId.set(c.id, c);
     }
 
@@ -468,7 +468,7 @@ export const sbCaseRepo = {
       .order('created_at', { ascending: false });
     if (!snapshotError) {
       for (const row of snapshotRows ?? []) {
-        const c = rowToCase(row as Record<string, unknown>);
+        const c = caseRowToImplantCase(row as Record<string, unknown>);
         byId.set(c.id, c);
       }
     }
@@ -493,7 +493,7 @@ export const sbCaseRepo = {
     if (error) throw error;
 
     return (data ?? [])
-      .map((row) => rowToCase(row as Record<string, unknown>))
+      .map((row) => caseRowToImplantCase(row as Record<string, unknown>))
       .filter((c) => {
         const stageDept = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(c.currentStage)];
         return !stageDept || c.currentDepartment === stageDept;
@@ -553,13 +553,13 @@ export const sbCaseRepo = {
       .maybeSingle();
     if (error) throw error;
     if (!data) throw new Error('This case was already claimed by someone else.');
-    return rowToCase(data as Record<string, unknown>);
+    return caseRowToImplantCase(data as Record<string, unknown>);
   },
 
   async getById(id: string): Promise<ImplantCase | null> {
     const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
     if (error || !data) return null;
-    return rowToCase(data as Record<string, unknown>);
+    return caseRowToImplantCase(data as Record<string, unknown>);
   },
 
   async create(c: ImplantCase): Promise<ImplantCase> {

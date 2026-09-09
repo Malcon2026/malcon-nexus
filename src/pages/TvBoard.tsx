@@ -5,6 +5,7 @@ import type { Employee, ImplantCase, Priority, WorkflowStage } from '../types';
 import { formatTimeIST, formatDateIST, getISTDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
 import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase, getCurrentStageTeamDisplay } from '../lib/caseWorkflow';
+import { fetchTvBoardFeed } from '../lib/tvBoardFeed';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -406,7 +407,13 @@ function EmployeeStatusSlide({ cases, employees }: { cases: ImplantCase[]; emplo
   );
 }
 
-export const TvBoard: React.FC = () => {
+interface TvBoardProps {
+  /** Standalone /tv page — hides exit, uses token feed instead of login session. */
+  kioskMode?: boolean;
+  kioskToken?: string;
+}
+
+export const TvBoard: React.FC<TvBoardProps> = ({ kioskMode = false, kioskToken }) => {
   const { cases, employees, setActiveTab, reloadFromDatabase, viewMode, currentUser, loadAppSettings, getTvNoticeConfig } = useStore();
   const [now, setNow] = useState(new Date());
   const [slide, setSlide] = useState(0);
@@ -414,8 +421,8 @@ export const TvBoard: React.FC = () => {
   const tvNotice = getTvNoticeConfig();
 
   useEffect(() => {
-    void loadAppSettings();
-  }, [loadAppSettings]);
+    if (!kioskToken) void loadAppSettings();
+  }, [loadAppSettings, kioskToken]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -423,7 +430,21 @@ export const TvBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const t = setInterval(async () => {
+    const refreshFromFeed = async () => {
+      if (!kioskToken) return;
+      try {
+        const data = await fetchTvBoardFeed(kioskToken);
+        useStore.setState((s) => ({
+          cases: data.cases,
+          employees: data.employees,
+          appSettings: { ...s.appSettings, tv_notice: data.tvNotice },
+        }));
+      } catch (err) {
+        console.error('[TvBoard] kiosk refresh failed:', err);
+      }
+    };
+
+    const refreshFromSession = async () => {
       try {
         const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
         const role = viewMode === 'admin' ? 'admin' : 'employee';
@@ -433,9 +454,15 @@ export const TvBoard: React.FC = () => {
       } catch (err) {
         console.error('[TvBoard] refresh failed:', err);
       }
+    };
+
+    const refresh = kioskToken ? refreshFromFeed : refreshFromSession;
+
+    const t = setInterval(() => {
+      void refresh();
     }, REFRESH_MS);
     return () => clearInterval(t);
-  }, [viewMode, currentUser.id, reloadFromDatabase, loadAppSettings]);
+  }, [viewMode, currentUser.id, reloadFromDatabase, loadAppSettings, kioskToken]);
 
   const { openCases, boardCases } = useMemo(() => {
     const priorityOrder: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
@@ -480,11 +507,11 @@ export const TvBoard: React.FC = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight') goToSlide(slide + 1);
       if (e.key === 'ArrowLeft') goToSlide(slide - 1);
-      if (e.key === 'Escape') setActiveTab('dashboard');
+      if (e.key === 'Escape' && !kioskMode) setActiveTab('dashboard');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [slide, goToSlide, setActiveTab]);
+  }, [slide, goToSlide, setActiveTab, kioskMode]);
 
   const surgeryToday = boardCases.filter((c) => isTodayIST(c.surgeryDate)).length;
   const completedToday = boardCases.filter((c) => c.status === 'Completed').length;
@@ -495,14 +522,16 @@ export const TvBoard: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden select-none" style={{ background: '#0a0d14', color: INK }}>
-      <button
-        onClick={() => setActiveTab('dashboard')}
-        className="absolute top-4 right-4 z-20 p-2 rounded-full transition-colors"
-        style={{ background: 'rgba(255,255,255,0.1)', color: INK_MUTED }}
-        aria-label="Exit TV board"
-      >
-        <X className="h-5 w-5" />
-      </button>
+      {!kioskMode ? (
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className="absolute top-4 right-4 z-20 p-2 rounded-full transition-colors"
+          style={{ background: 'rgba(255,255,255,0.1)', color: INK_MUTED }}
+          aria-label="Exit TV board"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      ) : null}
 
       {/* Manual nav arrows */}
       <button
