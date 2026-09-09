@@ -104,6 +104,7 @@ export function employeeRowToEmployee(row: Record<string, unknown>): Employee {
     avatar: row.avatar as string,
     phone: row.phone as string,
     employeeCode: (row.employee_code as string | null | undefined) ?? '',
+    telegramChatId: (row.telegram_chat_id as string | null | undefined) ?? null,
     casesCompleted: row.cases_completed as number,
     casesActive: row.cases_active as number,
     joinDate: row.join_date as string,

@@ -52,6 +52,8 @@ export interface Employee {
   phone: string;
   /** Payroll / attendance sheet ID (e.g. 0001, 0210). */
   employeeCode: string;
+  /** Telegram chat id after employee links @Malcon_Nexus_bot */
+  telegramChatId?: string | null;
 }
 
 export interface Hospital {

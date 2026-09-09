@@ -21,6 +21,12 @@ verify_jwt = false
 [functions.tv-board-feed]
 verify_jwt = false
 
+[functions.telegram-webhook]
+verify_jwt = false
+
+[functions.send-telegram]
+verify_jwt = true
+
 [functions.location-bike-route]
 verify_jwt = true
 

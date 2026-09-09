@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS employees (
   avatar       TEXT NOT NULL DEFAULT '',
   phone        TEXT NOT NULL DEFAULT '',
   employee_code TEXT,
+  telegram_chat_id TEXT,
   cases_completed INT NOT NULL DEFAULT 0,
   cases_active    INT NOT NULL DEFAULT 0,
   join_date    DATE NOT NULL DEFAULT CURRENT_DATE,

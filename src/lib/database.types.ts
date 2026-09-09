@@ -19,6 +19,7 @@ export interface Database {
           avatar: string;
           phone: string;
           employee_code: string | null;
+          telegram_chat_id: string | null;
           cases_completed: number;
           cases_active: number;
           join_date: string;

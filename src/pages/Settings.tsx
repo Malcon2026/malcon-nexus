@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv } from 'lucide-react';
+import { User, Bell, Shield, Database, Building2, Save, Download, Check, Megaphone, Tv, MessageCircle, ExternalLink } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
@@ -241,8 +241,75 @@ export const Settings: React.FC = () => {
             )}
 
             {activeTab === 'notifications' && (
+              <>
+              <Card className="mb-4">
+                <CardHeader>
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Telegram Alerts
+                  </h3>
+                </CardHeader>
+                <CardBody className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Get case assignment and postpone alerts on your phone — even when the app is closed.
+                  </p>
+
+                  {currentUser.telegramChatId ? (
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                      <p className="text-sm font-medium text-green-800">Telegram connected</p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Alerts will be sent to your linked Telegram account.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                      <p className="text-sm font-medium text-amber-900">Not connected yet</p>
+                      <p className="text-xs text-amber-800 mt-1">
+                        Follow the steps below to receive alerts on Telegram.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 text-sm text-gray-700">
+                    <p className="font-medium text-gray-900">How to connect (one time)</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs sm:text-sm text-gray-600">
+                      <li>
+                        Open{' '}
+                        <a
+                          href="https://t.me/Malcon_Nexus_bot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline inline-flex items-center gap-0.5"
+                        >
+                          @Malcon_Nexus_bot
+                          <ExternalLink className="h-3 w-3" />
+                        </a>{' '}
+                        in Telegram
+                      </li>
+                      <li>
+                        Send this message (copy exactly):
+                        <code className="block mt-1 px-2 py-1.5 bg-gray-100 rounded text-gray-900 font-mono text-xs">
+                          /start {currentUser.employeeCode?.trim() || 'YOUR_CODE'}
+                        </code>
+                      </li>
+                      <li>Wait for the bot reply: &quot;Connected!&quot;</li>
+                      <li>Refresh this page to see connected status</li>
+                    </ol>
+                    {!currentUser.employeeCode?.trim() && (
+                      <p className="text-xs text-red-600">
+                        Your profile has no employee code — ask admin to add it before connecting Telegram.
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-500">
+                    To unlink: send <code className="bg-gray-100 px-1 rounded">/disconnect</code> to the bot.
+                  </p>
+                </CardBody>
+              </Card>
+
               <Card>
-                <CardHeader><h3 className="text-sm font-semibold text-gray-900">Notification Preferences</h3></CardHeader>
+                <CardHeader><h3 className="text-sm font-semibold text-gray-900">In-App Notification Preferences</h3></CardHeader>
                 <CardBody className="space-y-4">
                   {NOTIF_OPTIONS.map(({ label, desc, key }) => (
                     <div key={key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
@@ -260,6 +327,7 @@ export const Settings: React.FC = () => {
                   ))}
                 </CardBody>
               </Card>
+              </>
             )}
 
             {activeTab === 'security' && (
