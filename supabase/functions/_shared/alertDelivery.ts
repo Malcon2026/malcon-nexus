@@ -6,6 +6,13 @@ import {
   type CaseDetails,
 } from './alertMessages.ts';
 
+export const DEFAULT_APP_URL = 'https://malcon-nexus-gamma.vercel.app';
+
+export function getAppUrl(): string {
+  const url = Deno.env.get('APP_URL') ?? DEFAULT_APP_URL;
+  return url.replace(/\/$/, '');
+}
+
 async function loadCaseContext(
   supabase: SupabaseClient,
   caseId: string,
@@ -33,6 +40,7 @@ async function telegramSendMessage(
   botToken: string,
   chatId: string | number,
   text: string,
+  appUrl: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
@@ -42,6 +50,9 @@ async function telegramSendMessage(
       text,
       parse_mode: 'HTML',
       disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [[{ text: '📲 Open Malcon Nexus', url: appUrl }]],
+      },
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -77,7 +88,7 @@ export async function deliverTelegramAlert(
     ...ctx,
     employeeName: (employee.name as string) ?? 'Employee',
   });
-  const sent = await telegramSendMessage(botToken, chatId, text);
+  const sent = await telegramSendMessage(botToken, chatId, text, getAppUrl());
   if (!sent.ok) return { ok: false, error: sent.error ?? 'Telegram send failed' };
   return { ok: true };
 }

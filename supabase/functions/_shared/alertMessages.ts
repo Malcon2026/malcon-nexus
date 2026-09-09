@@ -72,7 +72,7 @@ export function buildTelegramAlertMessage(
       '',
       ...detailLines,
       '',
-      '<b>Action required:</b> Open Malcon Nexus now.',
+      '<b>Action required:</b> Tap the button below to open the app.',
     ].join('\n');
   }
 
@@ -94,7 +94,7 @@ export function buildTelegramAlertMessage(
       '',
       ...detailLines,
       '',
-      '<b>Still waiting for your response.</b> Open Malcon Nexus now.',
+      '<b>Still waiting for your response.</b> Tap the button below.',
     ].join('\n');
   }
 
@@ -115,6 +115,6 @@ export function buildTelegramAlertMessage(
     '',
     ...detailLines,
     '',
-    '<b>Please respond now.</b> No further alerts will be sent for this case.',
+    '<b>Please respond now.</b> Tap the button below. No further alerts will be sent for this case.',
   ].join('\n');
 }
