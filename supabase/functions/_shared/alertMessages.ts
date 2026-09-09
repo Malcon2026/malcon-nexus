@@ -55,44 +55,33 @@ export function buildTelegramAlertMessage(
     ].join('\n');
   }
 
-  if (level === 3) {
+  if (level === 2) {
     const headline =
       event === 'assignment'
-        ? '🛑🚨 <b>ALERT 3 — FINAL REMINDER</b>'
-        : '🛑🚨 <b>ALERT 3 — FINAL POSTPONE REMINDER</b>';
+        ? '⚠️📢 <b>ALERT 2 — REMINDER</b>'
+        : '⚠️📢 <b>ALERT 2 — POSTPONE REMINDER</b>';
     return [
       headline,
       '',
-      '<b>⏱ 30 minutes since first alert.</b>',
+      '<b>⏱ 15 minutes since Alert 1.</b>',
       '',
       ...detailLines,
       '',
-      '<b>Please respond now.</b> No further alerts will be sent for this case.',
+      '<b>Still waiting for your response.</b> Open Malcon Nexus now.',
     ].join('\n');
   }
 
-  return '';
-}
-
-/** Web Push title + body (plain text with emojis). */
-export function buildPushAlertMessage(
-  event: AlertEvent,
-  level: AlertLevel,
-  ctx: CaseAlertContext,
-): { title: string; body: string } {
-  if (level !== 2) {
-    throw new Error('Push alerts are only used for Alert 2');
-  }
-
-  const title =
+  const headline =
     event === 'assignment'
-      ? '🚨⚠️ ALERT 2 — REMINDER'
-      : '🚨⚠️ ALERT 2 — POSTPONE REMINDER';
-
-  const body =
-    event === 'assignment'
-      ? `${ctx.caseNumber} · ${ctx.hospitalName} · ${ctx.currentStage} · Still waiting — open Malcon Nexus (15 min since Alert 1)`
-      : `${ctx.caseNumber} → ${ctx.surgeryDate} · Postpone still pending — open Malcon Nexus (15 min since Alert 1)`;
-
-  return { title, body };
+      ? '🛑🚨 <b>ALERT 3 — FINAL REMINDER</b>'
+      : '🛑🚨 <b>ALERT 3 — FINAL POSTPONE REMINDER</b>';
+  return [
+    headline,
+    '',
+    '<b>⏱ 30 minutes since Alert 1.</b>',
+    '',
+    ...detailLines,
+    '',
+    '<b>Please respond now.</b> No further alerts will be sent for this case.',
+  ].join('\n');
 }

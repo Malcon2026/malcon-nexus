@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { deliverPushAlert, deliverTelegramAlert } from '../_shared/alertDelivery.ts';
+import { deliverTelegramAlert } from '../_shared/alertDelivery.ts';
 
 const ALERT_2_DELAY_MS = 15 * 60 * 1000;
 const ALERT_3_DELAY_MS = 30 * 60 * 1000;
@@ -33,10 +33,10 @@ Deno.serve(async (req) => {
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY');
-    const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY');
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://malcon-nexus-gamma.vercel.app';
 
+    if (!botToken) {
+      return jsonResponse({ error: 'TELEGRAM_BOT_TOKEN is not configured', skipped: true }, 503);
+    }
     if (!supabaseUrl || !serviceRoleKey) {
       return jsonResponse({ error: 'Supabase service credentials are not configured' }, 500);
     }
@@ -62,53 +62,38 @@ Deno.serve(async (req) => {
       const eventType = row.event_type as 'assignment' | 'postpone';
 
       if (!row.alert_2_sent_at && now - t1 >= ALERT_2_DELAY_MS) {
-        if (vapidPublic && vapidPrivate) {
-          const push = await deliverPushAlert(
-            supabase,
-            vapidPublic,
-            vapidPrivate,
-            appUrl,
-            row.case_id as string,
-            row.employee_id as string,
-            eventType,
-          );
-          if (push.ok) {
-            await supabase
-              .from('case_alert_escalations')
-              .update({ alert_2_sent_at: new Date().toISOString() })
-              .eq('id', row.id);
-            alert2Sent++;
-          }
-        } else {
+        const tg2 = await deliverTelegramAlert(
+          supabase,
+          botToken,
+          row.case_id as string,
+          row.employee_id as string,
+          eventType,
+          2,
+        );
+        if (tg2.ok) {
           await supabase
             .from('case_alert_escalations')
             .update({ alert_2_sent_at: new Date().toISOString() })
             .eq('id', row.id);
+          alert2Sent++;
         }
       }
 
       if (!row.alert_3_sent_at && now - t1 >= ALERT_3_DELAY_MS) {
-        if (botToken) {
-          const tg = await deliverTelegramAlert(
-            supabase,
-            botToken,
-            row.case_id as string,
-            row.employee_id as string,
-            eventType,
-            3,
-          );
-          if (tg.ok) {
-            await supabase
-              .from('case_alert_escalations')
-              .update({ alert_3_sent_at: new Date().toISOString() })
-              .eq('id', row.id);
-            alert3Sent++;
-          }
-        } else {
+        const tg3 = await deliverTelegramAlert(
+          supabase,
+          botToken,
+          row.case_id as string,
+          row.employee_id as string,
+          eventType,
+          3,
+        );
+        if (tg3.ok) {
           await supabase
             .from('case_alert_escalations')
             .update({ alert_3_sent_at: new Date().toISOString() })
             .eq('id', row.id);
+          alert3Sent++;
         }
       }
     }

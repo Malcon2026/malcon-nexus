@@ -92,7 +92,7 @@ if (!res.ok || body.error) {
 console.log(`Employee: ${employee.name} (${employee.employee_code ?? 'no code'})`);
 console.log(`Case: ${caseRow.case_number}`);
 if (allLevels) {
-  console.log('Sent all 3 alert templates immediately.');
+  console.log('Sent all 3 Telegram alert templates immediately.');
   console.log(JSON.stringify(body.results, null, 2));
 } else {
   console.log('Alert 1 sent. Alert 2 in 15 min, Alert 3 in 30 min (if not acknowledged).');

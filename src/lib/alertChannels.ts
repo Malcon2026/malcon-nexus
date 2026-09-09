@@ -1,6 +1,6 @@
 import { startCaseAlertEscalation } from './caseAlerts';
 
-/** Alert 1 now (Telegram); Alert 2 (+15m push); Alert 3 (+30m Telegram). Stops after 3 or when acknowledged. */
+/** Alert 1, 2, 3 — all via Telegram (+15m, +30m). Stops after 3 or when acknowledged. */
 export function notifyAssignmentAlerts(caseId: string, employeeId: string | undefined | null): void {
   startCaseAlertEscalation(caseId, employeeId, 'assignment');
 }

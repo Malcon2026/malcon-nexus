@@ -23,7 +23,7 @@ async function invokeCaseAlerts(
   }
 }
 
-/** Start 3-step alert ladder: Alert 1 now, 2 at +15m, 3 at +30m (then stop). */
+/** Start 3-step Telegram ladder: Alert 1 now, 2 at +15m, 3 at +30m (then stop). */
 export function startCaseAlertEscalation(
   caseId: string,
   employeeId: string | undefined | null,
