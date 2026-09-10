@@ -19,9 +19,9 @@ import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import {
   priorityColors, statusColors, stageColors, departmentColors,
-  formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
+  formatDate, formatDateTime, timeAgo, formatCurrency
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, BILL_SUBMISSION_ENABLED, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
@@ -573,7 +573,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
-  const currentStageIdx = getStageIndex(c.currentStage);
+  const progressStage =
+    !BILL_SUBMISSION_ENABLED && normalizeWorkflowStageName(c.currentStage) === 'Bill Submission'
+      ? 'Billing'
+      : normalizeWorkflowStageName(c.currentStage);
+  const currentStageIdx = VISIBLE_WORKFLOW_STAGES.indexOf(progressStage);
   const sc = stageColors[c.currentStage];
   const pc = priorityColors[c.priority];
   const stc = statusColors[c.status];
@@ -850,7 +854,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       {/* Progress Bar */}
       <div className="mb-6 max-w-full overflow-x-auto pb-1">
         <div className="flex items-center gap-0 w-max min-w-full sm:w-full sm:min-w-0">
-          {WORKFLOW_STAGES.map((stage, idx) => {
+          {VISIBLE_WORKFLOW_STAGES.map((stage, idx) => {
             const completed = idx < currentStageIdx;
             const current = idx === currentStageIdx;
             const pending = idx > currentStageIdx;
@@ -863,7 +867,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                     {stage.split(' ')[0]}
                   </span>
                 </div>
-                {idx < WORKFLOW_STAGES.length - 1 && <div className="w-2" />}
+                {idx < VISIBLE_WORKFLOW_STAGES.length - 1 && <div className="w-2" />}
               </React.Fragment>
             );
           })}

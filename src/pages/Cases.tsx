@@ -31,6 +31,7 @@ import {
   isCaseVisibleToEmployee,
   isFcfsStage,
   stageSupportsAssistant,
+  VISIBLE_WORKFLOW_STAGES,
   type AssignableStage,
   type StageAssignments,
   type StageAssistantAssignments,
@@ -69,7 +70,7 @@ function dayPageTitle(pageIndex: number, dateKey: string): string {
 type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
-const STAGES: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
+const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES;
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 const emptyStageIds = (): Record<AssignableStage, string> =>

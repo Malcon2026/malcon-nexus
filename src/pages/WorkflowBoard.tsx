@@ -6,17 +6,13 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
-import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases } from '../lib/caseWorkflow';
+import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases, VISIBLE_WORKFLOW_STAGES, BILL_SUBMISSION_ENABLED } from '../lib/caseWorkflow';
 import { matchesSurgeryDateKey } from '../lib/attendance';
 import {
   getTodaySurgeryDateKey,
   SurgeryDateQuickPick,
   type SurgeryDateMode,
 } from '../components/SurgeryDateQuickPick';
-
-const KANBAN_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
-];
 
 const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
   'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
@@ -62,7 +58,11 @@ export const WorkflowBoard: React.FC = () => {
   );
 
   const getCasesForStage = (stage: WorkflowStage) =>
-    boardCases.filter((c) => normalizeWorkflowStage(c.currentStage) === stage);
+    boardCases.filter((c) => {
+      const current = normalizeWorkflowStage(c.currentStage);
+      if (stage === 'Billing' && !BILL_SUBMISSION_ENABLED && current === 'Bill Submission') return true;
+      return current === stage;
+    });
 
   const dateLabel =
     surgeryDateMode === 'today'
@@ -101,7 +101,7 @@ export const WorkflowBoard: React.FC = () => {
 
       {/* Board */}
       <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-w-full">
-        {KANBAN_STAGES.map((stage) => {
+        {VISIBLE_WORKFLOW_STAGES.map((stage) => {
           const stageCases = getCasesForStage(stage);
           const poolCount = isFcfsStage(stage) ? countFcfsPoolCases(boardCases, stage as 'Pickup from Hospital' | 'Billing' | 'Bill Submission') : 0;
           const sc = stageColors[stage];

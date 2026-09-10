@@ -28,23 +28,14 @@ import {
 } from '../utils/helpers';
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
+import { VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'updatedAt' | 'status' | 'currentStage';
 type SortDir = 'asc' | 'desc';
 type HistoryTab = 'all' | 'in-progress' | 'past' | CaseStatus;
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
-const STAGES: WorkflowStage[] = [
-  'Kit Preparation',
-  'Delivery',
-  'Surgery',
-  'Pickup from Hospital',
-  'Cleaning & Audit',
-  'Restock',
-  'Billing',
-  'Bill Submission',
-  'Completed',
-];
+const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES;
 
 const HISTORY_TABS: { id: HistoryTab; label: string }[] = [
   { id: 'all', label: 'All Cases' },

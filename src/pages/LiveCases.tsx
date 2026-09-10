@@ -8,14 +8,12 @@ import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { useStore } from '../store/useStore';
-import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED, getCurrentStageTeamDisplay, findStageRecord } from '../lib/caseWorkflow';
+import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED, getCurrentStageTeamDisplay, findStageRecord, VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
-const STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission',
-];
+const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES.filter((stage) => stage !== 'Completed');
 
 const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = {
   Pending: 'bg-gray-100 text-gray-600 border-gray-200',

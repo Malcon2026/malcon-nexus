@@ -17,6 +17,11 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
 /** When false, approved Billing closes the case (Bill Submission is skipped). */
 export const BILL_SUBMISSION_ENABLED = false;
 
+/** Workflow stages shown on boards, timelines, and filters (excludes disabled stages). */
+export const VISIBLE_WORKFLOW_STAGES: WorkflowStage[] = BILL_SUBMISSION_ENABLED
+  ? WORKFLOW_STAGES
+  : WORKFLOW_STAGES.filter((stage) => stage !== 'Bill Submission');
+
 /** Stages that need an employee when creating a case. */
 export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] = [
   'Kit Preparation',

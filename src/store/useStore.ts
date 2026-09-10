@@ -44,7 +44,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, BILL_SUBMISSION_ENABLED, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, BILL_SUBMISSION_ENABLED, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -5130,7 +5130,6 @@ export const useStore = create<AppState>((set, get) => ({
     const scoped = surgeryDateKey
       ? cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, surgeryDateKey))
       : cases;
-    const stages: WorkflowStage[] = ['Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'];
     const colors: Record<WorkflowStage, string> = {
       'Kit Preparation': '#6366f1',
       'Delivery': '#f43f5e',
@@ -5143,10 +5142,14 @@ export const useStore = create<AppState>((set, get) => ({
       'Completed': '#22c55e',
     };
 
-    return stages
+    return VISIBLE_WORKFLOW_STAGES
       .map((stage) => ({
         stage,
-        count: scoped.filter((c) => c.currentStage === stage).length,
+        count: scoped.filter((c) => {
+          const current = normalizeWorkflowStageName(c.currentStage);
+          if (stage === 'Billing' && !BILL_SUBMISSION_ENABLED && current === 'Bill Submission') return true;
+          return current === stage;
+        }).length,
         color: colors[stage],
       }))
       .filter((item) => item.count > 0);
