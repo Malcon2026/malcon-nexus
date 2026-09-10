@@ -93,8 +93,7 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-500">Petrol</p>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Petrol Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">
             {new Date().toLocaleDateString('en-IN', {
               weekday: 'long',
@@ -143,18 +142,18 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: 'Need token', value: stats.pending.length, sub: 'Waiting now', icon: <Ticket className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
-          { label: 'Awaiting bill', value: stats.awaitingBill.length, sub: 'At pump / photo due', icon: <Camera className="h-4 w-4 text-indigo-600" />, bg: 'bg-indigo-50' },
+          { label: 'Need token', value: stats.pending.length, sub: '', icon: <Ticket className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
+          { label: 'Awaiting bill', value: stats.awaitingBill.length, sub: '', icon: <Camera className="h-4 w-4 text-indigo-600" />, bg: 'bg-indigo-50' },
           { label: 'Today', value: formatCurrency(stats.todayAmount), sub: `${stats.todayFills} fill${stats.todayFills === 1 ? '' : 's'}`, icon: <Fuel className="h-4 w-4 text-orange-600" />, bg: 'bg-orange-50' },
           { label: 'Month spend', value: formatCurrency(stats.monthAmount), sub: `${stats.monthFills} fills · avg ${formatCurrency(stats.avgFill)}`, icon: <Wallet className="h-4 w-4 text-emerald-600" />, bg: 'bg-emerald-50' },
           { label: 'Staff this month', value: stats.uniqueStaff, sub: `${stats.uniqueVehicles} vehicle${stats.uniqueVehicles === 1 ? '' : 's'}`, icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
-          { label: 'Trip km', value: stats.monthKms ? stats.monthKms.toLocaleString('en-IN') : '—', sub: 'Today − yesterday', icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
+          { label: 'Trip km', value: stats.monthKms ? stats.monthKms.toLocaleString('en-IN') : '—', sub: '', icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
         ].map((item) => (
           <Card key={item.label} className="p-4">
             <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${item.bg} mb-3`}>{item.icon}</div>
             <p className="text-xl font-bold text-gray-900 tabular-nums leading-none">{item.value}</p>
             <p className="text-xs font-medium text-gray-700 mt-1.5">{item.label}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{item.sub}</p>
+            {item.sub ? <p className="text-[11px] text-gray-400 mt-0.5">{item.sub}</p> : null}
           </Card>
         ))}
       </div>
@@ -163,7 +162,6 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
         <Card className="xl:col-span-2">
           <CardHeader>
             <h2 className="text-sm font-semibold text-gray-900">Daily spend · {petrolMonthLabel(month)}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Issued and billed petrol by day</p>
           </CardHeader>
           <CardBody>
             <ResponsiveContainer width="100%" height={240}>
@@ -218,7 +216,6 @@ export const PetrolOverview: React.FC<{ onOpenQueue?: () => void }> = ({ onOpenQ
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Employee reports</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Export one boy’s fills, or the whole month</p>
           </div>
           <Button variant="outline" size="xs" icon={<Download className="h-3.5 w-3.5" />} onClick={() => handleExport()}>
             Export all staff

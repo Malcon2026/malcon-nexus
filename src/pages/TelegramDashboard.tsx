@@ -95,9 +95,6 @@ export const TelegramDashboard: React.FC = () => {
           <MessageCircle className="h-5 w-5" />
           Telegram Dashboard
         </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          @Malcon_Nexus_bot — see who is connected and send manual messages
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

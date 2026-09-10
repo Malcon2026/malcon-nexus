@@ -178,9 +178,6 @@ export const CaseHistory: React.FC = () => {
             <Archive className="h-5 w-5 text-indigo-600" />
             Case History
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Full archive — active, approved, completed, and all past cases
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button

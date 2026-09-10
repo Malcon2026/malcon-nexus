@@ -32,17 +32,16 @@ const COMPANY_INFO_KEY = 'malconnexus_company_info';
 
 interface NotifPref {
   label: string;
-  desc: string;
   key: string;
 }
 
 const NOTIF_OPTIONS: NotifPref[] = [
-  { label: 'Case Assignments', desc: 'When a new case is assigned to you', key: 'caseAssignments' },
-  { label: 'Approval Requests', desc: 'When an employee submits work for review', key: 'approvalRequests' },
-  { label: 'Case Status Updates', desc: 'When case status changes', key: 'caseStatusUpdates' },
-  { label: 'Upcoming Surgeries', desc: 'Reminders for upcoming surgery dates', key: 'upcomingSurgeries' },
-  { label: 'Payment Collections', desc: 'Updates on payment collection status', key: 'paymentCollections' },
-  { label: 'System Alerts', desc: 'Critical system notifications', key: 'systemAlerts' },
+  { label: 'Case Assignments', key: 'caseAssignments' },
+  { label: 'Approval Requests', key: 'approvalRequests' },
+  { label: 'Case Status Updates', key: 'caseStatusUpdates' },
+  { label: 'Upcoming Surgeries', key: 'upcomingSurgeries' },
+  { label: 'Payment Collections', key: 'paymentCollections' },
+  { label: 'System Alerts', key: 'systemAlerts' },
 ];
 
 const defaultNotifPrefs: Record<string, boolean> = {
@@ -168,7 +167,6 @@ export const Settings: React.FC = () => {
       />
       <div className="mb-6">
         <h1 className="text-lg sm:text-xl font-bold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage your account and application preferences</p>
       </div>
 
       {/* Save confirmation */}
@@ -267,10 +265,6 @@ export const Settings: React.FC = () => {
 
             {activeTab === 'notifications' && (
               <>
-              <p className="text-xs text-gray-500 mb-4">
-                Case alerts: 3 Telegram messages — Alert 1 now, Alert 2 at +15 min, Alert 3 at +30 min. Then stops.
-              </p>
-
               <Card className="mb-4">
                 <CardHeader>
                   <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -279,23 +273,13 @@ export const Settings: React.FC = () => {
                   </h3>
                 </CardHeader>
                 <CardBody className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Get case assignment and postpone alerts on your phone — even when the app is closed.
-                  </p>
-
                   {currentUser.telegramChatId ? (
                     <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                       <p className="text-sm font-medium text-green-800">Telegram connected</p>
-                      <p className="text-xs text-green-700 mt-1">
-                        Alerts will be sent to your linked Telegram account.
-                      </p>
                     </div>
                   ) : (
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
-                      <p className="text-sm font-medium text-amber-900">Not connected yet</p>
-                      <p className="text-xs text-amber-800 mt-1">
-                        Follow the steps below to receive alerts on Telegram.
-                      </p>
+                      <p className="text-sm font-medium text-amber-900">Not connected</p>
                     </div>
                   )}
 
@@ -341,10 +325,6 @@ export const Settings: React.FC = () => {
                   </h3>
                 </CardHeader>
                 <CardBody className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Alerts when cases are assigned or postponed — works from your installed Malcon Nexus app.
-                  </p>
-
                   {!isWebPushSupported() ? (
                     <div className="p-3 rounded-lg bg-gray-50 border border-gray-100 text-xs text-gray-600">
                       Not available in this browser. Use Chrome on Android, or install the app to your home screen on iPhone (iOS 16.4+).
@@ -352,16 +332,10 @@ export const Settings: React.FC = () => {
                   ) : pushPermission === 'granted' ? (
                     <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                       <p className="text-sm font-medium text-green-800">Phone notifications enabled</p>
-                      <p className="text-xs text-green-700 mt-1">
-                        You will get alerts when the app is in the background.
-                      </p>
                     </div>
                   ) : (
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
-                      <p className="text-sm font-medium text-amber-900">Not enabled yet</p>
-                      <p className="text-xs text-amber-800 mt-1">
-                        Tap below and allow notifications when your phone asks.
-                      </p>
+                      <p className="text-sm font-medium text-amber-900">Not enabled</p>
                     </div>
                   )}
 
@@ -391,11 +365,10 @@ export const Settings: React.FC = () => {
               <Card>
                 <CardHeader><h3 className="text-sm font-semibold text-gray-900">In-App Notification Preferences</h3></CardHeader>
                 <CardBody className="space-y-4">
-                  {NOTIF_OPTIONS.map(({ label, desc, key }) => (
+                  {NOTIF_OPTIONS.map(({ label, key }) => (
                     <div key={key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{label}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
                       </div>
                       <button
                         onClick={() => toggleNotifPref(key)}
@@ -428,7 +401,6 @@ export const Settings: React.FC = () => {
                   </div>
                   <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
                     <p className="text-sm font-medium text-blue-800">Two-Factor Authentication</p>
-                    <p className="text-xs text-blue-600 mt-0.5">Enable 2FA for additional account security</p>
                     <Button variant="outline" size="sm" className="mt-3">Enable 2FA</Button>
                   </div>
                   <div className="flex justify-end">
@@ -494,7 +466,6 @@ export const Settings: React.FC = () => {
                   <div className="flex items-center justify-between py-3 border-b border-gray-50">
                     <div>
                       <p className="text-sm font-medium text-gray-900">Export All Cases</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Download cases by today, yesterday, last week, last month, or custom range</p>
                     </div>
                     <Button variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => setShowCaseExport(true)}>Export CSV</Button>
                   </div>

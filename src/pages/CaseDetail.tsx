@@ -98,14 +98,12 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
   const previewStage = type === 'force' ? (isSetParked ? 'Completed' : forceTarget) : nextStage;
 
   const config = {
-    approve: { title: 'Approve Stage', subtitle: 'Add optional approval notes', color: 'success' as const, label: 'Approve' },
-    reject: { title: 'Reject Stage', subtitle: 'Provide rejection reason', color: 'danger' as const, label: 'Reject' },
-    changes: { title: 'Request Changes', subtitle: 'Describe the changes needed', color: 'warning' as const, label: 'Request Changes' },
+    approve: { title: 'Approve Stage', subtitle: undefined, color: 'success' as const, label: 'Approve' },
+    reject: { title: 'Reject Stage', subtitle: undefined, color: 'danger' as const, label: 'Reject' },
+    changes: { title: 'Request Changes', subtitle: undefined, color: 'warning' as const, label: 'Request Changes' },
     force: {
       title: 'Force Advance Stage',
-      subtitle: implantCase?.assignedEmployee
-        ? `${implantCase.assignedEmployee.name} hasn't submitted this stage yet`
-        : 'No employee is assigned — skip ahead to any later stage',
+      subtitle: undefined,
       color: 'warning' as const,
       label: isSetParked ? 'Set Parked & Complete' : forceTarget === 'Completed' ? 'Skip & Close Case' : `Jump to ${forceTarget}`,
     },
@@ -514,7 +512,6 @@ const PostponeCaseModal: React.FC<{
       isOpen={isOpen}
       onClose={onClose}
       title="Postpone Case"
-      subtitle="Surgery moves to a later date. Kit stays where it is."
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -987,7 +984,6 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">No employee assigned</p>
-                        <p className="text-xs text-gray-400">Assign someone, or Force Advance to skip to a later stage</p>
                       </div>
                     </div>
                   )}
@@ -1178,7 +1174,6 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                   <div className="text-center py-10 text-gray-400">
                     <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No stage photos yet</p>
-                    <p className="text-xs mt-1">Photos appear here when employees submit for approval</p>
                   </div>
                 )}
               </div>

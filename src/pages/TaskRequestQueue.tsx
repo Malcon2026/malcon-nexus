@@ -58,9 +58,6 @@ export const TaskRequestQueue: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Task Requests</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Employees request pool-stage cases — you choose who gets assigned
-          </p>
         </div>
         {totalPending > 0 && (
           <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
@@ -76,7 +73,6 @@ export const TaskRequestQueue: React.FC = () => {
             <CheckCircle className="h-8 w-8 text-emerald-500" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900">No pending requests</h3>
-          <p className="text-sm text-gray-500 mt-1">When staff request RTD, billing, or bill submission tasks, they appear here.</p>
         </div>
       ) : (
         <div className="space-y-4">

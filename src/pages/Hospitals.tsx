@@ -277,9 +277,6 @@ export const Hospitals: React.FC = () => {
         <div className="text-center py-16 text-gray-400">
           <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No hospitals found</p>
-          <p className="text-xs mt-1">
-            {hospitals.length === 0 ? 'Add your first hospital to get started' : 'Try adjusting your search or filters'}
-          </p>
         </div>
       )}
 
@@ -289,7 +286,6 @@ export const Hospitals: React.FC = () => {
           isOpen={showCreateModal}
           onClose={() => { setShowCreateModal(false); setEditingHospital(null); }}
           title={editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
-          subtitle={editingHospital ? 'Update hospital details' : 'Register a new hospital in the system'}
           size="md"
           footer={
             <div className="flex items-center justify-end gap-3">

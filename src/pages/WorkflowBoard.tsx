@@ -91,11 +91,6 @@ export const WorkflowBoard: React.FC = () => {
               setSurgeryDateMode(nextMode);
             }}
           />
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 rounded-full bg-gray-900 shrink-0" /><span className="text-xs sm:text-sm">Cards move when the assignee submits that stage</span></div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -428,11 +428,6 @@ export const DashboardStickyNotes: React.FC = () => {
           <p className="text-sm font-medium text-[var(--mn-muted)]">
             {search ? 'No notes match your search' : 'No notes yet'}
           </p>
-          <p className="text-xs text-[var(--mn-dim)] mt-1 max-w-sm mx-auto">
-            {search
-              ? 'Try a different keyword or clear the search.'
-              : 'Tap “New note” or the composer above to jot down reminders, follow-ups, or anything important.'}
-          </p>
           {!search && !composerOpen && (
             <button
               type="button"

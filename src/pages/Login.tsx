@@ -56,12 +56,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             className="w-full max-w-[300px] object-contain"
           />
 
-          <h2 className="text-3xl xl:text-4xl font-bold text-gray-900 leading-tight tracking-tight mt-10">
-            Simple. Reliable. Secure.
-          </h2>
-          <p className="text-gray-500 text-base mt-4 leading-relaxed">
-            Everything you need, nothing you don&apos;t.
-          </p>
         </motion.div>
       </div>
 
@@ -94,10 +88,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div className="mb-8 text-center lg:text-left">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
-            <p className="text-gray-500 text-sm mt-1.5">
-              Sign in to continue to Malcon Nexus.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sign in</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5 w-full min-w-0">

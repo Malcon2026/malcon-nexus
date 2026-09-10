@@ -95,7 +95,7 @@ const HomeNavTiles: React.FC<{
     id: EmployeePage;
     title: string;
     titleTe: string;
-    hint: string;
+    hint?: string;
     icon: React.ReactNode;
     iconBg: string;
     badge?: number;
@@ -140,7 +140,6 @@ const HomeNavTiles: React.FC<{
       id: 'register',
       title: 'Register',
       titleTe: 'Attendance',
-      hint: 'Month view',
       icon: <ClipboardList className="h-5 w-5 text-sky-600" />,
       iconBg: 'bg-sky-50',
     },
@@ -201,7 +200,7 @@ const HomeNavTiles: React.FC<{
             </div>
             <p className="text-sm font-bold text-gray-900">{tile.title}</p>
             <Te className="text-gray-500 mb-0 mt-0">{tile.titleTe}</Te>
-            <p className="text-xs text-gray-500 mt-1">{tile.hint}</p>
+            {tile.hint ? <p className="text-xs text-gray-500 mt-1">{tile.hint}</p> : null}
           </button>
         ))}
       </div>

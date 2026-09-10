@@ -107,7 +107,6 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title="Import / Export Employees (CSV)"
-      subtitle="Excel-compatible CSV with proper quoting and UTF-8 BOM"
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">

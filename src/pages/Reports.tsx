@@ -229,9 +229,6 @@ export const Reports: React.FC = () => {
     <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
       <div className="mb-6">
         <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Download filtered data exports — cases, attendance, employees, billing, and more
-        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -259,11 +256,6 @@ export const Reports: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{report.label}</p>
-                  <p className={`text-xs mt-0.5 line-clamp-2 ${
-                    selectedReport === report.id ? 'text-white/80' : 'text-gray-500'
-                  }`}>
-                    {report.description}
-                  </p>
                 </div>
               </div>
             </button>
@@ -278,7 +270,6 @@ export const Reports: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base font-semibold text-gray-900">{activeMeta.label}</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{activeMeta.description}</p>
               </div>
             </div>
           </div>
@@ -312,11 +303,6 @@ export const Reports: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1.5">
-                  {selectedAttendanceEmployee
-                    ? `Personal sheet for ${selectedAttendanceEmployee.name}: each day with punch in and punch out.`
-                    : 'Select one employee to download only that person’s day-wise punch in / punch out.'}
-                </p>
               </div>
             )}
 
@@ -406,7 +392,6 @@ export const Reports: React.FC = () => {
             )}
 
             <div className="border-t border-gray-100 pt-4">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">All available exports</p>
               <div className="flex flex-wrap gap-1.5">
                 {EXPORT_REPORT_TYPES.map((r) => (
                   <Badge

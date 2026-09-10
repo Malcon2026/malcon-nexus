@@ -305,9 +305,6 @@ export const PetrolDashboard: React.FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Request petrol yourself, issue tokens, or add a completed fill by hand.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {isMainAdmin && (
@@ -511,7 +508,6 @@ export const PetrolDashboard: React.FC = () => {
         isOpen={showManual}
         onClose={() => setShowManual(false)}
         title="Manual petrol entry"
-        subtitle="Log a fill that was already given — no employee request needed."
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-2">
@@ -745,7 +741,6 @@ export const PetrolDashboard: React.FC = () => {
         isOpen={showAddStaff}
         onClose={() => setShowAddStaff(false)}
         title="Add employee"
-        subtitle="Name and phone are enough. Email is only needed if they should log in."
         footer={
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowAddStaff(false)}>Cancel</Button>

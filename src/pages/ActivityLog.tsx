@@ -169,9 +169,6 @@ export const ActivityLog: React.FC = () => {
           <div className="text-center py-16 text-gray-400">
             <Filter className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-medium">No activity found</p>
-            <p className="text-xs mt-1">
-              {activityLog.length === 0 ? 'Activity will appear here as you use the system' : 'Try adjusting your filters'}
-            </p>
           </div>
         )}
       </div>

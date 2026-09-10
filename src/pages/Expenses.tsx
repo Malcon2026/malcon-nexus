@@ -312,9 +312,6 @@ export const Expenses: React.FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol, Food &amp; Other Expenses</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Daily kms driven, petrol, food, and other spend — entered manually by admins only.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>

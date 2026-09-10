@@ -102,9 +102,7 @@ function AlbumRow({
             </span>
           )}
         </div>
-        <p className="text-xs text-[var(--mn-muted)] mt-0.5 truncate">
-          {dateLabel} · {type === 'att' ? 'Punch-in selfies' : 'Stage photos submitted'}
-        </p>
+        <p className="text-xs text-[var(--mn-muted)] mt-0.5 truncate">{dateLabel}</p>
       </div>
       <span className={`shrink-0 min-w-9 h-9 px-2 rounded-xl grid place-items-center text-sm font-bold ${badge}`}>
         {count}
@@ -240,9 +238,9 @@ export function GalleryPage() {
             <h1 className="text-[15px] font-semibold tracking-tight truncate">
               {openAlbum ? openAlbum.title : 'Malcon Gallery'}
             </h1>
-            <p className="text-xs text-[var(--mn-muted)] truncate">
-              {openAlbum ? openAlbum.dateLabel : 'Attendance & case photos'}
-            </p>
+            {openAlbum ? (
+              <p className="text-xs text-[var(--mn-muted)] truncate">{openAlbum.dateLabel}</p>
+            ) : null}
           </div>
         </div>
       </header>
@@ -276,9 +274,6 @@ export function GalleryPage() {
           <>
             <div className="pt-7 pb-2">
               <h2 className="text-2xl font-bold tracking-tight">Photo albums</h2>
-              <p className="text-sm text-[var(--mn-muted)] mt-2 leading-relaxed">
-                Punch-in selfies and case stage photos, grouped by date.
-              </p>
             </div>
 
             <section className="mt-7">

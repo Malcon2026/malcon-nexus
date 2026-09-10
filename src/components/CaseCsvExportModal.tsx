@@ -65,7 +65,6 @@ export const CaseCsvExportModal: React.FC<CaseCsvExportModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      subtitle="Choose a date range — file opens correctly in Excel with UTF-8"
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">

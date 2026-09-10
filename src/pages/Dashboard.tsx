@@ -145,12 +145,12 @@ export const Dashboard: React.FC = () => {
         className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 items-stretch"
       >
         <KPICard label="Active Cases" value={activeCases.length} icon={<FolderOpen className="h-4 w-4 text-indigo-600" />} iconBg="bg-indigo-50" subtitle={`${cases.length} total`} />
-        <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" subtitle="Awaiting review" />
-        <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" subtitle="Active surgeries" />
-        <KPICard label="Cleaning & Audit" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" subtitle="Pending clean/audit" />
-        <KPICard label="Billing Pending" value={billingPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" subtitle={fcfsBillingPool > 0 ? `${fcfsBillingPool} awaiting assignment` : 'Invoice generation'} />
-        <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" subtitle={`${filterAttendanceStaff(employees).length} staff`} />
-        <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle={fcfsPoolTotal > 0 ? `${fcfsPoolTotal} awaiting assignment` : 'Active assignments'} />
+        <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" />
+        <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" />
+        <KPICard label="Cleaning & Audit" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" />
+        <KPICard label="Billing Pending" value={billingPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" subtitle={fcfsBillingPool > 0 ? `${fcfsBillingPool} in pool` : undefined} />
+        <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" />
+        <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle={fcfsPoolTotal > 0 ? `${fcfsPoolTotal} in pool` : undefined} />
       </motion.div>
 
       {/* Charts Row */}
@@ -167,7 +167,6 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Daily Performance</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Surgeries scheduled per day (last 14 days)</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
@@ -259,7 +258,6 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900">Department Performance</h3>
-                <p className="text-xs text-gray-500 mt-0.5">On-time completion rate by department</p>
               </div>
               <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
                 <ArrowUpRight className="h-3.5 w-3.5" />
@@ -295,7 +293,6 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Latest workflow events</p>
                 </div>
                 <button onClick={() => setActiveTab('activity')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
                   View all <ArrowRight className="h-3 w-3" />

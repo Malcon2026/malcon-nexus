@@ -126,11 +126,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={title}
-      subtitle={
-        isRestock
-          ? 'Add photo + notes, then tap Restocked or Order'
-          : 'Photo from camera or gallery + notes — case advances to the next stage automatically'
-      }
+      subtitle={isRestock ? 'Add photo + notes, then tap Restocked or Order' : undefined}
       size={isRestock ? 'lg' : 'md'}
       footer={
         <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">

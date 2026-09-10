@@ -101,12 +101,9 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Off-site Punch Approvals</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Review employee requests when they punch in or out away from the office.
-            {pendingCount > 0 && (
-              <span className="ml-1 font-medium text-amber-700">{pendingCount} pending</span>
-            )}
-          </p>
+          {pendingCount > 0 ? (
+            <p className="text-sm text-amber-700 font-medium mt-0.5">{pendingCount} pending</p>
+          ) : null}
         </div>
         <Button
           variant="outline"
@@ -145,7 +142,6 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
               <p className="text-sm font-medium">
                 {filter === 'pending' ? 'No pending approval requests' : 'No requests yet'}
               </p>
-              <p className="text-xs mt-1">Off-site punch in/out requests will appear here</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">

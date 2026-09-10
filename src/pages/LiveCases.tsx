@@ -106,9 +106,7 @@ export const LiveCases: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900">Live Cases</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            All active cases at a glance — {liveCases.length} in progress
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">{liveCases.length} in progress</p>
         </div>
         <button
           onClick={() => void handleRefresh()}

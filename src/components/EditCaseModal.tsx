@@ -193,7 +193,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
       isOpen={isOpen}
       onClose={onClose}
       title="Edit Implant Case"
-      subtitle={isAdmin ? `Modify details for Case ${c.caseNumber}` : `Add notes for Case ${c.caseNumber}`}
+      subtitle={`Case ${c.caseNumber}`}
       size={isAdmin ? 'xl' : 'lg'}
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -368,11 +368,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
             </div>
 
             <div className="pt-2 border-t border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900 mb-1">Assign team</h3>
-              <p className="text-xs text-gray-500 mb-3">
-                Change who handles each stage — past, current, or upcoming. Pick{' '}
-                <strong>Self</strong> for Surgery when the hospital performs it independently.
-              </p>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Assign team</h3>
               <div className="space-y-3">
                 {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => {
                   const deptHint = STAGE_DEPARTMENT_MAP[stage];

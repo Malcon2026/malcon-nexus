@@ -142,7 +142,6 @@ export const Employees: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Employees</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage team members across all departments</p>
         </div>
         {viewMode === 'admin' && (
           <div className="flex gap-2">
@@ -387,7 +386,6 @@ export const Employees: React.FC = () => {
         <div className="text-center py-16 text-gray-400">
           <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No employees found</p>
-          <p className="text-xs mt-1">Try adjusting your search or filters</p>
         </div>
       )}
 
@@ -396,7 +394,6 @@ export const Employees: React.FC = () => {
           isOpen={showModal}
           onClose={() => { setShowModal(false); setEditingEmployee(null); }}
           title={editingEmployee ? 'Edit Employee' : 'Add New Employee'}
-          subtitle={editingEmployee ? 'Update employee details' : 'Register a new team member and assign their department'}
           size="md"
           footer={
             <div className="flex items-center justify-end gap-3">
@@ -486,7 +483,6 @@ export const Employees: React.FC = () => {
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
-              <p className="text-[11px] text-gray-500 mt-1">Shown on their profile and attendance when one label is needed.</p>
             </div>
             <div>
               <label className={labelClass}>Role *</label>

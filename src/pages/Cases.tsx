@@ -216,7 +216,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       isOpen={isOpen}
       onClose={onClose}
       title="Create New Implant Case"
-      subtitle="All details in one workspace — assign staff now or later"
       size="workspace"
       fixedHeight
       bodyClassName="overflow-hidden flex flex-col"
@@ -346,9 +345,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                 <p className="text-xs font-semibold text-amber-900">
                   Skipped: {skippedStages.join(', ')}
                 </p>
-                <p className="text-[11px] text-amber-800/90 mt-0.5">
-                  These stages are marked done automatically and need no employee.
-                </p>
               </div>
             )}
 
@@ -378,9 +374,6 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
               <h2 className={sectionTitleClass.replace(' mb-3', '')}>Assign team (optional)</h2>
               <span className="text-[10px] text-gray-400">{activeStages.length} stages</span>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Assign now or leave blank and add people later from the case page.
-            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {activeStages.map((stage) => {
                 const deptHint = STAGE_DEPARTMENT_MAP[stage];
@@ -919,7 +912,6 @@ export const Cases: React.FC = () => {
             <div className="text-center py-16 text-gray-400">
               <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">No cases found</p>
-              <p className="text-xs mt-1">Try adjusting your filters</p>
             </div>
           )}
         </div>

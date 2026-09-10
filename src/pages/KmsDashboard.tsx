@@ -314,11 +314,7 @@ export const KmsDashboard: React.FC = () => {
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-sky-500">Location trips</p>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5">KMs Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Two-wheeler road km from Start → Reached. Not attendance.
-          </p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">KMs Dashboard</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
@@ -363,15 +359,15 @@ export const KmsDashboard: React.FC = () => {
         {[
           { label: 'Today', value: `${stats.todayKm} km`, sub: `${stats.todayTrips} trip${stats.todayTrips === 1 ? '' : 's'}`, icon: <Navigation className="h-4 w-4 text-sky-600" />, bg: 'bg-sky-50' },
           { label: 'Month km', value: stats.monthKm.toLocaleString('en-IN'), sub: `${stats.monthTripCount} completed`, icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
-          { label: 'Bike routes', value: stats.bikeTrips, sub: 'Mappls two-wheeler', icon: <MapPin className="h-4 w-4 text-indigo-600" />, bg: 'bg-indigo-50' },
-          { label: 'Staff this month', value: stats.uniqueStaff, sub: 'With a completed trip', icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
-          { label: 'In progress', value: stats.inProgress.length, sub: 'Waiting for Reached', icon: <Flag className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
+          { label: 'Bike routes', value: stats.bikeTrips, sub: '', icon: <MapPin className="h-4 w-4 text-indigo-600" />, bg: 'bg-indigo-50' },
+          { label: 'Staff this month', value: stats.uniqueStaff, sub: '', icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
+          { label: 'In progress', value: stats.inProgress.length, sub: '', icon: <Flag className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
         ].map((item) => (
           <Card key={item.label} className="p-4">
             <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${item.bg} mb-3`}>{item.icon}</div>
             <p className="text-xl font-bold text-gray-900 tabular-nums leading-none">{item.value}</p>
             <p className="text-xs font-medium text-gray-700 mt-1.5">{item.label}</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{item.sub}</p>
+            {item.sub ? <p className="text-[11px] text-gray-400 mt-0.5">{item.sub}</p> : null}
           </Card>
         ))}
       </div>
@@ -380,7 +376,6 @@ export const KmsDashboard: React.FC = () => {
         <Card className="xl:col-span-2">
           <CardHeader>
             <h2 className="text-sm font-semibold text-gray-900">Daily km · {kmsMonthLabel(month)}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Tap a bar to open that day's staff list</p>
           </CardHeader>
           <CardBody>
             <ResponsiveContainer width="100%" height={240}>
@@ -413,7 +408,6 @@ export const KmsDashboard: React.FC = () => {
         <Card>
           <CardHeader>
             <h2 className="text-sm font-semibold text-gray-900">In progress</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Started, not yet Reached</p>
           </CardHeader>
           <CardBody className="p-0">
             {stats.inProgress.length === 0 ? (
@@ -450,11 +444,9 @@ export const KmsDashboard: React.FC = () => {
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Employees</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {viewDate
-                ? `${formatDate(viewDate)} · highest km first. Tap a name to open trips.`
-                : 'Month km first. Tap a name to open trips.'}
-            </p>
+            {viewDate ? (
+              <p className="text-xs text-gray-500 mt-0.5">{formatDate(viewDate)}</p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
