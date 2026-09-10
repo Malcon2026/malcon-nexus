@@ -41,8 +41,31 @@ import {
   emptyStageAssistantIds,
   emptyStageExtraFlags,
 } from '../components/StageExtraPersonFields';
+import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
+
+function addDaysToDateKey(dateKey: string, delta: number): string {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return getISTDateKey(dt);
+}
+
+function daysBetween(earlierKey: string, laterKey: string): number {
+  const [y1, m1, d1] = earlierKey.split('-').map(Number);
+  const [y2, m2, d2] = laterKey.split('-').map(Number);
+  const t1 = Date.UTC(y1, m1 - 1, d1);
+  const t2 = Date.UTC(y2, m2 - 1, d2);
+  return Math.round((t2 - t1) / (24 * 60 * 60 * 1000));
+}
+
+function dayPageTitle(pageIndex: number, dateKey: string): string {
+  if (pageIndex === 0) return `Today (${formatDate(dateKey)})`;
+  if (pageIndex === 1) return `Yesterday (${formatDate(dateKey)})`;
+  return formatDate(dateKey);
+}
+
 type SortDir = 'asc' | 'desc';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
@@ -450,8 +473,8 @@ export const Cases: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editCaseId, setEditCaseId] = useState<string | null>(null);
-  const PAGE_SIZE = 8;
   const lastCreateSignal = useRef(0);
+  const todayKey = getTodaySurgeryDateKey();
 
   useEffect(() => {
     if (createCaseSignal > lastCreateSignal.current) {
@@ -501,8 +524,48 @@ export const Cases: React.FC = () => {
     return result;
   }, [cases, search, sortKey, sortDir, filterPriority, filterStage, filterStatus]);
 
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const { paginated, totalPages, pageLabel, calendarDayCount, hasUndatedPage } = useMemo(() => {
+    const undated = filtered.filter((c) => !normalizeDateKey(c.surgeryDate));
+    const oldestKey = filtered.reduce((min, c) => {
+      const key = normalizeDateKey(c.surgeryDate);
+      if (!key) return min;
+      return !min || key < min ? key : min;
+    }, '');
+
+    const dayCount = oldestKey ? daysBetween(oldestKey, todayKey) + 1 : 1;
+    const undatedPage = undated.length > 0;
+    const total = dayCount + (undatedPage ? 1 : 0);
+
+    if (page >= dayCount) {
+      return {
+        paginated: undatedPage ? undated : [],
+        totalPages: total,
+        pageLabel: 'No surgery date',
+        calendarDayCount: dayCount,
+        hasUndatedPage: undatedPage,
+      };
+    }
+
+    const dateKey = addDaysToDateKey(todayKey, -page);
+    const dayCases = filtered.filter((c) => matchesSurgeryDateKey(c.surgeryDate, dateKey));
+
+    return {
+      paginated: dayCases,
+      totalPages: total,
+      pageLabel: dayPageTitle(page, dateKey),
+      calendarDayCount: dayCount,
+      hasUndatedPage: undatedPage,
+    };
+  }, [filtered, page, todayKey]);
+
+  const pageButtonTitle = (pageIndex: number) => {
+    if (hasUndatedPage && pageIndex === calendarDayCount) return 'No surgery date';
+    return dayPageTitle(pageIndex, addDaysToDateKey(todayKey, -pageIndex));
+  };
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, Math.max(0, totalPages - 1)));
+  }, [totalPages]);
 
   if (selectedCaseId) {
     const theCase = cases.find(c => c.id === selectedCaseId);
@@ -863,14 +926,16 @@ export const Cases: React.FC = () => {
         {/* Pagination */}
         <div className="px-4 sm:px-6 py-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-gray-500 text-center sm:text-left">
-            Showing {filtered.length === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length} cases
+            {pageLabel} — {paginated.length} {paginated.length === 1 ? 'case' : 'cases'}
+            {filtered.length !== paginated.length ? ` (${filtered.length} total)` : ''}
           </p>
           <div className="flex items-center gap-1 flex-wrap justify-center">
             {Array.from({ length: totalPages }, (_, i) => (
               <button
                 key={i}
                 onClick={() => setPage(i)}
-                className={`h-7 w-7 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                title={pageButtonTitle(i)}
+                className={`h-7 min-w-7 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>
@@ -880,17 +945,18 @@ export const Cases: React.FC = () => {
       </Card>
 
       {/* Mobile pagination */}
-      {filtered.length > 0 && (
+      {totalPages > 1 && (
         <div className="lg:hidden flex flex-col items-center gap-2 mt-2">
           <p className="text-xs text-gray-500">
-            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+            {pageLabel} — {paginated.length} {paginated.length === 1 ? 'case' : 'cases'}
           </p>
           <div className="flex items-center gap-1 flex-wrap justify-center">
             {Array.from({ length: totalPages }, (_, i) => (
               <button
                 key={i}
                 onClick={() => setPage(i)}
-                className={`h-8 w-8 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                title={pageButtonTitle(i)}
+                className={`h-8 min-w-8 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>
