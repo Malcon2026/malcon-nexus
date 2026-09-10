@@ -44,7 +44,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, BILL_SUBMISSION_ENABLED, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages } from '../lib/caseWorkflow';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -1283,6 +1283,9 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (targetIdx <= currentIdx) {
       throw new Error('Pick a stage after the current one.');
+    }
+    if (!BILL_SUBMISSION_ENABLED && targetName === 'Bill Submission') {
+      throw new Error('Bill Submission is disabled. Force advance to Completed to close the case.');
     }
 
     const now = new Date().toISOString();
@@ -2566,6 +2569,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentStage: 'Completed',
       currentDepartment: null,
       assignedEmployee: null,
+      stages: skipDisabledWorkflowStages(c.stages),
       activityLogs: [...c.activityLogs, newLog],
     });
 

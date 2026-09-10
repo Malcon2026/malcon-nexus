@@ -14,6 +14,9 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Completed',
 ];
 
+/** When false, approved Billing closes the case (Bill Submission is skipped). */
+export const BILL_SUBMISSION_ENABLED = false;
+
 /** Stages that need an employee when creating a case. */
 export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] = [
   'Kit Preparation',
@@ -23,7 +26,7 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
   'Cleaning & Audit',
   'Restock',
   'Billing',
-  'Bill Submission',
+  ...(BILL_SUBMISSION_ENABLED ? (['Bill Submission'] as const) : []),
 ];
 
 export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
@@ -71,7 +74,7 @@ export const FCFS_POOL_ENABLED = false;
 export const FCFS_STAGES = [
   'Pickup from Hospital',
   'Billing',
-  'Bill Submission',
+  ...(BILL_SUBMISSION_ENABLED ? (['Bill Submission'] as const) : []),
 ] as const;
 
 export type FcfsStage = (typeof FCFS_STAGES)[number];
@@ -80,8 +83,8 @@ export type FcfsStage = (typeof FCFS_STAGES)[number];
 export const FCFS_ELIGIBLE_DEPARTMENTS: Record<FcfsStage, readonly Department[]> = {
   'Pickup from Hospital': ['Delivery', 'Drivers'],
   'Billing': ['Accounts'],
-  'Bill Submission': ['Bill Submission'],
-};
+  ...(BILL_SUBMISSION_ENABLED ? { 'Bill Submission': ['Bill Submission'] as const } : {}),
+} as Record<FcfsStage, readonly Department[]>;
 
 export function fcfsStagesForEmployeeDepartment(dept: string | null | undefined): FcfsStage[] {
   if (!FCFS_POOL_ENABLED) return [];
@@ -319,6 +322,32 @@ export function isTvBoardVisibleCase(c: ImplantCase): boolean {
   return TV_BOARD_STAGES.has(stage);
 }
 
+export function isWorkflowStageEnabled(stage: WorkflowStage | string): boolean {
+  const name = normalizeWorkflowStageName(stage as WorkflowStage);
+  if (!BILL_SUBMISSION_ENABLED && name === 'Bill Submission') return false;
+  return true;
+}
+
+const BILL_SUBMISSION_SKIP_NOTE = 'Skipped — Bill Submission disabled.';
+
+/** Mark disabled stages approved when a case closes without visiting them. */
+export function skipDisabledWorkflowStages(stages: StageRecord[]): StageRecord[] {
+  if (BILL_SUBMISSION_ENABLED) return stages;
+  const now = new Date().toISOString();
+  return normalizeCaseStages(
+    stages.map((s) => {
+      if (normalizeWorkflowStageName(s.stage) !== 'Bill Submission') return s;
+      if (s.status === 'Approved') return s;
+      return {
+        ...s,
+        status: 'Approved' as const,
+        approvedAt: s.approvedAt ?? now,
+        adminNotes: s.adminNotes || BILL_SUBMISSION_SKIP_NOTE,
+      };
+    }),
+  );
+}
+
 /** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
 export function getNextWorkflowStage(
   current: WorkflowStage,
@@ -328,6 +357,9 @@ export function getNextWorkflowStage(
   if (idx < 0 || idx >= WORKFLOW_STAGES.length - 1) return null;
   const next = WORKFLOW_STAGES[idx + 1];
   if (options?.skipBilling && (next === 'Billing' || next === 'Bill Submission')) {
+    return 'Completed';
+  }
+  if (!BILL_SUBMISSION_ENABLED && next === 'Bill Submission') {
     return 'Completed';
   }
   return next;
@@ -443,6 +475,7 @@ export function canEmployeeSubmitCase(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email' | 'department'>,
 ): boolean {
+  if (!isWorkflowStageEnabled(implantCase.currentStage)) return false;
   if (implantCase.currentStage === 'Completed') return false;
   if (implantCase.status === 'Waiting For Approval') return false;
   if (isFcfsPoolCase(implantCase)) return false;

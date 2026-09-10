@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency, getStageIndex
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
@@ -58,11 +58,13 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
   const [submitting, setSubmitting] = useState(false);
   const implantCase = cases.find((x) => x.id === caseId);
   const stageIdx = implantCase ? WORKFLOW_STAGES.indexOf(implantCase.currentStage) : -1;
-  const nextStage = stageIdx >= 0 ? WORKFLOW_STAGES[stageIdx + 1] : undefined;
+  const nextStage = implantCase
+    ? (getNextWorkflowStage(implantCase.currentStage, { skipBilling: Boolean(implantCase.cancelReason) }) ?? undefined)
+    : undefined;
 
   const forceTargetOptions = useMemo(() => {
     if (stageIdx < 0) return [] as WorkflowStage[];
-    return WORKFLOW_STAGES.slice(stageIdx + 1);
+    return WORKFLOW_STAGES.slice(stageIdx + 1).filter((stage) => isWorkflowStageEnabled(stage));
   }, [stageIdx]);
 
   const [forceTarget, setForceTarget] = useState<ForceTarget>('Completed');
