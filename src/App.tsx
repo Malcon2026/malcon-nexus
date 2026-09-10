@@ -20,6 +20,7 @@ import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
 import { Settings } from './pages/Settings';
+import { TelegramDashboard } from './pages/TelegramDashboard';
 import { Notes } from './pages/Notes';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
@@ -227,6 +228,7 @@ function MainApp() {
       case 'approvals':  return <ApprovalQueue />;
       case 'task-requests': return FCFS_POOL_ENABLED ? <TaskRequestQueue /> : <Dashboard />;
       case 'employees':  return <Employees />;
+      case 'telegram':   return <TelegramDashboard />;
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
       case 'petrol-dashboard': return <PetrolDashboard />;

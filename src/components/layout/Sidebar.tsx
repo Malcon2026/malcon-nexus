@@ -23,6 +23,7 @@ import {
   Tv,
   StickyNote,
   HandMetal,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'task-requests', label: 'Task Requests', icon: <HandMetal className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
+  { id: 'telegram', label: 'Telegram', icon: <MessageCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
   { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
   { id: 'petrol-dashboard', label: 'Petrol Dashboard', icon: <Ticket className="h-4 w-4" />, adminOnly: true },
