@@ -14,13 +14,30 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Completed',
 ];
 
+/** When false, approved Restock closes the case (Billing is skipped). */
+export const BILLING_ENABLED = false;
+
 /** When false, approved Billing closes the case (Bill Submission is skipped). */
 export const BILL_SUBMISSION_ENABLED = false;
 
+export function isPostRestockStageDisabled(stage: WorkflowStage | string): boolean {
+  const name = normalizeWorkflowStageName(stage as WorkflowStage);
+  if (name === 'Billing' && !BILLING_ENABLED) return true;
+  if (name === 'Bill Submission' && !BILL_SUBMISSION_ENABLED) return true;
+  return false;
+}
+
+/** Map legacy Billing / Bill Submission rows onto the last active workflow column. */
+export function mapCaseToVisibleStage(current: WorkflowStage | string): WorkflowStage {
+  const name = normalizeWorkflowStageName(current);
+  if (isPostRestockStageDisabled(name)) return 'Restock';
+  return name;
+}
+
 /** Workflow stages shown on boards, timelines, and filters (excludes disabled stages). */
-export const VISIBLE_WORKFLOW_STAGES: WorkflowStage[] = BILL_SUBMISSION_ENABLED
-  ? WORKFLOW_STAGES
-  : WORKFLOW_STAGES.filter((stage) => stage !== 'Bill Submission');
+export const VISIBLE_WORKFLOW_STAGES: WorkflowStage[] = WORKFLOW_STAGES.filter(
+  (stage) => !isPostRestockStageDisabled(stage),
+);
 
 /** Stages that need an employee when creating a case. */
 export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] = [
@@ -30,7 +47,7 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  'Billing',
+  ...(BILLING_ENABLED ? (['Billing'] as const) : []),
   ...(BILL_SUBMISSION_ENABLED ? (['Bill Submission'] as const) : []),
 ];
 
@@ -78,7 +95,7 @@ export const FCFS_POOL_ENABLED = false;
 /** Stages that use the FCFS pool when {@link FCFS_POOL_ENABLED} is true. */
 export const FCFS_STAGES = [
   'Pickup from Hospital',
-  'Billing',
+  ...(BILLING_ENABLED ? (['Billing'] as const) : []),
   ...(BILL_SUBMISSION_ENABLED ? (['Bill Submission'] as const) : []),
 ] as const;
 
@@ -87,7 +104,7 @@ export type FcfsStage = (typeof FCFS_STAGES)[number];
 /** Departments allowed to claim each FCFS stage (RTD: Delivery outbound + Drivers for hospital pickup). */
 export const FCFS_ELIGIBLE_DEPARTMENTS: Record<FcfsStage, readonly Department[]> = {
   'Pickup from Hospital': ['Delivery', 'Drivers'],
-  'Billing': ['Accounts'],
+  ...(BILLING_ENABLED ? { Billing: ['Accounts'] as const } : {}),
   ...(BILL_SUBMISSION_ENABLED ? { 'Bill Submission': ['Bill Submission'] as const } : {}),
 } as Record<FcfsStage, readonly Department[]>;
 
@@ -297,7 +314,7 @@ export function isPostSurgeryStage(stage: WorkflowStage): boolean {
   return idx > surgeryIdx && stage !== 'Completed';
 }
 
-/** Stages shown on the office TV board — Kit Prep through Billing (inclusive). Completed cases for today also show. */
+/** Stages shown on the office TV board — Kit Prep through Restock (inclusive). Completed cases for today also show. */
 const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Kit Preparation',
   'Delivery',
@@ -305,7 +322,7 @@ const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  'Billing',
+  ...(BILLING_ENABLED ? (['Billing'] as const) : []),
 ]);
 
 function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
@@ -313,7 +330,7 @@ function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
 }
 
 /**
- * Office TV board: open cases through Billing, plus completed cases for today's surgery date.
+ * Office TV board: open cases through Restock, plus completed cases for today's surgery date.
  * Cancelled / kit-return cases are excluded.
  */
 export function isTvBoardVisibleCase(c: ImplantCase): boolean {
@@ -328,26 +345,28 @@ export function isTvBoardVisibleCase(c: ImplantCase): boolean {
 }
 
 export function isWorkflowStageEnabled(stage: WorkflowStage | string): boolean {
-  const name = normalizeWorkflowStageName(stage as WorkflowStage);
-  if (!BILL_SUBMISSION_ENABLED && name === 'Bill Submission') return false;
-  return true;
+  return !isPostRestockStageDisabled(stage);
 }
 
-const BILL_SUBMISSION_SKIP_NOTE = 'Skipped — Bill Submission disabled.';
+const DISABLED_STAGE_SKIP_NOTES: Partial<Record<WorkflowStage, string>> = {
+  Billing: 'Skipped — Billing disabled.',
+  'Bill Submission': 'Skipped — Bill Submission disabled.',
+};
 
 /** Mark disabled stages approved when a case closes without visiting them. */
 export function skipDisabledWorkflowStages(stages: StageRecord[]): StageRecord[] {
-  if (BILL_SUBMISSION_ENABLED) return stages;
   const now = new Date().toISOString();
   return normalizeCaseStages(
     stages.map((s) => {
-      if (normalizeWorkflowStageName(s.stage) !== 'Bill Submission') return s;
+      const name = normalizeWorkflowStageName(s.stage);
+      const skipNote = DISABLED_STAGE_SKIP_NOTES[name];
+      if (!skipNote || !isPostRestockStageDisabled(name)) return s;
       if (s.status === 'Approved') return s;
       return {
         ...s,
         status: 'Approved' as const,
         approvedAt: s.approvedAt ?? now,
-        adminNotes: s.adminNotes || BILL_SUBMISSION_SKIP_NOTE,
+        adminNotes: s.adminNotes || skipNote,
       };
     }),
   );
@@ -361,10 +380,10 @@ export function getNextWorkflowStage(
   const idx = getStageIndex(current);
   if (idx < 0 || idx >= WORKFLOW_STAGES.length - 1) return null;
   const next = WORKFLOW_STAGES[idx + 1];
-  if (options?.skipBilling && (next === 'Billing' || next === 'Bill Submission')) {
+  if (options?.skipBilling && isPostRestockStageDisabled(next)) {
     return 'Completed';
   }
-  if (!BILL_SUBMISSION_ENABLED && next === 'Bill Submission') {
+  if (isPostRestockStageDisabled(next)) {
     return 'Completed';
   }
   return next;

@@ -44,7 +44,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, BILL_SUBMISSION_ENABLED, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -1284,8 +1284,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (targetIdx <= currentIdx) {
       throw new Error('Pick a stage after the current one.');
     }
-    if (!BILL_SUBMISSION_ENABLED && targetName === 'Bill Submission') {
-      throw new Error('Bill Submission is disabled. Force advance to Completed to close the case.');
+    if (isPostRestockStageDisabled(targetName)) {
+      throw new Error(`${targetName} is disabled. Force advance to Completed to close the case.`);
     }
 
     const now = new Date().toISOString();
@@ -2667,7 +2667,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: now,
       details: returnStage
-        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Billing skipped. Reason: ${trimmed}`
+        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Reason: ${trimmed}`
         : `${logPhrase} Case closed. Reason: ${trimmed}`,
     };
 
@@ -2747,7 +2747,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const notif = createNotification(
       'Case Cancelled — Return Kit',
-      `${c.caseNumber}: ${trimmed}. Kit coming back via ${returnStage}. Billing skipped.`,
+      `${c.caseNumber}: ${trimmed}. Kit coming back via ${returnStage}.`,
       'warning',
       caseId,
     );
@@ -5145,11 +5145,7 @@ export const useStore = create<AppState>((set, get) => ({
     return VISIBLE_WORKFLOW_STAGES
       .map((stage) => ({
         stage,
-        count: scoped.filter((c) => {
-          const current = normalizeWorkflowStageName(c.currentStage);
-          if (stage === 'Billing' && !BILL_SUBMISSION_ENABLED && current === 'Bill Submission') return true;
-          return current === stage;
-        }).length,
+        count: scoped.filter((c) => mapCaseToVisibleStage(c.currentStage) === stage).length,
         color: colors[stage],
       }))
       .filter((item) => item.count > 0);

@@ -6,7 +6,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
-import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases, VISIBLE_WORKFLOW_STAGES, BILL_SUBMISSION_ENABLED } from '../lib/caseWorkflow';
+import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage } from '../lib/caseWorkflow';
 import { matchesSurgeryDateKey } from '../lib/attendance';
 import {
   getTodaySurgeryDateKey,
@@ -58,11 +58,7 @@ export const WorkflowBoard: React.FC = () => {
   );
 
   const getCasesForStage = (stage: WorkflowStage) =>
-    boardCases.filter((c) => {
-      const current = normalizeWorkflowStage(c.currentStage);
-      if (stage === 'Billing' && !BILL_SUBMISSION_ENABLED && current === 'Bill Submission') return true;
-      return current === stage;
-    });
+    boardCases.filter((c) => mapCaseToVisibleStage(c.currentStage) === stage);
 
   const dateLabel =
     surgeryDateMode === 'today'

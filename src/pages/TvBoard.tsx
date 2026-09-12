@@ -167,14 +167,12 @@ function Detail({ label, value, muted, color }: { label: string; value: string; 
   );
 }
 
-function tvBillingStatus(c: ImplantCase): 'Done' | 'Pending' {
-  if (c.paymentStatus === 'Collected') return 'Done';
-  if (c.status === 'Completed') return 'Done';
-  const billed = c.stages.some(
-    (s) =>
-      (s.stage === 'Billing' || s.stage === 'Bill Submission') && s.status === 'Approved',
+function tvRestockStatus(c: ImplantCase): 'Done' | 'Pending' {
+  if (c.status === 'Completed' || c.status === 'Cancelled') return 'Done';
+  const restocked = c.stages.some(
+    (s) => s.stage === 'Restock' && s.status === 'Approved',
   );
-  return billed ? 'Done' : 'Pending';
+  return restocked ? 'Done' : 'Pending';
 }
 
 function isTodayIST(value: string | undefined): boolean {
@@ -196,7 +194,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
   const isOverdue = !closedCancelled && !isCompleted && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);
-  const billing = tvBillingStatus(c);
+  const restock = tvRestockStatus(c);
   const isLiveActive = c.status === 'Active';
   const isPostSurgery = isLiveActive && isPostSurgeryStage(c.currentStage);
   const isPreSurgeryActive = isLiveActive && !isPostSurgery;
@@ -280,9 +278,9 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
         <Detail label="Doctor" value={`Dr. ${c.doctor.name}`} muted />
         <Detail label="Assigned" value={getCurrentStageTeamDisplay(c)} />
         <Detail
-          label="Billing"
-          value={billing}
-          color={billing === 'Done' ? '#34d399' : '#fbbf24'}
+          label="Restock"
+          value={restock}
+          color={restock === 'Done' ? '#34d399' : '#fbbf24'}
         />
       </div>
       {remark ? (

@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, BILL_SUBMISSION_ENABLED, normalizeWorkflowStageName } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
@@ -400,7 +400,7 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
       isOpen={isOpen}
       onClose={handleClose}
       title="Cancel Case"
-      subtitle="Pick a reason. Billing is skipped for all cancel types."
+      subtitle="Pick a reason."
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -527,7 +527,7 @@ const PostponeCaseModal: React.FC<{
           <CalendarClock className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
           <p className="text-xs text-sky-700">
             Use this when surgery is delayed, not cancelled. The case stays live at{' '}
-            <strong>{currentStage}</strong>. Billing still happens after the new surgery date.
+            <strong>{currentStage}</strong>.
             If implants will not be used at all, use Cancel Case instead.
           </p>
         </div>
@@ -570,10 +570,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'docs' | 'activity' | 'comments'>('overview');
 
-  const progressStage =
-    !BILL_SUBMISSION_ENABLED && normalizeWorkflowStageName(c.currentStage) === 'Bill Submission'
-      ? 'Billing'
-      : normalizeWorkflowStageName(c.currentStage);
+  const progressStage = mapCaseToVisibleStage(c.currentStage);
   const currentStageIdx = VISIBLE_WORKFLOW_STAGES.indexOf(progressStage);
   const sc = stageColors[c.currentStage];
   const pc = priorityColors[c.priority];
@@ -827,7 +824,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <div>
             <p className="text-sm font-semibold text-amber-900">Case cancelled — kit returning</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              Kit comes back through Pickup → Cleaning & Audit → Restock. Billing is skipped.
+              Kit comes back through Pickup → Cleaning & Audit → Restock.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
             </p>
           </div>
