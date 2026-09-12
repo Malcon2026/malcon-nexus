@@ -75,8 +75,8 @@ const HomeNavTiles: React.FC<{
   const petrolPending = useStore(
     (s) => s.petrolRequests.filter((r) => r.employeeId === employee.id && r.status === 'pending').length,
   );
-  const petrolNeedsPhotos = useStore(
-    (s) => s.petrolRequests.some((r) => r.employeeId === employee.id && r.status === 'issued' && !r.receiptUrl),
+  const petrolActiveToken = useStore(
+    (s) => s.petrolRequests.some((r) => r.employeeId === employee.id && r.status === 'issued'),
   );
   const locationOpen = useStore((s) => openLocationTrip(s.locationTrips, employee.id));
   const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
@@ -113,10 +113,10 @@ const HomeNavTiles: React.FC<{
       id: 'petrol',
       title: 'Petrol',
       titleTe: 'Petrol',
-      hint: petrolPending > 0 ? 'Waiting for token' : petrolNeedsPhotos ? 'Add last bill photos' : 'Request token',
+      hint: petrolPending > 0 ? 'Waiting for token' : petrolActiveToken ? 'Token active' : 'Request token',
       icon: <Fuel className="h-5 w-5 text-orange-600" />,
       iconBg: 'bg-orange-50',
-      badge: petrolPending || (petrolNeedsPhotos ? 1 : 0) || undefined,
+      badge: petrolPending || (petrolActiveToken ? 1 : 0) || undefined,
     },
     {
       id: 'location',

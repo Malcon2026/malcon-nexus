@@ -1,23 +1,21 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { Fuel, Send, XCircle, Camera } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Fuel, Send, XCircle } from 'lucide-react';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { useStore } from '../store/useStore';
 import type { PetrolRequest } from '../types';
 import {
-  PETROL_PRESET_AMOUNTS,
+  PETROL_KM_THRESHOLD,
+  PETROL_TOKEN_AMOUNT,
+  canRequestPetrolToken,
+  getIssuedAwaitingKms,
   getPendingPetrolRequests,
-  getIssuedAwaitingEvidence,
   lastVehicleNo,
-  lastMeterReading,
-  parseTripReadings,
-  formatTripKms,
-  formatTripFormula,
   petrolStatusLabel,
+  formatTripKms,
 } from '../lib/petrol';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
-import { MAX_RAW_PHOTO_BYTES } from '../lib/stagePhotos';
 import { Te } from './BilingualText';
 
 const inputClass =
@@ -37,18 +35,9 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
   const petrolRequests = useStore((s) => s.petrolRequests);
   const requestPetrol = useStore((s) => s.requestPetrol);
   const cancelPetrolRequest = useStore((s) => s.cancelPetrolRequest);
-  const submitPetrolReceipt = useStore((s) => s.submitPetrolReceipt);
 
-  const rememberedStart = lastMeterReading(petrolRequests, currentUser.id);
-
-  const [amountChoice, setAmountChoice] = useState<number | 'other'>(220);
-  const [customAmount, setCustomAmount] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
   const [notes, setNotes] = useState('');
-  const [kmsStart, setKmsStart] = useState('');
-  const [kmsEnd, setKmsEnd] = useState('');
-  const [receiptPhoto, setReceiptPhoto] = useState<File | null>(null);
-  const [kmsPhoto, setKmsPhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -62,52 +51,10 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
   );
 
   const pendingList = getPendingPetrolRequests(petrolRequests, currentUser.id);
-  const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
+  const activeToken = getIssuedAwaitingKms(petrolRequests, currentUser.id);
   const rememberedVehicle = lastVehicleNo(petrolRequests, currentUser.id);
-  const needsPreviousPhotos = !!previousIssued;
-
-  useEffect(() => {
-    if (rememberedStart != null && !kmsStart.trim()) {
-      setKmsStart(String(rememberedStart));
-    }
-  }, [rememberedStart, kmsStart]);
-
-  const resolvedAmount =
-    amountChoice === 'other' ? Number(customAmount) : amountChoice;
-
-  const parsedTrip = parseTripReadings(
-    rememberedStart != null ? String(rememberedStart) : kmsStart,
-    kmsEnd,
-  );
-
-  const collectEvidence = () => {
-    const yesterday = rememberedStart != null ? String(rememberedStart) : kmsStart;
-    const parsed = parseTripReadings(yesterday, kmsEnd);
-    if ('error' in parsed) {
-      setError(parsed.error);
-      return null;
-    }
-    if (!receiptPhoto) {
-      setError('Take a photo of the last pump bill.');
-      return null;
-    }
-    if (!kmsPhoto) {
-      setError('Take a photo of the last kms / odometer.');
-      return null;
-    }
-    if (receiptPhoto.size > MAX_RAW_PHOTO_BYTES || kmsPhoto.size > MAX_RAW_PHOTO_BYTES) {
-      setError('A photo is too large. Please take a clearer, smaller photo.');
-      return null;
-    }
-    return { ...parsed.readings, receiptPhoto, kmsPhoto };
-  };
-
-  const clearEvidence = () => {
-    setKmsStart(kmsEnd.trim() || kmsStart);
-    setKmsEnd('');
-    setReceiptPhoto(null);
-    setKmsPhoto(null);
-  };
+  const eligibility = canRequestPetrolToken(petrolRequests, currentUser.id);
+  const canRequest = eligibility.ok && pendingList.length === 0;
 
   const handleRequest = async () => {
     setError(null);
@@ -117,50 +64,18 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
       setError('Enter the vehicle number.');
       return;
     }
-    if (!Number.isFinite(resolvedAmount) || resolvedAmount <= 0) {
-      setError('Enter a valid amount (usually ₹110 or ₹220).');
-      return;
-    }
-
-    let previousEvidence: ReturnType<typeof collectEvidence> | undefined;
-    if (needsPreviousPhotos) {
-      previousEvidence = collectEvidence();
-      if (!previousEvidence) return;
-    }
 
     setSubmitting(true);
     try {
-      const result = await requestPetrol(resolvedAmount, vehicle, notes, previousEvidence ?? undefined);
+      const result = await requestPetrol(vehicle, notes);
       if (result.error) {
         setError(result.error);
         return;
       }
-      setSuccess('Request sent. Wait for admin to issue book and token number.');
+      setSuccess(`Token request sent (₹${PETROL_TOKEN_AMOUNT}). Admin will issue book & token.`);
       setNotes('');
-      setCustomAmount('');
-      if (previousEvidence) clearEvidence();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send petrol request. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSubmitBill = async () => {
-    setError(null);
-    setSuccess(null);
-    if (!previousIssued) return;
-    const evidence = collectEvidence();
-    if (!evidence) return;
-    setSubmitting(true);
-    try {
-      const result = await submitPetrolReceipt(previousIssued.id, evidence);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setSuccess(`Bill submitted: ${formatTripFormula(evidence.kmsStart, evidence.kmsEnd, evidence.kms)}`);
-      clearEvidence();
     } finally {
       setSubmitting(false);
     }
@@ -176,85 +91,11 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
         setError(result.error);
         return;
       }
-      setSuccess('Request cancelled. You can request petrol again.');
+      setSuccess('Request cancelled.');
     } finally {
       setSubmitting(false);
     }
   };
-
-  const tripFields = needsPreviousPhotos && (
-    <div className="space-y-3 p-3 rounded-lg bg-white border border-orange-100">
-      <p className="text-xs font-semibold text-gray-700">Trip kms *</p>
-      <p className="text-xs text-gray-500">
-        <span className="font-semibold text-gray-800">Today kms − yesterday kms = trip kms</span>
-        {' '}(e.g. 1254 − 1234 = 20 km)
-      </p>
-      {rememberedStart != null ? (
-        <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
-          <p className="text-[11px] text-gray-500">Yesterday kms (from last bill)</p>
-          <p className="text-sm font-bold text-gray-900 tabular-nums">{rememberedStart}</p>
-        </div>
-      ) : (
-        <div>
-          <label className={labelClass}>Yesterday kms *</label>
-          <input
-            type="number"
-            min={0}
-            step="0.1"
-            className={inputClass}
-            value={kmsStart}
-            onChange={(e) => setKmsStart(e.target.value)}
-            placeholder="Meter reading last fill e.g. 1234"
-          />
-        </div>
-      )}
-      <div>
-        <label className={labelClass}>Today kms *</label>
-        <input
-          type="number"
-          min={0}
-          step="0.1"
-          className={inputClass}
-          value={kmsEnd}
-          onChange={(e) => setKmsEnd(e.target.value)}
-          placeholder="Meter on this bill e.g. 1254"
-        />
-      </div>
-      <p className="text-sm font-semibold text-orange-700 tabular-nums">
-        {'readings' in parsedTrip
-          ? formatTripFormula(parsedTrip.readings.kmsStart, parsedTrip.readings.kmsEnd, parsedTrip.readings.kms)
-          : 'Trip kms will show here'}
-      </p>
-      <div>
-        <label className={labelClass}>Last pump bill photo *</label>
-        <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-orange-200 rounded-lg bg-orange-50/40 cursor-pointer text-sm text-gray-700">
-          <Camera className="h-4 w-4 text-orange-600" />
-          {receiptPhoto ? receiptPhoto.name : 'Take or choose pump bill'}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => setReceiptPhoto(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      </div>
-      <div>
-        <label className={labelClass}>Odometer photo *</label>
-        <label className="flex items-center gap-2 px-3 py-2.5 border border-dashed border-orange-200 rounded-lg bg-orange-50/40 cursor-pointer text-sm text-gray-700">
-          <Camera className="h-4 w-4 text-orange-600" />
-          {kmsPhoto ? kmsPhoto.name : 'Take or choose meter photo'}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => setKmsPhoto(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -266,7 +107,7 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900">{title}</p>
-              <Te className="text-gray-500 mb-0">Petrol token</Te>
+              <Te className="text-gray-500 mb-0">Petrol token · ₹{PETROL_TOKEN_AMOUNT}</Te>
             </div>
           </div>
         </CardHeader>
@@ -283,7 +124,6 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
           {pendingList.map((pending) => (
             <div key={pending.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50 space-y-3">
               <p className="text-sm font-semibold text-amber-900">Waiting for book &amp; token</p>
-              <Te className="text-amber-800 mb-0">Admin token istharu — wait cheyandi</Te>
               <p className="text-sm text-amber-900">
                 {formatCurrency(pending.amount)} · {pending.vehicleNo}
               </p>
@@ -300,126 +140,75 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
             </div>
           ))}
 
-          {previousIssued && (
+          {activeToken && (
             <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-2">
-              <p className="text-sm font-semibold text-indigo-900">Fill at the pump with this token</p>
-              <Te className="text-indigo-800 mb-0">Ippudu petrol vesukondi. Bill lo meter readings pettandi</Te>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              <p className="text-sm font-semibold text-indigo-900">Active token — fill at pump</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Book no</p>
-                  <p className="font-bold text-gray-900">{previousIssued.bookNo}</p>
+                  <p className="font-bold text-gray-900">{activeToken.bookNo}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Token no</p>
-                  <p className="font-bold text-gray-900">{previousIssued.tokenNo}</p>
+                  <p className="font-bold text-gray-900">{activeToken.tokenNo}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Amount</p>
-                  <p className="font-bold text-gray-900">{formatCurrency(previousIssued.amount)}</p>
+                  <p className="font-bold text-gray-900">{formatCurrency(activeToken.amount)}</p>
                 </div>
                 <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Vehicle</p>
-                  <p className="font-bold text-gray-900">{previousIssued.vehicleNo}</p>
+                  <p className="font-bold text-gray-900">{activeToken.vehicleNo}</p>
                 </div>
               </div>
+              <p className="text-xs text-indigo-800">
+                After use, tell admin your km reading. Next token after {PETROL_KM_THRESHOLD} km.
+              </p>
             </div>
           )}
 
-          <form
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleRequest();
-            }}
-            className="space-y-4 p-4 bg-orange-50/50 border border-orange-100 rounded-xl"
-          >
-            <p className="text-sm font-semibold text-gray-900">
-              {needsPreviousPhotos ? 'Last fill km + next petrol token' : 'Request petrol token'}
+          {!canRequest && !pendingList.length && !activeToken && !eligibility.ok && (
+            <p className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+              {eligibility.reason}
             </p>
-            <Te className="text-gray-500 mb-0">
-              {needsPreviousPhotos
-                ? 'Today kms − yesterday kms + bill photos, then new amount'
-                : 'Amount + vehicle. You can request more than once today.'}
-            </Te>
+          )}
 
-            {tripFields}
-
-            {needsPreviousPhotos && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={submitting}
-                onClick={() => void handleSubmitBill()}
-              >
-                Submit bill only (request later)
-              </Button>
-            )}
-
-            <div>
-              <label className={labelClass}>Amount *</label>
-              <div className="flex flex-wrap gap-2">
-                {PETROL_PRESET_AMOUNTS.map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => setAmountChoice(amt)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold border ${
-                      amountChoice === amt
-                        ? 'bg-orange-600 text-white border-orange-600'
-                        : 'bg-white text-gray-800 border-gray-200'
-                    }`}
-                  >
-                    {formatCurrency(amt)}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setAmountChoice('other')}
-                  className={`px-3 py-2 rounded-lg text-sm font-semibold border ${
-                    amountChoice === 'other'
-                      ? 'bg-orange-600 text-white border-orange-600'
-                      : 'bg-white text-gray-800 border-gray-200'
-                  }`}
-                >
-                  Other
-                </button>
-              </div>
-              {amountChoice === 'other' && (
+          {canRequest && (
+            <form
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleRequest();
+              }}
+              className="space-y-4 p-4 bg-orange-50/50 border border-orange-100 rounded-xl"
+            >
+              <p className="text-sm font-semibold text-gray-900">Request petrol token</p>
+              <p className="text-xs text-gray-500">₹{PETROL_TOKEN_AMOUNT} per token · {PETROL_KM_THRESHOLD} km before next token</p>
+              <div>
+                <label className={labelClass}>Vehicle number *</label>
                 <input
-                  type="number"
-                  min={1}
-                  className={`${inputClass} mt-2`}
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  placeholder="Amount in ₹"
+                  type="text"
+                  className={inputClass}
+                  value={vehicleNo}
+                  onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
+                  placeholder={rememberedVehicle || 'e.g. TS09AB1234'}
                 />
-              )}
-            </div>
-            <div>
-              <label className={labelClass}>Vehicle number *</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={vehicleNo}
-                onChange={(e) => setVehicleNo(e.target.value.toUpperCase())}
-                placeholder={rememberedVehicle || 'e.g. TS09AB1234'}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Notes</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-            <Button type="submit" variant="primary" size="sm" icon={<Send className="h-4 w-4" />} disabled={submitting}>
-              {submitting ? 'Sending…' : needsPreviousPhotos ? 'Submit trip km & request again' : 'Request petrol'}
-            </Button>
-          </form>
+              </div>
+              <div>
+                <label className={labelClass}>Notes</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+              <Button type="submit" variant="primary" size="sm" icon={<Send className="h-4 w-4" />} disabled={submitting}>
+                {submitting ? 'Sending…' : `Request ₹${PETROL_TOKEN_AMOUNT} token`}
+              </Button>
+            </form>
+          )}
         </CardBody>
       </Card>
 

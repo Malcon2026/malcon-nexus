@@ -27,13 +27,20 @@ import { formatUnknownError } from '../utils/errors';
 import { restockOutcomeLabel } from '../lib/restock';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { uploadAttendanceSelfie } from '../lib/attendanceSelfie';
-import { uploadPetrolEvidence } from '../lib/petrolReceipt';
 import { graceWarning, kmBetween, metersFromPin, nextTripNo, openLocationTrip } from '../lib/locationTrip';
 import { buildEmployeeDepartmentFields, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { fetchBikeRouteKm } from '../lib/bikeRoute';
 import type { HospitalPlace } from '../lib/hospitalSearch';
-import { getIssuedAwaitingEvidence, canManagePetrol, placeholderStaffEmail } from '../lib/petrol';
-import type { PetrolTripEvidence } from '../lib/petrol';
+import {
+  canManagePetrol,
+  canRequestPetrolToken,
+  lastMeterReading,
+  formatTripFormula,
+  parseOdometerReading,
+  PETROL_KM_THRESHOLD,
+  PETROL_TOKEN_AMOUNT,
+  placeholderStaffEmail,
+} from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo } from '../lib/database/repositories/supabaseRepositories';
@@ -270,32 +277,13 @@ interface AppState {
   }) => Promise<{ error: string | null }>;
   deleteDailyExpense: (id: string) => Promise<{ error: string | null }>;
 
-  // Petrol token workflow
-  requestPetrol: (
-    amount: number,
-    vehicleNo: string,
-    notes?: string,
-    previousEvidence?: PetrolTripEvidence,
-  ) => Promise<{ error: string | null }>;
+  // Petrol token workflow (₹200 token, admin records km, 200 km before next token)
+  requestPetrol: (vehicleNo: string, notes?: string) => Promise<{ error: string | null }>;
   cancelPetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
   issuePetrolToken: (requestId: string, bookNo: string, tokenNo: string) => Promise<{ error: string | null }>;
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
-  submitPetrolReceipt: (requestId: string, evidence: PetrolTripEvidence) => Promise<{ error: string | null }>;
-  addManualPetrolEntry: (input: {
-    employeeId: string;
-    expenseDate: string;
-    vehicleNo: string;
-    amount: number;
-    bookNo: string;
-    tokenNo: string;
-    kmsStart?: number | null;
-    kmsEnd?: number | null;
-    kms?: number | null;
-    billReceived?: boolean;
-    notes?: string;
-  }) => Promise<{ error: string | null }>;
+  recordPetrolKms: (requestId: string, kmsEnd: number) => Promise<{ error: string | null }>;
   deletePetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
-  clearAllPetrolEntries: () => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -891,7 +879,7 @@ const placeholderAdmin: Employee = {
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
 const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard'];
-const PETROL_DESK_TABS = ['dashboard', 'petrol-dashboard', 'settings'];
+const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 
 const applyUserSession = (
   user: Employee,
@@ -900,7 +888,7 @@ const applyUserSession = (
   if (user.role === 'petrol') {
     const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
       ? current.activeTab
-      : 'dashboard';
+      : 'petrol-dashboard';
     return { currentUser: user, viewMode: 'petrol', activeTab };
   }
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
@@ -4598,23 +4586,16 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  requestPetrol: async (amount, vehicleNo, notes = '', previousEvidence) => {
+  requestPetrol: async (vehicleNo, notes = '') => {
     const { currentUser, petrolRequests } = get();
     const vehicle = vehicleNo.trim().toUpperCase();
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return { error: 'Enter a valid petrol amount.' };
-    }
     if (!vehicle) {
       return { error: 'Enter the vehicle number.' };
     }
 
-    const previousIssued = getIssuedAwaitingEvidence(petrolRequests, currentUser.id);
-    if (previousIssued) {
-      if (!previousEvidence) {
-        return { error: 'Enter today kms and upload the last pump bill to request petrol again.' };
-      }
-      const closeResult = await get().submitPetrolReceipt(previousIssued.id, previousEvidence);
-      if (closeResult.error) return closeResult;
+    const eligibility = canRequestPetrolToken(petrolRequests, currentUser.id);
+    if (!eligibility.ok) {
+      return { error: eligibility.reason };
     }
 
     const now = new Date().toISOString();
@@ -4623,7 +4604,7 @@ export const useStore = create<AppState>((set, get) => ({
       employeeId: currentUser.id,
       employeeName: currentUser.name,
       vehicleNo: vehicle,
-      amount,
+      amount: PETROL_TOKEN_AMOUNT,
       requestedAt: now,
       status: 'pending',
       bookNo: '',
@@ -4653,9 +4634,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser.name,
       currentUser.name,
       currentUser.role,
-      previousIssued
-        ? `${currentUser.name} requested next petrol ₹${amount} for ${vehicle} and attached last fill evidence.`
-        : `${currentUser.name} requested petrol ₹${amount} for ${vehicle}.`,
+      `${currentUser.name} requested petrol token ₹${PETROL_TOKEN_AMOUNT} for ${vehicle}.`,
     );
     persistActivity(activity);
 
@@ -4719,6 +4698,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!book) return { error: 'Enter the book number.' };
     if (!token) return { error: 'Enter the token number.' };
 
+    const startReading = lastMeterReading(petrolRequests, request.employeeId);
     const now = new Date().toISOString();
     const updates: Partial<PetrolRequest> = {
       status: 'issued',
@@ -4727,6 +4707,7 @@ export const useStore = create<AppState>((set, get) => ({
       issuedBy: currentUser.name,
       issuedById: currentUser.id,
       issuedAt: now,
+      kmsStart: startReading,
       updatedAt: now,
     };
     const updateResult = await updatePetrolRequest(requestId, updates);
@@ -4739,7 +4720,9 @@ export const useStore = create<AppState>((set, get) => ({
       request.employeeName,
       currentUser.name,
       'admin',
-      `Issued book ${book} token ${token} to ${request.employeeName} for ₹${request.amount} (${request.vehicleNo}).`,
+      `Issued book ${book} token ${token} to ${request.employeeName} for ₹${request.amount} (${request.vehicleNo})${
+        startReading != null ? ` · odometer ${startReading}` : ''
+      }.`,
     );
     persistActivity(activity);
 
@@ -4792,174 +4775,50 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  addManualPetrolEntry: async (input) => {
-    const { currentUser, employees, petrolRequests } = get();
-    if (!canManagePetrol(currentUser.role)) {
-      return { error: 'Only the petrol desk or an admin can add a manual entry.' };
-    }
-    const employee = employees.find((e) => e.id === input.employeeId);
-    if (!employee) return { error: 'Select an employee.' };
-
-    const vehicle = input.vehicleNo.trim().toUpperCase();
-    const book = input.bookNo.trim();
-    const token = input.tokenNo.trim();
-    const dateKey = input.expenseDate.trim();
-    if (!dateKey) return { error: 'Select the date.' };
-    if (!vehicle) return { error: 'Enter the vehicle number.' };
-    if (!Number.isFinite(input.amount) || input.amount <= 0) {
-      return { error: 'Enter a valid petrol amount.' };
-    }
-    if (!book) return { error: 'Enter the book number.' };
-    if (!token) return { error: 'Enter the token number.' };
-
-    const billReceived = input.billReceived !== false;
-    let kmsStart: number | null = input.kmsStart == null ? null : Number(input.kmsStart);
-    let kmsEnd: number | null = input.kmsEnd == null ? null : Number(input.kmsEnd);
-    let kms: number | null = input.kms == null ? null : Number(input.kms);
-    if (kmsStart != null && (!Number.isFinite(kmsStart) || kmsStart < 0)) {
-      return { error: 'Enter a valid yesterday kms, or leave it blank.' };
-    }
-    if (kmsEnd != null && (!Number.isFinite(kmsEnd) || kmsEnd < 0)) {
-      return { error: 'Enter a valid today kms, or leave it blank.' };
-    }
-    if (kmsStart != null && kmsEnd != null) {
-      if (kmsEnd < kmsStart) {
-        return { error: 'Today kms must be the same as or higher than yesterday kms.' };
-      }
-      kms = Math.round((kmsEnd - kmsStart) * 10) / 10;
-    } else if (kms != null && (!Number.isFinite(kms) || kms < 0)) {
-      return { error: 'Enter valid kms driven, or leave it blank.' };
-    }
-
-    const bookTokenTaken = petrolRequests.some(
-      (r) => r.bookNo.trim() === book && r.tokenNo.trim() === token,
-    );
-    if (bookTokenTaken) {
-      return { error: 'That book number and token number are already used.' };
-    }
-
-    const at = new Date(`${dateKey}T12:00:00+05:30`).toISOString();
-    const now = new Date().toISOString();
-    const request: PetrolRequest = {
-      id: newId(),
-      employeeId: employee.id,
-      employeeName: employee.name,
-      vehicleNo: vehicle,
-      amount: input.amount,
-      requestedAt: at,
-      status: billReceived ? 'receipt_submitted' : 'issued',
-      bookNo: book,
-      tokenNo: token,
-      issuedBy: currentUser.name,
-      issuedById: currentUser.id,
-      issuedAt: at,
-      kms,
-      kmsStart,
-      kmsEnd,
-      receiptUrl: '',
-      kmsPhotoUrl: '',
-      receiptSubmittedAt: billReceived ? at : null,
-      notes: (input.notes ?? '').trim() || 'Manual entry',
-      adminNotes: 'Manual entry',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const persistResult = await persistPetrolRequest(request);
-    if (persistResult.error) return persistResult;
-
-    const activity = createActivityEvent(
-      'Petrol Manual Entry',
-      'petrol',
-      request.id,
-      employee.name,
-      currentUser.name,
-      'admin',
-      `Manual petrol entry for ${employee.name}: book ${book} token ${token}, ₹${input.amount}, ${vehicle}${kms != null ? `, ${kms} km driven` : ''}.`,
-    );
-    persistActivity(activity);
-
-    set((s) => ({
-      petrolRequests: [request, ...s.petrolRequests.filter((r) => r.id !== request.id)],
-      activityLog: [activity, ...s.activityLog],
-    }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
-
-    return { error: null };
-  },
-
-  submitPetrolReceipt: async (requestId, evidence) => {
+  recordPetrolKms: async (requestId, kmsEndInput) => {
     const { currentUser, petrolRequests } = get();
+    if (!canManagePetrol(currentUser.role)) {
+      return { error: 'Only admin or petrol desk can record km readings.' };
+    }
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol request not found.' };
-    if (request.employeeId !== currentUser.id) {
-      return { error: 'You can only submit evidence for your own request.' };
-    }
     if (request.status !== 'issued') {
-      return { error: 'Fill petrol at the pump first, then submit the photos.' };
-    }
-    const { kmsStart, kmsEnd, receiptPhoto, kmsPhoto } = evidence;
-    const kms = Number.isFinite(evidence.kms)
-      ? evidence.kms
-      : Math.round((kmsEnd - kmsStart) * 10) / 10;
-    if (!Number.isFinite(kmsStart) || kmsStart < 0) {
-      return { error: 'Enter yesterday kms (e.g. 1234).' };
-    }
-    if (!Number.isFinite(kmsEnd) || kmsEnd < kmsStart) {
-      return { error: 'Enter today kms from the bill (e.g. 1254).' };
-    }
-    if (!receiptPhoto) {
-      return { error: 'Take a photo of the pump receipt.' };
-    }
-    if (!kmsPhoto) {
-      return { error: 'Take a photo of the kms / odometer.' };
+      return { error: 'Km can only be recorded for an issued token.' };
     }
 
-    let receiptUrl: string;
-    let kmsPhotoUrl: string;
-    try {
-      receiptUrl = await uploadPetrolEvidence(
-        request.id,
-        currentUser.id,
-        currentUser.name,
-        receiptPhoto,
-        'receipt',
-      );
-      kmsPhotoUrl = await uploadPetrolEvidence(
-        request.id,
-        currentUser.id,
-        currentUser.name,
-        kmsPhoto,
-        'kms',
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to upload evidence photos';
-      console.error('[petrol] evidence upload failed:', err);
-      return { error: message };
-    }
+    const kmsStart =
+      request.kmsStart ??
+      lastMeterReading(petrolRequests, request.employeeId) ??
+      0;
+    const parsed = parseOdometerReading(kmsStart, String(kmsEndInput));
+    if ('error' in parsed) return { error: parsed.error };
 
+    const { kmsStart: start, kmsEnd, kms } = parsed.readings;
     const now = new Date().toISOString();
     const updates: Partial<PetrolRequest> = {
       status: 'receipt_submitted',
-      kms,
-      kmsStart,
+      kmsStart: start,
       kmsEnd,
-      receiptUrl,
-      kmsPhotoUrl,
+      kms,
       receiptSubmittedAt: now,
       updatedAt: now,
     };
     const updateResult = await updatePetrolRequest(requestId, updates);
     if (updateResult.error) return updateResult;
 
+    const thresholdNote =
+      kms >= PETROL_KM_THRESHOLD
+        ? `Eligible for next ₹${PETROL_TOKEN_AMOUNT} token.`
+        : `Need ${PETROL_KM_THRESHOLD - kms} km more before next token.`;
+
     const activity = createActivityEvent(
-      'Petrol Receipt Submitted',
+      'Petrol Km Recorded',
       'petrol',
       request.id,
+      request.employeeName,
       currentUser.name,
-      currentUser.name,
-      currentUser.role,
-      `${currentUser.name} submitted pump bill for book ${request.bookNo} token ${request.tokenNo} (${kmsEnd} − ${kmsStart} = ${kms} km trip).`,
+      'admin',
+      `Recorded ${formatTripFormula(start, kmsEnd, kms)} for ${request.employeeName}. ${thresholdNote}`,
     );
     persistActivity(activity);
 
@@ -5009,43 +4868,6 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
     if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
-
-    return { error: null };
-  },
-
-  clearAllPetrolEntries: async () => {
-    const { currentUser, petrolRequests } = get();
-    if (!canManagePetrol(currentUser.role)) {
-      return { error: 'Only the petrol desk or an admin can delete petrol entries.' };
-    }
-    if (petrolRequests.length === 0) return { error: null };
-
-    if (USE_SUPABASE) {
-      try {
-        await sbPetrolRepo.removeAll();
-      } catch (err) {
-        return { error: petrolDbError(err, 'Failed to delete petrol entries') };
-      }
-    } else {
-      Database.saveAll('petrolRequests', []);
-    }
-
-    const activity = createActivityEvent(
-      'Petrol Entries Cleared',
-      'petrol',
-      'all',
-      'All petrol entries',
-      currentUser.name,
-      currentUser.role,
-      `Deleted ${petrolRequests.length} petrol ${petrolRequests.length === 1 ? 'entry' : 'entries'}.`,
-    );
-    persistActivity(activity);
-
-    set((s) => ({
-      petrolRequests: [],
-      activityLog: [activity, ...s.activityLog],
-    }));
-    if (USE_SUPABASE) setCache('petrolRequests', []);
 
     return { error: null };
   },

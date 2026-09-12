@@ -390,7 +390,7 @@ export type PetrolRequestStatus =
   | 'rejected'
   | 'cancelled';
 
-/** Employee petrol token: request → admin book/token → pump receipt + kms. */
+/** Employee petrol token: request → admin issues book/token → admin records km (200 km before next ₹200 token). */
 export interface PetrolRequest {
   id: string;
   employeeId: string;

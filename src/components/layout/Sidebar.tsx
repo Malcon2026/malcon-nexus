@@ -91,8 +91,7 @@ export const Sidebar: React.FC = () => {
     if (id === 'task-requests') return pendingTaskRequests || undefined;
     if (id === 'cases' || id === 'live-cases') return activeCases;
     if (id === 'attendance') return pendingAttendanceApprovals;
-    if (id === 'petrol-dashboard') return petrolRequests.filter((r) => r.status === 'pending').length;
-    if (id === 'dashboard' && currentUser.role === 'petrol') {
+    if (id === 'petrol-dashboard') {
       return petrolRequests.filter((r) => r.status === 'pending' || r.status === 'issued').length;
     }
     return undefined;
@@ -144,7 +143,7 @@ export const Sidebar: React.FC = () => {
             if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
             if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
             if (currentUser.role === 'petrol') {
-              return item.id === 'dashboard' || item.id === 'petrol-dashboard' || item.id === 'settings';
+              return item.id === 'petrol-dashboard' || item.id === 'settings';
             }
             return !item.adminOnly || currentUser.role === 'admin';
           })
@@ -175,7 +174,7 @@ export const Sidebar: React.FC = () => {
                       exit={{ opacity: 0 }}
                       className="flex-1 text-left truncate"
                     >
-                    {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Tokens' : item.label}
+                    {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Petrol Tokens' : item.label}
                     </motion.span>
                   )}
                 </AnimatePresence>
