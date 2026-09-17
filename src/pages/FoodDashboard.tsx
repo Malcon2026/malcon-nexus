@@ -6,29 +6,8 @@ import { useStore } from '../store/useStore';
 import { foodBoardRows, isFoodSelectionSubmitted, mealCountForDay, FOOD_MEALS, shiftMealDateKey } from '../lib/food';
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
-import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
-import type { Employee } from '../types';
+import type { Employee, EmployeeFoodSelection } from '../types';
 import type { FoodMeal } from '../types';
-
-function formatDayHeading(dateKey: string): string {
-  const today = getISTDateKey();
-  const base =
-    dateKey === today
-      ? 'Today'
-      : dateKey === shiftMealDateKey(today, -1)
-        ? 'Yesterday'
-        : null;
-  const [y, m, d] = dateKey.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  const long = dt.toLocaleDateString('en-IN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Asia/Kolkata',
-  });
-  return base ? `${base} · ${long}` : long;
-}
 
 const emptyMeals = (): Record<FoodMeal, boolean> => ({
   breakfast: false,
@@ -36,16 +15,16 @@ const emptyMeals = (): Record<FoodMeal, boolean> => ({
   dinner: false,
 });
 
-function mealsFromSelection(
-  submitted: boolean,
-  selection: Record<FoodMeal, boolean>,
-): Record<FoodMeal, boolean> {
-  if (!submitted) return emptyMeals();
+function savedMeals(selection: EmployeeFoodSelection): Record<FoodMeal, boolean> {
   return {
     breakfast: selection.breakfast,
     lunch: selection.lunch,
     dinner: selection.dinner,
   };
+}
+
+function mealsEqual(a: Record<FoodMeal, boolean>, b: Record<FoodMeal, boolean>): boolean {
+  return a.breakfast === b.breakfast && a.lunch === b.lunch && a.dinner === b.dinner;
 }
 
 export const FoodDashboard: React.FC = () => {
@@ -58,7 +37,7 @@ export const FoodDashboard: React.FC = () => {
   const [mealDate, setMealDate] = useState(() => getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Record<FoodMeal, boolean>>>({});
-  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const staff = useMemo(() => filterAttendanceStaff(employees), [employees]);
@@ -75,7 +54,9 @@ export const FoodDashboard: React.FC = () => {
   useEffect(() => {
     const next: Record<string, Record<FoodMeal, boolean>> = {};
     for (const { employee, selection } of rows) {
-      next[employee.id] = mealsFromSelection(isFoodSelectionSubmitted(selection), selection);
+      next[employee.id] = isFoodSelectionSubmitted(selection)
+        ? savedMeals(selection)
+        : emptyMeals();
     }
     setDrafts(next);
     setRowError(null);
@@ -90,7 +71,7 @@ export const FoodDashboard: React.FC = () => {
     [foodSelections, mealDate],
   );
 
-  const selectedAny = rows.filter(
+  const savedCount = rows.filter(
     (r) =>
       isFoodSelectionSubmitted(r.selection) &&
       (r.selection.breakfast || r.selection.lunch || r.selection.dinner),
@@ -104,15 +85,15 @@ export const FoodDashboard: React.FC = () => {
     });
   }, []);
 
-  const applyForEmployee = async (employee: Employee) => {
+  const saveForEmployee = async (employee: Employee) => {
     const draft = drafts[employee.id] ?? emptyMeals();
     setRowError(null);
-    setApplyingId(employee.id);
+    setSavingId(employee.id);
     try {
       const result = await submitFoodMealsAsAdmin(employee.id, mealDate, draft);
       if (result.error) setRowError(result.error);
     } finally {
-      setApplyingId(null);
+      setSavingId(null);
     }
   };
 
@@ -133,28 +114,50 @@ export const FoodDashboard: React.FC = () => {
     }
   };
 
-  return (
-    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <UtensilsCrossed className="h-5 w-5 text-rose-600" />
-            Food
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">{formatDayHeading(mealDate)}</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
-          onClick={() => void handleRefresh()}
-          disabled={refreshing}
-        >
-          Refresh
-        </Button>
-      </div>
+  const today = getISTDateKey();
+  const dayLabel =
+    mealDate === today
+      ? 'Today'
+      : mealDate === shiftMealDateKey(today, -1)
+        ? 'Yesterday'
+        : mealDate;
 
-      <EmployeeFoodSection mealDate={mealDate} embedded />
+  return (
+    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <UtensilsCrossed className="h-5 w-5 text-rose-600 shrink-0" />
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Food</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+            aria-label="Previous day"
+            onClick={() => setMealDate((d) => shiftMealDateKey(d, -1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-semibold text-gray-900 min-w-[5.5rem] text-center">{dayLabel}</span>
+          <button
+            type="button"
+            className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+            aria-label="Next day"
+            onClick={() => setMealDate((d) => shiftMealDateKey(d, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-3">
         {counts.map((c) => (
@@ -167,25 +170,10 @@ export const FoodDashboard: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-          onClick={() => setMealDate((d) => shiftMealDateKey(d, -1))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <p className="text-sm text-gray-600">
-          {selectedAny} of {rows.length} staff submitted at least one meal
-        </p>
-        <button
-          type="button"
-          className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-          onClick={() => setMealDate((d) => shiftMealDateKey(d, 1))}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      <p className="text-sm text-gray-600">
+        {savedCount} of {rows.length} people saved for this day. Tap B / L / D, then <span className="font-semibold">Save</span>{' '}
+        on that row.
+      </p>
 
       {rowError && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{rowError}</p>
@@ -193,32 +181,39 @@ export const FoodDashboard: React.FC = () => {
 
       <Card>
         <CardBody className="p-0 overflow-x-auto">
-          <table className="w-full text-sm min-w-[620px]">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase">
-                <th className="px-4 py-3">Employee</th>
-                <th className="px-4 py-3 text-center">Breakfast</th>
-                <th className="px-4 py-3 text-center">Lunch</th>
-                <th className="px-4 py-3 text-center">Dinner</th>
-                <th className="px-4 py-3 text-right">Apply</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-center">B</th>
+                <th className="px-4 py-3 text-center">L</th>
+                <th className="px-4 py-3 text-center">D</th>
+                <th className="px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map(({ employee, selection }) => {
-                const submitted = isFoodSelectionSubmitted(selection);
+                const saved = isFoodSelectionSubmitted(selection);
                 const draft = drafts[employee.id] ?? emptyMeals();
+                const baseline = saved ? savedMeals(selection) : emptyMeals();
                 const anyDraft = draft.breakfast || draft.lunch || draft.dinner;
-                const busy = applyingId === employee.id;
+                const dirty = !mealsEqual(draft, baseline);
+                const busy = savingId === employee.id;
+                const statusLabel = saved ? 'Saved' : 'Pending';
+                const statusClass = saved
+                  ? 'bg-emerald-50 text-emerald-800'
+                  : 'bg-gray-100 text-gray-600';
+
                 return (
                   <tr key={employee.id} className="hover:bg-gray-50/80">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {employee.name}
-                      {employee.role === 'admin' && (
-                        <span className="ml-1.5 text-[10px] font-semibold uppercase text-gray-400">Admin</span>
-                      )}
-                      {submitted && (
-                        <span className="block text-[11px] font-normal text-emerald-600">Submitted</span>
-                      )}
+                    <td className="px-4 py-3 font-medium text-gray-900">{employee.name}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${statusClass}`}
+                      >
+                        {statusLabel}
+                      </span>
                     </td>
                     {FOOD_MEALS.map((m) => {
                       const on = draft[m.id];
@@ -228,14 +223,14 @@ export const FoodDashboard: React.FC = () => {
                             type="button"
                             disabled={busy}
                             onClick={() => toggleDraft(employee.id, m.id)}
-                            className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md text-xs font-bold transition-colors ${
+                            title={m.label}
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-colors ${
                               on
-                                ? 'bg-rose-100 text-rose-800 ring-1 ring-rose-200'
+                                ? 'bg-rose-600 text-white'
                                 : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                             }`}
-                            aria-label={`${employee.name} ${m.label}`}
                           >
-                            {on ? '✓' : '+'}
+                            {on ? '✓' : '·'}
                           </button>
                         </td>
                       );
@@ -243,11 +238,10 @@ export const FoodDashboard: React.FC = () => {
                     <td className="px-4 py-3 text-right">
                       <Button
                         size="sm"
-                        variant="outline"
-                        disabled={!anyDraft || busy}
-                        onClick={() => void applyForEmployee(employee)}
+                        disabled={!anyDraft || !dirty || busy}
+                        onClick={() => void saveForEmployee(employee)}
                       >
-                        {busy ? '…' : submitted ? 'Update' : 'Apply'}
+                        {busy ? 'Saving…' : 'Save'}
                       </Button>
                     </td>
                   </tr>

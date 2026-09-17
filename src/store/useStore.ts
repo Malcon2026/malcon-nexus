@@ -4999,7 +4999,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'Employee not found.' };
     }
     if (!meals.breakfast && !meals.lunch && !meals.dinner) {
-      return { error: 'Select at least one meal, then tap Apply.' };
+      return { error: 'Select at least one meal, then tap Save.' };
     }
     const existing = foodSelections.find(
       (s) => s.employeeId === employeeId && s.mealDate === normalized,
