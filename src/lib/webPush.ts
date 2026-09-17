@@ -33,7 +33,12 @@ export function webPushPermission(): NotificationPermission | 'unsupported' {
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    const registration = await navigator.serviceWorker.register('/sw.js?v=20260917', {
+      scope: '/',
+      updateViaCache: 'none',
+    });
+    void registration.update();
+    return registration;
   } catch (err) {
     console.error('[webPush] service worker registration failed:', err);
     return null;
