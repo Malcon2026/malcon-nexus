@@ -166,12 +166,6 @@ export const EmployeeFoodSection: React.FC = () => {
               {submitting ? 'Submitting…' : 'Submit'}
             </Button>
           )}
-
-          <p className="text-xs text-gray-500">
-            {locked
-              ? `Your meals for ${formatMealDateLabel(mealDate).toLowerCase()} are locked.`
-              : `Select meals for ${formatMealDateLabel(mealDate).toLowerCase()}, then tap Submit once. You cannot edit after submitting.`}
-          </p>
         </CardBody>
       </Card>
     </div>
