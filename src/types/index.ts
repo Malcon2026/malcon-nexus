@@ -364,6 +364,22 @@ export interface LeaveRequest {
   compOffWorkDate: string | null;
 }
 
+/** Employee meal choice for one calendar day (IST). */
+export interface EmployeeFoodSelection {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  /** YYYY-MM-DD */
+  mealDate: string;
+  breakfast: boolean;
+  lunch: boolean;
+  dinner: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type FoodMeal = 'breakfast' | 'lunch' | 'dinner';
+
 /** Admin-only manual daily log of travel/food/other spend per employee per day. */
 export interface DailyExpense {
   id: string;

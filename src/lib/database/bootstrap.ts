@@ -15,8 +15,11 @@ import {
   sbLeaveRepo,
   sbPetrolRepo,
   sbLocationTripRepo,
+  sbFoodRepo,
 } from './repositories/supabaseRepositories';
 import { FCFS_POOL_ENABLED } from '../caseWorkflow';
+import { getISTDateKey } from '../attendance';
+import { foodLoadWindow } from '../food';
 
 type BootstrapRole = 'admin' | 'employee' | 'petrol';
 
@@ -95,6 +98,7 @@ function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
     },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
+    { key: 'foodSelections', run: () => sbFoodRepo.getForEmployee(employeeId) },
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
     { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
     {
@@ -142,6 +146,13 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+    {
+      key: 'foodSelections',
+      run: () => {
+        const { from, to } = foodLoadWindow(getISTDateKey());
+        return sbFoodRepo.getForDateRange(from, to);
+      },
+    },
     { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
@@ -262,6 +273,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceApprovalRequests',
           'leaveRequests',
           'petrolRequests',
+          'foodSelections',
           'locationTrips',
           'departments',
           'employees',
@@ -279,6 +291,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'attendanceRecords',
           'leaveRequests',
           'petrolRequests',
+          'foodSelections',
           'locationTrips',
           'attendanceApprovalRequests',
           'departments',

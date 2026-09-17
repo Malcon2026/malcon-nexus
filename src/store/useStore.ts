@@ -9,6 +9,8 @@ import type {
   RestockOutcome,
   LocationTrip,
   CaseTaskRequest,
+  EmployeeFoodSelection,
+  FoodMeal,
 } from '../types';
 import { Database } from '../lib/database/database';
 import { taskRepository } from '../lib/database/repositories/tasks';
@@ -43,7 +45,8 @@ import {
 } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
+import { foodLoadWindow } from '../lib/food';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
@@ -97,6 +100,7 @@ interface AppState {
   attendanceApprovalRequests: AttendanceApprovalRequest[];
   leaveRequests: LeaveRequest[];
   petrolRequests: PetrolRequest[];
+  foodSelections: EmployeeFoodSelection[];
   locationTrips: LocationTrip[];
   caseTaskRequests: CaseTaskRequest[];
   dailyExpenses: DailyExpense[];
@@ -284,6 +288,15 @@ interface AppState {
   rejectPetrolRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   recordPetrolKms: (requestId: string, kmsEnd: number) => Promise<{ error: string | null }>;
   deletePetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
+
+  saveEmployeeFoodMeals: (
+    mealDate: string,
+    meals: Record<FoodMeal, boolean>,
+  ) => Promise<{ error: string | null }>;
+  loadFoodSelectionsWindow: (
+    centerDate: string,
+    options?: { force?: boolean },
+  ) => Promise<{ error: string | null }>;
 
   // App settings (generic admin-only key/value config, e.g. incentive rate)
   loadAppSettings: () => Promise<{ error: string | null }>;
@@ -725,6 +738,45 @@ const persistPetrolRequest = async (request: PetrolRequest): Promise<{ error: st
   return { error: null };
 };
 
+const mergeFoodSelections = (
+  existing: EmployeeFoodSelection[],
+  incoming: EmployeeFoodSelection[],
+  from: string,
+  to: string,
+): EmployeeFoodSelection[] => {
+  const kept = existing.filter((s) => s.mealDate < from || s.mealDate > to);
+  const byKey = new Map(kept.map((s) => [`${s.employeeId}:${s.mealDate}`, s]));
+  for (const row of incoming) {
+    byKey.set(`${row.employeeId}:${row.mealDate}`, row);
+  }
+  return [...byKey.values()].sort((a, b) => b.mealDate.localeCompare(a.mealDate));
+};
+
+const persistFoodSelection = async (
+  selection: EmployeeFoodSelection,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbFoodRepo.upsert(selection);
+    } catch (err) {
+      console.error('[food] persist failed:', err);
+      return { error: formatUnknownError(err) };
+    }
+    const list = Database.getAll<EmployeeFoodSelection>('foodSelections');
+    setCache(
+      'foodSelections',
+      mergeFoodSelections(list, [selection], selection.mealDate, selection.mealDate),
+    );
+    return { error: null };
+  }
+  const list = Database.getAll<EmployeeFoodSelection>('foodSelections');
+  Database.saveAll(
+    'foodSelections',
+    mergeFoodSelections(list, [selection], selection.mealDate, selection.mealDate),
+  );
+  return { error: null };
+};
+
 const updatePetrolRequest = async (
   id: string,
   updates: Partial<PetrolRequest>,
@@ -859,6 +911,7 @@ const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords')
 const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
 const initialLeaveRequests = Database.getAll<LeaveRequest>('leaveRequests');
 const initialPetrolRequests = Database.getAll<PetrolRequest>('petrolRequests');
+const initialFoodSelections = Database.getAll<EmployeeFoodSelection>('foodSelections');
 const initialLocationTrips = Database.getAll<LocationTrip>('locationTrips');
 
 const placeholderAdmin: Employee = {
@@ -878,7 +931,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard'];
+const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 
 const applyUserSession = (
@@ -915,6 +968,7 @@ export const useStore = create<AppState>((set, get) => ({
   attendanceApprovalRequests: initialAttendanceApprovals,
   leaveRequests: initialLeaveRequests,
   petrolRequests: initialPetrolRequests,
+  foodSelections: initialFoodSelections,
   locationTrips: initialLocationTrips,
   caseTaskRequests: [],
   dailyExpenses: [],
@@ -4872,6 +4926,55 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
+  saveEmployeeFoodMeals: async (mealDate, meals) => {
+    const { currentUser, foodSelections } = get();
+    const normalized = normalizeDateKey(mealDate);
+    const existing = foodSelections.find(
+      (s) => s.employeeId === currentUser.id && s.mealDate === normalized,
+    );
+    const now = new Date().toISOString();
+    const selection: EmployeeFoodSelection = {
+      id: existing?.id || newId(),
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      mealDate: normalized,
+      breakfast: meals.breakfast,
+      lunch: meals.lunch,
+      dinner: meals.dinner,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    const persistResult = await persistFoodSelection(selection);
+    if (persistResult.error) return persistResult;
+
+    set((s) => ({
+      foodSelections: mergeFoodSelections(s.foodSelections, [selection], normalized, normalized),
+    }));
+    if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
+
+    return { error: null };
+  },
+
+  loadFoodSelectionsWindow: async (centerDate, options) => {
+    const normalized = normalizeDateKey(centerDate);
+    const { from, to } = foodLoadWindow(normalized);
+    if (USE_SUPABASE) {
+      try {
+        const rows = await sbFoodRepo.getForDateRange(from, to);
+        set((s) => ({
+          foodSelections: mergeFoodSelections(s.foodSelections, rows, from, to),
+        }));
+        if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
+        return { error: null };
+      } catch (err) {
+        if (!options?.force) return { error: formatUnknownError(err) };
+        return { error: formatUnknownError(err) };
+      }
+    }
+    return { error: null };
+  },
+
   // ========== DYNAMIC METRICS ==========
 
   getDailyData: () => {
@@ -5020,6 +5123,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
       leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
       petrolRequests: Database.getAll<PetrolRequest>('petrolRequests'),
+      foodSelections: Database.getAll<EmployeeFoodSelection>('foodSelections'),
       locationTrips: Database.getAll<LocationTrip>('locationTrips'),
       caseTaskRequests: Database.getAll<CaseTaskRequest>('caseTaskRequests'),
       ...session,

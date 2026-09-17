@@ -109,6 +109,7 @@ export const Database = {
     storage.removeItem('attendanceRecords');
     storage.removeItem('attendanceApprovalRequests');
     storage.removeItem('petrolRequests');
+    storage.removeItem('foodSelections');
     storage.removeItem('locationTrips');
 
     // Reset employee counters
@@ -128,6 +129,7 @@ export const Database = {
     storage.setItem('attendanceRecords', []);
     storage.setItem('attendanceApprovalRequests', []);
     storage.setItem('petrolRequests', []);
+    storage.setItem('foodSelections', []);
     storage.setItem('locationTrips', []);
   },
 };

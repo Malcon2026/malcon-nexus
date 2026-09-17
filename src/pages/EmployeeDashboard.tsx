@@ -4,6 +4,7 @@ import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
   CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn, MapPin,
   HandMetal,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -24,6 +25,9 @@ import { EmployeeAttendanceHero } from '../components/EmployeeAttendanceHero';
 import { LocationPunchSection } from '../components/LocationPunchSection';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
+import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
+import { getFoodSelectionForDay } from '../lib/food';
+import { getISTDateKey } from '../lib/attendance';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
 import { Te } from '../components/BilingualText';
@@ -31,7 +35,7 @@ import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
 import { countPendingLeaveSubmissions } from '../lib/leave';
 import { openLocationTrip } from '../lib/locationTrip';
 
-type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'location';
+type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'food' | 'location';
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -80,6 +84,11 @@ const HomeNavTiles: React.FC<{
   );
   const locationOpen = useStore((s) => openLocationTrip(s.locationTrips, employee.id));
   const unreadNotifCount = useStore((s) => s.notifications.filter((n) => !n.read).length);
+  const todayFood = useStore((s) =>
+    getFoodSelectionForDay(s.foodSelections, employee.id, getISTDateKey()),
+  );
+  const foodMealsToday =
+    (todayFood?.breakfast ? 1 : 0) + (todayFood?.lunch ? 1 : 0) + (todayFood?.dinner ? 1 : 0);
 
   const summary = summarizeLiveAttendance(attendanceRecords, employee.id);
   const activeCases = myCases.filter((c) => c.status === 'Active').length;
@@ -117,6 +126,15 @@ const HomeNavTiles: React.FC<{
       icon: <Fuel className="h-5 w-5 text-orange-600" />,
       iconBg: 'bg-orange-50',
       badge: petrolPending || (petrolActiveToken ? 1 : 0) || undefined,
+    },
+    {
+      id: 'food',
+      title: 'Food',
+      titleTe: 'Food',
+      hint: foodMealsToday > 0 ? `${foodMealsToday} selected today` : 'Breakfast · Lunch · Dinner',
+      icon: <UtensilsCrossed className="h-5 w-5 text-rose-600" />,
+      iconBg: 'bg-rose-50',
+      badge: foodMealsToday || undefined,
     },
     {
       id: 'location',
@@ -601,6 +619,13 @@ export const EmployeeDashboard: React.FC = () => {
         <>
           <PageHeader title="Petrol" titleTe="Petrol token" onBack={() => setPage('home')} />
           <EmployeePetrolSection />
+        </>
+      )}
+
+      {page === 'food' && (
+        <>
+          <PageHeader title="Food" titleTe="Meals" onBack={() => setPage('home')} />
+          <EmployeeFoodSection />
         </>
       )}
 

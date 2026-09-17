@@ -13,6 +13,7 @@ import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
 import { PetrolDashboard } from './pages/PetrolDashboard';
+import { FoodDashboard } from './pages/FoodDashboard';
 import { KmsDashboard } from './pages/KmsDashboard';
 import { Hospitals } from './pages/Hospitals';
 import { Reports } from './pages/Reports';
@@ -234,6 +235,7 @@ function MainApp() {
       case 'attendance': return <Attendance />;
       case 'expenses':   return <Expenses />;
       case 'petrol-dashboard': return <PetrolDashboard />;
+      case 'food-dashboard': return <FoodDashboard />;
       case 'kms-dashboard': return <KmsDashboard />;
       case 'hospitals':  return <Hospitals />;
       case 'reports':

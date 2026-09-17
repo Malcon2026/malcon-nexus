@@ -15,6 +15,7 @@ import type {
   PetrolRequest,
   LocationTrip,
   CaseTaskRequest,
+  EmployeeFoodSelection,
 } from '../../../types';
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
@@ -1563,6 +1564,72 @@ export const sbLocationTripRepo = {
 
   async remove(id: string): Promise<void> {
     const { error } = await supabase.from('location_trips').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+
+// ─── EMPLOYEE FOOD SELECTIONS ────────────────────────────────
+
+function mapFoodRow(row: Record<string, unknown>): EmployeeFoodSelection {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    mealDate: normalizeDateKey(row.meal_date as string),
+    breakfast: Boolean(row.breakfast),
+    lunch: Boolean(row.lunch),
+    dinner: Boolean(row.dinner),
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export const sbFoodRepo = {
+  async getAll(): Promise<EmployeeFoodSelection[]> {
+    const { data, error } = await supabase
+      .from('employee_food_selections')
+      .select('*')
+      .order('meal_date', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapFoodRow(row));
+  },
+
+  async getForEmployee(employeeId: string): Promise<EmployeeFoodSelection[]> {
+    const { data, error } = await supabase
+      .from('employee_food_selections')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('meal_date', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapFoodRow(row));
+  },
+
+  async getForDateRange(fromDate: string, toDate: string): Promise<EmployeeFoodSelection[]> {
+    const { data, error } = await supabase
+      .from('employee_food_selections')
+      .select('*')
+      .gte('meal_date', fromDate)
+      .lte('meal_date', toDate)
+      .order('meal_date', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapFoodRow(row));
+  },
+
+  async upsert(selection: EmployeeFoodSelection): Promise<void> {
+    const { error } = await supabase.from('employee_food_selections').upsert(
+      {
+        id: selection.id,
+        employee_id: selection.employeeId,
+        employee_name: selection.employeeName,
+        meal_date: selection.mealDate,
+        breakfast: selection.breakfast,
+        lunch: selection.lunch,
+        dinner: selection.dinner,
+        created_at: selection.createdAt,
+        updated_at: selection.updatedAt,
+      },
+      { onConflict: 'employee_id,meal_date' },
+    );
     if (error) throw error;
   },
 };
