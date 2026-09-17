@@ -33,6 +33,7 @@ export const EmployeeFoodSection: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
   const foodSelections = useStore((s) => s.foodSelections);
   const submitEmployeeFoodMeals = useStore((s) => s.submitEmployeeFoodMeals);
+  const loadFoodSelectionsWindow = useStore((s) => s.loadFoodSelectionsWindow);
 
   const [mealDate, setMealDate] = useState(() => getISTDateKey());
   const [draft, setDraft] = useState(emptyDraft);
@@ -45,6 +46,10 @@ export const EmployeeFoodSection: React.FC = () => {
   );
 
   const locked = isFoodSelectionSubmitted(selection);
+
+  useEffect(() => {
+    void loadFoodSelectionsWindow(mealDate);
+  }, [mealDate, loadFoodSelectionsWindow]);
 
   useEffect(() => {
     setError(null);
@@ -125,6 +130,13 @@ export const EmployeeFoodSection: React.FC = () => {
             <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
 
+          {!locked && (
+            <p className="text-sm text-gray-600">
+              Tap the meals you need, then press <span className="font-semibold text-gray-900">Submit</span>. You cannot
+              change after submitting.
+            </p>
+          )}
+
           <div className="grid grid-cols-1 gap-2">
             {FOOD_MEALS.map(({ id, label }) => {
               const active = draft[id];
@@ -157,15 +169,14 @@ export const EmployeeFoodSection: React.FC = () => {
             })}
           </div>
 
-          {!locked && (
-            <Button
-              className="w-full"
-              disabled={!anySelected || submitting}
-              onClick={() => void handleSubmit()}
-            >
-              {submitting ? 'Submitting…' : 'Submit'}
-            </Button>
-          )}
+          <Button
+            className="w-full !bg-rose-600 hover:!bg-rose-500 focus:ring-rose-500 shadow-sm"
+            size="lg"
+            disabled={locked || !anySelected || submitting}
+            onClick={() => void handleSubmit()}
+          >
+            {locked ? 'Submitted' : submitting ? 'Submitting…' : 'Submit'}
+          </Button>
         </CardBody>
       </Card>
     </div>
