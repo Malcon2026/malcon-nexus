@@ -79,6 +79,7 @@ REVOKE ALL ON FUNCTION public.submit_own_food_meals(date, boolean, boolean, bool
 GRANT EXECUTE ON FUNCTION public.submit_own_food_meals(date, boolean, boolean, boolean) TO authenticated;
 
 DROP POLICY IF EXISTS "food_employee_own" ON employee_food_selections;
+DROP POLICY IF EXISTS "food_employee_select" ON employee_food_selections;
 DROP POLICY IF EXISTS "food_employee_insert" ON employee_food_selections;
 DROP POLICY IF EXISTS "food_employee_update_once" ON employee_food_selections;
 

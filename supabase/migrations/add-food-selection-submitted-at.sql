@@ -13,6 +13,9 @@ WHERE submitted_at IS NULL
   AND (breakfast OR lunch OR dinner);
 
 DROP POLICY IF EXISTS "food_employee_own" ON employee_food_selections;
+DROP POLICY IF EXISTS "food_employee_select" ON employee_food_selections;
+DROP POLICY IF EXISTS "food_employee_insert" ON employee_food_selections;
+DROP POLICY IF EXISTS "food_employee_update_once" ON employee_food_selections;
 
 CREATE POLICY "food_employee_select" ON employee_food_selections
   FOR SELECT USING (employee_id = current_employee_id());
