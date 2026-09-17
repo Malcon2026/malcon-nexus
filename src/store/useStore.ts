@@ -293,6 +293,12 @@ interface AppState {
     mealDate: string,
     meals: Record<FoodMeal, boolean>,
   ) => Promise<{ error: string | null }>;
+  /** Admin: apply meals for any staff member (including self). */
+  submitFoodMealsAsAdmin: (
+    employeeId: string,
+    mealDate: string,
+    meals: Record<FoodMeal, boolean>,
+  ) => Promise<{ error: string | null }>;
   loadFoodSelectionsWindow: (
     centerDate: string,
     options?: { force?: boolean },
@@ -4979,6 +4985,61 @@ export const useStore = create<AppState>((set, get) => ({
     }));
     if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
 
+    return { error: null };
+  },
+
+  submitFoodMealsAsAdmin: async (employeeId, mealDate, meals) => {
+    const { viewMode, employees, foodSelections } = get();
+    if (viewMode !== 'admin') {
+      return { error: 'Admin access required.' };
+    }
+    const normalized = normalizeDateKey(mealDate);
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) {
+      return { error: 'Employee not found.' };
+    }
+    if (!meals.breakfast && !meals.lunch && !meals.dinner) {
+      return { error: 'Select at least one meal, then tap Apply.' };
+    }
+    const existing = foodSelections.find(
+      (s) => s.employeeId === employeeId && s.mealDate === normalized,
+    );
+    const now = new Date().toISOString();
+    const selection: EmployeeFoodSelection = {
+      id: existing?.id || newId(),
+      employeeId: employee.id,
+      employeeName: employee.name,
+      mealDate: normalized,
+      breakfast: meals.breakfast,
+      lunch: meals.lunch,
+      dinner: meals.dinner,
+      submittedAt: now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    if (USE_SUPABASE) {
+      try {
+        const saved = await sbFoodRepo.adminSubmit(selection);
+        set((s) => ({
+          foodSelections: mergeFoodSelections(s.foodSelections, [saved], normalized, normalized),
+        }));
+        setCache('foodSelections', get().foodSelections);
+        return { error: null };
+      } catch (err) {
+        console.error('[food] admin submit failed:', err);
+        return { error: formatUnknownError(err) };
+      }
+    }
+
+    const list = Database.getAll<EmployeeFoodSelection>('foodSelections');
+    Database.saveAll(
+      'foodSelections',
+      mergeFoodSelections(list, [selection], normalized, normalized),
+    );
+    set((s) => ({
+      foodSelections: mergeFoodSelections(s.foodSelections, [selection], normalized, normalized),
+    }));
     return { error: null };
   },
 

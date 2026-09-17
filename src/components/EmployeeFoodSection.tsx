@@ -29,12 +29,25 @@ const emptyDraft = (): Record<FoodMeal, boolean> => ({
   dinner: false,
 });
 
-export const EmployeeFoodSection: React.FC = () => {
+type EmployeeFoodSectionProps = {
+  /** Parent-controlled day (e.g. admin Food page). */
+  mealDate?: string;
+  /** Hide day picker when the parent already controls the date. */
+  embedded?: boolean;
+};
+
+export const EmployeeFoodSection: React.FC<EmployeeFoodSectionProps> = ({
+  mealDate: mealDateProp,
+  embedded = false,
+}) => {
   const currentUser = useStore((s) => s.currentUser);
+  const viewMode = useStore((s) => s.viewMode);
   const foodSelections = useStore((s) => s.foodSelections);
   const submitEmployeeFoodMeals = useStore((s) => s.submitEmployeeFoodMeals);
+  const submitFoodMealsAsAdmin = useStore((s) => s.submitFoodMealsAsAdmin);
 
-  const [mealDate, setMealDate] = useState(() => getISTDateKey());
+  const [internalMealDate, setInternalMealDate] = useState(() => getISTDateKey());
+  const mealDate = mealDateProp ?? internalMealDate;
   const [draft, setDraft] = useState(emptyDraft);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,20 +57,25 @@ export const EmployeeFoodSection: React.FC = () => {
     [foodSelections, currentUser.id, mealDate],
   );
 
-  const locked = isFoodSelectionSubmitted(selection);
+  const employeeLocked = isFoodSelectionSubmitted(selection);
+  const locked = viewMode !== 'admin' && employeeLocked;
 
   useEffect(() => {
     setError(null);
-    if (locked && selection) {
-      setDraft({
-        breakfast: selection.breakfast,
-        lunch: selection.lunch,
-        dinner: selection.dinner,
-      });
-    } else {
+    if ((locked || viewMode === 'admin') && selection && (employeeLocked || viewMode === 'admin')) {
+      if (employeeLocked || (selection.breakfast || selection.lunch || selection.dinner)) {
+        setDraft({
+          breakfast: selection.breakfast,
+          lunch: selection.lunch,
+          dinner: selection.dinner,
+        });
+        return;
+      }
+    }
+    if (!locked) {
       setDraft(emptyDraft());
     }
-  }, [mealDate, locked, selection]);
+  }, [mealDate, locked, employeeLocked, selection, viewMode]);
 
   const toggle = (meal: FoodMeal) => {
     if (locked || submitting) return;
@@ -70,7 +88,10 @@ export const EmployeeFoodSection: React.FC = () => {
     setError(null);
     setSubmitting(true);
     try {
-      const result = await submitEmployeeFoodMeals(mealDate, draft);
+      const result =
+        viewMode === 'admin'
+          ? await submitFoodMealsAsAdmin(currentUser.id, mealDate, draft)
+          : await submitEmployeeFoodMeals(mealDate, draft);
       if (result.error) setError(result.error);
     } finally {
       setSubmitting(false);
@@ -94,25 +115,27 @@ export const EmployeeFoodSection: React.FC = () => {
           </div>
         </CardHeader>
         <CardBody className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-              aria-label="Previous day"
-              onClick={() => setMealDate((d) => shiftMealDateKey(d, -1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <p className="text-sm font-semibold text-gray-900">{formatMealDateLabel(mealDate)}</p>
-            <button
-              type="button"
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-              aria-label="Next day"
-              onClick={() => setMealDate((d) => shiftMealDateKey(d, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          {!embedded && (
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                aria-label="Previous day"
+                onClick={() => setInternalMealDate((d) => shiftMealDateKey(d, -1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="text-sm font-semibold text-gray-900">{formatMealDateLabel(mealDate)}</p>
+              <button
+                type="button"
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                aria-label="Next day"
+                onClick={() => setInternalMealDate((d) => shiftMealDateKey(d, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {locked && (
             <div className="flex items-center gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
@@ -163,7 +186,7 @@ export const EmployeeFoodSection: React.FC = () => {
               disabled={!anySelected || submitting}
               onClick={() => void handleSubmit()}
             >
-              {submitting ? 'Submitting…' : 'Submit'}
+              {submitting ? 'Submitting…' : viewMode === 'admin' ? 'Apply' : 'Submit'}
             </Button>
           )}
         </CardBody>

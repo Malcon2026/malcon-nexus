@@ -1,4 +1,5 @@
 import type { Employee, EmployeeFoodSelection, FoodMeal } from '../types';
+import { isAttendanceStaff } from './staff';
 export function shiftMealDateKey(dateKey: string, days: number): string {
   const [y, m, d] = dateKey.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
@@ -80,7 +81,7 @@ export function foodBoardRows(
     selectionsForDate(selections, mealDate).map((s) => [s.employeeId, s]),
   );
   return employees
-    .filter((e) => e.status === 'Active' && e.role === 'employee')
+    .filter(isAttendanceStaff)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((employee) => {
       const existing = byEmployee.get(employee.id);

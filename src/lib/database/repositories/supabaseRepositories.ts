@@ -1652,6 +1652,30 @@ export const sbFoodRepo = {
     return selection;
   },
 
+  async adminSubmit(selection: EmployeeFoodSelection): Promise<EmployeeFoodSelection> {
+    const { data, error } = await supabase
+      .from('employee_food_selections')
+      .upsert(
+        {
+          id: selection.id,
+          employee_id: selection.employeeId,
+          employee_name: selection.employeeName,
+          meal_date: selection.mealDate,
+          breakfast: selection.breakfast,
+          lunch: selection.lunch,
+          dinner: selection.dinner,
+          submitted_at: selection.submittedAt,
+          created_at: selection.createdAt,
+          updated_at: selection.updatedAt,
+        },
+        { onConflict: 'employee_id,meal_date' },
+      )
+      .select('*')
+      .single();
+    if (error) throw error;
+    return mapFoodRow(data as Record<string, unknown>);
+  },
+
   async upsert(selection: EmployeeFoodSelection): Promise<void> {
     if (selection.submittedAt) {
       await this.submitOwn(selection);
