@@ -26,7 +26,7 @@ import { LocationPunchSection } from '../components/LocationPunchSection';
 import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
-import { getFoodSelectionForDay } from '../lib/food';
+import { getFoodSelectionForDay, isFoodSelectionSubmitted } from '../lib/food';
 import { getISTDateKey } from '../lib/attendance';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
@@ -88,7 +88,9 @@ const HomeNavTiles: React.FC<{
     getFoodSelectionForDay(s.foodSelections, employee.id, getISTDateKey()),
   );
   const foodMealsToday =
-    (todayFood?.breakfast ? 1 : 0) + (todayFood?.lunch ? 1 : 0) + (todayFood?.dinner ? 1 : 0);
+    isFoodSelectionSubmitted(todayFood)
+      ? (todayFood!.breakfast ? 1 : 0) + (todayFood!.lunch ? 1 : 0) + (todayFood!.dinner ? 1 : 0)
+      : 0;
 
   const summary = summarizeLiveAttendance(attendanceRecords, employee.id);
   const activeCases = myCases.filter((c) => c.status === 'Active').length;
@@ -131,7 +133,7 @@ const HomeNavTiles: React.FC<{
       id: 'food',
       title: 'Food',
       titleTe: 'Food',
-      hint: foodMealsToday > 0 ? `${foodMealsToday} selected today` : 'Breakfast · Lunch · Dinner',
+      hint: foodMealsToday > 0 ? `${foodMealsToday} submitted today` : 'Select meals · Submit once',
       icon: <UtensilsCrossed className="h-5 w-5 text-rose-600" />,
       iconBg: 'bg-rose-50',
       badge: foodMealsToday || undefined,

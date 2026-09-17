@@ -289,7 +289,7 @@ interface AppState {
   recordPetrolKms: (requestId: string, kmsEnd: number) => Promise<{ error: string | null }>;
   deletePetrolRequest: (requestId: string) => Promise<{ error: string | null }>;
 
-  saveEmployeeFoodMeals: (
+  submitEmployeeFoodMeals: (
     mealDate: string,
     meals: Record<FoodMeal, boolean>,
   ) => Promise<{ error: string | null }>;
@@ -4926,12 +4926,18 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  saveEmployeeFoodMeals: async (mealDate, meals) => {
+  submitEmployeeFoodMeals: async (mealDate, meals) => {
     const { currentUser, foodSelections } = get();
     const normalized = normalizeDateKey(mealDate);
     const existing = foodSelections.find(
       (s) => s.employeeId === currentUser.id && s.mealDate === normalized,
     );
+    if (existing?.submittedAt) {
+      return { error: 'Meals for this day are already submitted and cannot be changed.' };
+    }
+    if (!meals.breakfast && !meals.lunch && !meals.dinner) {
+      return { error: 'Select at least one meal, then tap Submit.' };
+    }
     const now = new Date().toISOString();
     const selection: EmployeeFoodSelection = {
       id: existing?.id || newId(),
@@ -4941,6 +4947,7 @@ export const useStore = create<AppState>((set, get) => ({
       breakfast: meals.breakfast,
       lunch: meals.lunch,
       dinner: meals.dinner,
+      submittedAt: now,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };

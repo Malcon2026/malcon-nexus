@@ -32,9 +32,14 @@ export function emptyFoodSelection(
     breakfast: false,
     lunch: false,
     dinner: false,
+    submittedAt: null,
     createdAt: now,
     updatedAt: now,
   };
+}
+
+export function isFoodSelectionSubmitted(selection: EmployeeFoodSelection | undefined): boolean {
+  return Boolean(selection?.submittedAt);
 }
 
 export function getFoodSelectionForDay(
@@ -50,7 +55,9 @@ export function mealCountForDay(
   mealDate: string,
   meal: FoodMeal,
 ): number {
-  return selections.filter((s) => s.mealDate === mealDate && s[meal]).length;
+  return selections.filter(
+    (s) => s.mealDate === mealDate && isFoodSelectionSubmitted(s) && s[meal],
+  ).length;
 }
 
 export function selectionsForDate(

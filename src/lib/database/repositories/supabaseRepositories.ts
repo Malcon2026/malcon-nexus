@@ -1579,6 +1579,7 @@ function mapFoodRow(row: Record<string, unknown>): EmployeeFoodSelection {
     breakfast: Boolean(row.breakfast),
     lunch: Boolean(row.lunch),
     dinner: Boolean(row.dinner),
+    submittedAt: (row.submitted_at as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -1625,6 +1626,7 @@ export const sbFoodRepo = {
         breakfast: selection.breakfast,
         lunch: selection.lunch,
         dinner: selection.dinner,
+        submitted_at: selection.submittedAt,
         created_at: selection.createdAt,
         updated_at: selection.updatedAt,
       },

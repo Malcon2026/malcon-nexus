@@ -3,7 +3,7 @@ import { UtensilsCrossed, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-re
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { foodBoardRows, mealCountForDay, FOOD_MEALS, shiftMealDateKey } from '../lib/food';
+import { foodBoardRows, isFoodSelectionSubmitted, mealCountForDay, FOOD_MEALS, shiftMealDateKey } from '../lib/food';
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
 
@@ -57,7 +57,9 @@ export const FoodDashboard: React.FC = () => {
   );
 
   const selectedAny = rows.filter(
-    (r) => r.selection.breakfast || r.selection.lunch || r.selection.dinner,
+    (r) =>
+      isFoodSelectionSubmitted(r.selection) &&
+      (r.selection.breakfast || r.selection.lunch || r.selection.dinner),
   ).length;
 
   if (viewMode !== 'admin') {
@@ -118,7 +120,7 @@ export const FoodDashboard: React.FC = () => {
           <ChevronLeft className="h-4 w-4" />
         </button>
         <p className="text-sm text-gray-600">
-          {selectedAny} of {rows.length} staff selected at least one meal
+          {selectedAny} of {rows.length} staff submitted at least one meal
         </p>
         <button
           type="button"
@@ -145,7 +147,8 @@ export const FoodDashboard: React.FC = () => {
                 <tr key={employee.id} className="hover:bg-gray-50/80">
                   <td className="px-4 py-3 font-medium text-gray-900">{employee.name}</td>
                   {FOOD_MEALS.map((m) => {
-                    const on = selection[m.id];
+                    const submitted = isFoodSelectionSubmitted(selection);
+                    const on = submitted && selection[m.id];
                     return (
                       <td key={m.id} className="px-4 py-3 text-center">
                         <span

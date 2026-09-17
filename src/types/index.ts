@@ -374,6 +374,8 @@ export interface EmployeeFoodSelection {
   breakfast: boolean;
   lunch: boolean;
   dinner: boolean;
+  /** Set when employee taps Submit; row is locked after this. */
+  submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
