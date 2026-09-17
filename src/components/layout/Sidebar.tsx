@@ -23,7 +23,6 @@ import {
   StickyNote,
   HandMetal,
   MessageCircle,
-  UtensilsCrossed,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -55,7 +54,6 @@ const navItems: NavItem[] = [
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
   { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
   { id: 'petrol-dashboard', label: 'Petrol Dashboard', icon: <Ticket className="h-4 w-4" />, adminOnly: true },
-  { id: 'food-dashboard', label: 'Food', icon: <UtensilsCrossed className="h-4 w-4" />, adminOnly: true },
   { id: 'kms-dashboard', label: 'KMs Dashboard', icon: <Gauge className="h-4 w-4" />, adminOnly: true },
   { id: 'hospitals', label: 'Hospitals', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <Download className="h-4 w-4" />, adminOnly: true },
