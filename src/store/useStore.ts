@@ -958,7 +958,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard'];
+const ADMIN_ONLY_TABS = ['approvals', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 
 const applyUserSession = (
@@ -974,9 +974,6 @@ const applyUserSession = (
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   let activeTab = current.activeTab;
   if (user.role !== 'admin' && ADMIN_ONLY_TABS.includes(activeTab)) {
-    activeTab = 'dashboard';
-  }
-  if (activeTab === 'food-dashboard') {
     activeTab = 'dashboard';
   }
   return { currentUser: user, viewMode, activeTab };

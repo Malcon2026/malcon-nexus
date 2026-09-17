@@ -33,6 +33,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     attendance: 'Attendance',
     expenses: 'Expenses',
     'petrol-dashboard': 'Petrol Dashboard',
+    'food-dashboard': 'Food',
     'kms-dashboard': 'KMs Dashboard',
     hospitals: 'Hospitals',
     reports: 'Reports',
