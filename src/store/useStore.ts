@@ -744,6 +744,9 @@ const persistPetrolRequest = async (request: PetrolRequest): Promise<{ error: st
   return { error: null };
 };
 
+/** When false, admin Food page is view-only; employees submit via their app. */
+const FOOD_ADMIN_ENTRY_ENABLED = false;
+
 const mergeFoodSelections = (
   existing: EmployeeFoodSelection[],
   incoming: EmployeeFoodSelection[],
@@ -4989,6 +4992,9 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   submitFoodMealsAsAdmin: async (employeeId, mealDate, meals) => {
+    if (!FOOD_ADMIN_ENTRY_ENABLED) {
+      return { error: 'Admin meal entry is paused. Employees submit from their app.' };
+    }
     const { viewMode, employees, foodSelections } = get();
     if (viewMode !== 'admin') {
       return { error: 'Admin access required.' };
