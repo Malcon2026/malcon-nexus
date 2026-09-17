@@ -278,6 +278,15 @@ export interface Database {
         };
         Returns: undefined;
       };
+      submit_own_food_meals: {
+        Args: {
+          p_meal_date: string;
+          p_breakfast: boolean;
+          p_lunch: boolean;
+          p_dinner: boolean;
+        };
+        Returns: Record<string, unknown>;
+      };
     };
   };
 }

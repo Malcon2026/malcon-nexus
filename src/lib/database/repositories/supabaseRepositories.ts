@@ -1616,7 +1616,47 @@ export const sbFoodRepo = {
     return (data ?? []).map((row) => mapFoodRow(row));
   },
 
+  async submitOwn(selection: EmployeeFoodSelection): Promise<EmployeeFoodSelection> {
+    const { data, error: rpcError } = await supabase.rpc('submit_own_food_meals', {
+      p_meal_date: selection.mealDate,
+      p_breakfast: selection.breakfast,
+      p_lunch: selection.lunch,
+      p_dinner: selection.dinner,
+    });
+    if (!rpcError && data) {
+      return mapFoodRow(data as Record<string, unknown>);
+    }
+
+    const rpcMessage = `${rpcError?.message ?? ''} ${rpcError?.details ?? ''} ${rpcError?.hint ?? ''}`;
+    const rpcMissing =
+      rpcMessage.includes('submit_own_food_meals') &&
+      (rpcMessage.includes('does not exist') || rpcMessage.includes('Could not find the function'));
+    if (!rpcMissing && rpcError) throw rpcError;
+
+    const { error } = await supabase.from('employee_food_selections').upsert(
+      {
+        id: selection.id,
+        employee_id: selection.employeeId,
+        employee_name: selection.employeeName,
+        meal_date: selection.mealDate,
+        breakfast: selection.breakfast,
+        lunch: selection.lunch,
+        dinner: selection.dinner,
+        submitted_at: selection.submittedAt,
+        created_at: selection.createdAt,
+        updated_at: selection.updatedAt,
+      },
+      { onConflict: 'employee_id,meal_date' },
+    );
+    if (error) throw error;
+    return selection;
+  },
+
   async upsert(selection: EmployeeFoodSelection): Promise<void> {
+    if (selection.submittedAt) {
+      await this.submitOwn(selection);
+      return;
+    }
     const { error } = await supabase.from('employee_food_selections').upsert(
       {
         id: selection.id,

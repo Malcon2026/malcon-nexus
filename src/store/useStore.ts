@@ -754,13 +754,31 @@ const mergeFoodSelections = (
 
 const persistFoodSelection = async (
   selection: EmployeeFoodSelection,
-): Promise<{ error: string | null }> => {
+): Promise<{ error: string | null; saved?: EmployeeFoodSelection }> => {
   if (USE_SUPABASE) {
     try {
-      await sbFoodRepo.upsert(selection);
+      const saved = selection.submittedAt
+        ? await sbFoodRepo.submitOwn(selection)
+        : (await sbFoodRepo.upsert(selection), selection);
+      if (selection.submittedAt) {
+        const row = saved as EmployeeFoodSelection;
+        const list = Database.getAll<EmployeeFoodSelection>('foodSelections');
+        setCache(
+          'foodSelections',
+          mergeFoodSelections(list, [row], row.mealDate, row.mealDate),
+        );
+        return { error: null, saved: row };
+      }
     } catch (err) {
       console.error('[food] persist failed:', err);
-      return { error: formatUnknownError(err) };
+      const msg = formatUnknownError(err);
+      if (msg.includes('row-level security')) {
+        return {
+          error:
+            'Could not save meals. Ask admin to run supabase/migrations/fix-food-employee-submit-rpc.sql in Supabase.',
+        };
+      }
+      return { error: msg };
     }
     const list = Database.getAll<EmployeeFoodSelection>('foodSelections');
     setCache(
@@ -4955,8 +4973,9 @@ export const useStore = create<AppState>((set, get) => ({
     const persistResult = await persistFoodSelection(selection);
     if (persistResult.error) return persistResult;
 
+    const saved = persistResult.saved ?? selection;
     set((s) => ({
-      foodSelections: mergeFoodSelections(s.foodSelections, [selection], normalized, normalized),
+      foodSelections: mergeFoodSelections(s.foodSelections, [saved], normalized, normalized),
     }));
     if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
 
