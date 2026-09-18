@@ -1,6 +1,6 @@
 import React from 'react';
-import { Sparkles } from 'lucide-react';
 import { cn } from '../utils/cn';
+import geminiWordmark from '../assets/gemini-wordmark.jpg';
 
 type Variant = 'pill' | 'sidebar' | 'sidebarCollapsed' | 'login';
 
@@ -9,17 +9,43 @@ type Props = {
   className?: string;
 };
 
-/** Lightweight “Powered by AI” branding — reuse across login, sidebar, boot. */
+const GeminiWordmark: React.FC<{
+  className?: string;
+  iconOnly?: boolean;
+}> = ({ className, iconOnly }) => {
+  if (iconOnly) {
+    return (
+      <span
+        className={cn(
+          'inline-flex h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-white',
+          className,
+        )}
+        title="Powered by Google Gemini"
+      >
+        <img
+          src={geminiWordmark}
+          alt="Google Gemini"
+          className="h-full w-[7.5rem] max-w-none object-cover object-left"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={geminiWordmark}
+      alt="Google Gemini"
+      className={cn('h-6 w-auto max-w-full object-contain object-left', className)}
+    />
+  );
+};
+
+/** “Powered by Google Gemini” branding — login, sidebar, boot. */
 export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className }) => {
   if (variant === 'sidebarCollapsed') {
     return (
-      <div
-        className={cn('flex justify-center py-2', className)}
-        title="Malcon Nexus — powered by AI"
-      >
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 border border-violet-400/25">
-          <Sparkles className="h-4 w-4 text-violet-300" aria-hidden />
-        </span>
+      <div className={cn('flex justify-center py-2', className)}>
+        <GeminiWordmark iconOnly />
       </div>
     );
   }
@@ -28,17 +54,14 @@ export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className 
     return (
       <div
         className={cn(
-          'flex items-center gap-2 rounded-lg border border-violet-400/25 bg-violet-500/10 px-2.5 py-2',
+          'rounded-lg border border-gray-700/80 bg-white/95 px-2.5 py-2 shadow-sm',
           className,
         )}
       >
-        <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-300" aria-hidden />
-        <div className="min-w-0 leading-tight">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-200">
-            Powered by AI
-          </p>
-          <p className="text-[10px] text-gray-500 truncate">Insights &amp; smart ops</p>
-        </div>
+        <p className="text-[9px] font-medium uppercase tracking-wide text-gray-500 mb-1.5">
+          Powered by
+        </p>
+        <GeminiWordmark className="h-5" />
       </div>
     );
   }
@@ -46,10 +69,10 @@ export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className 
   if (variant === 'login') {
     return (
       <div className={cn('mt-8 space-y-2', className)}>
-        <p className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3.5 py-1.5 text-xs font-semibold text-violet-800">
-          <Sparkles className="h-3.5 w-3.5" aria-hidden />
-          Powered by AI
-        </p>
+        <div className="inline-flex flex-col gap-1.5 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-medium text-gray-500">Powered by</p>
+          <GeminiWordmark className="h-7 sm:h-8" />
+        </div>
         <p className="text-sm text-gray-500 max-w-sm">
           AI-assisted dashboards and daily summaries for your team.
         </p>
@@ -58,14 +81,14 @@ export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className 
   }
 
   return (
-    <p
+    <div
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border border-violet-200/80 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700',
+        'inline-flex flex-col gap-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm',
         className,
       )}
     >
-      <Sparkles className="h-3 w-3" aria-hidden />
-      Powered by AI
-    </p>
+      <p className="text-[9px] font-medium text-gray-500 leading-none">Powered by</p>
+      <GeminiWordmark className="h-4" />
+    </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import geminiWordmark from '../assets/gemini-wordmark.jpg';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -47,12 +48,12 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
-              <Sparkles className="h-4 w-4 text-violet-600" />
+            <div className="h-8 px-2 rounded-lg border border-gray-100 bg-white flex items-center justify-center min-w-[4.5rem]">
+              <img src={geminiWordmark} alt="Google Gemini" className="h-4 w-auto object-contain" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Today&apos;s summary</h3>
-              <p className="text-xs text-gray-500">AI-powered · from your live dashboard numbers</p>
+              <p className="text-xs text-gray-500">Powered by Gemini · live dashboard numbers</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
