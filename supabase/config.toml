@@ -30,6 +30,9 @@ verify_jwt = true
 [functions.telegram-broadcast]
 verify_jwt = true
 
+[functions.dashboard-insights]
+verify_jwt = true
+
 [functions.push-subscribe]
 verify_jwt = true
 

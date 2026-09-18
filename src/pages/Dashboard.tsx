@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Clock, Stethoscope, Sparkles, Receipt,
@@ -18,6 +18,8 @@ import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPri
 import { filterAttendanceStaff } from '../lib/staff';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
+import { AdminDashboardInsightCard } from '../components/AdminDashboardInsightCard';
+import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -113,6 +115,11 @@ export const Dashboard: React.FC = () => {
     .sort((a, b) => new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime())
     .slice(0, 4);
 
+  const insightMetrics = useMemo(
+    () => buildAdminDashboardMetrics(cases, stageDistribution, todaySurgeryDate),
+    [cases, stageDistribution, todaySurgeryDate],
+  );
+
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
       {/* Header */}
@@ -149,6 +156,8 @@ export const Dashboard: React.FC = () => {
         <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" />
         <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle={fcfsPoolTotal > 0 ? `${fcfsPoolTotal} in pool` : undefined} />
       </motion.div>
+
+      <AdminDashboardInsightCard metrics={insightMetrics} />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
