@@ -27,6 +27,7 @@ import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
 import { getFoodSelectionForDay, isFoodSelectionSubmitted } from '../lib/food';
+import { getFoodTileBlinkLevel, isFoodTileAttentionPeriod } from '../lib/foodPreferences';
 import { getISTDateKey } from '../lib/attendance';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
@@ -125,6 +126,7 @@ const HomeNavTiles: React.FC<{
     foodSubmittedToday
       ? (todayFood!.breakfast ? 1 : 0) + (todayFood!.lunch ? 1 : 0) + (todayFood!.dinner ? 1 : 0)
       : 0;
+  const foodTileBlink = getFoodTileBlinkLevel(!foodSubmittedToday);
 
   const summary = summarizeLiveAttendance(attendanceRecords, employee.id);
   const activeCases = myCases.filter((c) => c.status === 'Active').length;
@@ -241,19 +243,34 @@ const HomeNavTiles: React.FC<{
       </button>
 
       <div className="grid grid-cols-2 gap-3">
-        {tiles.map((tile) => (
+        {tiles.map((tile) => {
+          const isFood = tile.id === 'food';
+          const blinkClass =
+            isFood && foodTileBlink === 'urgent'
+              ? 'food-tile-blink-urgent'
+              : isFood && foodTileBlink === 'new'
+                ? 'food-tile-blink-new'
+                : '';
+          return (
           <button
             key={tile.id}
             type="button"
             onClick={() => onOpen(tile.id)}
-            className={`relative text-left rounded-2xl border p-4 shadow-sm transition-all active:scale-[0.98] min-h-[8.5rem] ${
+            className={`relative text-left rounded-2xl border p-4 shadow-sm transition-colors active:scale-[0.98] min-h-[8.5rem] ${blinkClass} ${
               tile.foodRequired
                 ? 'border-rose-300 bg-rose-50/30 hover:border-rose-400 ring-1 ring-rose-200'
-                : 'border-gray-200 bg-white hover:border-indigo-200'
+                : isFood && foodTileBlink === 'new'
+                  ? 'border-rose-200 bg-white hover:border-rose-300'
+                  : 'border-gray-200 bg-white hover:border-indigo-200'
             }`}
           >
+            {isFood && isFoodTileAttentionPeriod() && (
+              <span className="absolute top-3 left-3 px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wide food-tile-badge-pulse">
+                New
+              </span>
+            )}
             {tile.foodRequired && (
-              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center food-tile-badge-pulse">
                 !
               </span>
             )}
@@ -269,7 +286,8 @@ const HomeNavTiles: React.FC<{
             <Te className="text-gray-500 mb-0 mt-0">{tile.titleTe}</Te>
             {tile.hint ? <p className="text-xs text-gray-500 mt-1">{tile.hint}</p> : null}
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

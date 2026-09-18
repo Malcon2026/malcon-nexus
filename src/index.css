@@ -683,6 +683,62 @@ textarea {
   animation: punch-close-glow 2s ease-in-out infinite;
 }
 
+/* Employee home — Food tile launch attention */
+@keyframes food-tile-blink-urgent {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.25);
+    border-color: rgb(251 113 133);
+    background-color: rgba(255, 241, 242, 0.85);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(225, 29, 72, 0.35),
+      0 0 28px 6px rgba(225, 29, 72, 0.45);
+    border-color: rgb(225 29 72);
+    background-color: rgb(255 228 230);
+    transform: scale(1.03);
+  }
+}
+
+@keyframes food-tile-blink-new {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.12);
+    border-color: rgb(254 205 211);
+  }
+  50% {
+    box-shadow: 0 0 20px 2px rgba(225, 29, 72, 0.22);
+    border-color: rgb(251 113 133);
+  }
+}
+
+@keyframes food-tile-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+}
+
+.food-tile-blink-urgent {
+  animation: food-tile-blink-urgent 0.7s ease-in-out infinite;
+  z-index: 1;
+}
+
+.food-tile-blink-new {
+  animation: food-tile-blink-new 1.25s ease-in-out infinite;
+}
+
+.food-tile-badge-pulse {
+  animation: food-tile-badge-pulse 0.7s ease-in-out infinite;
+}
+
 @keyframes punch-close-glow {
   0%,
   100% {
