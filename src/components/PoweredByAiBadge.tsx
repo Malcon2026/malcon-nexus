@@ -10,44 +10,58 @@ type Props = {
   className?: string;
 };
 
+/** White surface so Gemini mark stays readable on the dark sidebar. */
+const whiteBadgeSurface =
+  'rounded-xl border border-gray-200 bg-white shadow-sm [background-color:#ffffff]';
+
 const GeminiFullLogo: React.FC<{ className?: string }> = ({ className }) => (
   <img
     src={geminiLogo}
     alt="Google Gemini"
-    className={cn('h-6 w-auto max-w-[9.5rem] object-contain object-left text-gray-900', className)}
+    className={cn('h-6 w-auto max-w-[9.5rem] object-contain object-left', className)}
   />
 );
 
 const GeminiIcon: React.FC<{ className?: string }> = ({ className }) => (
   <img
     src={geminiIcon}
-    alt="Google Gemini"
-    className={cn('h-7 w-7 object-contain', className)}
+    alt=""
+    aria-hidden
+    className={cn('h-7 w-7 object-contain shrink-0', className)}
   />
 );
 
-/** Official-style Gemini wordmark (2025 SVG) — login, sidebar, boot. */
+const GeminiWordmarkRow: React.FC<{ logoClassName?: string; textClassName?: string }> = ({
+  logoClassName,
+  textClassName,
+}) => (
+  <div className="flex items-center gap-2 min-w-0">
+    <GeminiIcon className={cn('h-5 w-5', logoClassName)} />
+    <span className={cn('text-[15px] font-semibold text-gray-900 tracking-tight', textClassName)}>
+      Gemini
+    </span>
+  </div>
+);
+
+/** Official-style Gemini branding — login, sidebar, boot. */
 export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className }) => {
   if (variant === 'sidebarCollapsed') {
     return (
       <div className={cn('flex justify-center py-2', className)} title="Powered by Google Gemini">
-        <GeminiIcon />
+        <div className={cn(whiteBadgeSurface, 'p-2')}>
+          <GeminiIcon className="h-6 w-6" />
+        </div>
       </div>
     );
   }
 
   if (variant === 'sidebar') {
     return (
-      <div
-        className={cn(
-          'rounded-xl border border-gray-700/60 bg-white px-2.5 py-2.5 shadow-sm text-gray-900',
-          className,
-        )}
-      >
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+      <div className={cn(whiteBadgeSurface, 'px-3 py-2.5', className)}>
+        <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
           Powered by
         </p>
-        <GeminiFullLogo className="h-[18px] max-w-[7.5rem]" />
+        <GeminiWordmarkRow />
       </div>
     );
   }
@@ -55,8 +69,8 @@ export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className 
   if (variant === 'login') {
     return (
       <div className={cn('mt-8 space-y-2.5', className)}>
-        <div className="inline-flex flex-col gap-2 rounded-2xl border border-gray-200/90 bg-white px-5 py-3.5 shadow-sm text-gray-900">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <div className={cn(whiteBadgeSurface, 'inline-flex flex-col gap-2 px-5 py-3.5')}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Powered by
           </p>
           <GeminiFullLogo className="h-8 sm:h-9 max-w-[11rem]" />
@@ -69,16 +83,11 @@ export const PoweredByAiBadge: React.FC<Props> = ({ variant = 'pill', className 
   }
 
   return (
-    <div
-      className={cn(
-        'inline-flex flex-col gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm text-gray-900',
-        className,
-      )}
-    >
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 leading-none">
+    <div className={cn(whiteBadgeSurface, 'inline-flex flex-col gap-1 px-3 py-2', className)}>
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-500 leading-none">
         Powered by
       </p>
-      <GeminiFullLogo className="h-4 max-w-[6.5rem]" />
+      <GeminiWordmarkRow textClassName="text-sm" />
     </div>
   );
 };
