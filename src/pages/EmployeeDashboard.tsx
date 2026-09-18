@@ -26,7 +26,7 @@ import { LeaveApplySection } from '../components/LeaveApplySection';
 import { EmployeePetrolSection } from '../components/EmployeePetrolSection';
 import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
 import { getFoodSelectionForDay, isFoodSelectionSubmitted } from '../lib/food';
-import { getFoodTileBlinkLevel } from '../lib/foodPreferences';
+import { getFoodTileBlinkLevel, isFoodTileAttentionPeriod } from '../lib/foodPreferences';
 import { getISTDateKey } from '../lib/attendance';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { NoticeBoard } from '../components/NoticeBoard';
@@ -227,6 +227,11 @@ const HomeNavTiles: React.FC<{
             {!isFood && tile.badge != null && tile.badge > 0 && (
               <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {tile.badge > 99 ? '99+' : tile.badge}
+              </span>
+            )}
+            {isFood && isFoodTileAttentionPeriod() && (
+              <span className="absolute top-3 right-3 px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[9px] font-bold uppercase tracking-wide food-tile-badge-pulse">
+                New
               </span>
             )}
             {isFood ? (
