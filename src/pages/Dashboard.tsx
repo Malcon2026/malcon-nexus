@@ -169,32 +169,38 @@ export const Dashboard: React.FC = () => {
         />
       </motion.div>
 
-      <AdminOpsFeedCard metrics={insightMetrics} />
+      {/* Ops feed + week chart + stage pie — three equal tiles */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0 items-stretch">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="min-h-[360px] lg:min-h-[400px] h-full"
+        >
+          <AdminOpsFeedCard metrics={insightMetrics} className="h-full" />
+        </motion.div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
-        {/* Daily Cases Chart */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2"
+          className="min-h-[360px] lg:min-h-[400px] h-full"
         >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="shrink-0">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">This week · Mon–Sun</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Surgeries scheduled per day (IST)</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Surgeries per day (IST)</p>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
-                  <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-emerald-500" /><span>Completed</span></div>
+                <div className="flex items-center gap-3 text-[10px] text-gray-500 shrink-0">
+                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-[#9a8cff]" /><span>Cases</span></div>
+                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-emerald-500" /><span>Done</span></div>
                 </div>
               </div>
             </CardHeader>
-            <CardBody>
-              <ResponsiveContainer width="100%" height={220}>
+            <CardBody className="flex-1 min-h-0 pb-4">
+              <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                 <AreaChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
@@ -218,44 +224,46 @@ export const Dashboard: React.FC = () => {
           </Card>
         </motion.div>
 
-        {/* Stage Distribution */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
+          className="min-h-[360px] lg:min-h-[400px] h-full"
         >
-          <Card>
-            <CardHeader>
+          <Card className="h-full flex flex-col">
+            <CardHeader className="shrink-0">
               <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Today&apos;s surgeries ({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
+                Today ({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
               </p>
             </CardHeader>
-            <CardBody>
+            <CardBody className="flex-1 flex flex-col min-h-0">
               {stageDistributionTotal === 0 ? (
-                <div className="h-[140px] flex items-center justify-center text-xs text-gray-400">
+                <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
                   No cases scheduled for today
                 </div>
               ) : (
                 <>
-                  <ResponsiveContainer width="100%" height={140}>
-                    <PieChart>
-                      <Pie data={stageDistribution} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="count">
-                        {stageDistribution.map((entry, index) => (
-                          <Cell key={index} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => [value, 'Cases']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="space-y-1.5 mt-2">
+                  <div className="flex-1 min-h-[120px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={stageDistribution} cx="50%" cy="50%" innerRadius={36} outerRadius={58} paddingAngle={2} dataKey="count">
+                          {stageDistribution.map((entry, index) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => [value, 'Cases']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1.5 mt-2 shrink-0 max-h-[120px] overflow-y-auto">
                     {stageDistribution.map((item) => (
-                      <div key={item.stage} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full" style={{ background: item.color }} />
-                          <span className="text-xs text-gray-600">{item.stage}</span>
+                      <div key={item.stage} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="h-2 w-2 rounded-full shrink-0" style={{ background: item.color }} />
+                          <span className="text-xs text-gray-600 truncate">{item.stage}</span>
                         </div>
-                        <span className="text-xs font-semibold text-gray-900">{item.count}</span>
+                        <span className="text-xs font-semibold text-gray-900 tabular-nums">{item.count}</span>
                       </div>
                     ))}
                   </div>
