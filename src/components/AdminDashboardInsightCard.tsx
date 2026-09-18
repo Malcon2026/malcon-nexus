@@ -52,7 +52,7 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Today&apos;s summary</h3>
-              <p className="text-xs text-gray-500">From your live dashboard numbers</p>
+              <p className="text-xs text-gray-500">AI-powered · from your live dashboard numbers</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

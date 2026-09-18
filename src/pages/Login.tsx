@@ -7,6 +7,7 @@ import {
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
 import loginLogo from '../assets/login-logo.png';
+import { PoweredByAiBadge } from '../components/PoweredByAiBadge';
 
 interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
@@ -55,7 +56,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             alt="Malcon Nexus by Malcon Life Sciences"
             className="w-full max-w-[300px] object-contain"
           />
-
+          <PoweredByAiBadge variant="login" />
         </motion.div>
       </div>
 
@@ -76,6 +77,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             />
             <p className="text-gray-900 font-bold text-sm mt-3">Malcon Nexus</p>
             <p className="text-gray-400 text-xs mt-0.5">by Malcon Life Sciences</p>
+            <div className="mt-4">
+              <PoweredByAiBadge variant="pill" />
+            </div>
           </div>
 
           {/* Desktop logo icon */}

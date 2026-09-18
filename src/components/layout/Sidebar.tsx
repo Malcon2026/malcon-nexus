@@ -31,6 +31,7 @@ import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
+import { PoweredByAiBadge } from '../PoweredByAiBadge';
 
 interface NavItem {
   id: string;
@@ -193,14 +194,19 @@ export const Sidebar: React.FC = () => {
           })}
       </nav>
 
-      {/* Status indicator */}
-      {showLabels && (
-        <div className="px-4 py-3 border-t border-gray-200 space-y-1">
-          <p className="text-[10px] text-gray-300 leading-none" title="Build time â€” confirms you're on the latest deploy">
+      {/* AI branding + build */}
+      <div className="px-3 py-3 border-t border-gray-200 space-y-2 mt-auto">
+        {showLabels ? (
+          <PoweredByAiBadge variant="sidebar" />
+        ) : (
+          <PoweredByAiBadge variant="sidebarCollapsed" />
+        )}
+        {showLabels && (
+          <p className="text-[10px] text-gray-500 leading-none px-0.5" title="Build time — confirms you're on the latest deploy">
             Build: {new Date(__BUILD_TIME__).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 
