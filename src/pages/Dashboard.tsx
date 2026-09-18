@@ -20,6 +20,7 @@ import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
+import { buildDashboardStaffSnapshot } from '../lib/dashboardStaffSnapshot';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -89,7 +90,19 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
 };
 
 export const Dashboard: React.FC = () => {
-  const { cases, employees, activityLog, setActiveTab, setSelectedCase, getDailyData, getDepartmentPerformance, getStageDistribution } = useStore();
+  const {
+    cases,
+    employees,
+    activityLog,
+    attendanceRecords,
+    foodSelections,
+    leaveRequests,
+    setActiveTab,
+    setSelectedCase,
+    getDailyData,
+    getDepartmentPerformance,
+    getStageDistribution,
+  } = useStore();
 
   const dailyData = getDailyData();
   const weekCaseTotal = useMemo(() => dailyData.reduce((sum, row) => sum + row.cases, 0), [dailyData]);
@@ -120,10 +133,17 @@ export const Dashboard: React.FC = () => {
     .sort((a, b) => new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime())
     .slice(0, 4);
 
-  const insightMetrics = useMemo(
-    () => buildAdminDashboardMetrics(cases, stageDistribution, todaySurgeryDate),
-    [cases, stageDistribution, todaySurgeryDate],
+  const staffSnapshot = useMemo(
+    () => buildDashboardStaffSnapshot(employees, attendanceRecords, foodSelections, leaveRequests),
+    [employees, attendanceRecords, foodSelections, leaveRequests],
   );
+
+  const insightMetrics = useMemo(
+    () => buildAdminDashboardMetrics(cases, stageDistribution, todaySurgeryDate, staffSnapshot),
+    [cases, stageDistribution, todaySurgeryDate, staffSnapshot],
+  );
+
+  const todayBoardTotal = insightMetrics.todayCasesCount;
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
@@ -153,7 +173,13 @@ export const Dashboard: React.FC = () => {
         animate="animate"
         className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 items-stretch"
       >
-        <KPICard label="Active Cases" value={activeCases.length} icon={<FolderOpen className="h-4 w-4 text-indigo-600" />} iconBg="bg-indigo-50" subtitle={`${cases.length} total`} />
+        <KPICard
+          label="Today's board"
+          value={todayBoardTotal}
+          icon={<FolderOpen className="h-4 w-4 text-indigo-600" />}
+          iconBg="bg-indigo-50"
+          subtitle={`${insightMetrics.todayOngoingCount} ongoing · ${insightMetrics.todayCompletedCount} done`}
+        />
         <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" />
         <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" />
         <KPICard label="Cleaning & Audit" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" />

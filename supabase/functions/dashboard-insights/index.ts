@@ -28,6 +28,16 @@ type AdminDashboardMetrics = {
   fcfsPool: number;
   todaySurgeriesCount: number;
   stageBreakdown: StageRow[];
+  todayCasesCount: number;
+  todayOngoingCount: number;
+  todayCompletedCount: number;
+  todayChargeableCount: number;
+  todayPendingApprovals: number;
+  staffTotal: number;
+  staffPresentIn: number;
+  staffPunchedOut: number;
+  staffAbsent: number;
+  staffOnLeave: number;
 };
 
 type EmployeeDashboardMetrics = {
@@ -53,9 +63,11 @@ function buildAdminPrompt(metrics: AdminDashboardMetrics): string {
   return [
     'You write a short human dashboard note for a Malcon Nexus admin.',
     'Use ONLY the JSON metrics below. Do not invent numbers, names, or hospitals.',
+    'Do NOT mention totalCases or all-time case totals — only todayCasesCount / today* fields for cases.',
+    'Include staff: staffPresentIn, staffAbsent, staffOnLeave, staffPunchedOut when staffTotal > 0.',
     'Output EXACTLY 2 lines, each starting with "• ".',
-    'Line 1: One warm, conversational English sentence (good morning/afternoon/evening) with the most important numbers.',
-    'Line 2: Natural Telugu translation of the same message (Telugu script, not romanized). Same facts, same tone.',
+    'Line 1: One warm conversational English sentence (good morning/afternoon/evening): today\'s cases (ongoing, done, billing/chargeable if any) plus who is present vs absent.',
+    'Line 2: Natural Telugu translation (Telugu script, not romanized). Same facts, same tone.',
     'No markdown, no extra lines, no headings.',
     '',
     JSON.stringify(metrics),
@@ -240,8 +252,8 @@ function isValidAdminMetrics(raw: unknown): raw is AdminDashboardMetrics {
   const m = raw as Record<string, unknown>;
   return (
     typeof m.dateLabel === 'string' &&
-    typeof m.activeCases === 'number' &&
-    typeof m.totalCases === 'number' &&
+    typeof m.todayCasesCount === 'number' &&
+    typeof m.staffAbsent === 'number' &&
     Array.isArray(m.stageBreakdown)
   );
 }

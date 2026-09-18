@@ -23,9 +23,11 @@ export const ADMIN_DASHBOARD_AI_ENABLED = false;
 import {
   formatTimeIST,
   getISTDateKey,
+  matchesSurgeryDateKey,
   summarizeDayAttendance,
   summarizeLiveAttendance,
 } from './attendance';
+import type { DashboardStaffSnapshot } from './dashboardStaffSnapshot';
 import { getFoodSelectionForDay, isFoodSelectionSubmitted, shiftMealDateKey } from './food';
 import { countPendingLeaveSubmissions } from './leave';
 import { openLocationTrip } from './locationTrip';
@@ -44,6 +46,18 @@ export type AdminDashboardMetrics = {
   fcfsPool: number;
   todaySurgeriesCount: number;
   stageBreakdown: { stage: string; count: number }[];
+  /** Cases on today's surgery date only (not all-time totals). */
+  todayCasesCount: number;
+  todayOngoingCount: number;
+  todayCompletedCount: number;
+  /** Billing + Bill Submission on today's board. */
+  todayChargeableCount: number;
+  todayPendingApprovals: number;
+  staffTotal: number;
+  staffPresentIn: number;
+  staffPunchedOut: number;
+  staffAbsent: number;
+  staffOnLeave: number;
 };
 
 export type EmployeeDashboardMetrics = {
@@ -110,6 +124,10 @@ export function buildAdminDashboardMetrics(
   cases: ImplantCase[],
   stageDistribution: { stage: string; count: number }[],
   todaySurgeryDate: string,
+  staff?: Pick<
+    DashboardStaffSnapshot,
+    'totalStaff' | 'punchedIn' | 'punchedOut' | 'absent' | 'onLeaveToday'
+  >,
 ): AdminDashboardMetrics {
   const activeCases = cases.filter((c) => c.status === 'Active' || c.status === 'Waiting For Approval');
   const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
@@ -121,6 +139,19 @@ export function buildAdminDashboardMetrics(
   const completedCases = cases.filter((c) => c.status === 'Completed');
   const todayAssignments = cases.filter((c) => c.currentDepartment !== null && c.status === 'Active');
   const todaySurgeriesCount = stageDistribution.reduce((sum, item) => sum + item.count, 0);
+
+  const todayCases = cases.filter(
+    (c) => matchesSurgeryDateKey(c.surgeryDate, todaySurgeryDate) && c.status !== 'Cancelled',
+  );
+  const todayCompletedCount = todayCases.filter((c) => c.status === 'Completed').length;
+  const todayOngoingCount = todayCases.filter(
+    (c) => c.status !== 'Completed' && c.status !== 'Cancelled',
+  ).length;
+  const todayPendingApprovals = todayCases.filter((c) => c.status === 'Waiting For Approval').length;
+  const todayChargeableCount = todayCases.filter((c) => {
+    const stage = mapCaseToVisibleStage(c.currentStage);
+    return stage === 'Billing' || stage === 'Bill Submission';
+  }).length;
 
   return {
     dateLabel: new Date().toLocaleDateString('en-IN', {
@@ -141,6 +172,16 @@ export function buildAdminDashboardMetrics(
     fcfsPool: countFcfsPoolCases(cases),
     todaySurgeriesCount,
     stageBreakdown: stageDistribution.map(({ stage, count }) => ({ stage, count })),
+    todayCasesCount: todayCases.length,
+    todayOngoingCount,
+    todayCompletedCount,
+    todayChargeableCount,
+    todayPendingApprovals,
+    staffTotal: staff?.totalStaff ?? 0,
+    staffPresentIn: staff?.punchedIn ?? 0,
+    staffPunchedOut: staff?.punchedOut ?? 0,
+    staffAbsent: staff?.absent ?? 0,
+    staffOnLeave: staff?.onLeaveToday ?? 0,
   };
 }
 
@@ -223,15 +264,27 @@ export function buildHumanAdminBrief(
             : `${hiTe} — FCFS pool empty.`,
       };
     default: {
-      const urgents: string[] = [];
-      if (m.pendingApprovals > 0) urgents.push(`${m.pendingApprovals} approval${m.pendingApprovals === 1 ? '' : 's'}`);
-      if (m.restockPending > 0) urgents.push(`${m.restockPending} restock`);
-      if (m.cleaningAudit > 0) urgents.push(`${m.cleaningAudit} cleaning`);
-      const urgentBit =
-        urgents.length > 0 ? ` Watch ${urgents.join(', ')}.` : ' Flow looks steady.';
+      const caseBit = `${m.todayCasesCount} today — ${m.todayOngoingCount} ongoing, ${m.todayCompletedCount} done${
+        m.todayChargeableCount > 0 ? `, ${m.todayChargeableCount} in billing` : ''
+      }${m.todayPendingApprovals > 0 ? `, ${m.todayPendingApprovals} need approval` : ''}.`;
 
-      const en = `${hi} — ${m.activeCases} active of ${m.totalCases}, ${m.todaySurgeriesCount} on today’s surgery board, ${m.completed} completed.${urgentBit}`;
-      const te = `${hiTe} — ${m.totalCases} lo ${m.activeCases} active, eeroju board lo ${m.todaySurgeriesCount} surgeries, ${m.completed} complete.${urgentBit === ' Flow looks steady.' ? ' Flow smooth ga undi.' : ` ${urgents.join(', ')} chudandi.`}`;
+      const staffBit =
+        m.staffTotal > 0
+          ? ` Staff: ${m.staffPresentIn} present (in), ${m.staffPunchedOut} out for the day, ${m.staffAbsent} absent${
+              m.staffOnLeave > 0 ? `, ${m.staffOnLeave} on leave` : ''
+            }.`
+          : '';
+
+      const en = `${hi} — Cases ${caseBit}${staffBit}`;
+      const te = `${hiTe} — Eeroju ${m.todayCasesCount} cases — ${m.todayOngoingCount} ongoing, ${m.todayCompletedCount} complete${
+        m.todayChargeableCount > 0 ? `, ${m.todayChargeableCount} billing lo` : ''
+      }.${
+        m.staffTotal > 0
+          ? ` Staff: ${m.staffPresentIn} present, ${m.staffAbsent} absent${
+              m.staffOnLeave > 0 ? `, ${m.staffOnLeave} leave` : ''
+            }.`
+          : ''
+      }`;
       return { en, te };
     }
   }
