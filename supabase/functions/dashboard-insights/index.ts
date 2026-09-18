@@ -41,13 +41,27 @@ function buildPrompt(metrics: AdminDashboardMetrics): string {
   ].join('\n');
 }
 
-async function callGemini(apiKey: string, model: string, prompt: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+function geminiAuthHeaders(apiKey: string): HeadersInit {
+  return {
+    'Content-Type': 'application/json',
+    'x-goog-api-key': apiKey,
+  };
+}
+
+function extractErrorMessage(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === 'object' && 'error' in payload) {
+    const err = (payload as { error?: { message?: string } }).error;
+    if (typeof err?.message === 'string' && err.message.trim()) return err.message;
+  }
+  return fallback;
+}
+
+/** Legacy REST (AIza… traffic keys). */
+async function callGeminiGenerateContent(apiKey: string, model: string, prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: geminiAuthHeaders(apiKey),
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.25, maxOutputTokens: 512 },
@@ -56,8 +70,7 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
 
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = typeof payload?.error?.message === 'string' ? payload.error.message : res.statusText;
-    throw new Error(msg || `Gemini HTTP ${res.status}`);
+    throw new Error(extractErrorMessage(payload, res.statusText || `Gemini HTTP ${res.status}`));
   }
 
   const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -67,22 +80,58 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
   return text.trim();
 }
 
+/** Auth keys (AQ.…) — Interactions API per Google AI Studio docs. */
+async function callGeminiInteractions(apiKey: string, model: string, prompt: string): Promise<string> {
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+    method: 'POST',
+    headers: geminiAuthHeaders(apiKey),
+    body: JSON.stringify({
+      model,
+      input: prompt,
+    }),
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(payload, res.statusText || `Gemini HTTP ${res.status}`));
+  }
+
+  const text =
+    payload?.output_text ??
+    payload?.outputText ??
+    payload?.interaction?.output_text ??
+    payload?.interaction?.outputText;
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Empty Gemini interactions response');
+  }
+  return text.trim();
+}
+
 async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<string> {
   const configured = Deno.env.get('GEMINI_MODEL')?.trim();
+  const isAuthKey = apiKey.startsWith('AQ.');
   const models = configured
-    ? [configured, 'gemini-1.5-flash', 'gemini-2.0-flash']
-    : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+    ? [configured, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    : isAuthKey
+      ? ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
 
   let lastError: Error | null = null;
   for (const model of models) {
-    try {
-      return await callGemini(apiKey, model, prompt);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      lastError = err instanceof Error ? err : new Error(message);
-      const retryable =
-        /not found|404|is not supported|invalid model/i.test(message);
-      if (!retryable) break;
+    const attempts = isAuthKey
+      ? [() => callGeminiInteractions(apiKey, model, prompt), () => callGeminiGenerateContent(apiKey, model, prompt)]
+      : [() => callGeminiGenerateContent(apiKey, model, prompt), () => callGeminiInteractions(apiKey, model, prompt)];
+
+    for (const attempt of attempts) {
+      try {
+        return await attempt();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        lastError = err instanceof Error ? err : new Error(message);
+        const retryable =
+          /not found|404|is not supported|invalid model|unsupported/i.test(message);
+        if (!retryable && !/Empty Gemini/i.test(message)) break;
+      }
     }
   }
   throw lastError ?? new Error('Gemini request failed');
