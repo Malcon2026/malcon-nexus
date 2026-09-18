@@ -42,12 +42,11 @@ function buildPrompt(metrics: AdminDashboardMetrics): string {
 }
 
 async function callGemini(apiKey: string, model: string, prompt: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
@@ -66,6 +65,27 @@ async function callGemini(apiKey: string, model: string, prompt: string): Promis
     throw new Error('Empty Gemini response');
   }
   return text.trim();
+}
+
+async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<string> {
+  const configured = Deno.env.get('GEMINI_MODEL')?.trim();
+  const models = configured
+    ? [configured, 'gemini-1.5-flash', 'gemini-2.0-flash']
+    : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+
+  let lastError: Error | null = null;
+  for (const model of models) {
+    try {
+      return await callGemini(apiKey, model, prompt);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      lastError = err instanceof Error ? err : new Error(message);
+      const retryable =
+        /not found|404|is not supported|invalid model/i.test(message);
+      if (!retryable) break;
+    }
+  }
+  throw lastError ?? new Error('Gemini request failed');
 }
 
 function isValidMetrics(raw: unknown): raw is AdminDashboardMetrics {
@@ -131,8 +151,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'GEMINI_API_KEY is not configured', code: 'GEMINI_NOT_CONFIGURED' }, 503);
     }
 
-    const model = Deno.env.get('GEMINI_MODEL')?.trim() || 'gemini-2.0-flash';
-    const summary = await callGemini(apiKey, model, buildPrompt(metrics));
+    const summary = await callGeminiWithFallback(apiKey, buildPrompt(metrics));
 
     return jsonResponse({
       summary,

@@ -25,7 +25,11 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
       const next = await fetchAdminDashboardInsight(metrics);
       setResult(next);
       if (next.source === 'demo') {
-        setErrorHint('Showing on-device summary. Add GEMINI_API_KEY in Supabase and deploy dashboard-insights for AI text.');
+        setErrorHint(
+          next.errorDetail
+            ? `Showing on-device summary. AI: ${next.errorDetail}`
+            : 'Showing on-device summary. Add GEMINI_API_KEY in Supabase Edge Function secrets.',
+        );
       }
     } finally {
       setLoading(false);

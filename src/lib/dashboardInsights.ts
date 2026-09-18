@@ -1,6 +1,7 @@
 import type { ImplantCase } from '../types';
 import { countFcfsPoolCases, mapCaseToVisibleStage } from './caseWorkflow';
 import { normalizeWorkflowStage } from '../utils/helpers';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 export type AdminDashboardMetrics = {
@@ -23,7 +24,27 @@ export type DashboardInsightResult = {
   summary: string;
   source: 'gemini' | 'demo';
   generatedAt: string;
+  /** Set when falling back to on-device bullets. */
+  errorDetail?: string;
 };
+
+async function readInvokeError(error: unknown): Promise<string | undefined> {
+  if (error instanceof FunctionsHttpError && error.context) {
+    try {
+      const body = (await error.context.json()) as { error?: string; code?: string };
+      if (body?.code === 'GEMINI_NOT_CONFIGURED') {
+        return 'GEMINI_API_KEY is missing in Supabase → Project Settings → Edge Functions → Secrets.';
+      }
+      if (body?.error) return body.error;
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: string }).message);
+  }
+  return undefined;
+}
 
 export function buildAdminDashboardMetrics(
   cases: ImplantCase[],
@@ -95,12 +116,37 @@ export async function fetchAdminDashboardInsight(metrics: AdminDashboardMetrics)
   });
 
   if (error) {
-    return { summary: formatDemoAdminSummary(metrics), source: 'demo', generatedAt };
+    const errorDetail = await readInvokeError(error);
+    return {
+      summary: formatDemoAdminSummary(metrics),
+      source: 'demo',
+      generatedAt,
+      errorDetail,
+    };
+  }
+
+  if (data && typeof data === 'object' && 'error' in data) {
+    const apiError = String((data as { error: string }).error);
+    const code = (data as { code?: string }).code;
+    return {
+      summary: formatDemoAdminSummary(metrics),
+      source: 'demo',
+      generatedAt,
+      errorDetail:
+        code === 'GEMINI_NOT_CONFIGURED'
+          ? 'GEMINI_API_KEY is missing in Supabase → Project Settings → Edge Functions → Secrets.'
+          : apiError,
+    };
   }
 
   const summary = typeof data?.summary === 'string' ? data.summary.trim() : '';
   if (!summary) {
-    return { summary: formatDemoAdminSummary(metrics), source: 'demo', generatedAt };
+    return {
+      summary: formatDemoAdminSummary(metrics),
+      source: 'demo',
+      generatedAt,
+      errorDetail: 'Empty response from dashboard-insights.',
+    };
   }
 
   return {
