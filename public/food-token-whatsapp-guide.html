@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Malcon Nexus — Food tokens (EN / TE)</title>
+    <style>
+      :root {
+        --rose: #e11d48;
+        --rose-soft: #fff1f2;
+        --rose-border: #fecdd3;
+        --ink: #111827;
+        --muted: #4b5563;
+        --card: #ffffff;
+        --bg: #f9fafb;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Telugu', sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        padding: 16px;
+        line-height: 1.45;
+      }
+      .page-header {
+        text-align: center;
+        max-width: 420px;
+        margin: 0 auto 20px;
+      }
+      .page-header h1 {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--rose);
+      }
+      .page-header p {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .slide {
+        max-width: 420px;
+        margin: 0 auto 28px;
+        background: var(--card);
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(17, 24, 39, 0.08);
+        border: 1px solid #e5e7eb;
+      }
+      .slide-badge {
+        background: linear-gradient(135deg, #be123c, #e11d48);
+        color: #fff;
+        padding: 14px 18px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .slide-body {
+        padding: 18px 18px 20px;
+      }
+      .slide-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .slide-title-te {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #9f1239;
+        margin-bottom: 14px;
+      }
+      .block {
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px dashed var(--rose-border);
+      }
+      .block:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      .lang-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--rose);
+        margin-bottom: 6px;
+      }
+      .block p,
+      .block li {
+        font-size: 0.92rem;
+        color: var(--ink);
+      }
+      .block-te p,
+      .block-te li {
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
+      ol {
+        padding-left: 1.15rem;
+        margin-top: 8px;
+      }
+      ol li {
+        margin-bottom: 8px;
+      }
+      .tip {
+        background: var(--rose-soft);
+        border: 1px solid var(--rose-border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 0.85rem;
+        margin-top: 12px;
+      }
+      .tip strong {
+        color: #be123c;
+      }
+      .token-mock {
+        margin-top: 14px;
+        border: 2px dashed var(--rose-border);
+        border-radius: 14px;
+        padding: 14px;
+        background: linear-gradient(145deg, #fff1f2, #fff);
+      }
+      .token-mock .code {
+        font-family: ui-monospace, monospace;
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+      }
+      .token-mock .meta {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .tile {
+        aspect-ratio: 1;
+        border-radius: 14px;
+        border: 2px solid #e5e7eb;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-align: center;
+        padding: 6px;
+        background: #fff;
+      }
+      .tile.on {
+        border-color: var(--rose);
+        background: var(--rose-soft);
+        color: #be123c;
+      }
+      .tile span.icon {
+        font-size: 1.5rem;
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+      .footer-note {
+        max-width: 420px;
+        margin: 0 auto;
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--muted);
+        padding-bottom: 24px;
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        .slide {
+          break-inside: avoid;
+          box-shadow: none;
+          page-break-after: always;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <h1>Malcon Nexus · Food</h1>
+      <p>Save each slide as a screenshot and post in WhatsApp (2 messages).</p>
+    </div>
+
+    <!-- SLIDE 1 -->
+    <article class="slide" id="slide-1">
+      <div class="slide-badge">Post 1 of 2 · How to select meals</div>
+      <div class="slide-body">
+        <h2 class="slide-title">When &amp; how to pick your food</h2>
+        <p class="slide-title-te">ఎప్పుడు &amp; ఎలా meals select చేయాలి</p>
+
+        <div class="block">
+          <p class="lang-label">English</p>
+          <ol>
+            <li><strong>After Punch In (optional):</strong> On Attendance, keep “After Punch In, open Food” checked. When you punch in at office, the app opens Food automatically.</li>
+            <li><strong>Any time later:</strong> Open Malcon Nexus → home → <strong>Food</strong> tile.</li>
+            <li>Tap the <strong>square tiles</strong> for Breakfast, Lunch, and/or Dinner (you can pick one or more).</li>
+            <li>Tap <strong>Submit once</strong>. You cannot change after submitting.</li>
+          </ol>
+          <div class="tiles" aria-hidden="true">
+            <div class="tile on"><span class="icon">🌅</span>Breakfast</div>
+            <div class="tile on"><span class="icon">☀️</span>Lunch</div>
+            <div class="tile"><span class="icon">🌙</span>Dinner</div>
+          </div>
+          <div class="tip">
+            <strong>Remember:</strong> Offsite punch (outside office) needs admin approval first — use the Food tile after you are approved / punched in.
+          </div>
+        </div>
+
+        <div class="block block-te">
+          <p class="lang-label">తెలుగు</p>
+          <ol>
+            <li><strong>Punch In తర్వాత (optional):</strong> Attendance లో “After Punch In, open Food” tick ఉంచండి. Office లో Punch In అయితే app automatic గా Food open చేస్తుంది.</li>
+            <li><strong>తర్వాత ఎప్పుడైనా:</strong> Malcon Nexus → home → <strong>Food</strong> tile open చేయండి.</li>
+            <li><strong>Breakfast / Lunch / Dinner</strong> square tiles tap చేసి select చేయండి (ఒకటి లేదా ఎక్కువ).</li>
+            <li><strong>Submit</strong> ఒక్కసారి press చేయండి. Submit తర్వాత మార్చలేరు.</li>
+          </ol>
+          <div class="tip">
+            <strong>గమనిక:</strong> Office bayata punch కి admin approval కావాలి — approve / punch in అయిన తర్వాత Food tile use చేయండి.
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- SLIDE 2 -->
+    <article class="slide" id="slide-2">
+      <div class="slide-badge">Post 2 of 2 · Meal token at canteen</div>
+      <div class="slide-body">
+        <h2 class="slide-title">Your meal token — show at canteen</h2>
+        <p class="slide-title-te">Meal token — canteen లో చూపించండి</p>
+
+        <div class="block">
+          <p class="lang-label">English</p>
+          <ol>
+            <li>After Submit, your <strong>meal token</strong> appears (you can tap <strong>Show meal token</strong> anytime that day).</li>
+            <li>The token shows your <strong>name</strong>, <strong>date</strong>, <strong>meals selected</strong>, and a <strong>token code</strong> (example below).</li>
+            <li>At the canteen, <strong>show this token on your phone</strong> to collect only the meals you selected for that date.</li>
+            <li>Admin kitchen view is for counting only — <strong>employees submit from their own app</strong>.</li>
+          </ol>
+          <div class="token-mock">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #e11d48; text-transform: uppercase">Meal token</div>
+            <div class="code">MFD-20260918-A3F2</div>
+            <div class="meta">Name · Date · Breakfast · Lunch · Submitted time</div>
+          </div>
+          <div class="tip">
+            <strong>One submit per day.</strong> If you forgot a meal, you cannot edit — plan before you Submit.
+          </div>
+        </div>
+
+        <div class="block block-te">
+          <p class="lang-label">తెలుగు</p>
+          <ol>
+            <li>Submit తర్వాత <strong>meal token</strong> వస్తుంది (ఆ రోజు <strong>Show meal token</strong> tap చేసి మళ్లీ చూడొచ్చు).</li>
+            <li>Token లో <strong>పేరు</strong>, <strong>తేదీ</strong>, <strong>select చేసిన meals</strong>, <strong>token code</strong> ఉంటాయి.</li>
+            <li>Canteen లో phone లో token <strong>చూపించండి</strong> — ఆ రోజు select చేసిన meals కోసం మాత్రమే.</li>
+            <li>Admin Food page counting కోసం మాత్రమే — <strong>submit employee app నుండే</strong>.</li>
+          </ol>
+          <div class="tip">
+            <strong>ఒక రోజuku ఒక Submit.</strong> Meal మర్చాలంటే Submit ముందు confirm చేయండి — తర్వాత edit అవ్వదు.
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <p class="footer-note">
+      Malcon Nexus · Food feature · Screenshot each white card and share on WhatsApp.<br />
+      Deployed app: open Food from employee dashboard after login.
+    </p>
+  </body>
+</html>
