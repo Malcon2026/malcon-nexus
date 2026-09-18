@@ -107,8 +107,10 @@ async function callGeminiInteractions(apiKey: string, model: string, prompt: str
   return text.trim();
 }
 
-/** Prefer stable 2.x models — 3.8 free tier is very low (e.g. 5 req/min). */
-const DEFAULT_GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+/** Google-recommended current models (Interactions API + generateContent fallback). */
+const DEFAULT_GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+
+const RETIRED_MODEL_MARKERS = /no longer available|not found|not supported|deprecated|404/i;
 
 const AI_SUMMARY_CACHE_KEY = 'admin_dashboard_ai_summary';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -168,20 +170,27 @@ function uniqueModels(configured: string | undefined): string[] {
 }
 
 async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<string> {
-  const isAuthKey = apiKey.startsWith('AQ.');
-  const models = uniqueModels(Deno.env.get('GEMINI_MODEL')?.trim());
+  const configured = Deno.env.get('GEMINI_MODEL')?.trim();
+  const models = uniqueModels(configured).filter((m) => !/^gemini-2\.0-flash/i.test(m));
 
   let lastError: Error | null = null;
   for (const model of models) {
-    const attempts = isAuthKey
-      ? [() => callGeminiInteractions(apiKey, model, prompt), () => callGeminiGenerateContent(apiKey, model, prompt)]
-      : [() => callGeminiGenerateContent(apiKey, model, prompt), () => callGeminiInteractions(apiKey, model, prompt)];
+    // Interactions API first (required for AQ keys; recommended for all new models).
+    const attempts = [
+      () => callGeminiInteractions(apiKey, model, prompt),
+      () => callGeminiGenerateContent(apiKey, model, prompt),
+    ];
 
     for (const attempt of attempts) {
       try {
         return await attempt();
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
+        const message = err instanceof Error ? err.message : String(err);
+        lastError = err instanceof Error ? err : new Error(message);
+        if (!RETIRED_MODEL_MARKERS.test(message) && !/Empty Gemini/i.test(message)) {
+          // Auth/quota errors — don't burn through every model/API.
+          if (/quota|401|403|invalid.*key|api key/i.test(message)) break;
+        }
       }
     }
   }

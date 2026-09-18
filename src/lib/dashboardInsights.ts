@@ -34,6 +34,9 @@ function shortenApiError(detail: string | undefined): string | undefined {
   if (/quota|rate limit|exceeded your current quota/i.test(detail)) {
     return 'Gemini free tier limit — wait ~1 minute, then click Refresh (avoid opening Dashboard many times).';
   }
+  if (/no longer available|gemini-2\.0/i.test(detail)) {
+    return 'Gemini model was updated on the server — refresh in a minute or click Refresh again.';
+  }
   return detail.length > 220 ? `${detail.slice(0, 217)}…` : detail;
 }
 
