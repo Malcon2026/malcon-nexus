@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Download,
   Archive,
   Building2,
@@ -38,19 +39,23 @@ interface NavItem {
   id: string;
   label: string;
   icon: React.ReactNode;
-  badge?: number;
   adminOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+const CASES_TAB_IDS = ['cases', 'live-cases', 'case-history', 'postponed-cases'] as const;
+
+const casesGroupChildren: NavItem[] = [
+  { id: 'cases', label: 'All Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
-  { id: 'notes', label: 'Notes', icon: <StickyNote className="h-4 w-4" />, adminOnly: true },
-  { id: 'cases', label: 'Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
+  { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
+];
+
+const topNavItems: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { id: 'notes', label: 'Notes', icon: <StickyNote className="h-4 w-4" />, adminOnly: true },
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },
   { id: 'tv-board', label: 'TV Board', icon: <Tv className="h-4 w-4" />, adminOnly: true },
-  { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'task-requests', label: 'Task Requests', icon: <HandMetal className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
@@ -65,6 +70,10 @@ const navItems: NavItem[] = [
   { id: 'activity', label: 'Activity Log', icon: <ScrollText className="h-4 w-4" />, adminOnly: true },
   { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
 ];
+
+function isCasesTab(tab: string): boolean {
+  return (CASES_TAB_IDS as readonly string[]).includes(tab);
+}
 
 export const Sidebar: React.FC = () => {
   const {
@@ -82,6 +91,12 @@ export const Sidebar: React.FC = () => {
     caseTaskRequests,
   } = useStore();
 
+  const [casesGroupOpen, setCasesGroupOpen] = useState(() => isCasesTab(activeTab));
+
+  useEffect(() => {
+    if (isCasesTab(activeTab)) setCasesGroupOpen(true);
+  }, [activeTab]);
+
   const pendingApprovals = AUTO_APPROVE_STAGE_SUBMISSIONS
     ? 0
     : cases.filter(c => c.status === 'Waiting For Approval').length;
@@ -90,7 +105,6 @@ export const Sidebar: React.FC = () => {
   const pendingAttendanceApprovals =
     countPendingLeaveSubmissions(leaveRequests) +
     attendanceApprovalRequests.filter((r) => r.status === 'pending').length;
-
   const postponedCount = cases.filter(isPostponedCase).length;
 
   const getBadge = (id: string) => {
@@ -105,20 +119,154 @@ export const Sidebar: React.FC = () => {
     return undefined;
   };
 
+  const casesGroupBadge = useMemo(() => {
+    const a = getBadge('cases') ?? 0;
+    const p = postponedCount;
+    const total = Math.max(a, p);
+    return total > 0 ? total : undefined;
+  }, [activeCases, postponedCount]);
+
+  const isAdmin = currentUser.role === 'admin';
+
+  const visibleCaseChildren = useMemo(
+    () => casesGroupChildren.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin],
+  );
+
+  const filterTopItem = (item: NavItem) => {
+    if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
+    if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
+    if (currentUser.role === 'petrol') {
+      return item.id === 'petrol-dashboard' || item.id === 'settings';
+    }
+    return !item.adminOnly || isAdmin;
+  };
+
   const handleNavClick = (id: string) => {
     setActiveTab(id);
     setMobileSidebarOpen(false);
   };
 
   const showLabels = mobileSidebarOpen || !sidebarCollapsed;
+  const casesGroupActive = isCasesTab(activeTab);
+
+  const renderNavButton = (item: NavItem, opts?: { nested?: boolean }) => {
+    const badge = getBadge(item.id);
+    const isActive = activeTab === item.id;
+    const nested = opts?.nested ?? false;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => handleNavClick(item.id)}
+        className={cn(
+          'w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
+          nested ? 'pl-9 pr-3' : 'px-3',
+          isActive
+            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
+          !showLabels && !nested && 'justify-center px-2',
+        )}
+        title={!showLabels ? item.label : undefined}
+      >
+        <span className={cn('shrink-0', isActive ? 'text-indigo-400' : 'text-gray-400')}>
+          {item.icon}
+        </span>
+        <AnimatePresence>
+          {showLabels && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 text-left truncate"
+            >
+              {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Petrol Tokens' : item.label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+        {showLabels && badge !== undefined && badge > 0 && (
+          <span
+            className={cn(
+              'text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
+              isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600',
+            )}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const renderCasesGroup = () => {
+    if (currentUser.role === 'petrol') return null;
+
+    if (!showLabels) {
+      return (
+        <button
+          type="button"
+          onClick={() => handleNavClick(casesGroupActive ? activeTab : 'cases')}
+          className={cn(
+            'w-full flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium border border-transparent',
+            casesGroupActive
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
+          )}
+          title="Cases"
+        >
+          <FolderOpen className={cn('h-4 w-4', casesGroupActive ? 'text-indigo-400' : 'text-gray-400')} />
+        </button>
+      );
+    }
+
+    return (
+      <div className="space-y-0.5">
+        <button
+          type="button"
+          onClick={() => setCasesGroupOpen((o) => !o)}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
+            casesGroupActive && !casesGroupOpen
+              ? 'bg-indigo-50/60 text-indigo-700 border-indigo-100'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800',
+          )}
+        >
+          <FolderOpen className={cn('h-4 w-4 shrink-0', casesGroupActive ? 'text-indigo-400' : 'text-gray-400')} />
+          <span className="flex-1 text-left truncate">Cases</span>
+          {casesGroupBadge !== undefined && (
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 min-w-[20px] text-center">
+              {casesGroupBadge}
+            </span>
+          )}
+          <ChevronDown
+            className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', casesGroupOpen && 'rotate-180')}
+          />
+        </button>
+        <AnimatePresence initial={false}>
+          {casesGroupOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden space-y-0.5"
+            >
+              {visibleCaseChildren.map((child) => renderNavButton(child, { nested: true }))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
   const sidebarContent = (
     <>
-      {/* Logo */}
-      <div className={cn(
-        'flex items-center px-4 py-5 border-b border-gray-200',
-        !showLabels ? 'justify-center' : 'gap-3 justify-between lg:justify-start'
-      )}>
+      <div
+        className={cn(
+          'flex items-center px-4 py-5 border-b border-gray-200',
+          !showLabels ? 'justify-center' : 'gap-3 justify-between lg:justify-start',
+        )}
+      >
         <div className="flex items-center gap-2.5">
           <img src={loginLogo} alt="Malcon Nexus" className="h-8 w-8 shrink-0 object-contain" />
           <AnimatePresence>
@@ -136,6 +284,7 @@ export const Sidebar: React.FC = () => {
           </AnimatePresence>
         </div>
         <button
+          type="button"
           onClick={() => setMobileSidebarOpen(false)}
           className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
           aria-label="Close menu"
@@ -144,62 +293,18 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {navItems
-          .filter((item) => {
-            if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
-            if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
-            if (currentUser.role === 'petrol') {
-              return item.id === 'petrol-dashboard' || item.id === 'settings';
-            }
-            return !item.adminOnly || currentUser.role === 'admin';
-          })
-          .map((item) => {
-            const badge = getBadge(item.id);
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
-                  !showLabels && 'justify-center px-2'
-                )}
-                title={!showLabels ? item.label : undefined}
-              >
-                <span className={cn('shrink-0', isActive ? 'text-indigo-400' : 'text-gray-400')}>
-                  {item.icon}
-                </span>
-                <AnimatePresence>
-                  {showLabels && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="flex-1 text-left truncate"
-                    >
-                    {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Petrol Tokens' : item.label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-                {showLabels && badge !== undefined && badge > 0 && (
-                  <span className={cn(
-                    'text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
-                    isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'
-                  )}>
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {currentUser.role === 'petrol' ? (
+          topNavItems.filter(filterTopItem).map((item) => renderNavButton(item))
+        ) : (
+          <>
+            {renderNavButton(topNavItems[0])}
+            {renderCasesGroup()}
+            {topNavItems.slice(1).filter(filterTopItem).map((item) => renderNavButton(item))}
+          </>
+        )}
       </nav>
 
-      {/* AI branding + build */}
       <div className="px-3 py-3 border-t border-gray-200 space-y-2 mt-auto">
         {showLabels ? (
           <PoweredByAiBadge variant="sidebar" />
@@ -207,7 +312,10 @@ export const Sidebar: React.FC = () => {
           <PoweredByAiBadge variant="sidebarCollapsed" />
         )}
         {showLabels && (
-          <p className="text-[10px] text-gray-500 leading-none px-0.5" title="Build time — confirms you're on the latest deploy">
+          <p
+            className="text-[10px] text-gray-500 leading-none px-0.5"
+            title="Build time — confirms you're on the latest deploy"
+          >
             Build: {new Date(__BUILD_TIME__).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         )}
@@ -217,7 +325,6 @@ export const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Mobile backdrop */}
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
@@ -231,7 +338,6 @@ export const Sidebar: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Mobile drawer */}
       <motion.aside
         initial={false}
         animate={{ x: mobileSidebarOpen ? 0 : '-100%' }}
@@ -241,7 +347,6 @@ export const Sidebar: React.FC = () => {
         {sidebarContent}
       </motion.aside>
 
-      {/* Desktop sidebar */}
       <motion.aside
         animate={{ width: sidebarCollapsed ? 64 : 232 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
@@ -250,6 +355,7 @@ export const Sidebar: React.FC = () => {
         {sidebarContent}
 
         <button
+          type="button"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className="absolute -right-3 top-16 h-6 w-6 bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-sm shadow-black/40 hover:border-indigo-400 transition-all z-30"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
