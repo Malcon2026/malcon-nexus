@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import geminiWordmark from '../assets/gemini-wordmark.jpg';
+import { GeminiIcon } from './PoweredByAiBadge';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -48,8 +48,8 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 px-2 rounded-lg border border-gray-100 bg-white flex items-center justify-center min-w-[4.5rem]">
-              <img src={geminiWordmark} alt="Google Gemini" className="h-4 w-auto object-contain" />
+            <div className="h-9 w-9 rounded-xl border border-gray-100 bg-white flex items-center justify-center shrink-0">
+              <GeminiIcon className="h-6 w-6" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Today&apos;s summary</h3>
