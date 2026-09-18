@@ -894,3 +894,16 @@ textarea {
     position: static;
   }
 }
+
+/* Admin ops feed — X/Twitter-style system typography */
+.ops-feed-font {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-feature-settings: 'kern' 1;
+}

@@ -5073,14 +5073,21 @@ export const useStore = create<AppState>((set, get) => ({
   getDailyData: () => {
     const cases = get().cases;
     const result: { day: string; dateKey: string; cases: number; revenue: number; completed: number }[] = [];
-    const now = new Date();
-    const DAYS = 14;
+    const todayKey = getISTDateKey();
+    const today = new Date(`${todayKey}T12:00:00+05:30`);
+    const dayOfWeek = today.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - daysFromMonday);
 
-    for (let i = DAYS - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
       const dateKey = getISTDateKey(d);
-      const dayLabel = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      const dayLabel = d.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        timeZone: 'Asia/Kolkata',
+      });
 
       const casesInDay = cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, dateKey));
       const completedInDay = cases.filter(

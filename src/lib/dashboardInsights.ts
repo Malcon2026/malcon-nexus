@@ -16,6 +16,9 @@ import {
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+
+/** Set true to call Gemini via dashboard-insights edge function on admin dashboard. */
+export const ADMIN_DASHBOARD_AI_ENABLED = false;
 import {
   formatTimeIST,
   getISTDateKey,

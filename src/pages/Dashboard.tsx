@@ -18,7 +18,7 @@ import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPri
 import { filterAttendanceStaff } from '../lib/staff';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
-import { AdminDashboardInsightCard } from '../components/AdminDashboardInsightCard';
+import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
 
 const fadeUp = {
@@ -92,6 +92,11 @@ export const Dashboard: React.FC = () => {
   const { cases, employees, activityLog, setActiveTab, setSelectedCase, getDailyData, getDepartmentPerformance, getStageDistribution } = useStore();
 
   const dailyData = getDailyData();
+  const weekCaseTotal = useMemo(() => dailyData.reduce((sum, row) => sum + row.cases, 0), [dailyData]);
+  const weekCompletedTotal = useMemo(
+    () => dailyData.reduce((sum, row) => sum + row.completed, 0),
+    [dailyData],
+  );
   const departmentPerformance = getDepartmentPerformance();
   const todaySurgeryDate = getTodaySurgeryDateKey();
   const stageDistribution = getStageDistribution(todaySurgeryDate);
@@ -155,9 +160,16 @@ export const Dashboard: React.FC = () => {
         <KPICard label="Restock Pending" value={restockPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" />
         <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" />
         <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle={fcfsPoolTotal > 0 ? `${fcfsPoolTotal} in pool` : undefined} />
+        <KPICard
+          label="This week"
+          value={weekCaseTotal}
+          icon={<Activity className="h-4 w-4 text-sky-600" />}
+          iconBg="bg-sky-50"
+          subtitle={`Mon–Sun · ${weekCompletedTotal} completed`}
+        />
       </motion.div>
 
-      <AdminDashboardInsightCard metrics={insightMetrics} />
+      <AdminOpsFeedCard metrics={insightMetrics} />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
@@ -172,7 +184,8 @@ export const Dashboard: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Daily Performance</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">This week · Mon–Sun</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Surgeries scheduled per day (IST)</p>
                 </div>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
                   <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-gray-900" /><span>Cases</span></div>
@@ -194,7 +207,7 @@ export const Dashboard: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#8b97ab' }} axisLine={false} tickLine={false} interval={0} angle={-35} textAnchor="end" height={50} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} interval={0} />
                   <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Area type="monotone" dataKey="cases" name="Cases" stroke="#9a8cff" strokeWidth={2} fill="url(#colorCases)" dot={{ r: 2, fill: '#9a8cff' }} />
