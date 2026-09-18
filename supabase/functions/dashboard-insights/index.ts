@@ -107,14 +107,21 @@ async function callGeminiInteractions(apiKey: string, model: string, prompt: str
   return text.trim();
 }
 
+const DEFAULT_GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-3.8-flash',
+  'gemini-flash-latest',
+];
+
+function uniqueModels(configured: string | undefined): string[] {
+  const list = configured ? [configured, ...DEFAULT_GEMINI_MODELS] : [...DEFAULT_GEMINI_MODELS];
+  return [...new Set(list.map((m) => m.trim()).filter(Boolean))];
+}
+
 async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<string> {
-  const configured = Deno.env.get('GEMINI_MODEL')?.trim();
   const isAuthKey = apiKey.startsWith('AQ.');
-  const models = configured
-    ? [configured, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
-    : isAuthKey
-      ? ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
-      : ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+  const models = uniqueModels(Deno.env.get('GEMINI_MODEL')?.trim());
 
   let lastError: Error | null = null;
   for (const model of models) {
@@ -126,11 +133,7 @@ async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<s
       try {
         return await attempt();
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        lastError = err instanceof Error ? err : new Error(message);
-        const retryable =
-          /not found|404|is not supported|invalid model|unsupported/i.test(message);
-        if (!retryable && !/Empty Gemini/i.test(message)) break;
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
     }
   }
