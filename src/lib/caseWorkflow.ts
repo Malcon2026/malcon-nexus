@@ -515,3 +515,10 @@ export function canEmployeeSubmitCase(
 
   return true;
 }
+
+/** Live case with a recorded postpone (surgery moved; kit stays at current stage). */
+export function isPostponedCase(c: ImplantCase): boolean {
+  if (c.status === 'Completed' || c.status === 'Cancelled') return false;
+  if ((c.cancelReason ?? '').trim()) return false;
+  return Boolean((c.postponeReason ?? '').trim());
+}

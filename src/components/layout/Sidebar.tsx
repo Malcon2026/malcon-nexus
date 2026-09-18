@@ -24,12 +24,13 @@ import {
   HandMetal,
   MessageCircle,
   UtensilsCrossed,
+  CalendarClock,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
-import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED } from '../../lib/caseWorkflow';
+import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isPostponedCase } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
 import { PoweredByAiBadge } from '../PoweredByAiBadge';
 
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'workflow', label: 'Workflow Board', icon: <GitBranch className="h-4 w-4" /> },
   { id: 'tv-board', label: 'TV Board', icon: <Tv className="h-4 w-4" />, adminOnly: true },
+  { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
   { id: 'approvals', label: 'Approval Queue', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'task-requests', label: 'Task Requests', icon: <HandMetal className="h-4 w-4" />, adminOnly: true },
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
@@ -89,7 +91,10 @@ export const Sidebar: React.FC = () => {
     countPendingLeaveSubmissions(leaveRequests) +
     attendanceApprovalRequests.filter((r) => r.status === 'pending').length;
 
+  const postponedCount = cases.filter(isPostponedCase).length;
+
   const getBadge = (id: string) => {
+    if (id === 'postponed-cases') return postponedCount || undefined;
     if (id === 'approvals') return pendingApprovals;
     if (id === 'task-requests') return pendingTaskRequests || undefined;
     if (id === 'cases' || id === 'live-cases') return activeCases;

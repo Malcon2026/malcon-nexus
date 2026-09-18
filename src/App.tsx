@@ -9,6 +9,7 @@ import { TvBoard } from './pages/TvBoard';
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { TaskRequestQueue } from './pages/TaskRequestQueue';
+import { PostponedCases } from './pages/PostponedCases';
 import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
 import { Expenses } from './pages/Expenses';
@@ -228,6 +229,7 @@ function MainApp() {
       case 'live-cases': return <LiveCases />;
       case 'notes':      return <Notes />;
       case 'workflow':   return <WorkflowBoard />;
+      case 'postponed-cases': return <PostponedCases />;
       case 'approvals':  return <ApprovalQueue />;
       case 'task-requests': return FCFS_POOL_ENABLED ? <TaskRequestQueue /> : <Dashboard />;
       case 'employees':  return <Employees />;
