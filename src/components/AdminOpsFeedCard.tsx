@@ -8,6 +8,8 @@ import {
   ADMIN_DASHBOARD_AI_ENABLED,
   fetchAdminDashboardInsight,
   formatDemoAdminSummary,
+  normalizeAdminSummaryTwoLines,
+  type AdminBriefFocus,
   type AdminDashboardMetrics,
   type DashboardInsightResult,
 } from '../lib/dashboardInsights';
@@ -18,7 +20,7 @@ type Props = {
   className?: string;
 };
 
-type FocusChip = 'all' | 'approvals' | 'surgery' | 'cleaning' | 'restock' | 'pool';
+type FocusChip = AdminBriefFocus;
 
 const CHIPS: { id: FocusChip; label: string; count: (m: AdminDashboardMetrics) => number }[] = [
   { id: 'all', label: 'Overview', count: (m) => m.activeCases },
@@ -29,24 +31,6 @@ const CHIPS: { id: FocusChip; label: string; count: (m: AdminDashboardMetrics) =
   { id: 'pool', label: 'FCFS pool', count: (m) => m.fcfsPool },
 ];
 
-function filterSummaryByFocus(full: string, focus: FocusChip): string {
-  if (focus === 'all') return full;
-  const lines = full.split('\n').filter(Boolean);
-  const matchers: Record<Exclude<FocusChip, 'all'>, RegExp> = {
-    approvals: /approval|waiting/i,
-    surgery: /surgery/i,
-    cleaning: /cleaning|audit/i,
-    restock: /restock/i,
-    pool: /fcfs|pool/i,
-  };
-  const re = matchers[focus];
-  const picked = lines.filter((line) => re.test(line));
-  if (picked.length === 0) {
-    return lines.slice(0, 2).join('\n');
-  }
-  return picked.join('\n');
-}
-
 export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
   const [result, setResult] = useState<DashboardInsightResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +38,7 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
   const [errorHint, setErrorHint] = useState<string | null>(null);
 
   const loadLocal = useCallback(() => {
-    const summary = formatDemoAdminSummary(metrics);
+    const summary = formatDemoAdminSummary(metrics, 'all');
     setResult({
       summary,
       source: 'demo',
@@ -77,7 +61,10 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
       setErrorHint(null);
       try {
         const next = await fetchAdminDashboardInsight(metrics, { refresh });
-        setResult(next);
+        setResult({
+          ...next,
+          summary: normalizeAdminSummaryTwoLines(next.summary),
+        });
         if (next.notice) {
           setErrorHint(next.notice);
         } else if (next.source === 'demo' && next.errorDetail) {
@@ -94,10 +81,16 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
     void load(false);
   }, [load]);
 
-  const displayText = useMemo(() => {
-    const raw = result?.summary ?? formatDemoAdminSummary(metrics);
-    return filterSummaryByFocus(raw, focus);
-  }, [result?.summary, metrics, focus]);
+  const briefLines = useMemo(() => {
+    if (focus !== 'all' || !result?.summary || result.source === 'demo') {
+      return formatDemoAdminSummary(metrics, focus)
+        .split('\n')
+        .filter((line) => line.trim());
+    }
+    return normalizeAdminSummaryTwoLines(result.summary)
+      .split('\n')
+      .filter((line) => line.trim());
+  }, [result?.summary, result?.source, metrics, focus]);
 
   const timeLabel = useMemo(
     () =>
@@ -190,25 +183,42 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={`${focus}-${displayText.slice(0, 24)}`}
+            key={`${focus}-${briefLines.join('|').slice(0, 40)}`}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="text-[13px] leading-[1.4] text-gray-900 whitespace-pre-line tracking-[-0.01em] flex-1 overflow-y-auto min-h-0 pr-0.5"
+            className="flex-1 overflow-y-auto min-h-0 pr-0.5 space-y-3"
           >
             {loading && !result ? (
               <div className="space-y-2.5 py-1" aria-hidden>
-                {[1, 2, 3].map((i) => (
+                {[1, 2].map((i) => (
                   <div
                     key={i}
-                    className="h-3.5 rounded-full bg-gray-100 animate-pulse"
-                    style={{ width: `${88 - i * 14}%` }}
+                    className="h-4 rounded-full bg-gray-100 animate-pulse"
+                    style={{ width: `${92 - i * 10}%` }}
                   />
                 ))}
               </div>
             ) : (
-              displayText
+              briefLines.map((line, index) => {
+                const text = line.replace(/^•\s*/, '');
+                const isTelugu = index === 1;
+                return (
+                  <p
+                    key={`${index}-${text.slice(0, 12)}`}
+                    className={cn(
+                      'text-[14px] leading-[1.45] tracking-[-0.01em]',
+                      isTelugu ? 'text-gray-500' : 'text-gray-900 font-medium',
+                    )}
+                  >
+                    <span className="text-gray-400 mr-1.5" aria-hidden>
+                      •
+                    </span>
+                    {text}
+                  </p>
+                );
+              })
             )}
           </motion.div>
         </AnimatePresence>

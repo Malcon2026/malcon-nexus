@@ -51,10 +51,12 @@ type EmployeeDashboardMetrics = {
 
 function buildAdminPrompt(metrics: AdminDashboardMetrics): string {
   return [
-    'You summarize Malcon Nexus implant-case operations for an admin.',
+    'You write a short human dashboard note for a Malcon Nexus admin.',
     'Use ONLY the JSON metrics below. Do not invent numbers, names, or hospitals.',
-    'Write 3–5 short bullet points in plain English. Mention urgent items (approvals, restock, cleaning) if counts > 0.',
-    'No markdown headings. Start each line with "• ".',
+    'Output EXACTLY 2 lines, each starting with "• ".',
+    'Line 1: One warm, conversational English sentence (good morning/afternoon/evening) with the most important numbers.',
+    'Line 2: Natural Telugu translation of the same message (Telugu script, not romanized). Same facts, same tone.',
+    'No markdown, no extra lines, no headings.',
     '',
     JSON.stringify(metrics),
   ].join('\n');

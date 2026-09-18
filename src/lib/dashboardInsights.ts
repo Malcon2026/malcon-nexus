@@ -19,6 +19,7 @@ import { supabase } from './supabase';
 
 /** Set true to call Gemini via dashboard-insights edge function on admin dashboard. */
 export const ADMIN_DASHBOARD_AI_ENABLED = false;
+
 import {
   formatTimeIST,
   getISTDateKey,
@@ -143,29 +144,126 @@ export function buildAdminDashboardMetrics(
   };
 }
 
-/** Local fallback when Gemini or the edge function is unavailable. */
-export function formatDemoAdminSummary(m: AdminDashboardMetrics): string {
-  const lines: string[] = [
-    `• ${m.dateLabel}: ${m.activeCases} active case(s) of ${m.totalCases} total.`,
-  ];
+export type AdminBriefFocus = 'all' | 'approvals' | 'surgery' | 'cleaning' | 'restock' | 'pool';
 
-  if (m.todaySurgeriesCount > 0) {
-    lines.push(`• Today's surgeries: ${m.todaySurgeriesCount} on the board.`);
-  } else {
-    lines.push('• No cases scheduled for today\'s surgery date on the stage chart.');
+function greetingEn(): string {
+  const h = Number(
+    new Date().toLocaleString('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }),
+  );
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function greetingTe(): string {
+  const h = Number(
+    new Date().toLocaleString('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }),
+  );
+  if (h < 12) return 'శుభోదయం';
+  if (h < 17) return 'శుభ మధ్యాహ్నం';
+  return 'శుభ సాయంత్రం';
+}
+
+/** Two lines: English then Telugu — human tone, numbers from metrics only. */
+export function buildHumanAdminBrief(
+  m: AdminDashboardMetrics,
+  focus: AdminBriefFocus = 'all',
+): { en: string; te: string } {
+  const hi = greetingEn();
+  const hiTe = greetingTe();
+
+  switch (focus) {
+    case 'approvals':
+      return {
+        en:
+          m.pendingApprovals > 0
+            ? `${hi} — ${m.pendingApprovals} case${m.pendingApprovals === 1 ? '' : 's'} need your approval when you get a minute.`
+            : `${hi} — no cases waiting for approval right now.`,
+        te:
+          m.pendingApprovals > 0
+            ? `${hiTe} — ${m.pendingApprovals} cases approval కోసం వేచి ఉన్నాయి, time ఉన్నప్పుడు చూడండి.`
+            : `${hiTe} — approval కోసం వేచి ఉన్న cases ఏవీ లేవు.`,
+      };
+    case 'surgery':
+      return {
+        en: `${hi} — ${m.inSurgery} in surgery now; ${m.todaySurgeriesCount} on today’s board.`,
+        te: `${hiTe} — ippudu surgery lo ${m.inSurgery}; eeroju board lo ${m.todaySurgeriesCount} surgeries.`,
+      };
+    case 'cleaning':
+      return {
+        en:
+          m.cleaningAudit > 0
+            ? `${hi} — ${m.cleaningAudit} case${m.cleaningAudit === 1 ? '' : 's'} in cleaning & audit.`
+            : `${hi} — cleaning queue is clear.`,
+        te:
+          m.cleaningAudit > 0
+            ? `${hiTe} — cleaning & audit lo ${m.cleaningAudit} cases unnayi.`
+            : `${hiTe} — cleaning queue clear ga undi.`,
+      };
+    case 'restock':
+      return {
+        en:
+          m.restockPending > 0
+            ? `${hi} — ${m.restockPending} case${m.restockPending === 1 ? '' : 's'} waiting on restock.`
+            : `${hi} — nothing stuck on restock.`,
+        te:
+          m.restockPending > 0
+            ? `${hiTe} — restock kosam ${m.restockPending} cases wait avtunnayi.`
+            : `${hiTe} — restock lo stuck cases levu.`,
+      };
+    case 'pool':
+      return {
+        en:
+          m.fcfsPool > 0
+            ? `${hi} — ${m.fcfsPool} in the FCFS pool for staff to pick up.`
+            : `${hi} — FCFS pool is empty.`,
+        te:
+          m.fcfsPool > 0
+            ? `${hiTe} — FCFS pool lo ${m.fcfsPool} cases unnayi.`
+            : `${hiTe} — FCFS pool empty.`,
+      };
+    default: {
+      const urgents: string[] = [];
+      if (m.pendingApprovals > 0) urgents.push(`${m.pendingApprovals} approval${m.pendingApprovals === 1 ? '' : 's'}`);
+      if (m.restockPending > 0) urgents.push(`${m.restockPending} restock`);
+      if (m.cleaningAudit > 0) urgents.push(`${m.cleaningAudit} cleaning`);
+      const urgentBit =
+        urgents.length > 0 ? ` Watch ${urgents.join(', ')}.` : ' Flow looks steady.';
+
+      const en = `${hi} — ${m.activeCases} active of ${m.totalCases}, ${m.todaySurgeriesCount} on today’s surgery board, ${m.completed} completed.${urgentBit}`;
+      const te = `${hiTe} — ${m.totalCases} lo ${m.activeCases} active, eeroju board lo ${m.todaySurgeriesCount} surgeries, ${m.completed} complete.${urgentBit === ' Flow looks steady.' ? ' Flow smooth ga undi.' : ` ${urgents.join(', ')} chudandi.`}`;
+      return { en, te };
+    }
   }
+}
 
-  if (m.pendingApprovals > 0) {
-    lines.push(`• ${m.pendingApprovals} case(s) waiting for approval — review Approvals when you can.`);
+export function formatHumanAdminBrief(m: AdminDashboardMetrics, focus: AdminBriefFocus = 'all'): string {
+  const { en, te } = buildHumanAdminBrief(m, focus);
+  return `• ${en}\n• ${te}`;
+}
+
+/** Keep export name for callers; always 2 bullets (EN + TE). */
+export function formatDemoAdminSummary(m: AdminDashboardMetrics, focus: AdminBriefFocus = 'all'): string {
+  return formatHumanAdminBrief(m, focus);
+}
+
+/** Gemini sometimes adds extra lines — keep first two bullets only. */
+export function normalizeAdminSummaryTwoLines(raw: string): string {
+  const bullets = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('•') || line.startsWith('-'))
+    .slice(0, 2);
+  if (bullets.length >= 2) {
+    return bullets.map((line) => (line.startsWith('•') ? line : `• ${line.replace(/^-\s*/, '')}`)).join('\n');
   }
-  if (m.inSurgery > 0) lines.push(`• ${m.inSurgery} case(s) currently in Surgery.`);
-  if (m.cleaningAudit > 0) lines.push(`• ${m.cleaningAudit} in Cleaning & Audit.`);
-  if (m.restockPending > 0) lines.push(`• ${m.restockPending} awaiting Restock.`);
-  if (m.fcfsPool > 0) lines.push(`• ${m.fcfsPool} case(s) in the FCFS pool.`);
-
-  lines.push(`• ${m.completed} completed overall; ${m.todayTasks} active with a department assigned today.`);
-
-  return lines.join('\n');
+  const plain = raw
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+  if (plain.length === 0) return raw.trim();
+  return plain.map((line) => (line.startsWith('•') ? line : `• ${line}`)).join('\n');
 }
 
 function formatWorkedLabel(ms: number): string {
