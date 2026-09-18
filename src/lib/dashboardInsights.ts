@@ -22,11 +22,20 @@ export type AdminDashboardMetrics = {
 
 export type DashboardInsightResult = {
   summary: string;
-  source: 'gemini' | 'demo';
+  source: 'gemini' | 'cached' | 'demo';
   generatedAt: string;
   /** Set when falling back to on-device bullets. */
   errorDetail?: string;
+  notice?: string;
 };
+
+function shortenApiError(detail: string | undefined): string | undefined {
+  if (!detail) return detail;
+  if (/quota|rate limit|exceeded your current quota/i.test(detail)) {
+    return 'Gemini free tier limit — wait ~1 minute, then click Refresh (avoid opening Dashboard many times).';
+  }
+  return detail.length > 220 ? `${detail.slice(0, 217)}…` : detail;
+}
 
 async function readInvokeError(error: unknown): Promise<string | undefined> {
   if (error instanceof FunctionsHttpError && error.context) {
@@ -34,6 +43,9 @@ async function readInvokeError(error: unknown): Promise<string | undefined> {
       const body = (await error.context.json()) as { error?: string; code?: string };
       if (body?.code === 'GEMINI_NOT_CONFIGURED') {
         return 'GEMINI_API_KEY is missing in Supabase → Project Settings → Edge Functions → Secrets.';
+      }
+      if (body?.code === 'QUOTA_EXCEEDED') {
+        return 'Gemini free tier limit — wait ~1 minute, then click Refresh.';
       }
       if (body?.error) return body.error;
     } catch {
@@ -109,14 +121,17 @@ export function formatDemoAdminSummary(m: AdminDashboardMetrics): string {
   return lines.join('\n');
 }
 
-export async function fetchAdminDashboardInsight(metrics: AdminDashboardMetrics): Promise<DashboardInsightResult> {
+export async function fetchAdminDashboardInsight(
+  metrics: AdminDashboardMetrics,
+  options?: { refresh?: boolean },
+): Promise<DashboardInsightResult> {
   const generatedAt = new Date().toISOString();
   const { data, error } = await supabase.functions.invoke('dashboard-insights', {
-    body: { metrics },
+    body: { metrics, refresh: options?.refresh === true },
   });
 
   if (error) {
-    const errorDetail = await readInvokeError(error);
+    const errorDetail = shortenApiError(await readInvokeError(error));
     return {
       summary: formatDemoAdminSummary(metrics),
       source: 'demo',
@@ -132,10 +147,13 @@ export async function fetchAdminDashboardInsight(metrics: AdminDashboardMetrics)
       summary: formatDemoAdminSummary(metrics),
       source: 'demo',
       generatedAt,
-      errorDetail:
+      errorDetail: shortenApiError(
         code === 'GEMINI_NOT_CONFIGURED'
           ? 'GEMINI_API_KEY is missing in Supabase → Project Settings → Edge Functions → Secrets.'
-          : apiError,
+          : code === 'QUOTA_EXCEEDED'
+            ? 'Gemini free tier limit — wait ~1 minute, then click Refresh.'
+            : apiError,
+      ),
     };
   }
 
@@ -149,9 +167,13 @@ export async function fetchAdminDashboardInsight(metrics: AdminDashboardMetrics)
     };
   }
 
+  const source =
+    data?.source === 'gemini' ? 'gemini' : data?.source === 'cached' ? 'cached' : 'demo';
+
   return {
     summary,
-    source: data?.source === 'gemini' ? 'gemini' : 'demo',
+    source,
     generatedAt: typeof data?.generatedAt === 'string' ? data.generatedAt : generatedAt,
+    notice: typeof data?.notice === 'string' ? data.notice : undefined,
   };
 }

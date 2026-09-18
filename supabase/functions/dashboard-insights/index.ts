@@ -107,12 +107,60 @@ async function callGeminiInteractions(apiKey: string, model: string, prompt: str
   return text.trim();
 }
 
-const DEFAULT_GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-3.8-flash',
-  'gemini-flash-latest',
-];
+/** Prefer stable 2.x models — 3.8 free tier is very low (e.g. 5 req/min). */
+const DEFAULT_GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+const AI_SUMMARY_CACHE_KEY = 'admin_dashboard_ai_summary';
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+type SummaryCache = {
+  summary: string;
+  generatedAt: string;
+  expiresAt: string;
+};
+
+function isQuotaError(message: string): boolean {
+  return /quota|rate limit|429|resource_exhausted|exceeded your current quota/i.test(message);
+}
+
+async function readSummaryCache(
+  admin: ReturnType<typeof createClient>,
+  { allowStale = false }: { allowStale?: boolean } = {},
+): Promise<SummaryCache | null> {
+  const { data } = await admin
+    .from('app_settings')
+    .select('value')
+    .eq('key', AI_SUMMARY_CACHE_KEY)
+    .maybeSingle();
+  if (!data?.value) return null;
+  try {
+    const parsed = JSON.parse(data.value) as SummaryCache;
+    if (!parsed.summary) return null;
+    if (!allowStale && parsed.expiresAt && Date.now() > new Date(parsed.expiresAt).getTime()) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeSummaryCache(
+  admin: ReturnType<typeof createClient>,
+  summary: string,
+): Promise<void> {
+  const generatedAt = new Date().toISOString();
+  const payload: SummaryCache = {
+    summary,
+    generatedAt,
+    expiresAt: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
+  };
+  await admin.from('app_settings').upsert({
+    key: AI_SUMMARY_CACHE_KEY,
+    value: JSON.stringify(payload),
+    updated_by: 'dashboard-insights',
+  });
+}
 
 function uniqueModels(configured: string | undefined): string[] {
   const list = configured ? [configured, ...DEFAULT_GEMINI_MODELS] : [...DEFAULT_GEMINI_MODELS];
@@ -194,8 +242,18 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => null);
     const metrics = body?.metrics;
+    const refresh = body?.refresh === true;
     if (!isValidMetrics(metrics)) {
       return jsonResponse({ error: 'Invalid metrics payload' }, 400);
+    }
+
+    const cached = await readSummaryCache(admin);
+    if (!refresh && cached) {
+      return jsonResponse({
+        summary: cached.summary,
+        source: 'cached',
+        generatedAt: cached.generatedAt,
+      });
     }
 
     const apiKey = Deno.env.get('GEMINI_API_KEY')?.trim() ?? '';
@@ -203,13 +261,36 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'GEMINI_API_KEY is not configured', code: 'GEMINI_NOT_CONFIGURED' }, 503);
     }
 
-    const summary = await callGeminiWithFallback(apiKey, buildPrompt(metrics));
-
-    return jsonResponse({
-      summary,
-      source: 'gemini',
-      generatedAt: new Date().toISOString(),
-    });
+    try {
+      const summary = await callGeminiWithFallback(apiKey, buildPrompt(metrics));
+      await writeSummaryCache(admin, summary);
+      return jsonResponse({
+        summary,
+        source: 'gemini',
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (geminiErr) {
+      const message = geminiErr instanceof Error ? geminiErr.message : 'Insight generation failed';
+      if (isQuotaError(message)) {
+        const stale = await readSummaryCache(admin, { allowStale: true });
+        if (stale) {
+          return jsonResponse({
+            summary: stale.summary,
+            source: 'cached',
+            generatedAt: stale.generatedAt,
+            notice: 'Using saved summary — Gemini free tier limit. Try Refresh in a minute.',
+          });
+        }
+        return jsonResponse(
+          {
+            error: 'Gemini free tier limit reached. Wait about a minute, then click Refresh.',
+            code: 'QUOTA_EXCEEDED',
+          },
+          429,
+        );
+      }
+      throw geminiErr;
+    }
   } catch (err) {
     console.error('[dashboard-insights]', err);
     const message = err instanceof Error ? err.message : 'Insight generation failed';

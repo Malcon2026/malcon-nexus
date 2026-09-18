@@ -18,16 +18,18 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
   const [loading, setLoading] = useState(true);
   const [errorHint, setErrorHint] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     setLoading(true);
     setErrorHint(null);
     try {
-      const next = await fetchAdminDashboardInsight(metrics);
+      const next = await fetchAdminDashboardInsight(metrics, { refresh });
       setResult(next);
-      if (next.source === 'demo') {
+      if (next.notice) {
+        setErrorHint(next.notice);
+      } else if (next.source === 'demo') {
         setErrorHint(
           next.errorDetail
-            ? `Showing on-device summary. AI: ${next.errorDetail}`
+            ? `Showing on-device summary. ${next.errorDetail}`
             : 'Showing on-device summary. Add GEMINI_API_KEY in Supabase Edge Function secrets.',
         );
       }
@@ -37,7 +39,7 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
   }, [metrics]);
 
   useEffect(() => {
-    void load();
+    void load(false);
   }, [load]);
 
   return (
@@ -54,10 +56,12 @@ export const AdminDashboardInsightCard: React.FC<Props> = ({ metrics }) => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {result?.source === 'gemini' && (
-              <Badge className="bg-violet-50 text-violet-700 border-violet-100 text-[10px]">AI</Badge>
+            {(result?.source === 'gemini' || result?.source === 'cached') && (
+              <Badge className="bg-violet-50 text-violet-700 border-violet-100 text-[10px]">
+                {result.source === 'cached' ? 'AI saved' : 'AI'}
+              </Badge>
             )}
-            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load()} disabled={loading}>
+            <Button variant="secondary" size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={() => void load(true)} disabled={loading}>
               Refresh
             </Button>
           </div>
