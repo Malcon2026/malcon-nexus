@@ -29,6 +29,7 @@ import {
   type GeoPosition,
 } from '../lib/attendance';
 import { formatAttendanceError } from '../lib/attendanceBilingual';
+import { getFoodOpenAfterPunchIn, setFoodOpenAfterPunchIn } from '../lib/foodPreferences';
 import { Bilingual, Te } from './BilingualText';
 import {
   AttendanceSelfieCapture,
@@ -41,7 +42,12 @@ type LocationState =
   | { status: 'ready'; position: GeoPosition; distanceM: number; withinOffice: boolean }
   | { status: 'error'; message: string; messageTe?: string | null };
 
-export const EmployeeAttendanceHero: React.FC = () => {
+type EmployeeAttendanceHeroProps = {
+  /** Called after a successful punch in (office or approved offsite request). */
+  onPunchInSuccess?: () => void;
+};
+
+export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ onPunchInSuccess }) => {
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
   const currentUser = useStore((s) => s.currentUser);
@@ -78,8 +84,15 @@ export const EmployeeAttendanceHero: React.FC = () => {
   const [submitError, setSubmitError] = useState<{ en: string; te: string | null } | null>(null);
   const [offsiteReason, setOffsiteReason] = useState('');
   const [punchInSelfie, setPunchInSelfie] = useState<CapturedSelfie | null>(null);
+  const [openFoodAfterPunch, setOpenFoodAfterPunch] = useState(() => getFoodOpenAfterPunchIn());
 
   const firstName = currentUser.name.split(' ')[0];
+
+  const notifyPunchInSuccess = () => {
+    if (getFoodOpenAfterPunchIn()) {
+      onPunchInSuccess?.();
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -202,6 +215,7 @@ export const EmployeeAttendanceHero: React.FC = () => {
     }
 
     closeConfirm();
+    notifyPunchInSuccess();
   };
 
   const closingPriorSession = confirmType === 'out' && priorDayOpenSession;
@@ -441,6 +455,22 @@ export const EmployeeAttendanceHero: React.FC = () => {
             </div>
           ))}
         </div>
+
+        <label className="flex items-center gap-3 mb-3 p-3 rounded-xl border border-rose-100 bg-rose-50/50 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+            checked={openFoodAfterPunch}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setOpenFoodAfterPunch(on);
+              setFoodOpenAfterPunchIn(on);
+            }}
+          />
+          <span className="text-sm text-gray-800">
+            After <span className="font-semibold">Punch In</span>, open Food to select meals
+          </span>
+        </label>
 
         {pendingOffsiteIn && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { UtensilsCrossed, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { UtensilsCrossed, ChevronLeft, ChevronRight, Lock, Eye } from 'lucide-react';
 import { Card, CardBody, CardHeader } from './ui/Card';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
@@ -7,6 +7,8 @@ import { FOOD_MEALS, getFoodSelectionForDay, isFoodSelectionSubmitted, shiftMeal
 import { getISTDateKey } from '../lib/attendance';
 import type { FoodMeal } from '../types';
 import { Te } from './BilingualText';
+import { buildFoodMealToken } from '../lib/foodToken';
+import { FoodMealTokenCard } from './FoodMealTokenCard';
 
 function formatMealDateLabel(dateKey: string): string {
   const today = getISTDateKey();
@@ -39,6 +41,7 @@ export const EmployeeFoodSection: React.FC = () => {
   const [draft, setDraft] = useState(emptyDraft);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
 
   const selection = useMemo(
     () => getFoodSelectionForDay(foodSelections, currentUser.id, mealDate),
@@ -47,12 +50,18 @@ export const EmployeeFoodSection: React.FC = () => {
 
   const locked = isFoodSelectionSubmitted(selection);
 
+  const token = useMemo(() => {
+    if (!locked || !selection) return null;
+    return buildFoodMealToken(selection, currentUser.name);
+  }, [locked, selection, currentUser.name]);
+
   useEffect(() => {
     void loadFoodSelectionsWindow(mealDate);
   }, [mealDate, loadFoodSelectionsWindow]);
 
   useEffect(() => {
     setError(null);
+    setShowToken(false);
     if (locked && selection) {
       setDraft({
         breakfast: selection.breakfast,
@@ -76,7 +85,11 @@ export const EmployeeFoodSection: React.FC = () => {
     setSubmitting(true);
     try {
       const result = await submitEmployeeFoodMeals(mealDate, draft);
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setShowToken(true);
     } finally {
       setSubmitting(false);
     }
@@ -132,13 +145,12 @@ export const EmployeeFoodSection: React.FC = () => {
 
           {!locked && (
             <p className="text-sm text-gray-600">
-              Tap the meals you need, then press <span className="font-semibold text-gray-900">Submit</span>. You cannot
-              change after submitting.
+              Tap a meal tile, then press <span className="font-semibold text-gray-900">Submit</span>.
             </p>
           )}
 
-          <div className="grid grid-cols-1 gap-2">
-            {FOOD_MEALS.map(({ id, label }) => {
+          <div className="grid grid-cols-3 gap-3">
+            {FOOD_MEALS.map(({ id, label, iconSrc }) => {
               const active = draft[id];
               return (
                 <button
@@ -146,24 +158,27 @@ export const EmployeeFoodSection: React.FC = () => {
                   type="button"
                   disabled={locked || submitting}
                   onClick={() => toggle(id)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                  className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl border-2 p-2 transition-all ${
                     locked
                       ? active
-                        ? 'bg-rose-100 text-rose-900 border-rose-200 cursor-default'
-                        : 'bg-gray-50 text-gray-400 border-gray-100 cursor-default'
+                        ? 'border-rose-200 bg-rose-50 opacity-100'
+                        : 'border-gray-100 bg-gray-50 opacity-50'
                       : active
-                        ? 'bg-rose-600 text-white border-rose-600'
-                        : 'bg-white text-gray-800 border-gray-200 hover:border-rose-200 hover:bg-rose-50/50'
+                        ? 'border-rose-500 bg-rose-50 shadow-md shadow-rose-200/50 scale-[1.02]'
+                        : 'border-gray-200 bg-white hover:border-rose-200 hover:bg-rose-50/40'
                   }`}
                 >
-                  <span>{label}</span>
+                  <img src={iconSrc} alt="" className="h-14 w-14 object-contain pointer-events-none" />
                   <span
-                    className={`text-xs font-medium ${
-                      locked ? (active ? 'text-rose-700' : 'text-gray-300') : active ? 'text-rose-100' : 'text-gray-400'
+                    className={`text-xs font-bold text-center leading-tight ${
+                      active ? 'text-rose-700' : 'text-gray-600'
                     }`}
                   >
-                    {active ? 'Selected' : locked ? '—' : 'Tap to select'}
+                    {label}
                   </span>
+                  {active && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-rose-600">Selected</span>
+                  )}
                 </button>
               );
             })}
@@ -177,6 +192,25 @@ export const EmployeeFoodSection: React.FC = () => {
           >
             {locked ? 'Submitted' : submitting ? 'Submitting…' : 'Submit'}
           </Button>
+
+          {locked && token && (
+            <div className="space-y-3 pt-1">
+              {!showToken ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-rose-200 text-rose-800 hover:bg-rose-50"
+                  size="lg"
+                  icon={<Eye className="h-4 w-4" />}
+                  onClick={() => setShowToken(true)}
+                >
+                  Show meal token
+                </Button>
+              ) : (
+                <FoodMealTokenCard token={token} />
+              )}
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>

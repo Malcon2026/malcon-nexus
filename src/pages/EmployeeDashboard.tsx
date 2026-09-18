@@ -588,7 +588,7 @@ export const EmployeeDashboard: React.FC = () => {
       {page === 'attendance' && (
         <>
           <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
-          <EmployeeAttendanceHero />
+          <EmployeeAttendanceHero onPunchInSuccess={() => setPage('food')} />
         </>
       )}
 

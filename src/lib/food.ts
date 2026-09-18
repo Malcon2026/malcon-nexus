@@ -13,10 +13,10 @@ export function foodLoadWindow(centerDate: string): { from: string; to: string }
   };
 }
 
-export const FOOD_MEALS: { id: FoodMeal; label: string }[] = [
-  { id: 'breakfast', label: 'Breakfast' },
-  { id: 'lunch', label: 'Lunch' },
-  { id: 'dinner', label: 'Dinner' },
+export const FOOD_MEALS: { id: FoodMeal; label: string; iconSrc: string }[] = [
+  { id: 'breakfast', label: 'Breakfast', iconSrc: '/food/breakfast.svg' },
+  { id: 'lunch', label: 'Lunch', iconSrc: '/food/lunch.svg' },
+  { id: 'dinner', label: 'Dinner', iconSrc: '/food/dinner.svg' },
 ];
 
 export function emptyFoodSelection(
