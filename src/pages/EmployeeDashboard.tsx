@@ -29,7 +29,7 @@ import { getFoodSelectionForDay, isFoodSelectionSubmitted } from '../lib/food';
 import { getFoodTileBlinkLevel, isFoodTileAttentionPeriod } from '../lib/foodPreferences';
 import { getISTDateKey } from '../lib/attendance';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
-import { NoticeBoard } from '../components/NoticeBoard';
+import { EmployeeDailyInsightCard } from '../components/EmployeeDailyInsightCard';
 import { Te } from '../components/BilingualText';
 import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
 import { countPendingLeaveSubmissions } from '../lib/leave';
@@ -610,7 +610,12 @@ export const EmployeeDashboard: React.FC = () => {
               Hi, {currentUser.name.split(' ')[0]}
             </h1>
           </div>
-          <NoticeBoard />
+          <EmployeeDailyInsightCard
+            employee={currentUser}
+            onOpenAttendance={() => setPage('attendance')}
+            onOpenCases={() => setPage('cases')}
+            onOpenFood={() => setPage('food')}
+          />
           <HomeNavTiles employee={currentUser} onOpen={setPage} />
         </>
       )}

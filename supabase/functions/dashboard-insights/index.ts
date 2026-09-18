@@ -30,12 +30,42 @@ type AdminDashboardMetrics = {
   stageBreakdown: StageRow[];
 };
 
-function buildPrompt(metrics: AdminDashboardMetrics): string {
+type EmployeeDashboardMetrics = {
+  firstName: string;
+  dateLabel: string;
+  todayDateKey: string;
+  yesterdayDateLabel: string;
+  yesterdayWorkedLabel: string;
+  yesterdayPunched: boolean;
+  todayPunchedIn: boolean;
+  todayPunchLabel: string | null;
+  activeMyCases: number;
+  waitingMyCases: number;
+  casesNeedingSubmit: number;
+  foodSubmittedToday: boolean;
+  pendingLeaveCount: number;
+  unreadAlerts: number;
+  locationTripOpen: boolean;
+  petrolPending: number;
+};
+
+function buildAdminPrompt(metrics: AdminDashboardMetrics): string {
   return [
     'You summarize Malcon Nexus implant-case operations for an admin.',
     'Use ONLY the JSON metrics below. Do not invent numbers, names, or hospitals.',
     'Write 3–5 short bullet points in plain English. Mention urgent items (approvals, restock, cleaning) if counts > 0.',
     'No markdown headings. Start each line with "• ".',
+    '',
+    JSON.stringify(metrics),
+  ].join('\n');
+}
+
+function buildEmployeePrompt(metrics: EmployeeDashboardMetrics): string {
+  return [
+    'You write a friendly personal daily brief for one Malcon Nexus employee (field staff).',
+    'Use ONLY the JSON metrics below. Do not invent data or mention other people.',
+    'Cover yesterday\'s hours, today\'s punch status, their cases, food choice, leave, alerts, location trip, or petrol if relevant.',
+    'Write 3–4 short bullet points in plain English, encouraging but factual. No markdown headings. Start each line with "• ".',
     '',
     JSON.stringify(metrics),
   ].join('\n');
@@ -127,12 +157,13 @@ function isQuotaError(message: string): boolean {
 
 async function readSummaryCache(
   admin: ReturnType<typeof createClient>,
+  cacheKey: string,
   { allowStale = false }: { allowStale?: boolean } = {},
 ): Promise<SummaryCache | null> {
   const { data } = await admin
     .from('app_settings')
     .select('value')
-    .eq('key', AI_SUMMARY_CACHE_KEY)
+    .eq('key', cacheKey)
     .maybeSingle();
   if (!data?.value) return null;
   try {
@@ -149,6 +180,7 @@ async function readSummaryCache(
 
 async function writeSummaryCache(
   admin: ReturnType<typeof createClient>,
+  cacheKey: string,
   summary: string,
 ): Promise<void> {
   const generatedAt = new Date().toISOString();
@@ -158,10 +190,14 @@ async function writeSummaryCache(
     expiresAt: new Date(Date.now() + CACHE_TTL_MS).toISOString(),
   };
   await admin.from('app_settings').upsert({
-    key: AI_SUMMARY_CACHE_KEY,
+    key: cacheKey,
     value: JSON.stringify(payload),
     updated_by: 'dashboard-insights',
   });
+}
+
+function employeeCacheKey(employeeId: string, todayDateKey: string): string {
+  return `employee_dashboard_ai_summary_${employeeId}_${todayDateKey}`;
 }
 
 function uniqueModels(configured: string | undefined): string[] {
@@ -197,7 +233,7 @@ async function callGeminiWithFallback(apiKey: string, prompt: string): Promise<s
   throw lastError ?? new Error('Gemini request failed');
 }
 
-function isValidMetrics(raw: unknown): raw is AdminDashboardMetrics {
+function isValidAdminMetrics(raw: unknown): raw is AdminDashboardMetrics {
   if (!raw || typeof raw !== 'object') return false;
   const m = raw as Record<string, unknown>;
   return (
@@ -205,6 +241,18 @@ function isValidMetrics(raw: unknown): raw is AdminDashboardMetrics {
     typeof m.activeCases === 'number' &&
     typeof m.totalCases === 'number' &&
     Array.isArray(m.stageBreakdown)
+  );
+}
+
+function isValidEmployeeMetrics(raw: unknown): raw is EmployeeDashboardMetrics {
+  if (!raw || typeof raw !== 'object') return false;
+  const m = raw as Record<string, unknown>;
+  return (
+    typeof m.firstName === 'string' &&
+    typeof m.todayDateKey === 'string' &&
+    typeof m.yesterdayWorkedLabel === 'string' &&
+    typeof m.activeMyCases === 'number' &&
+    typeof m.foodSubmittedToday === 'boolean'
   );
 }
 
@@ -245,18 +293,37 @@ Deno.serve(async (req) => {
     if (callerError || !caller) {
       return jsonResponse({ error: 'Your employee profile was not found' }, 403);
     }
-    if (caller.role !== 'admin') {
-      return jsonResponse({ error: 'Admin access required' }, 403);
-    }
-
     const body = await req.json().catch(() => null);
+    const scope = body?.scope === 'employee' ? 'employee' : 'admin';
     const metrics = body?.metrics;
     const refresh = body?.refresh === true;
-    if (!isValidMetrics(metrics)) {
-      return jsonResponse({ error: 'Invalid metrics payload' }, 400);
+
+    if (scope === 'admin') {
+      if (caller.role !== 'admin') {
+        return jsonResponse({ error: 'Admin access required' }, 403);
+      }
+      if (!isValidAdminMetrics(metrics)) {
+        return jsonResponse({ error: 'Invalid metrics payload' }, 400);
+      }
+    } else {
+      if (caller.role !== 'employee') {
+        return jsonResponse({ error: 'Employee access required' }, 403);
+      }
+      if (!isValidEmployeeMetrics(metrics)) {
+        return jsonResponse({ error: 'Invalid employee metrics payload' }, 400);
+      }
     }
 
-    const cached = await readSummaryCache(admin);
+    const cacheKey =
+      scope === 'employee'
+        ? employeeCacheKey(caller.id, metrics.todayDateKey)
+        : AI_SUMMARY_CACHE_KEY;
+    const prompt =
+      scope === 'employee'
+        ? buildEmployeePrompt(metrics)
+        : buildAdminPrompt(metrics);
+
+    const cached = await readSummaryCache(admin, cacheKey);
     if (!refresh && cached) {
       return jsonResponse({
         summary: cached.summary,
@@ -271,8 +338,8 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const summary = await callGeminiWithFallback(apiKey, buildPrompt(metrics));
-      await writeSummaryCache(admin, summary);
+      const summary = await callGeminiWithFallback(apiKey, prompt);
+      await writeSummaryCache(admin, cacheKey, summary);
       return jsonResponse({
         summary,
         source: 'gemini',
@@ -281,7 +348,7 @@ Deno.serve(async (req) => {
     } catch (geminiErr) {
       const message = geminiErr instanceof Error ? geminiErr.message : 'Insight generation failed';
       if (isQuotaError(message)) {
-        const stale = await readSummaryCache(admin, { allowStale: true });
+        const stale = await readSummaryCache(admin, cacheKey, { allowStale: true });
         if (stale) {
           return jsonResponse({
             summary: stale.summary,
