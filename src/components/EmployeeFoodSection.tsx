@@ -145,7 +145,9 @@ export const EmployeeFoodSection: React.FC = () => {
 
           {!locked && (
             <p className="text-sm text-gray-600">
-              Tap a meal tile, then press <span className="font-semibold text-gray-900">Submit</span>.
+              <span className="font-semibold text-gray-900">Daily required:</span> tap meal tiles, then{' '}
+              <span className="font-semibold text-gray-900">Submit</span>. Works even if offsite punch is waiting
+              for admin — food first, attendance approval separate.
             </p>
           )}
 

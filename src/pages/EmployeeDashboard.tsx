@@ -67,6 +67,39 @@ const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void
   </div>
 );
 
+const FoodDailyReminder: React.FC<{ employeeId: string; onOpenFood: () => void }> = ({
+  employeeId,
+  onOpenFood,
+}) => {
+  const foodSelections = useStore((s) => s.foodSelections);
+  const loadFoodSelectionsWindow = useStore((s) => s.loadFoodSelectionsWindow);
+  const today = getISTDateKey();
+  const todayFood = getFoodSelectionForDay(foodSelections, employeeId, today);
+  const submitted = isFoodSelectionSubmitted(todayFood);
+
+  useEffect(() => {
+    void loadFoodSelectionsWindow(today);
+  }, [loadFoodSelectionsWindow, today]);
+
+  if (submitted) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpenFood}
+      className="w-full mb-3 text-left rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 shadow-sm hover:bg-rose-100/80 transition-colors"
+    >
+      <p className="text-sm font-bold text-rose-900">Step 1 today: Submit your meals (Food)</p>
+      <p className="text-xs text-rose-800/90 mt-1">
+        Required every day. Offsite punch can wait for admin — food does not.
+      </p>
+      <Te className="text-rose-800/80 mb-0 mt-1 text-xs">
+        Rojuku Food submit cheyandi. Offsite approval separate — Food ki wait avasaram ledu.
+      </Te>
+    </button>
+  );
+};
+
 const HomeNavTiles: React.FC<{
   employee: Pick<import('../types').Employee, 'id' | 'email' | 'name'>;
   onOpen: (page: EmployeePage) => void;
@@ -87,8 +120,9 @@ const HomeNavTiles: React.FC<{
   const todayFood = useStore((s) =>
     getFoodSelectionForDay(s.foodSelections, employee.id, getISTDateKey()),
   );
+  const foodSubmittedToday = isFoodSelectionSubmitted(todayFood);
   const foodMealsToday =
-    isFoodSelectionSubmitted(todayFood)
+    foodSubmittedToday
       ? (todayFood!.breakfast ? 1 : 0) + (todayFood!.lunch ? 1 : 0) + (todayFood!.dinner ? 1 : 0)
       : 0;
 
@@ -110,7 +144,20 @@ const HomeNavTiles: React.FC<{
     icon: React.ReactNode;
     iconBg: string;
     badge?: number;
+    foodRequired?: boolean;
   }[] = [
+    {
+      id: 'food',
+      title: 'Food',
+      titleTe: 'Food',
+      hint: foodSubmittedToday
+        ? `${foodMealsToday} submitted today`
+        : 'Required daily · Submit meals first',
+      icon: <UtensilsCrossed className="h-5 w-5 text-rose-600" />,
+      iconBg: 'bg-rose-50',
+      badge: foodMealsToday || undefined,
+      foodRequired: !foodSubmittedToday,
+    },
     {
       id: 'cases',
       title: 'Cases',
@@ -128,15 +175,6 @@ const HomeNavTiles: React.FC<{
       icon: <Fuel className="h-5 w-5 text-orange-600" />,
       iconBg: 'bg-orange-50',
       badge: petrolPending || (petrolActiveToken ? 1 : 0) || undefined,
-    },
-    {
-      id: 'food',
-      title: 'Food',
-      titleTe: 'Food',
-      hint: foodMealsToday > 0 ? `${foodMealsToday} submitted today` : 'Select meals · Submit once',
-      icon: <UtensilsCrossed className="h-5 w-5 text-rose-600" />,
-      iconBg: 'bg-rose-50',
-      badge: foodMealsToday || undefined,
     },
     {
       id: 'location',
@@ -208,9 +246,18 @@ const HomeNavTiles: React.FC<{
             key={tile.id}
             type="button"
             onClick={() => onOpen(tile.id)}
-            className="relative text-left rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:border-indigo-200 transition-all active:scale-[0.98] min-h-[8.5rem]"
+            className={`relative text-left rounded-2xl border p-4 shadow-sm transition-all active:scale-[0.98] min-h-[8.5rem] ${
+              tile.foodRequired
+                ? 'border-rose-300 bg-rose-50/30 hover:border-rose-400 ring-1 ring-rose-200'
+                : 'border-gray-200 bg-white hover:border-indigo-200'
+            }`}
           >
-            {tile.badge != null && tile.badge > 0 && (
+            {tile.foodRequired && (
+              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                !
+              </span>
+            )}
+            {!tile.foodRequired && tile.badge != null && tile.badge > 0 && (
               <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {tile.badge > 99 ? '99+' : tile.badge}
               </span>
@@ -581,6 +628,7 @@ export const EmployeeDashboard: React.FC = () => {
             </h1>
           </div>
           <NoticeBoard />
+          <FoodDailyReminder onOpenFood={() => setPage('food')} employeeId={currentUser.id} />
           <HomeNavTiles employee={currentUser} onOpen={setPage} />
         </>
       )}

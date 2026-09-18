@@ -43,7 +43,7 @@ type LocationState =
   | { status: 'error'; message: string; messageTe?: string | null };
 
 type EmployeeAttendanceHeroProps = {
-  /** Called after a successful punch in (office or approved offsite request). */
+  /** Called after office punch in or offsite punch request sent (food does not wait for admin). */
   onPunchInSuccess?: () => void;
 };
 
@@ -197,6 +197,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
         return;
       }
       closeConfirm();
+      notifyPunchInSuccess();
       return;
     }
 
@@ -468,18 +469,25 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
             }}
           />
           <span className="text-sm text-gray-800">
-            After <span className="font-semibold">Punch In</span>, open Food to select meals
+            After punch in (or offsite request), open <span className="font-semibold">Food</span> — submit meals
+            first; attendance approval is separate.
           </span>
         </label>
 
         {pendingOffsiteIn && (
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 space-y-1.5">
             <p>
-              Punch In sent at {formatTimeIST(pendingOffsiteIn.requestedAt)} — waiting for admin.
+              Punch In sent at {formatTimeIST(pendingOffsiteIn.requestedAt)} — admin will approve attendance.
               Reason: {pendingOffsiteIn.reason}
             </p>
             <Te className="text-amber-700/90 mb-0">
-              {formatTimeIST(pendingOffsiteIn.requestedAt)} న పంపారు — admin approval wait.
+              {formatTimeIST(pendingOffsiteIn.requestedAt)} న పంపారు — attendance ki admin approval.
+            </Te>
+            <p className="text-rose-800 font-medium pt-1 border-t border-amber-200/80">
+              You can submit today&apos;s meals in <strong>Food</strong> now — no need to wait for approval.
+            </p>
+            <Te className="text-rose-800/90 mb-0">
+              <strong>Food</strong> lo meals ippude submit cheyochu — approval kosam wait avasaram ledu.
             </Te>
           </div>
         )}
