@@ -1,12 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Users, LogIn, LogOut, UserX, TreePalm, MapPin, AlertTriangle, Clock,
-  ArrowRight,
-} from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts';
+import { ArrowRight, Clock } from 'lucide-react';
 import { Card, CardHeader, CardBody } from './ui/Card';
 import { Button } from './ui/Button';
 import type { DashboardAttendanceMetrics } from '../lib/dashboardAttendanceMetrics';
@@ -16,96 +9,56 @@ type Props = {
   onOpenAttendance: () => void;
 };
 
-type StatCard = {
+type StripSegment = {
   key: string;
+  count: number;
+  color: string;
   label: string;
-  value: number;
-  hint?: string;
-  icon: React.ReactNode;
-  iconBg: string;
 };
 
-const ATTENDANCE_BAR = {
-  present: '#30b07a',
-  absent: '#aeaeb2',
-  leave: '#ff9f0a',
-  offSite: '#0071e3',
+const STRIP_COLORS = {
+  in: '#30b07a',
+  out: '#0071e3',
+  leave: '#e8a020',
+  absent: '#c7c7cc',
 } as const;
 
+function pct(count: number, total: number): number {
+  if (total <= 0 || count <= 0) return 0;
+  return (count / total) * 100;
+}
+
 export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAttendance }) => {
-  const statCards: StatCard[] = useMemo(
+  const { totalStaff } = metrics;
+  const accounted = metrics.present + metrics.onLeave + metrics.absent;
+
+  const stripSegments: StripSegment[] = useMemo(
     () => [
-      {
-        key: 'total',
-        label: 'Total staff',
-        value: metrics.totalStaff,
-        icon: <Users className="h-4 w-4 text-[var(--color-label-secondary)]" />,
-        iconBg: 'bg-[var(--color-bg)]',
-      },
-      {
-        key: 'present',
-        label: 'Present',
-        value: metrics.present,
-        hint: 'Punched in or out today',
-        icon: <Users className="h-4 w-4 text-emerald-600" />,
-        iconBg: 'bg-emerald-50',
-      },
-      {
-        key: 'in',
-        label: 'Punched in',
-        value: metrics.punchedIn,
-        icon: <LogIn className="h-4 w-4 text-emerald-600" />,
-        iconBg: 'bg-emerald-50',
-      },
-      {
-        key: 'out',
-        label: 'Punched out',
-        value: metrics.punchedOut,
-        icon: <LogOut className="h-4 w-4 text-[var(--color-accent)]" />,
-        iconBg: 'bg-[var(--color-accent-muted)]',
-      },
-      {
-        key: 'absent',
-        label: 'Absent',
-        value: metrics.absent,
-        hint: 'No punch · not on leave',
-        icon: <UserX className="h-4 w-4 text-[var(--color-label-secondary)]" />,
-        iconBg: 'bg-[var(--color-bg)]',
-      },
-      {
-        key: 'leave',
-        label: 'On leave',
-        value: metrics.onLeave,
-        icon: <TreePalm className="h-4 w-4 text-amber-600" />,
-        iconBg: 'bg-amber-50',
-      },
-      {
-        key: 'offsite',
-        label: 'Off-site',
-        value: metrics.offSite,
-        hint: 'Field / outside geofence',
-        icon: <MapPin className="h-4 w-4 text-[var(--color-accent)]" />,
-        iconBg: 'bg-[var(--color-accent-muted)]',
-      },
-      {
-        key: 'unclosed',
-        label: 'Unclosed shift',
-        value: metrics.unclosed,
-        icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
-        iconBg: 'bg-amber-50',
-      },
+      { key: 'in', count: metrics.punchedIn, color: STRIP_COLORS.in, label: 'In' },
+      { key: 'out', count: metrics.punchedOut, color: STRIP_COLORS.out, label: 'Out' },
+      { key: 'leave', count: metrics.onLeave, color: STRIP_COLORS.leave, label: 'Leave' },
+      { key: 'absent', count: metrics.absent, color: STRIP_COLORS.absent, label: 'Absent' },
     ],
     [metrics],
   );
 
-  const compositionData = useMemo(
+  const registerRows = useMemo(
     () => [
+      { label: 'Punched in now', value: metrics.punchedIn, emphasis: metrics.punchedIn > 0 },
+      { label: 'Punched out today', value: metrics.punchedOut, emphasis: false },
+      { label: 'Absent', value: metrics.absent, emphasis: metrics.absent > 0 },
+      { label: 'Approved leave', value: metrics.onLeave, emphasis: false },
       {
-        name: 'Today',
-        Present: metrics.present,
-        Absent: metrics.absent,
-        'On leave': metrics.onLeave,
-        'Off-site': metrics.offSite,
+        label: 'Off-site (field / outside office)',
+        value: metrics.offSite,
+        emphasis: metrics.offSite > 0,
+        note: metrics.offSite > 0 ? 'Includes pending off-site punch-in' : undefined,
+      },
+      {
+        label: 'Unclosed shift',
+        value: metrics.unclosed,
+        emphasis: metrics.unclosed > 0,
+        warn: metrics.unclosed > 0,
       },
     ],
     [metrics],
@@ -118,7 +71,7 @@ export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAtt
             ? `${metrics.pendingOffsiteApprovals} off-site approval${metrics.pendingOffsiteApprovals === 1 ? '' : 's'}`
             : null,
           metrics.pendingLeaveApprovals > 0
-            ? `${metrics.pendingLeaveApprovals} leave request${metrics.pendingLeaveApprovals === 1 ? '' : 's'} pending`
+            ? `${metrics.pendingLeaveApprovals} leave pending`
             : null,
         ]
           .filter(Boolean)
@@ -131,11 +84,9 @@ export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAtt
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Attendance · Today</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Live headcount (IST) · {metrics.totalStaff} on register
-            </p>
+            <p className="text-xs text-gray-500 mt-0.5">Register snapshot · IST</p>
             {pendingLine && (
-              <p className="text-xs text-amber-700 mt-1 flex items-center gap-1">
+              <p className="text-xs text-amber-800 mt-1.5 flex items-center gap-1">
                 <Clock className="h-3 w-3 shrink-0" aria-hidden />
                 {pendingLine}
               </p>
@@ -152,68 +103,119 @@ export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAtt
           </Button>
         </div>
       </CardHeader>
-      <CardBody className="space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {statCards.map((card, index) => (
-            <motion.div
-              key={card.key}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * index }}
-              className="rounded-[var(--radius-md)] border border-[var(--color-separator)] bg-[var(--color-bg-elevated)] p-3.5"
-            >
-              <div className={`h-8 w-8 rounded-lg ${card.iconBg} flex items-center justify-center mb-2`}>
-                {card.icon}
-              </div>
-              <p className="text-2xl font-bold text-gray-900 tabular-nums tracking-tight">{card.value}</p>
-              <p className="text-[11px] font-medium text-gray-500 mt-0.5 leading-snug">{card.label}</p>
-              {card.hint && (
-                <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{card.hint}</p>
-              )}
-            </motion.div>
-          ))}
+      <CardBody className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--color-label-tertiary)]">
+              Present today
+            </p>
+            <p className="mt-1 flex items-baseline gap-2 flex-wrap">
+              <span className="text-4xl sm:text-[2.75rem] font-semibold tabular-nums tracking-tight text-[var(--color-label)] leading-none">
+                {metrics.present}
+              </span>
+              <span className="text-lg text-[var(--color-label-secondary)] tabular-nums">
+                / {totalStaff}
+              </span>
+            </p>
+            <p className="text-xs text-[var(--color-label-secondary)] mt-2 max-w-md">
+              {accounted === totalStaff
+                ? 'Full register accounted for.'
+                : `${accounted} of ${totalStaff} counted · refresh if someone just punched.`}
+            </p>
+          </div>
+          <dl className="flex gap-6 sm:gap-8 text-right shrink-0">
+            <div>
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--color-label-tertiary)]">Off-site</dt>
+              <dd className="text-xl font-semibold tabular-nums text-[var(--color-accent)]">{metrics.offSite}</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--color-label-tertiary)]">Unclosed</dt>
+              <dd
+                className={`text-xl font-semibold tabular-nums ${
+                  metrics.unclosed > 0 ? 'text-amber-700' : 'text-[var(--color-label)]'
+                }`}
+              >
+                {metrics.unclosed}
+              </dd>
+            </div>
+          </dl>
         </div>
 
         <div>
-          <p className="text-xs font-medium text-[var(--color-label-secondary)] mb-3">Today&apos;s mix</p>
-          <ResponsiveContainer width="100%" height={56}>
-            <BarChart
-              data={compositionData}
-              layout="vertical"
-              margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
-              barSize={28}
-            >
-              <CartesianGrid stroke="#ececf1" horizontal={false} vertical={false} />
-              <XAxis type="number" hide allowDecimals={false} />
-              <YAxis type="category" dataKey="name" hide width={0} />
-              <Tooltip
-                cursor={{ fill: 'transparent' }}
-                contentStyle={{
-                  fontSize: 12,
-                  borderRadius: 10,
-                  border: '1px solid var(--color-separator)',
-                }}
-              />
-              <Bar dataKey="Present" stackId="mix" fill={ATTENDANCE_BAR.present} radius={[6, 0, 0, 6]} />
-              <Bar dataKey="Off-site" stackId="mix" fill={ATTENDANCE_BAR.offSite} />
-              <Bar dataKey="On leave" stackId="mix" fill={ATTENDANCE_BAR.leave} />
-              <Bar dataKey="Absent" stackId="mix" fill={ATTENDANCE_BAR.absent} radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[10px] text-[var(--color-label-secondary)]">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-[#30b07a]" aria-hidden /> Present
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-[#0071e3]" aria-hidden /> Off-site
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-[#ff9f0a]" aria-hidden /> On leave
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-[#aeaeb2]" aria-hidden /> Absent
-            </span>
+          <div
+            className="flex h-2.5 w-full overflow-hidden rounded-full bg-[var(--color-bg)] ring-1 ring-[var(--color-separator)]"
+            role="img"
+            aria-label={`Attendance mix: ${stripSegments.map((s) => `${s.label} ${s.count}`).join(', ')}`}
+          >
+            {stripSegments.map((seg) =>
+              seg.count > 0 ? (
+                <div
+                  key={seg.key}
+                  className="h-full min-w-[2px] transition-[width] duration-500 ease-out"
+                  style={{
+                    width: `${pct(seg.count, totalStaff)}%`,
+                    backgroundColor: seg.color,
+                  }}
+                  title={`${seg.label}: ${seg.count}`}
+                />
+              ) : null,
+            )}
+            {totalStaff === 0 && (
+              <div className="h-full w-full bg-[var(--color-separator)] opacity-40" aria-hidden />
+            )}
           </div>
+          <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--color-label-secondary)]">
+            {stripSegments.map((seg) => (
+              <li key={seg.key} className="flex items-center gap-1.5 tabular-nums">
+                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: seg.color }} aria-hidden />
+                <span>{seg.label}</span>
+                <span className="font-semibold text-[var(--color-label)]">{seg.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-[var(--radius-md)] border border-[var(--color-separator)] overflow-hidden">
+          <div className="px-4 py-2 bg-[var(--color-bg)] border-b border-[var(--color-separator)]">
+            <p className="text-[11px] font-medium text-[var(--color-label-secondary)]">Register detail</p>
+          </div>
+          <ul className="divide-y divide-[var(--color-separator)]">
+            {registerRows.map((row) => (
+              <li
+                key={row.label}
+                className={`flex items-start justify-between gap-4 px-4 py-2.5 ${
+                  row.warn ? 'bg-amber-50/80' : row.emphasis ? 'bg-[var(--color-bg)]/60' : ''
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--color-label)]">{row.label}</p>
+                  {'note' in row && row.note && (
+                    <p className="text-[10px] text-[var(--color-label-tertiary)] mt-0.5">{row.note}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {totalStaff > 0 && (
+                    <div
+                      className="hidden sm:block h-1 w-16 rounded-full bg-[var(--color-bg)] overflow-hidden"
+                      aria-hidden
+                    >
+                      <div
+                        className="h-full rounded-full bg-[var(--color-label-tertiary)] opacity-50"
+                        style={{ width: `${Math.max(pct(row.value, totalStaff), row.value > 0 ? 8 : 0)}%` }}
+                      />
+                    </div>
+                  )}
+                  <span
+                    className={`text-sm font-semibold tabular-nums min-w-[2ch] text-right ${
+                      row.warn && row.value > 0 ? 'text-amber-800' : 'text-[var(--color-label)]'
+                    }`}
+                  >
+                    {row.value}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </CardBody>
     </Card>
