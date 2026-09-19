@@ -1,0 +1,89 @@
+/**
+ * Login-only light surfaces (bypasses global @theme gray/white remap for dark app shell).
+ * Matches DMS/TMS canvas: #f5f5f7 + #ffffff + #1d1d1f text.
+ */
+
+.nexus-login-page {
+  background: #ffffff;
+  color: #1d1d1f;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.nexus-login-page .nexus-login-hero {
+  background: linear-gradient(165deg, #fdfdfe 0%, #f5f5f7 55%, #ececf1 100%);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.nexus-login-page .nexus-login-panel {
+  background: #ffffff;
+}
+
+.nexus-login-page .nexus-login-title {
+  font-size: var(--text-title-3);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  color: #1d1d1f;
+}
+
+.nexus-login-page .nexus-login-label {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-medium);
+  color: #6e6e73;
+}
+
+.nexus-login-page .nexus-login-input {
+  background: #f5f5f7;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  color: #1d1d1f;
+  font-size: var(--text-body);
+}
+
+.nexus-login-page .nexus-login-input::placeholder {
+  color: #86868b;
+}
+
+.nexus-login-page .nexus-login-input:focus {
+  outline: none;
+  border-color: #0071e3;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+}
+
+.nexus-login-page .nexus-login-submit {
+  background: #0071e3;
+  color: #ffffff;
+  border-radius: 980px;
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+}
+
+.nexus-login-page .nexus-login-submit:hover:not(:disabled) {
+  background: #0077ed;
+}
+
+.nexus-login-page .nexus-login-muted {
+  color: #86868b;
+  font-size: var(--text-caption);
+}
+
+.nexus-login-page .nexus-login-brand-name {
+  color: #1d1d1f;
+  font-weight: var(--weight-semibold);
+}
+
+.nexus-login-page .nexus-login-brand-sub {
+  color: #6e6e73;
+}
+
+.nexus-login-page .nexus-login-icon {
+  color: #86868b;
+}
+
+.nexus-login-page .nexus-login-build {
+  font-size: var(--text-caption);
+  color: #86868b;
+  font-family: var(--font-mono);
+}
