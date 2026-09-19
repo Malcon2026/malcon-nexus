@@ -1,17 +1,19 @@
 ---
-description: Commit and push to origin after completing code changes
+description: Commit, push to GitHub, and deploy to Hostinger after code changes
 alwaysApply: true
 ---
 
-# Git push after changes
+# GitHub + Hostinger (production)
 
-When the user asks for implementation or fixes and changes are made to the repo:
+Production is **GitHub `main` → Hostinger** at **https://app.malconnexus.com/**. Do **not** use Vercel for Malcon Nexus.
 
-1. After completing the work, **commit and push** unless the user explicitly says not to.
-2. Follow the repo commit message style (concise, why-focused).
-3. Never update git config, force-push, or skip hooks.
-4. Do not commit secrets (`.env`, credentials).
-5. Run `git status` after push to confirm success.
-6. Tell the user what was committed and that it was pushed to `origin/main`.
+When the user asks for implementation or fixes and changes are made to this repo:
 
-If there are no file changes, do not create an empty commit.
+1. **Commit** on `main` with a concise, why-focused message.
+2. **Push** to `origin/main` unless the user explicitly says not to.
+3. **Deploy to Hostinger**: run `npm run deploy:hostinger` (requires `hostinger` CLI auth and `VITE_*` in `.env` / `.env.local`).
+4. Never commit secrets (`.env`, credentials).
+5. Run `git status` after push; confirm deploy finished without error.
+6. Tell the user the commit hash and that the app was pushed and deployed to Hostinger.
+
+If there are no file changes, do not create an empty commit. Skip deploy if nothing affecting the web build changed.
