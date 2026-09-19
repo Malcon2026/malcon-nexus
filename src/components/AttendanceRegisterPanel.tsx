@@ -461,7 +461,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       type="button"
                       onClick={() => openCell(employeeRow, dayIndex)}
                       className={`flex flex-col items-center justify-center gap-0.5 min-h-[3.5rem] sm:min-h-[4rem] rounded-xl border border-gray-300/70 px-0.5 py-1.5 ${style.bg} ${style.text} ${
-                        day.isToday ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-white' : ''
+                        day.isToday ? 'ring-2 ring-[var(--color-accent)] ring-offset-1 ring-offset-white' : ''
                       } active:scale-[0.97] transition-transform`}
                       title={cell.label}
                     >
@@ -600,7 +600,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                         <td
                           key={`${row.employeeId}-${day.dateKey}`}
                           className={`border-r border-gray-50 px-0.5 py-1.5 text-center ${
-                            day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''
+                            day.isToday ? 'ring-1 ring-inset ring-[var(--color-accent-muted)]' : ''
                           }`}
                         >
                           <button
@@ -779,7 +779,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="time"
                           value={manualIn}
                           onChange={(e) => setManualIn(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                          className="nexus-field-input nexus-field-input--plain w-full !min-h-[36px] py-1.5 text-sm"
                         />
                       </div>
                       <div>
@@ -788,7 +788,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                           type="time"
                           value={manualOut}
                           onChange={(e) => setManualOut(e.target.value)}
-                          className="w-full px-2 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                          className="nexus-field-input nexus-field-input--plain w-full !min-h-[36px] py-1.5 text-sm"
                         />
                       </div>
                     </div>

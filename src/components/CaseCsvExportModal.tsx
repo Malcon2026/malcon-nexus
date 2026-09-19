@@ -10,6 +10,7 @@ import {
   type CaseDateField,
   type CaseExportRange,
 } from '../utils/caseExport';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 interface CaseCsvExportModalProps {
   isOpen: boolean;
@@ -108,7 +109,7 @@ export const CaseCsvExportModal: React.FC<CaseCsvExportModalProps> = ({
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5">Filter by</label>
           <select
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+            className={NEXUS_FORM_CONTROL}
             value={dateField}
             onChange={(e) => setDateField(e.target.value as CaseDateField)}
           >
@@ -124,7 +125,7 @@ export const CaseCsvExportModal: React.FC<CaseCsvExportModalProps> = ({
               <label className="block text-xs font-medium text-gray-700 mb-1.5">From</label>
               <input
                 type="date"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                className={NEXUS_FORM_CONTROL}
                 value={customFrom}
                 onChange={(e) => setCustomFrom(e.target.value)}
               />
@@ -133,7 +134,7 @@ export const CaseCsvExportModal: React.FC<CaseCsvExportModalProps> = ({
               <label className="block text-xs font-medium text-gray-700 mb-1.5">To</label>
               <input
                 type="date"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                className={NEXUS_FORM_CONTROL}
                 value={customTo}
                 onChange={(e) => setCustomTo(e.target.value)}
               />

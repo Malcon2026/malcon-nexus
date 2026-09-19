@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ReportDateFilter, ReportDateRange } from '../../utils/reportFilters';
 import { REPORT_DATE_RANGE_LABELS, REPORT_DATE_RANGE_OPTIONS } from '../../utils/reportFilters';
+import { NEXUS_FORM_CONTROL } from '../../constants/formStyles';
 
 interface ReportDateFilterProps {
   value: ReportDateFilter;
@@ -38,7 +39,7 @@ export const ReportDateFilterControls: React.FC<ReportDateFilterProps> = ({ valu
             <label className="block text-xs font-medium text-gray-700 mb-1.5">From</label>
             <input
               type="date"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+              className={NEXUS_FORM_CONTROL}
               value={value.customFrom ?? ''}
               onChange={(e) => onChange({ ...value, customFrom: e.target.value })}
             />
@@ -47,7 +48,7 @@ export const ReportDateFilterControls: React.FC<ReportDateFilterProps> = ({ valu
             <label className="block text-xs font-medium text-gray-700 mb-1.5">To</label>
             <input
               type="date"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+              className={NEXUS_FORM_CONTROL}
               value={value.customTo ?? ''}
               onChange={(e) => onChange({ ...value, customTo: e.target.value })}
             />

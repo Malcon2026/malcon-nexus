@@ -228,21 +228,17 @@ export const EmployeeFoodSection: React.FC = () => {
 
           {!locked && (
             <>
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-gray-100 border border-gray-200">
+              <div className="nexus-segmented grid grid-cols-2 w-full">
                 <button
                   type="button"
-                  className={`rounded-lg py-2.5 text-xs font-bold transition-colors ${
-                    mode === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
-                  }`}
+                  className={`py-2.5 text-xs font-bold ${mode === 'all' ? 'is-active' : ''}`}
                   onClick={() => setMode('all')}
                 >
                   1. All meals
                 </button>
                 <button
                   type="button"
-                  className={`rounded-lg py-2.5 text-xs font-bold transition-colors ${
-                    mode === 'individual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
-                  }`}
+                  className={`py-2.5 text-xs font-bold ${mode === 'individual' ? 'is-active' : ''}`}
                   onClick={() => {
                     setMode('individual');
                     setStepIndex(0);

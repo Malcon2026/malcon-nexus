@@ -497,7 +497,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
         )}
 
         <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
-          <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-indigo-500" />
+          <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--color-accent)]" />
           <div>
             <p>
               {OFFICE_LOCATION.address} · Punch In needs GPS + selfie · Out of office = reason + admin OK
@@ -588,7 +588,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
           {confirmType === 'in' && (
           <div className="rounded-xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-start gap-2">
-              <MapPin className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
+              <MapPin className="h-4 w-4 text-[var(--color-accent)] shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-semibold text-gray-900">Office</p>
                 <p className="text-sm text-gray-600">{OFFICE_LOCATION.address}</p>
@@ -605,7 +605,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
                   type="button"
                   onClick={() => void refreshLocation()}
                   disabled={locationState.status === 'loading'}
-                  className="text-xs text-indigo-500 hover:text-indigo-400 font-medium disabled:opacity-50"
+                  className="text-xs text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-medium disabled:opacity-50"
                 >
                   Refresh
                 </button>
@@ -669,7 +669,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
                 value={offsiteReason}
                 onChange={(e) => setOffsiteReason(e.target.value)}
                 placeholder="Example: Client visit, delivery trip…"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200 resize-none"
+                className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
               />
               <p className="text-[11px] text-gray-400 mt-1">At least 10 letters · Admin must approve</p>
               <Te className="text-gray-400 mb-0">10 letters minimum · admin approve cheyali</Te>

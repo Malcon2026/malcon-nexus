@@ -131,7 +131,7 @@ export const LeaveApplySection: React.FC = () => {
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-indigo-600" />
+            <CalendarDays className="h-4 w-4 text-[var(--color-accent)]" />
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Leave</h3>
               <Te className="text-gray-500 mb-0">సెలవు</Te>

@@ -229,7 +229,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
               key={id}
               type="button"
               onClick={() => setFilterStatus(id)}
-              className={`text-left rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+              className={`text-left rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
                 active ? `ring-2 ${activeRing} shadow-sm` : 'ring-1 ring-gray-200 hover:ring-gray-300'
               }`}
             >
@@ -376,7 +376,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
       {selfieItems.length > 0 && (
         <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 max-w-3xl">
           <div className="flex items-center gap-2 mb-3">
-            <Camera className="h-4 w-4 text-indigo-600" />
+            <Camera className="h-4 w-4 text-[var(--color-accent)]" />
             <h3 className="text-sm font-semibold text-gray-900">
               Punch-in selfies ({selfieItems.length})
             </h3>
@@ -393,7 +393,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
                 key={item.employeeId}
                 type="button"
                 onClick={() => setSelfieIndex(index)}
-                className="group text-left rounded-xl border border-gray-200 overflow-hidden bg-gray-50 hover:border-indigo-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition-all"
+                className="group text-left rounded-xl border border-gray-200 overflow-hidden bg-gray-50 hover:border-[var(--color-accent)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] transition-all"
               >
                 <div className="aspect-square bg-gray-100 overflow-hidden">
                   <img

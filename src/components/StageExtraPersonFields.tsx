@@ -39,7 +39,7 @@ export const StageExtraPersonFields: React.FC<StageExtraPersonFieldsProps> = ({
             onExtraEnabledChange(on);
             if (!on) onAssistantChange('');
           }}
-          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          className="rounded border-gray-300 text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
         />
         <span className="text-[11px] font-medium text-gray-700">Extra person required</span>
       </label>

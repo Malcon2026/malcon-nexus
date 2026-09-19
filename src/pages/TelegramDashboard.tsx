@@ -7,6 +7,7 @@ import { useStore } from '../store/useStore';
 import { sendTelegramBroadcast } from '../lib/telegramBroadcast';
 import { filterAttendanceStaff } from '../lib/staff';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 import { NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 
 export const TelegramDashboard: React.FC = () => {
@@ -19,9 +20,7 @@ export const TelegramDashboard: React.FC = () => {
   const [result, setResult] = useState<string | null>(null);
 
   if (viewMode !== 'admin') {
-    return (
-      <div className="p-6 text-sm text-gray-500">Admin access required.</div>
-    );
+    return <AdminAccessGate description="Telegram broadcast is only available to administrators." />;
   }
 
   const staff = useMemo(() => filterAttendanceStaff(employees), [employees]);

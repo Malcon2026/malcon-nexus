@@ -116,7 +116,7 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+      <div className="nexus-segmented">
         {([
           { id: 'pending' as const, label: `Pending${pendingCount ? ` (${pendingCount})` : ''}` },
           { id: 'all' as const, label: 'All Requests' },
@@ -125,9 +125,7 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
             key={id}
             type="button"
             onClick={() => setFilter(id)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              filter === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={filter === id ? 'is-active' : undefined}
           >
             {label}
           </button>

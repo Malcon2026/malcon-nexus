@@ -122,7 +122,7 @@ const HomeNavTiles: React.FC<{
       title: 'Cases',
       titleTe: 'Cases',
       hint: waitingCases > 0 ? `${waitingCases} waiting` : `${activeCases} active`,
-      icon: <Briefcase className="h-5 w-5 text-indigo-600" />,
+      icon: <Briefcase className="h-5 w-5 text-[var(--color-accent)]" />,
       iconBg: 'bg-indigo-50',
       badge: activeCases + waitingCases || undefined,
     },
@@ -186,7 +186,7 @@ const HomeNavTiles: React.FC<{
           <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
             summary.isPunchedIn ? 'bg-emerald-100' : 'bg-indigo-50'
           }`}>
-            <LogIn className={`h-6 w-6 ${summary.isPunchedIn ? 'text-emerald-700' : 'text-indigo-600'}`} />
+            <LogIn className={`h-6 w-6 ${summary.isPunchedIn ? 'text-emerald-700' : 'text-[var(--color-accent)]'}`} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-base font-bold text-gray-900">Punch in / out</p>
@@ -542,7 +542,7 @@ const EmployeeAlertsPage: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-gray-900">{n.title}</p>
                       {!n.read && (
-                        <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">New</span>
+                        <span className="text-[10px] font-medium text-[var(--color-accent)] bg-[var(--color-accent-muted)] px-1.5 py-0.5 rounded">New</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>

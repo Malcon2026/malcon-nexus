@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert, Plus, Pencil, Trash2, Fuel, X, IndianRupee, Download, CalendarDays, CalendarRange } from 'lucide-react';
+import { Plus, Pencil, Trash2, Fuel, X, IndianRupee, Download, CalendarDays, CalendarRange } from 'lucide-react';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -297,15 +298,7 @@ export const Expenses: React.FC = () => {
   };
 
   if (!isAdmin) {
-    return (
-      <div className="p-6 max-w-lg mx-auto mt-20">
-        <Card className="p-8 text-center">
-          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
-          <p className="text-sm text-gray-500 mt-2">Expenses are only available to administrators.</p>
-        </Card>
-      </div>
-    );
+    return <AdminAccessGate description="Expenses are only available to administrators." />;
   }
 
   return (
@@ -643,7 +636,7 @@ export const Expenses: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => openEditForm(row)}
-                              className="text-gray-400 hover:text-indigo-600 p-1"
+                              className="text-gray-400 hover:text-[var(--color-accent)] p-1"
                               aria-label="Edit"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -750,7 +743,7 @@ export const Expenses: React.FC = () => {
                         return (
                           <td
                             key={day.dateKey}
-                            className={`border-r border-gray-50 px-0.5 py-1 text-center ${day.isToday ? 'ring-1 ring-inset ring-indigo-200' : ''}`}
+                            className={`border-r border-gray-50 px-0.5 py-1 text-center ${day.isToday ? 'ring-1 ring-inset ring-[var(--color-accent-muted)]' : ''}`}
                           >
                             <button
                               type="button"

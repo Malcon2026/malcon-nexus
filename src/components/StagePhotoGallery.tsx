@@ -44,7 +44,7 @@ export const StagePhotoGallery: React.FC<StagePhotoGalleryProps> = ({
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
+                className="nexus-link shrink-0 inline-flex items-center gap-1 text-[10px] font-medium"
               >
                 <ExternalLink className="h-3 w-3" />
                 Open

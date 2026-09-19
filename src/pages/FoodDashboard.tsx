@@ -7,6 +7,7 @@ import { foodBoardRows, isFoodSelectionSubmitted, mealCountForDay, FOOD_MEALS, s
 import { getISTDateKey } from '../lib/attendance';
 import { filterAttendanceStaff } from '../lib/staff';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 
 export const FoodDashboard: React.FC = () => {
   const employees = useStore((s) => s.employees);
@@ -47,11 +48,7 @@ export const FoodDashboard: React.FC = () => {
   ).length;
 
   if (viewMode !== 'admin') {
-    return (
-      <div className="p-6 max-w-lg mx-auto mt-20 text-center text-sm text-gray-500">
-        Admin access required.
-      </div>
-    );
+    return <AdminAccessGate description="Food dashboard is only available to administrators." />;
   }
 
   const handleRefresh = async () => {

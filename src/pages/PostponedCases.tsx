@@ -9,6 +9,7 @@ import { getCurrentStageTeamDisplay, isPostponedCase } from '../lib/caseWorkflow
 import { formatDate, getStageStyle, getPriorityStyle } from '../utils/helpers';
 import { getISTDateKey } from '../lib/attendance';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 
 export const PostponedCases: React.FC = () => {
   const { cases, viewMode, setSelectedCase, setActiveTab } = useStore();
@@ -37,11 +38,7 @@ export const PostponedCases: React.FC = () => {
   const overdue = postponed.filter((c) => c.surgeryDate < todayKey).length;
 
   if (viewMode !== 'admin') {
-    return (
-      <div className="p-6 max-w-lg mx-auto mt-20 text-center text-sm text-gray-500">
-        Admin access required.
-      </div>
-    );
+    return <AdminAccessGate description="Postponed cases are only visible to administrators." />;
   }
 
   const openCase = (id: string) => {

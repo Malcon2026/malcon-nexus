@@ -3,7 +3,7 @@ import {
   BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  Check, ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Pencil, ShieldAlert, Trash2, Users, X,
+  Check, ChevronLeft, ChevronRight, Download, Flag, Gauge, MapPin, Navigation, Pencil, Trash2, Users, X,
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -31,6 +31,7 @@ import {
 import { formatDate } from '../utils/helpers';
 import type { LocationTrip } from '../types';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 
 const KmsChartTooltip: React.FC<{
   active?: boolean;
@@ -300,15 +301,7 @@ export const KmsDashboard: React.FC = () => {
   };
 
   if (viewMode !== 'admin') {
-    return (
-      <div className="p-6 max-w-lg mx-auto mt-20">
-        <Card className="p-8 text-center">
-          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
-          <p className="text-sm text-gray-500 mt-2">KMs Dashboard is only available to administrators.</p>
-        </Card>
-      </div>
-    );
+    return <AdminAccessGate description="KMs Dashboard is only available to administrators." />;
   }
 
   return (
@@ -360,7 +353,7 @@ export const KmsDashboard: React.FC = () => {
         {[
           { label: 'Today', value: `${stats.todayKm} km`, sub: `${stats.todayTrips} trip${stats.todayTrips === 1 ? '' : 's'}`, icon: <Navigation className="h-4 w-4 text-sky-600" />, bg: 'bg-sky-50' },
           { label: 'Month km', value: stats.monthKm.toLocaleString('en-IN'), sub: `${stats.monthTripCount} completed`, icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
-          { label: 'Bike routes', value: stats.bikeTrips, sub: '', icon: <MapPin className="h-4 w-4 text-indigo-600" />, bg: 'bg-indigo-50' },
+          { label: 'Bike routes', value: stats.bikeTrips, sub: '', icon: <MapPin className="h-4 w-4 text-[var(--color-accent)]" />, bg: 'bg-indigo-50' },
           { label: 'Staff this month', value: stats.uniqueStaff, sub: '', icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
           { label: 'In progress', value: stats.inProgress.length, sub: '', icon: <Flag className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
         ].map((item) => (
@@ -450,17 +443,17 @@ export const KmsDashboard: React.FC = () => {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            <div className="nexus-segmented">
               <button
                 type="button"
-                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                className={range === 'today' ? 'is-active' : undefined}
                 onClick={() => openDate(todayKey)}
               >
                 Today
               </button>
               <button
                 type="button"
-                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                className={range === 'day' ? 'is-active' : undefined}
                 onClick={() => {
                   const date = selectedDate > todayKey ? todayKey : selectedDate;
                   setSelectedDate(date);
@@ -472,7 +465,7 @@ export const KmsDashboard: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-3 py-1.5 text-xs font-medium rounded-md ${range === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                className={range === 'month' ? 'is-active' : undefined}
                 onClick={() => setRange('month')}
               >
                 Month

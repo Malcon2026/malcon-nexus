@@ -75,7 +75,7 @@ export const HospitalSearchSelect: React.FC<HospitalSearchSelectProps> = ({
   };
 
   const fieldClass =
-    'w-full flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-left transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300';
+    'nexus-field-input nexus-field-input--plain flex items-center gap-2 !min-h-[40px] py-2 text-sm text-left cursor-pointer';
 
   return (
     <div ref={rootRef} className="relative">
@@ -86,7 +86,7 @@ export const HospitalSearchSelect: React.FC<HospitalSearchSelectProps> = ({
         className={`${fieldClass} ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-gray-300 cursor-pointer'}`}
       >
         {selectedHospital ? (
-          <Building2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+          <Building2 className="h-3.5 w-3.5 text-[var(--color-accent)] shrink-0" />
         ) : null}
         <span className={`flex-1 min-w-0 truncate ${selectedHospital ? 'text-gray-900' : 'text-gray-400'}`}>
           {selectedHospital ? formatHospitalLabel(selectedHospital) : placeholder}
@@ -160,7 +160,7 @@ export const HospitalSearchSelect: React.FC<HospitalSearchSelectProps> = ({
                   value === hospital.id ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}
               >
-                <Building2 className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                <Building2 className="h-3.5 w-3.5 text-[var(--color-accent)] shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{formatHospitalLabel(hospital)}</p>
                   {(hospital.city || hospital.address) && (

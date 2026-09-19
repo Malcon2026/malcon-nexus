@@ -133,7 +133,7 @@ export const Hospitals: React.FC = () => {
         </Card>
         <Card className="p-3">
           <p className="text-xs font-semibold text-gray-500">Cities</p>
-          <p className="text-2xl font-bold text-indigo-600 mt-1">{cities.length}</p>
+          <p className="text-2xl font-bold text-[var(--color-accent)] mt-1">{cities.length}</p>
         </Card>
         <Card className="p-3">
           <p className="text-xs font-semibold text-gray-500">Total Cases</p>
@@ -188,7 +188,7 @@ export const Hospitals: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                        <Building2 className="h-5 w-5 text-indigo-600" />
+                        <Building2 className="h-5 w-5 text-[var(--color-accent)]" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-gray-900 truncate" title={hospital.name}>{hospital.name}</p>
@@ -208,7 +208,7 @@ export const Hospitals: React.FC = () => {
                         <>
                           <button
                             onClick={() => handleOpenEdit(hospital)}
-                            className="p-1 rounded-md text-gray-400 hover:text-indigo-600 transition-colors"
+                            className="p-1 rounded-md text-gray-400 hover:text-[var(--color-accent)] transition-colors"
                             title="Edit Hospital"
                           >
                             <Edit3 className="h-3 w-3" />
@@ -232,7 +232,7 @@ export const Hospitals: React.FC = () => {
                       <p className="text-[10px] text-gray-400">Total Cases</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-2 text-center">
-                      <p className="text-lg font-bold text-indigo-600">{stats.active}</p>
+                      <p className="text-lg font-bold text-[var(--color-accent)]">{stats.active}</p>
                       <p className="text-[10px] text-gray-400">Active</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-2 text-center">

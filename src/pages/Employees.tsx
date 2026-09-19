@@ -170,7 +170,7 @@ export const Employees: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <Card
-          className="p-3 cursor-pointer hover:shadow-md transition-shadow border-gray-900/10 bg-gray-50"
+          className="p-3 cursor-pointer hover:shadow-md transition-shadow border-[var(--color-accent)]/15 bg-gray-50"
           onClick={() => setFilterDept('All')}
         >
           <div className="flex items-center gap-1.5">
@@ -460,7 +460,7 @@ export const Employees: React.FC = () => {
                     key={dept}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors ${
                       form.departments.includes(dept)
-                        ? 'border-gray-900 bg-gray-50 text-gray-900'
+                        ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]/40 text-gray-900'
                         : 'border-gray-200 hover:border-gray-300 text-gray-700'
                     }`}
                   >

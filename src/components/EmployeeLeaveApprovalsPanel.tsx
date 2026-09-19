@@ -105,15 +105,13 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        <div className="nexus-segmented">
           {(['pending', 'all'] as const).map((id) => (
             <button
               key={id}
               type="button"
               onClick={() => setFilter(id)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                filter === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={filter === id ? 'is-active' : undefined}
             >
               {id === 'pending' ? `Pending (${pendingCount})` : 'All Requests'}
             </button>
@@ -151,7 +149,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
               : formatLeaveTypeBreakdown(group.segments);
 
             return (
-              <Card key={group.key} className={open ? 'ring-1 ring-indigo-200' : ''}>
+              <Card key={group.key} className={open ? 'ring-1 ring-[var(--color-accent-muted)]' : ''}>
                 <CardBody className="p-0">
                   <button
                     type="button"

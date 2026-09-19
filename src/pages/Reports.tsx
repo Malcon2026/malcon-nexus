@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Download, ShieldAlert, FolderOpen, LogIn, Users, Receipt, ScrollText,
+  Download, FolderOpen, LogIn, Users, Receipt, ScrollText,
   CheckCircle2, Building2, MapPin, Fuel, List, LayoutGrid,
 } from 'lucide-react';
 import { Card, CardBody } from '../components/ui/Card';
@@ -14,6 +14,8 @@ import { REPORT_DATE_RANGE_LABELS, isTimestampInRange } from '../utils/reportFil
 import type { CaseDateField } from '../utils/caseExport';
 import { KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 import {
   filterCasesForExport,
   exportCasesCsv,
@@ -39,7 +41,7 @@ import {
 import { filterAttendanceStaff } from '../lib/staff';
 
 const REPORT_ICONS: Record<ExportReportType, React.ReactNode> = {
-  cases: <FolderOpen className="h-5 w-5 text-indigo-600" />,
+  cases: <FolderOpen className="h-5 w-5 text-[var(--color-accent)]" />,
   attendance: <LogIn className="h-5 w-5 text-emerald-600" />,
   employees: <Users className="h-5 w-5 text-purple-600" />,
   billing: <Receipt className="h-5 w-5 text-blue-600" />,
@@ -215,15 +217,7 @@ export const Reports: React.FC = () => {
   };
 
   if (viewMode !== 'admin') {
-    return (
-      <div className="p-6 max-w-lg mx-auto mt-20">
-        <Card className="p-8 text-center">
-          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
-          <p className="text-sm text-gray-500 mt-2">Reports are only available to administrators.</p>
-        </Card>
-      </div>
-    );
+    return <AdminAccessGate description="Reports are only available to administrators." />;
   }
 
   return (
@@ -287,7 +281,7 @@ export const Reports: React.FC = () => {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Employee</label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                  className={NEXUS_FORM_CONTROL}
                   value={attendanceEmployeeId}
                   onChange={(e) => {
                     setAttendanceEmployeeId(e.target.value);
@@ -309,7 +303,7 @@ export const Reports: React.FC = () => {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Filter cases by</label>
                 <select
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                  className={NEXUS_FORM_CONTROL}
                   value={caseDateField}
                   onChange={(e) => setCaseDateField(e.target.value as CaseDateField)}
                 >

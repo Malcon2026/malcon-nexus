@@ -1,7 +1,6 @@
 import React from 'react';
-import { ShieldAlert } from 'lucide-react';
-import { Card } from '../components/ui/Card';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
@@ -22,13 +21,7 @@ export const Attendance: React.FC = () => {
 
   if (viewMode !== 'admin') {
     return (
-      <div className="p-6 max-w-lg mx-auto mt-20">
-        <Card className="p-8 text-center">
-          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
-          <p className="text-sm text-gray-500 mt-2">Attendance management is only available to administrators.</p>
-        </Card>
-      </div>
+      <AdminAccessGate description="Attendance management is only available to administrators." />
     );
   }
 

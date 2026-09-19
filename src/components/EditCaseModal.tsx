@@ -386,7 +386,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                         <p className="text-xs font-medium text-gray-800">
                           {stage}
                           {isCurrent && (
-                            <span className="ml-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5">
+                            <span className="ml-1.5 text-[10px] font-semibold text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded px-1.5 py-0.5">
                               Current
                             </span>
                           )}

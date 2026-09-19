@@ -135,7 +135,7 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
               type="button"
               disabled={disabled}
               onClick={() => inputRef.current?.click()}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              className="nexus-link text-xs font-medium"
             >
               Retake
             </button>

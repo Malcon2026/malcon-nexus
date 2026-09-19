@@ -223,7 +223,12 @@ const NoteCard: React.FC<{
   );
 };
 
-export const DashboardStickyNotes: React.FC = () => {
+interface DashboardStickyNotesProps {
+  /** When true, omit duplicate page title (e.g. Notes route already has NexusPageHeader). */
+  embedded?: boolean;
+}
+
+export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embedded = false }) => {
   const loadAppSettings = useStore((s) => s.loadAppSettings);
   const savedNotes = useStore((s) => s.appSettings.admin_dashboard_notes);
   const setAdminDashboardNoteCards = useStore((s) => s.setAdminDashboardNoteCards);
@@ -351,22 +356,23 @@ export const DashboardStickyNotes: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Page header */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="h-8 w-8 rounded-lg bg-[var(--mn-accent-soft)] flex items-center justify-center">
-              <StickyNote className="h-4 w-4 text-[var(--mn-accent-hover)]" />
+      <div className={`flex flex-col lg:flex-row lg:items-end justify-between gap-4 ${embedded ? 'lg:items-center' : ''}`}>
+        {!embedded && (
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-lg bg-[var(--mn-accent-soft)] flex items-center justify-center">
+                <StickyNote className="h-4 w-4 text-[var(--mn-accent-hover)]" />
+              </div>
+              <h1 className="text-xl font-bold text-[var(--mn-text)]">Notes</h1>
             </div>
-            <h1 className="text-xl font-bold text-[var(--mn-text)]">Notes</h1>
+            <p className="text-sm text-[var(--mn-muted)] mt-1">
+              {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+              {saving ? ' · Saving…' : ' · Auto-saved'}
+            </p>
           </div>
-          <p className="text-sm text-[var(--mn-muted)] mt-1">
-            {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-            {saving ? ' · Saving…' : ' · Auto-saved'}
-          </p>
-        </div>
+        )}
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full lg:w-auto lg:min-w-[320px]">
+        <div className={`flex flex-col sm:flex-row gap-2 sm:items-center w-full ${embedded ? '' : 'lg:w-auto lg:min-w-[320px]'}`}>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--mn-dim)]" />
             <input
@@ -374,7 +380,7 @@ export const DashboardStickyNotes: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search notes…"
-              className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-[var(--mn-border-strong)] bg-[var(--mn-surface)] text-[var(--mn-text)] placeholder:text-[var(--mn-dim)] outline-none focus:border-[var(--mn-accent)] focus:ring-1 focus:ring-[var(--mn-accent-soft)]"
+              className="nexus-field-input w-full text-sm"
             />
           </div>
           {!composerOpen && (

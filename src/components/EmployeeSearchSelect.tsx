@@ -110,7 +110,7 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
   };
 
   const fieldClass =
-    'w-full flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-left transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300';
+    'nexus-field-input nexus-field-input--plain flex items-center gap-2 !min-h-[40px] py-2 text-sm text-left cursor-pointer';
 
   return (
     <div ref={rootRef} className="relative">

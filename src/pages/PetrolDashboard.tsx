@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Fuel, ShieldAlert, Ticket, XCircle, Search, Trash2 } from 'lucide-react';
+import { Fuel, Ticket, XCircle, Search, Trash2 } from 'lucide-react';
+import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 import { Card, CardBody } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -78,13 +79,7 @@ export const PetrolDashboard: React.FC = () => {
 
   if (!canManage) {
     return (
-      <div className="p-6 max-w-lg mx-auto mt-20">
-        <Card className="p-8 text-center">
-          <ShieldAlert className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-lg font-bold text-gray-900">Admin Access Required</h1>
-          <p className="text-sm text-gray-500 mt-2">Petrol tokens are managed by admin or petrol desk.</p>
-        </Card>
-      </div>
+      <AdminAccessGate description="Petrol tokens are managed by admin or petrol desk." />
     );
   }
 

@@ -388,7 +388,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                     <p className="text-xs font-medium text-gray-800">
                       {stage}
                       {stage === form.startStage && (
-                        <span className="ml-1 text-[10px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1 py-0.5">
+                        <span className="ml-1 text-[10px] font-semibold text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded px-1 py-0.5">
                           Starts here
                         </span>
                       )}

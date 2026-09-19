@@ -93,7 +93,7 @@ export const TaskRequestQueue: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-sm font-bold text-indigo-600">{c?.caseNumber ?? requests[0]?.caseNumber}</span>
+                          <span className="text-sm font-bold text-[var(--color-accent)]">{c?.caseNumber ?? requests[0]?.caseNumber}</span>
                           {c && (
                             <>
                               <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>{c.currentStage}</Badge>

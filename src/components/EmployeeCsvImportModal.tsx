@@ -155,7 +155,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
           >
             <Upload className="h-8 w-8" />
             <span className="text-sm font-semibold">Choose CSV file</span>
-            <span className="text-xs text-indigo-500">Save from Excel as CSV UTF-8</span>
+            <span className="text-xs text-[var(--color-accent)]">Save from Excel as CSV UTF-8</span>
           </button>
         ) : (
           <div className="p-3 border border-gray-200 rounded-lg text-sm">
@@ -165,7 +165,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
             )}
             <button
               type="button"
-              className="text-xs text-indigo-600 mt-2 hover:underline"
+              className="nexus-link text-xs mt-2"
               onClick={() => inputRef.current?.click()}
               disabled={importing}
             >

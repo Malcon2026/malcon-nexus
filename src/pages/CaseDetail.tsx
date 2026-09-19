@@ -876,7 +876,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <button
             key={tab.id}
             onClick={() => setActiveTabLocal(tab.id as typeof activeTabLocal)}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0 ${activeTabLocal === tab.id ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0 ${activeTabLocal === tab.id ? 'border-[var(--color-accent)] text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
           >
             {tab.icon}
             {tab.label}

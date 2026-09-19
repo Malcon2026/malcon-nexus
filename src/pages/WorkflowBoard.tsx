@@ -144,7 +144,7 @@ export const WorkflowBoard: React.FC = () => {
                         {/* Top row */}
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="text-xs font-bold text-indigo-600">{c.caseNumber}</p>
+                            <p className="text-xs font-bold text-[var(--color-accent)]">{c.caseNumber}</p>
                             <p className="text-[10px] text-gray-400 mt-0.5">{c.implantType || c.implantRequired.split(' ').slice(0, 3).join(' ')}</p>
                           </div>
                           <Badge className={`${pc} text-[10px] shrink-0`}>{c.priority}</Badge>
@@ -204,7 +204,7 @@ export const WorkflowBoard: React.FC = () => {
 
                       {/* View action */}
                       <div className="px-3 pb-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="flex items-center gap-1 text-[10px] text-indigo-600 font-medium">
+                        <div className="flex items-center gap-1 text-[10px] text-[var(--color-accent)] font-medium">
                           <Eye className="h-3 w-3" />
                           View details
                           <ArrowRight className="h-3 w-3" />

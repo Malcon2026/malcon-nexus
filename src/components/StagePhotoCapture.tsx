@@ -150,7 +150,7 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
           >
             <Camera className="h-9 w-9" />
             <span className="text-sm font-semibold">Take Photo</span>
-            <span className="text-[11px] text-indigo-500">Open camera</span>
+            <span className="text-[11px] text-[var(--color-accent)]">Open camera</span>
           </button>
           <button
             type="button"

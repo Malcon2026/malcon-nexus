@@ -30,6 +30,7 @@ import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'updatedAt' | 'status' | 'currentStage';
 type SortDir = 'asc' | 'desc';
@@ -202,7 +203,7 @@ export const CaseHistory: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
           { label: 'Total', value: stats.total, tone: 'text-gray-900' },
-          { label: 'Active', value: stats.active, tone: 'text-indigo-600' },
+          { label: 'Active', value: stats.active, tone: 'text-[var(--color-accent)]' },
           { label: 'Awaiting Approval', value: stats.waiting, tone: 'text-amber-600' },
           { label: 'Approved', value: stats.approved, tone: 'text-emerald-600' },
           { label: 'Completed', value: stats.completed, tone: 'text-green-700' },
@@ -258,7 +259,7 @@ export const CaseHistory: React.FC = () => {
             />
           </div>
           <select
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+            className={`${NEXUS_FORM_CONTROL} !min-h-0 py-1.5 w-auto`}
             value={filterStage}
             onChange={(e) => {
               setFilterStage(e.target.value as WorkflowStage | '');
@@ -271,7 +272,7 @@ export const CaseHistory: React.FC = () => {
             ))}
           </select>
           <select
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+            className={`${NEXUS_FORM_CONTROL} !min-h-0 py-1.5 w-auto`}
             value={filterPriority}
             onChange={(e) => {
               setFilterPriority(e.target.value as Priority | '');
@@ -297,7 +298,7 @@ export const CaseHistory: React.FC = () => {
             <div className="flex items-start justify-between gap-2 mb-2">
               <button
                 onClick={() => setSelectedCase(c.id)}
-                className="text-sm font-semibold text-indigo-600"
+                className="nexus-link text-sm font-semibold"
               >
                 {c.caseNumber}
               </button>
@@ -360,7 +361,7 @@ export const CaseHistory: React.FC = () => {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => setSelectedCase(c.id)}
-                      className="text-sm font-semibold text-indigo-600 hover:underline"
+                      className="nexus-link text-sm font-semibold"
                     >
                       {c.caseNumber}
                     </button>
