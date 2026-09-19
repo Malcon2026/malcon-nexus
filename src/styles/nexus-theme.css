@@ -335,6 +335,12 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+.nexus-filter-chip-active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
 .nexus-kbd {
   display: inline-block;
   padding: 0.2rem 0.5rem;

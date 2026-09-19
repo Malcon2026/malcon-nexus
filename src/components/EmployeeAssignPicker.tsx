@@ -5,6 +5,7 @@ import { Badge } from './ui/Badge';
 import type { Department, Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
 import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 export const ASSIGN_DEPARTMENTS: Department[] = [
   'Stores',
@@ -58,8 +59,6 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
     return activeEmployees.filter((e) => employeeCoversDepartment(e, deptFilter));
   }, [activeEmployees, deptFilter]);
 
-  const inputClass =
-    'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white mb-4';
   const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
   return (
@@ -73,7 +72,7 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
 
       <label className={labelClass}>Filter by department (optional)</label>
       <select
-        className={inputClass}
+        className={`${NEXUS_FORM_CONTROL} mb-4`}
         value={deptFilter}
         onChange={(e) => setDeptFilter(e.target.value as DeptFilter)}
       >
@@ -114,7 +113,7 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
             key={emp.id}
             onClick={() => onSelect(emp)}
             className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-all ${
-              selected?.id === emp.id ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+              selected?.id === emp.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]/30' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
             }`}
           >
             <Avatar name={emp.name} size="md" />
@@ -133,7 +132,7 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
               </div>
             </div>
             <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 border-gray-300">
-              {selected?.id === emp.id && <div className="h-2 w-2 bg-gray-900 rounded-full" />}
+              {selected?.id === emp.id && <div className="h-2 w-2 bg-[var(--color-accent)] rounded-full" />}
             </div>
           </div>
         ))}

@@ -51,7 +51,7 @@ function ColorSwatches({
               disabled={disabled}
               onClick={() => onChange(c.value)}
               className={`h-7 w-7 rounded-full border-2 transition-transform shrink-0 ${
-                active ? 'border-gray-900 scale-110' : 'border-gray-200 hover:scale-105'
+                active ? 'border-[var(--color-accent)] scale-110' : 'border-gray-200 hover:scale-105'
               }`}
               style={{ backgroundColor: c.value }}
               aria-label={`${c.label} color`}
@@ -231,7 +231,7 @@ export const TvNoticeBoardEditor: React.FC = () => {
                 disabled={saving}
                 rows={3}
                 placeholder="e.g. All staff meeting today at 4 PM in the conference room."
-                className="w-full max-w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white resize-y min-h-[80px]"
+                className="nexus-field-input nexus-field-input--plain w-full max-w-full min-h-[80px] py-2 text-sm resize-y"
               />
             </div>
 

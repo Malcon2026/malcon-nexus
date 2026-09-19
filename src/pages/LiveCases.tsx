@@ -140,7 +140,7 @@ export const LiveCases: React.FC = () => {
             onClick={() => setFilterStage('')}
             className={`px-2.5 py-1.5 text-xs font-semibold rounded-full border transition-colors truncate ${
               !filterStage
-                ? 'border-gray-900 bg-gray-900 text-white ring-2 ring-gray-900 ring-offset-1'
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white ring-2 ring-[var(--color-accent)] ring-offset-1'
                 : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -157,7 +157,7 @@ export const LiveCases: React.FC = () => {
                 onClick={() => setFilterStage(active ? '' : stage)}
                 className={`px-2.5 py-1.5 text-xs font-semibold rounded-full border transition-colors truncate ${
                   active
-                    ? `${sc.bg} ${sc.text} ${sc.border} ring-2 ring-gray-900 ring-offset-1`
+                    ? `${sc.bg} ${sc.text} ${sc.border} ring-2 ring-[var(--color-accent)] ring-offset-1`
                     : `${sc.bg} ${sc.text} ${sc.border} opacity-85 hover:opacity-100`
                 }`}
               >
@@ -177,7 +177,7 @@ export const LiveCases: React.FC = () => {
                 type="button"
                 onClick={() => setFilterPriority(active ? '' : p)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
-                  active ? `${pc} ring-2 ring-gray-900 ring-offset-1` : `${pc} opacity-80 hover:opacity-100`
+                  active ? `${pc} ring-2 ring-[var(--color-accent)] ring-offset-1` : `${pc} opacity-80 hover:opacity-100`
                 }`}
               >
                 {p}

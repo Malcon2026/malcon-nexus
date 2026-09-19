@@ -10,9 +10,9 @@ import type { LeaveRequest, LeaveType } from '../types';
 import { countWorkingLeaveDays, formatCompOffWorkDate, formatLeaveDateRange, formatLeaveTypeBreakdown, groupLeaveSubmissions, LEAVE_TYPES, originalLeaveReason } from '../lib/leave';
 import { getISTDateKey } from '../lib/attendance';
 import { Te } from './BilingualText';
+import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 
-const inputClass =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
+const inputClass = NEXUS_FORM_CONTROL;
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 const statusBadge: Record<LeaveRequest['status'], string> = {
@@ -230,7 +230,7 @@ export const LeaveApplySection: React.FC = () => {
             <div>
               <label className={labelClass}>Reason *</label>
               <textarea
-                className={`${inputClass} min-h-[80px] resize-y`}
+                className={NEXUS_TEXTAREA_CONTROL}
                 placeholder="Why do you need leave? (at least 10 letters)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

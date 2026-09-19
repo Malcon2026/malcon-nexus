@@ -22,7 +22,7 @@ export const ReportDateFilterControls: React.FC<ReportDateFilterProps> = ({ valu
               onClick={() => setRange(option)}
               className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
                 value.range === option
-                  ? 'bg-gray-900 text-white border-gray-900'
+                  ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
               }`}
             >

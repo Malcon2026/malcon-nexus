@@ -14,6 +14,7 @@ import {
   webPushPermission,
 } from '../lib/webPush';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
@@ -25,7 +26,7 @@ const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: bool
   { id: 'data', label: 'Data & Export', icon: <Database className="h-4 w-4" /> },
 ];
 
-const inputClass = "nexus-field-input nexus-field-input--plain w-full min-h-[40px] py-2 text-sm";
+const inputClass = NEXUS_FORM_CONTROL;
 const labelClass = "block text-xs font-medium text-gray-700 mb-1.5";
 
 // Notification preferences keys
@@ -372,7 +373,7 @@ export const Settings: React.FC = () => {
                       </div>
                       <button
                         onClick={() => toggleNotifPref(key)}
-                        className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors ${notifPrefs[key] ? 'bg-gray-900' : 'bg-gray-200'}`}
+                        className={`relative w-10 h-5 rounded-full cursor-pointer transition-colors ${notifPrefs[key] ? 'bg-[var(--color-accent)]' : 'bg-gray-200'}`}
                       >
                         <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${notifPrefs[key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>

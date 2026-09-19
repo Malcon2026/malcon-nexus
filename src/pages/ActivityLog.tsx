@@ -89,18 +89,20 @@ export const ActivityLog: React.FC = () => {
             </button>
           ))}
         </div>
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
+            type="button"
             onClick={() => setFilterType('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterType === 'all' ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             All Types
           </button>
           {Object.entries(entityTypeLabels).map(([key, label]) => (
             <button
               key={key}
+              type="button"
               onClick={() => setFilterType(key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filterType === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterType === key ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {label}
             </button>

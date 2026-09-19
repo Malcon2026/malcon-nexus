@@ -1,4 +1,5 @@
 import type { Department, Employee } from '../types';
+import { NEXUS_FORM_CONTROL } from './formStyles';
 
 /** Canonical department after merging Cleaning Department + Stores Audit. */
 export const CLEANING_AUDIT_DEPARTMENT: Department = 'Cleaning & Audit';
@@ -19,8 +20,7 @@ export const DEPARTMENTS_WITH_ALL: (Department | 'All')[] = ['All', ...DEPARTMEN
 
 export const ASSIGNABLE_DEPARTMENTS: Department[] = DEPARTMENTS.filter((d) => d !== 'Admin');
 
-export const departmentSelectClass =
-  'px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
+export const departmentSelectClass = NEXUS_FORM_CONTROL;
 
 /** Map legacy Cleaning / Stores Audit labels onto the merged department. */
 export function normalizeDepartment(value: string | null | undefined): Department | null {

@@ -24,6 +24,7 @@ import {
 import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { NexusPage } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
@@ -173,7 +174,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
             </div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Jump to stage *</label>
             <select
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white mb-3"
+              className={`${NEXUS_FORM_CONTROL} mb-3`}
               value={forceTarget}
               onChange={(e) => setForceTarget(e.target.value as ForceTarget)}
             >
@@ -205,7 +206,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
           {notesRequired ? 'Reason (required)' : 'Notes'}
         </label>
         <textarea
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+          className={NEXUS_TEXTAREA_CONTROL}
           rows={4}
           placeholder={notesRequired ? 'Why are you advancing this manually?' : 'Add your notes here...'}
           value={notes}
@@ -340,7 +341,7 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
           <div className="mt-1">
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Notes (optional)</label>
             <textarea
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              className={NEXUS_TEXTAREA_CONTROL}
               rows={2}
               placeholder="e.g. Confirmed with hospital OT staff."
               value={selfNotes}
@@ -454,7 +455,7 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Details (required)</label>
             <textarea
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              className={NEXUS_TEXTAREA_CONTROL}
               rows={3}
               placeholder="Describe why this case is being cancelled..."
               value={details}
@@ -467,7 +468,7 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Notes (optional)</label>
             <textarea
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              className={NEXUS_TEXTAREA_CONTROL}
               rows={2}
               placeholder="e.g. Patient postponed at Apollo — kit unused."
               value={details}
@@ -535,14 +536,14 @@ const PostponeCaseModal: React.FC<{
         <label className="block text-xs font-medium text-gray-700 mb-1.5">New surgery date *</label>
         <input
           type="date"
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 mb-4"
+          className={`${NEXUS_FORM_CONTROL} mb-4`}
           value={newDate}
           min={surgeryDate || undefined}
           onChange={(e) => setNewDate(e.target.value)}
         />
         <label className="block text-xs font-medium text-gray-700 mb-1.5">Reason (required)</label>
         <textarea
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+          className={NEXUS_TEXTAREA_CONTROL}
           rows={3}
           placeholder="e.g. Patient unwell. Surgery moved to next week. Kit stays at hospital."
           value={reason}
@@ -1239,7 +1240,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                 <Avatar name={currentUser.name} size="sm" />
                 <div className="flex-1">
                   <textarea
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+                    className={NEXUS_TEXTAREA_CONTROL}
                     rows={2}
                     placeholder="Add a comment..."
                   />

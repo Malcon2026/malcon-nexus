@@ -21,6 +21,7 @@ import {
   stageAssistantsFromCase,
   stageExtraFlagsFromCase,
 } from './StageExtraPersonFields';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -182,8 +183,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     }
   };
 
-  const inputClass =
-    'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400';
+  const inputClass = `${NEXUS_FORM_CONTROL} placeholder:text-gray-400`;
   const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
   if (!isAdmin && !isOwnCase) return null;

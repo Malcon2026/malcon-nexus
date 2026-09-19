@@ -145,7 +145,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
               {type === 'approve' ? 'Approval Notes (optional)' : type === 'reject' ? 'Rejection Reason *' : 'Changes Required *'}
             </label>
             <textarea
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none"
+              className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
               rows={4}
               placeholder={
                 type === 'approve'

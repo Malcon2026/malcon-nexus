@@ -269,7 +269,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
           <input
             type="text"
             placeholder="Search name or dept…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+            className="nexus-field-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

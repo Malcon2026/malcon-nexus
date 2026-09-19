@@ -20,9 +20,9 @@ import {
   type ExpenseRegisterEmployeeRow,
 } from '../lib/expenseRegister';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
-const inputClass =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
+const inputClass = NEXUS_FORM_CONTROL;
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 type EntriesView = 'day' | 'month';
@@ -489,22 +489,18 @@ export const Expenses: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+            <div className="nexus-segmented">
               <button
                 type="button"
                 onClick={() => setEntriesView('day')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  entriesView === 'day' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex items-center gap-1.5 ${entriesView === 'day' ? 'is-active' : ''}`}
               >
                 <CalendarDays className="h-3.5 w-3.5" /> Daily tracker
               </button>
               <button
                 type="button"
                 onClick={() => setEntriesView('month')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  entriesView === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex items-center gap-1.5 ${entriesView === 'month' ? 'is-active' : ''}`}
               >
                 <CalendarRange className="h-3.5 w-3.5" /> Month register
               </button>
@@ -584,15 +580,13 @@ export const Expenses: React.FC = () => {
             </p>
           )}
           {entriesView === 'month' && (
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit mt-2">
+            <div className="nexus-segmented flex-wrap w-fit mt-2">
               {EXPENSE_METRICS.map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => setRegisterMetric(id)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    registerMetric === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'
-                  }`}
+                  className={registerMetric === id ? 'is-active' : undefined}
                 >
                   {label}
                 </button>

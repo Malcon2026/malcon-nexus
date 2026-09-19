@@ -281,7 +281,7 @@ export const EmployeeLeaveApprovalsPanel: React.FC = () => {
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Admin notes (optional)</label>
               <textarea
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 min-h-[72px]"
+                className="nexus-field-input nexus-field-input--plain w-full min-h-[72px] py-2 text-sm resize-y"
                 value={adminNotes}
                 onChange={(e) => setAdminNotes(e.target.value)}
                 placeholder="Optional note for the employee"

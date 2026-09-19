@@ -24,6 +24,7 @@ import {
   type SurgeryDateMode,
 } from '../components/SurgeryDateQuickPick';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
@@ -207,7 +208,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     }
   };
 
-  const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white placeholder:text-gray-400';
+  const inputClass = `${NEXUS_FORM_CONTROL} placeholder:text-gray-400`;
   const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
   const sectionTitleClass = 'text-xs font-bold uppercase tracking-wide text-gray-400 mb-3';
   const panelClass = 'p-4 overflow-y-auto min-h-0 lg:max-h-none';
@@ -629,7 +630,7 @@ export const Cases: React.FC = () => {
                 className="w-full flex items-center gap-3 flex-wrap overflow-hidden"
               >
                 <select
-                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+                  className={`${NEXUS_FORM_CONTROL} !min-h-0 py-1.5`}
                   value={filterPriority}
                   onChange={e => { setFilterPriority(e.target.value as Priority | ''); setPage(0); }}
                 >
@@ -637,7 +638,7 @@ export const Cases: React.FC = () => {
                   {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <select
-                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+                  className={`${NEXUS_FORM_CONTROL} !min-h-0 py-1.5`}
                   value={filterStage}
                   onChange={e => { setFilterStage(e.target.value as WorkflowStage | ''); setPage(0); }}
                 >
@@ -645,7 +646,7 @@ export const Cases: React.FC = () => {
                   {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <select
-                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+                  className={`${NEXUS_FORM_CONTROL} !min-h-0 py-1.5`}
                   value={filterStatus}
                   onChange={e => { setFilterStatus(e.target.value as CaseStatus | ''); setPage(0); }}
                 >

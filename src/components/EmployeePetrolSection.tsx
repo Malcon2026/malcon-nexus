@@ -17,9 +17,9 @@ import {
 } from '../lib/petrol';
 import { formatCurrency, formatDateTime } from '../utils/helpers';
 import { Te } from './BilingualText';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
-const inputClass =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
+const inputClass = NEXUS_FORM_CONTROL;
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 const statusBadge: Record<PetrolRequest['status'], string> = {

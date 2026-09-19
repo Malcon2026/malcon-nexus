@@ -42,15 +42,13 @@ export const AttendanceApprovalsPanel: React.FC = () => {
       {loadingApprovals && (
         <p className="text-xs text-gray-500">Loading pending approvals…</p>
       )}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+      <div className="nexus-segmented flex-wrap">
         {tabs.map(({ id, label, count }) => (
           <button
             key={id}
             type="button"
             onClick={() => setFilter(id)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              filter === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={filter === id ? 'is-active' : undefined}
           >
             {count > 0 && filter !== id ? `${label} (${count})` : label}
             {count > 0 && filter === id ? ` (${count})` : ''}

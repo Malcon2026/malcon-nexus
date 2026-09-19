@@ -13,10 +13,11 @@ import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { filterAttendanceStaff } from '../lib/staff';
 import { buildEmployeeDepartmentFields, DEPARTMENTS_WITH_ALL, employeeCoversDepartment, getEmployeeDepartments, ASSIGNABLE_DEPARTMENTS } from '../constants/departments';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_FORM_CONTROL, NEXUS_SEARCH_CONTROL } from '../constants/formStyles';
 
 const DEPARTMENTS = DEPARTMENTS_WITH_ALL;
 
-const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
+const inputClass = NEXUS_FORM_CONTROL;
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 const emptyForm = {
@@ -255,7 +256,7 @@ export const Employees: React.FC = () => {
           <input
             type="text"
             placeholder="Search employees..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+            className={NEXUS_SEARCH_CONTROL}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -265,7 +266,7 @@ export const Employees: React.FC = () => {
             <button
               key={dept}
               onClick={() => setFilterDept(dept as Department | 'All')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterDept === dept ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterDept === dept ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {dept}
             </button>
@@ -297,7 +298,7 @@ export const Employees: React.FC = () => {
                             <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-[10px]">Petrol desk</Badge>
                           )}
                           {emp.role === 'admin' && (
-                            <Badge className="bg-gray-900 text-white border-gray-900 text-[10px]">Admin</Badge>
+                            <Badge className="bg-[var(--color-accent)] text-white border-[var(--color-accent)] text-[10px]">Admin</Badge>
                           )}
                           {emp.employeeCode ? (
                             <span className="text-[10px] font-mono text-gray-500 tabular-nums">ID {emp.employeeCode}</span>

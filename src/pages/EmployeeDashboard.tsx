@@ -35,6 +35,7 @@ import { countPendingLeaveSubmissions } from '../lib/leave';
 import { openLocationTrip } from '../lib/locationTrip';
 import { useEmployeeLocationPrompt } from '../hooks/useEmployeeLocationPrompt';
 import { EmployeeLocationBanner } from '../components/EmployeeLocationBanner';
+import { NexusPage } from '../components/layout/NexusPageHeader';
 
 type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'food' | 'location';
 
@@ -221,7 +222,7 @@ const HomeNavTiles: React.FC<{
             }`}
           >
             {!isFood && tile.badge != null && tile.badge > 0 && (
-              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+              <span className="absolute top-3 right-3 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[var(--color-accent)] text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
                 {tile.badge > 99 ? '99+' : tile.badge}
               </span>
             )}
@@ -495,7 +496,7 @@ const EmployeeCasesPanel: React.FC<{
             <div className="divide-y divide-gray-50">
               {completedCases.slice(0, 4).map((c) => (
                 <div key={c.id} className="px-5 py-3">
-                  <p className="text-xs font-bold text-indigo-600">{c.caseNumber}</p>
+                  <p className="text-xs font-bold text-[var(--color-accent)]">{c.caseNumber}</p>
                   <p className="text-xs text-gray-700 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <CheckCircle2 className="h-3 w-3 text-emerald-500" />
@@ -587,7 +588,7 @@ export const EmployeeDashboard: React.FC = () => {
   }
 
   return (
-    <div className="nexus-page-inner max-w-[1200px] w-full min-w-0 overflow-x-hidden">
+    <NexusPage maxWidthClass="max-w-[1200px]">
       <EmployeeLocationBanner
         permission={locationPrompt.permission}
         requesting={locationPrompt.requesting}
@@ -675,6 +676,6 @@ export const EmployeeDashboard: React.FC = () => {
           <EmployeeAlertsPage />
         </>
       )}
-    </div>
+    </NexusPage>
   );
 };

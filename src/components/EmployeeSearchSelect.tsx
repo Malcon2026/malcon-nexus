@@ -170,7 +170,7 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, department, ID..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+                className="nexus-field-input pl-8 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setOpen(false);

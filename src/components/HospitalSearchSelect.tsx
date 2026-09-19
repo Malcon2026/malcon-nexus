@@ -127,7 +127,7 @@ export const HospitalSearchSelect: React.FC<HospitalSearchSelectProps> = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, branch, city..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+                className="nexus-field-input pl-8 text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') {
                     setOpen(false);

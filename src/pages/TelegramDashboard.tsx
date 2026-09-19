@@ -7,6 +7,7 @@ import { useStore } from '../store/useStore';
 import { sendTelegramBroadcast } from '../lib/telegramBroadcast';
 import { filterAttendanceStaff } from '../lib/staff';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 
 export const TelegramDashboard: React.FC = () => {
   const { employees, viewMode } = useStore();
@@ -138,7 +139,7 @@ export const TelegramDashboard: React.FC = () => {
         </CardHeader>
         <CardBody className="space-y-4">
           <textarea
-            className="w-full min-h-[120px] px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 resize-y"
+            className={`${NEXUS_TEXTAREA_CONTROL} min-h-[120px]`}
             placeholder="Type your message to employees on Telegram…"
             value={message}
             onChange={(e) => setMessage(e.target.value)}

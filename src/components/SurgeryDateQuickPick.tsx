@@ -2,6 +2,7 @@ import React from 'react';
 import { getISTDateKey } from '../lib/attendance';
 import { cn } from '../utils/cn';
 import { formatDate } from '../utils/helpers';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 export type SurgeryDateMode = 'today' | 'tomorrow' | 'custom';
 
@@ -19,9 +20,6 @@ export function getTodaySurgeryDateKey(): string {
 export function getTomorrowSurgeryDateKey(): string {
   return addDaysToISTDateKey(getISTDateKey(), 1);
 }
-
-const inputClass =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
 
 interface SurgeryDateQuickPickProps {
   value: string;
@@ -45,7 +43,7 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
     cn(
       'flex-1 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors',
       active
-        ? 'border-gray-900 bg-gray-900 text-white'
+        ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
     );
 
@@ -66,7 +64,7 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
       {mode === 'custom' ? (
         <input
           type="date"
-          className={`${inputClass} [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-0`}
+          className={`${NEXUS_FORM_CONTROL} [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-0`}
           value={value}
           onChange={(e) => onChange(e.target.value, 'custom')}
         />
