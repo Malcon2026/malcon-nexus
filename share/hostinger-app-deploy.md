@@ -24,3 +24,7 @@ Build uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from `.env` / `.env.
    - `APP_URL` = `https://app.malconnexus.com` (emails, Telegram links)
 
 Staff should bookmark **https://app.malconnexus.com/** only (not legacy Vercel URLs).
+
+## Legacy Vercel URL
+
+The connected Vercel project (e.g. `malcon-nexus-gamma.vercel.app`) deploys **`npm run build:vercel-legacy`** only — a looping GIF page, not the app. Real builds use `npm run build` + `npm run deploy:hostinger`.

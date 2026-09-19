@@ -21,7 +21,8 @@
     "gallery:setup": "node scripts/setup-gallery.mjs",
     "tv:setup": "node scripts/setup-tv.mjs",
     "gallery:publish": "node scripts/publish-gallery-site.mjs",
-    "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs"
+    "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs",
+    "build:vercel-legacy": "node scripts/build-vercel-legacy.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
