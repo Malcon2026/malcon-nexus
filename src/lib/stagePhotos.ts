@@ -176,7 +176,7 @@ function drawPhotoStamp(
   let y = height - blockHeight + pad;
 
   for (const line of lines) {
-    ctx.font = `${line.bold ? '600' : '500'} ${line.size}px Inter, system-ui, -apple-system, sans-serif`;
+    ctx.font = `${line.bold ? '600' : '500'} ${line.size}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 3;
