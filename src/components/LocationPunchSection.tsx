@@ -3,7 +3,8 @@ import { MapPin, Navigation, Flag, Loader2, Plus } from 'lucide-react';
 import { Card, CardBody } from './ui/Card';
 import { Button } from './ui/Button';
 import { useStore } from '../store/useStore';
-import { getCurrentPosition, formatTimeIST } from '../lib/attendance';
+import { formatTimeIST } from '../lib/attendance';
+import { requestLocationAccess } from '../lib/geolocationPrompt';
 import {
   openLocationTrip,
   todayLocationTripKm,
@@ -38,7 +39,7 @@ export const LocationPunchSection: React.FC = () => {
     setSuccess(null);
     setBusy(kind);
     try {
-      const position = await getCurrentPosition();
+      const position = await requestLocationAccess();
       if (kind === 'start') {
         const result = await startLocationTrip(position);
         if (result.error) {

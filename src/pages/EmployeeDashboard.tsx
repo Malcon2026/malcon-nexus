@@ -33,6 +33,8 @@ import { Te } from '../components/BilingualText';
 import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
 import { countPendingLeaveSubmissions } from '../lib/leave';
 import { openLocationTrip } from '../lib/locationTrip';
+import { useEmployeeLocationPrompt } from '../hooks/useEmployeeLocationPrompt';
+import { EmployeeLocationBanner } from '../components/EmployeeLocationBanner';
 
 type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'food' | 'location';
 
@@ -563,6 +565,7 @@ const EmployeeAlertsPage: React.FC = () => {
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
+  const locationPrompt = useEmployeeLocationPrompt(true);
   const [page, setPage] = useState<EmployeePage>('home');
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
@@ -590,6 +593,11 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0 overflow-x-hidden">
+      <EmployeeLocationBanner
+        permission={locationPrompt.permission}
+        requesting={locationPrompt.requesting}
+        onRetry={locationPrompt.retryLocation}
+      />
       {submitCase && (
         <SubmitModal isOpen={true} onClose={() => setSubmitCase(null)} case={submitCase} />
       )}

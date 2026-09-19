@@ -141,7 +141,11 @@ export function getCurrentPosition(): Promise<GeoPosition> {
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
-          reject(new Error('Location permission denied. Please allow location access to punch attendance.'));
+          reject(
+            new Error(
+              'Location permission denied. Allow location in settings, then tap Try again on the banner.',
+            ),
+          );
         } else if (err.code === err.POSITION_UNAVAILABLE) {
           reject(new Error('Unable to detect your location. Please try again outdoors or enable GPS.'));
         } else if (err.code === err.TIMEOUT) {

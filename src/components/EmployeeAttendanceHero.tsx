@@ -20,7 +20,6 @@ import {
   formatDateIST,
   formatDateShortIST,
   formatDuration,
-  getCurrentPosition,
   checkOfficeGeofence,
   summarizeLiveAttendance,
   getPendingOffsitePunchRequest,
@@ -28,6 +27,7 @@ import {
   getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
+import { requestLocationAccess } from '../lib/geolocationPrompt';
 import { formatAttendanceError } from '../lib/attendanceBilingual';
 import { getFoodOpenAfterPunchIn, setFoodOpenAfterPunchIn } from '../lib/foodPreferences';
 import { Bilingual, Te } from './BilingualText';
@@ -106,7 +106,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
   const refreshLocation = useCallback(async () => {
     setLocationState({ status: 'loading' });
     try {
-      const position = await getCurrentPosition();
+      const position = await requestLocationAccess();
       const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
       setLocationState({
         status: 'ready',
@@ -129,6 +129,10 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
     setLocationState({ status: 'idle' });
     if (type === 'in') {
       void refreshLocation();
+    } else {
+      void requestLocationAccess().catch(() => {
+        /* punch out may still proceed; banner handles denied state */
+      });
     }
   };
 
@@ -168,7 +172,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
       position =
         locationState.status === 'ready'
           ? locationState.position
-          : await getCurrentPosition();
+          : await requestLocationAccess();
     } catch (err) {
       const raw = err instanceof Error ? err.message : 'Location required to punch.';
       setErrorFromMessage(raw);
