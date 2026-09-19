@@ -87,3 +87,31 @@
   color: #86868b;
   font-family: var(--font-mono);
 }
+
+/* Child components (e.g. PoweredByAiBadge) use Tailwind grays remapped for dark app shell. */
+.nexus-login-page .text-gray-900 {
+  color: #1d1d1f !important;
+}
+
+.nexus-login-page .text-gray-800,
+.nexus-login-page .text-gray-700 {
+  color: #424245 !important;
+}
+
+.nexus-login-page .text-gray-600,
+.nexus-login-page .text-gray-500 {
+  color: #6e6e73 !important;
+}
+
+.nexus-login-page .text-gray-400 {
+  color: #86868b !important;
+}
+
+.nexus-login-page .border-gray-200 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.nexus-login-page .bg-white,
+.nexus-login-page [class*="background-color:#ffffff"] {
+  background-color: #ffffff !important;
+}
