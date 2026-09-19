@@ -1,4 +1,4 @@
--- Stores kiosk: all cases on desk; app hides food tokens. Attendance/leave use employee_id RLS.
+-- Stores department kiosk logins: cases + workflow only (no attendance/petrol/food).
 -- Run in Supabase SQL Editor after deploy.
 
 BEGIN;

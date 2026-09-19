@@ -55,7 +55,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, canStoresKioskSubmitCase, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -2411,18 +2411,14 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'Please choose Restocked or Order.' };
     }
     if (state.currentUser.role !== 'admin') {
-      const storesDeskSubmit =
-        state.currentUser.role === 'stores' && canStoresKioskSubmitCase(c, state.currentUser);
-      if (!storesDeskSubmit) {
-        const assignedId = c.assignedEmployee?.id;
-        if (!assignedId) {
-          return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
-        }
-        if (assignedId !== state.currentUser.id) {
-          return {
-            error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
-          };
-        }
+      const assignedId = c.assignedEmployee?.id;
+      if (!assignedId) {
+        return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
+      }
+      if (assignedId !== state.currentUser.id) {
+        return {
+          error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
+        };
       }
     }
 

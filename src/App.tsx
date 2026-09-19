@@ -24,6 +24,7 @@ import { Settings } from './pages/Settings';
 import { TelegramDashboard } from './pages/TelegramDashboard';
 import { Notes } from './pages/Notes';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
+import { StoresKioskHome } from './pages/StoresKioskHome';
 import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
@@ -115,7 +116,7 @@ function MainApp() {
         persistBootstrapCache(employee.id, role);
       }
 
-      if (!hadCache && (role === 'employee' || role === 'stores')) {
+      if (!hadCache && role === 'employee') {
         setIsHydrating(false);
         console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
       }
@@ -222,7 +223,7 @@ function MainApp() {
     if (viewMode === 'stores') {
       switch (activeTab) {
         case 'dashboard':
-          return <EmployeeDashboard />;
+          return <StoresKioskHome />;
         case 'cases':
           return <Cases />;
         case 'live-cases':
