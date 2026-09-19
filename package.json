@@ -20,7 +20,8 @@
     "selfies:archive": "node scripts/archive-punch-in-selfies.mjs",
     "gallery:setup": "node scripts/setup-gallery.mjs",
     "tv:setup": "node scripts/setup-tv.mjs",
-    "gallery:publish": "node scripts/publish-gallery-site.mjs"
+    "gallery:publish": "node scripts/publish-gallery-site.mjs",
+    "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

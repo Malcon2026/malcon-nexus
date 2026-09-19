@@ -14,6 +14,7 @@ dist/
 .vscode/
 *.swp
 .vercel
+.hostinger-deploy/
 
 # Local attendance imports (not for repo)
 EMP ATTENDANCE*.xlsx
