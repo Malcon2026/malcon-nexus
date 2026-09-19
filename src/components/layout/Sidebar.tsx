@@ -128,21 +128,16 @@ export const Sidebar: React.FC = () => {
 
   const isAdmin = currentUser.role === 'admin';
 
-  const visibleCaseChildren = useMemo(() => {
-    if (currentUser.role === 'stores') {
-      return casesGroupChildren.filter((item) => item.id === 'cases' || item.id === 'live-cases');
-    }
-    return casesGroupChildren.filter((item) => !item.adminOnly || isAdmin);
-  }, [isAdmin, currentUser.role]);
+  const visibleCaseChildren = useMemo(
+    () => casesGroupChildren.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin],
+  );
 
   const filterTopItem = (item: NavItem) => {
     if (AUTO_APPROVE_STAGE_SUBMISSIONS && item.id === 'approvals') return false;
     if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
     if (currentUser.role === 'petrol') {
       return item.id === 'petrol-dashboard' || item.id === 'settings';
-    }
-    if (currentUser.role === 'stores') {
-      return item.id === 'dashboard' || item.id === 'workflow' || item.id === 'settings';
     }
     return !item.adminOnly || isAdmin;
   };
@@ -185,11 +180,7 @@ export const Sidebar: React.FC = () => {
               exit={{ opacity: 0 }}
               className="flex-1 text-left truncate"
             >
-              {currentUser.role === 'petrol' && item.id === 'petrol-dashboard'
-                ? 'Petrol Tokens'
-                : currentUser.role === 'stores' && item.id === 'dashboard'
-                  ? 'Stores kiosk'
-                  : item.label}
+              {currentUser.role === 'petrol' && item.id === 'petrol-dashboard' ? 'Petrol Tokens' : item.label}
             </motion.span>
           )}
         </AnimatePresence>
