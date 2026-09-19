@@ -1,5 +1,5 @@
 /**
- * Login — TMS light canvas (uses global design tokens).
+ * Login — TMS / DMS split: quotes aside + sign-in panel.
  */
 
 .nexus-login-page {
@@ -10,13 +10,84 @@
   line-height: var(--leading-normal);
 }
 
-.nexus-login-page .nexus-login-hero {
-  background: linear-gradient(165deg, #fdfdfe 0%, var(--color-bg) 55%, #ececf1 100%);
-  border-color: var(--color-separator);
+.nexus-login-aside {
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-separator);
+  min-height: 100dvh;
 }
 
-.nexus-login-page .nexus-login-panel {
+.nexus-login-aside-eyebrow {
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  color: var(--color-label);
+}
+
+.nexus-login-aside-tagline {
+  font-size: var(--text-footnote);
+  color: var(--color-label-secondary);
+  margin-top: 0.25rem;
+}
+
+.nexus-login-quote-mark {
+  display: block;
+  font-size: 2.75rem;
+  line-height: 1;
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+
+.nexus-login-quote-text {
+  font-size: var(--text-title-2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.025em;
+  line-height: var(--leading-tight);
+  color: var(--color-label);
+  max-width: 22rem;
+}
+
+.nexus-login-quote-attribution {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-medium);
+  color: var(--color-label-tertiary);
+  letter-spacing: 0.01em;
+}
+
+.nexus-login-quote-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-separator-opaque);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.nexus-login-quote-dot.is-active {
+  background: var(--color-accent);
+  transform: scale(1.35);
+}
+
+.nexus-login-quote-dot:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.nexus-login-aside-foot {
+  padding-top: 2rem;
+}
+
+.nexus-login-mobile-quote {
+  border-left: 3px solid var(--color-accent);
+  padding-left: 1rem;
+}
+
+.nexus-login-panel {
   background: var(--color-bg-elevated);
+  min-height: 100dvh;
 }
 
 .nexus-login-page .nexus-login-title {

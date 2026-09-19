@@ -7,7 +7,7 @@ import {
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
 import loginLogo from '../assets/login-logo.png';
-import { PoweredByAiBadge } from '../components/PoweredByAiBadge';
+import { LoginQuoteAside, LoginQuoteMobile } from '../components/LoginQuoteAside';
 import '../styles/login-light.css';
 
 interface LoginProps {
@@ -117,11 +117,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="nexus-login-page min-h-screen w-full max-w-full overflow-x-hidden flex flex-col lg:flex-row relative">
+    <div className="nexus-login-page min-h-[100dvh] w-full max-w-full overflow-x-hidden flex flex-col lg:flex-row relative">
       <button
         type="button"
         onClick={() => switchMode(!adminMode)}
-        className="nexus-login-admin-link absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 text-sm font-medium"
+        className="nexus-login-admin-link absolute top-4 right-4 sm:top-6 sm:right-6 z-20 inline-flex items-center gap-1.5 text-sm font-medium"
       >
         {adminMode ? (
           <>← Employee sign in</>
@@ -133,47 +133,28 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         )}
       </button>
 
-      <div className="nexus-login-hero hidden lg:flex lg:w-[52%] xl:w-[55%] lg:min-w-0 relative flex-col justify-center p-12 xl:p-16 overflow-hidden border-r">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative z-10 w-full max-w-lg text-left"
-        >
-          <img
-            src={loginLogo}
-            alt="Malcon Nexus by Malcon Life Sciences"
-            className="w-full max-w-[300px] object-contain"
-          />
-          <PoweredByAiBadge variant="login" />
-        </motion.div>
-      </div>
+      <LoginQuoteAside className="hidden lg:flex lg:w-[46%] xl:w-[48%] shrink-0 p-12 xl:p-16" />
 
-      <div className="nexus-login-panel flex-1 min-w-0 w-full flex items-center justify-center px-4 py-6 sm:px-6 sm:py-10 lg:p-16 overflow-x-hidden">
+      <div className="nexus-login-panel flex-1 min-w-0 flex items-center justify-center px-4 py-12 sm:px-8 sm:py-14 lg:p-16">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.35 }}
           className="w-full min-w-0 max-w-[420px]"
         >
-          <div className="lg:hidden flex flex-col items-center mb-10">
-            <img src={loginLogo} alt="Malcon Nexus" className="h-14 w-14 object-contain" />
-            <p className="nexus-login-brand-name text-sm mt-3">Malcon Nexus</p>
-            <p className="nexus-login-brand-sub text-xs mt-0.5">by Malcon Life Sciences</p>
-            <div className="mt-4">
-              <PoweredByAiBadge variant="pill" />
+          <div className="lg:hidden flex items-center gap-3 mb-6 pr-24">
+            <img src={loginLogo} alt="" className="h-10 w-10 object-contain shrink-0" aria-hidden />
+            <div className="min-w-0">
+              <p className="nexus-login-brand-name text-sm leading-tight">Malcon Nexus</p>
+              <p className="nexus-login-brand-sub text-xs mt-0.5">Malcon Life Sciences</p>
             </div>
           </div>
 
-          <div className="hidden lg:flex justify-center mb-8">
-            <img src={loginLogo} alt="Malcon Nexus" className="h-16 w-16 object-contain" />
-          </div>
+          <LoginQuoteMobile />
 
-          <div className="mb-8 text-center lg:text-left pr-24 sm:pr-28">
-            <h1 className="nexus-login-title">
-              {adminMode ? 'Admin sign in' : 'Sign in'}
-            </h1>
-          </div>
+          <h1 className="nexus-login-title mb-6 pr-20 sm:pr-24">
+            {adminMode ? 'Admin sign in' : 'Sign in'}
+          </h1>
 
           {adminMode ? (
             <form onSubmit={handleAdminSubmit} className="space-y-5 w-full min-w-0">
@@ -339,6 +320,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               )}
             </form>
           )}
+
         </motion.div>
       </div>
     </div>
