@@ -56,3 +56,9 @@ verify_jwt = true
 
 [functions.location-hospital-search]
 verify_jwt = true
+
+[functions.request-login-otp]
+verify_jwt = false
+
+[functions.verify-login-otp]
+verify_jwt = false

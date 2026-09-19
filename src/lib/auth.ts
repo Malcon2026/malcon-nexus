@@ -43,8 +43,78 @@ async function employeeFromSession(session: Session | null): Promise<Employee | 
   return found;
 }
 
+function parseFunctionError(data: unknown, invokeError: Error | null): string {
+  if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
+    return (data as { error: string }).error;
+  }
+  return invokeError?.message ?? 'Request failed';
+}
+
 export const authService = {
-  /** Sign in with email + password. Returns the matching Employee record. */
+  /** Request a Telegram OTP for employee sign-in (non-admin). */
+  async requestLoginOtp(employeeCode: string): Promise<{ error: string | null; message?: string }> {
+    const { data, error } = await supabase.functions.invoke('request-login-otp', {
+      body: { employeeCode: employeeCode.trim() },
+    });
+    if (error) return { error: error.message };
+    if (data?.error) return { error: String(data.error) };
+    return { error: null, message: typeof data?.message === 'string' ? data.message : undefined };
+  },
+
+  /** Verify OTP and establish a Supabase session for the employee. */
+  async signInWithTelegramOtp(employeeCode: string, otp: string): Promise<AuthResult> {
+    pendingManualSignIn = true;
+
+    const { data, error } = await supabase.functions.invoke('verify-login-otp', {
+      body: { employeeCode: employeeCode.trim(), otp: otp.trim() },
+    });
+
+    if (error || data?.error) {
+      pendingManualSignIn = false;
+      return { employee: null, error: parseFunctionError(data, error) };
+    }
+
+    const tokenHash = data?.token_hash as string | undefined;
+    if (!tokenHash) {
+      pendingManualSignIn = false;
+      return { employee: null, error: 'Invalid server response' };
+    }
+
+    const { data: authData, error: verifyError } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'email',
+    });
+
+    if (verifyError || !authData.session?.user) {
+      pendingManualSignIn = false;
+      return { employee: null, error: verifyError?.message ?? 'Could not sign in' };
+    }
+
+    const authUserId = authData.user.id;
+    let employee = await sbEmployeeRepo.getByAuthUserId(authUserId);
+    if (!employee) {
+      employee = await sbEmployeeRepo.getByEmail(authData.user.email ?? '');
+      if (employee) {
+        void sbEmployeeRepo.linkAuthUser(employee.id, authUserId).catch(() => {});
+      }
+    }
+
+    if (!employee) {
+      pendingManualSignIn = false;
+      await supabase.auth.signOut();
+      return { employee: null, error: 'No employee account found. Contact your administrator.' };
+    }
+
+    if (employee.role === 'admin') {
+      pendingManualSignIn = false;
+      await supabase.auth.signOut();
+      return { employee: null, error: 'Use Admin login with email and password.' };
+    }
+
+    return { employee, error: null };
+  },
+
+  /** Admin sign in with email + password. Returns the matching Employee record. */
   async signIn(email: string, password: string): Promise<AuthResult> {
     const startedAt = performance.now();
     const normalizedEmail = email.trim().toLowerCase();
@@ -83,6 +153,15 @@ export const authService = {
       return {
         employee: null,
         error: 'No employee account found for this email. Contact your administrator.',
+      };
+    }
+
+    if (employee.role !== 'admin') {
+      pendingManualSignIn = false;
+      await supabase.auth.signOut();
+      return {
+        employee: null,
+        error: 'Staff sign in with Employee ID and Telegram OTP.',
       };
     }
 
