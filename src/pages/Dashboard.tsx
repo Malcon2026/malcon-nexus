@@ -6,7 +6,7 @@ import {
   AlertTriangle, Activity
 } from 'lucide-react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
@@ -225,31 +225,26 @@ export const Dashboard: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-0.5">Surgeries per day (IST)</p>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-gray-500 shrink-0">
-                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-[#9a8cff]" /><span>Cases</span></div>
-                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-emerald-500" /><span>Done</span></div>
+                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-sm bg-[var(--color-accent)]" /><span>Cases</span></div>
+                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-sm bg-emerald-500" /><span>Done</span></div>
                 </div>
               </div>
             </CardHeader>
             <CardBody className="flex-1 min-h-0 pb-4">
               <ResponsiveContainer width="100%" height="100%" minHeight={220}>
-                <AreaChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#9a8cff" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#9a8cff" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" />
+                <BarChart
+                  data={dailyData}
+                  margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
+                  barGap={2}
+                  barCategoryGap="22%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5ea" vertical={false} />
                   <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} interval={0} />
                   <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="cases" name="Cases" stroke="#9a8cff" strokeWidth={2} fill="url(#colorCases)" dot={{ r: 2, fill: '#9a8cff' }} />
-                  <Area type="monotone" dataKey="completed" name="Completed" stroke="#34d399" strokeWidth={2} fill="url(#colorCompleted)" dot={{ r: 2, fill: '#34d399' }} />
-                </AreaChart>
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 113, 227, 0.06)' }} />
+                  <Bar dataKey="cases" name="Cases" fill="#0071e3" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="completed" name="Completed" fill="#34d399" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                </BarChart>
               </ResponsiveContainer>
             </CardBody>
           </Card>
@@ -326,11 +321,11 @@ export const Dashboard: React.FC = () => {
           <CardBody>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={departmentPerformance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#252d3d" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5ea" vertical={false} />
                 <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} domain={[80, 100]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="onTime" name="On Time %" fill="#7c6cf0" radius={[4, 4, 0, 0]} maxBarSize={36} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 113, 227, 0.06)' }} />
+                <Bar dataKey="onTime" name="On Time %" fill="#0071e3" radius={[5, 5, 0, 0]} maxBarSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </CardBody>
