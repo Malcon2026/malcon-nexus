@@ -177,20 +177,16 @@ function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
   ];
 }
 
+/** Like field staff bootstrap, but all cases for the desk and no food selections. */
 function storesKioskEssentialTasks(employeeId: string): BootstrapTask[] {
-  return [
-    {
-      key: 'employees',
-      run: async () => {
-        const self = await sbEmployeeRepo.getById(employeeId);
-        return self ? [self] : [];
-      },
-    },
-    { key: 'cases', run: () => sbCaseRepo.getAll() },
-    { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
-    { key: 'kits', run: () => sbKitRepo.getAll() },
-    { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
-  ];
+  return employeeEssentialTasks(employeeId)
+    .filter((t) => t.key !== 'foodSelections')
+    .map((t) =>
+      t.key === 'cases'
+        ? { key: 'cases' as const, run: () => sbCaseRepo.getAll() }
+        : t,
+    )
+    .concat([{ key: 'kits', run: () => sbKitRepo.getAll() }]);
 }
 
 function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?: BootstrapOptions): BootstrapTask[] {
@@ -200,9 +196,10 @@ function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?:
       : [];
   }
   if (role === 'stores') {
-    return tier === 'essential' && options?.employeeId
+    if (!options?.employeeId) return [];
+    return tier === 'essential'
       ? storesKioskEssentialTasks(options.employeeId)
-      : [];
+      : employeeDeferredTasks(options.employeeId);
   }
   if (role === 'employee') {
     if (!options?.employeeId) {
@@ -308,7 +305,19 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
       : role === 'petrol'
         ? ['employees', 'petrolRequests']
         : role === 'stores'
-          ? ['employees', 'cases', 'hospitals', 'kits', 'notifications']
+          ? [
+              'employees',
+              'attendanceRecords',
+              'leaveRequests',
+              'petrolRequests',
+              'locationTrips',
+              'attendanceApprovalRequests',
+              'cases',
+              'caseTaskRequests',
+              'notifications',
+              'hospitals',
+              'kits',
+            ]
       : [
           'employees',
           'attendanceRecords',
@@ -359,7 +368,7 @@ export async function bootstrapEssential(
   if (shouldSkipEssentialFetch(role, options, runOptions)) {
     // Session cache is from login time and does not include punches made later.
     // Always re-read location trips so refresh does not wipe them.
-    if (role === 'employee' && options?.employeeId) {
+    if ((role === 'employee' || role === 'stores') && options?.employeeId) {
       await runBootstrapTasks(
         [{ key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(options.employeeId!) }],
         'locationTrips',

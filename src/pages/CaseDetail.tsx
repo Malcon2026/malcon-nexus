@@ -21,7 +21,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, canStoresKioskSubmitCase, canStoresKioskWorkCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
@@ -593,8 +593,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
     c.status !== 'Waiting For Approval';
-  const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
-  const canEmployeeEdit = viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser);
+  const canEmployeeSubmit =
+    (viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser)) ||
+    (viewMode === 'stores' && canStoresKioskSubmitCase(c, currentUser));
+  const canEmployeeEdit =
+    (viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser)) ||
+    (viewMode === 'stores' && canStoresKioskWorkCase(c));
   const inFcfsPool = isFcfsPoolCase(c);
   const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
   const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
@@ -750,13 +754,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           {viewMode === 'employee' && myPendingRequest && inFcfsPool && (
             <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">Request pending</Badge>
           )}
-          {viewMode === 'employee' && canEmployeeSubmit && (
+          {(viewMode === 'employee' || viewMode === 'stores') && canEmployeeSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
               {STAGE_ACTIONS[c.currentStage]}
             </Button>
           )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>
-          {(viewMode === 'admin' || canEmployeeEdit) && (
+          {(viewMode === 'admin' || (viewMode === 'employee' && canEmployeeEdit)) && (
             <Button variant="outline" size="sm" icon={<Edit3 className="h-4 w-4" />} onClick={() => setShowEdit(true)}>Edit</Button>
           )}
           {viewMode === 'admin' && (

@@ -497,7 +497,7 @@ export const Employees: React.FC = () => {
                 <option value="employee">Employee</option>
                 <option value="admin">Administrator</option>
                 <option value="petrol">Petrol desk</option>
-                <option value="stores">Stores kiosk (cases only)</option>
+                <option value="stores">Stores kiosk (normal staff, no food)</option>
               </select>
             </div>
           </form>

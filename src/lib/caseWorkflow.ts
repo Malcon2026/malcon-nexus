@@ -516,6 +516,38 @@ export function canEmployeeSubmitCase(
   return true;
 }
 
+const STORES_KIOSK_STAGES = new Set<WorkflowStage>(['Kit Preparation', 'Restock']);
+
+export function isStoresKioskStage(stage: WorkflowStage | string): boolean {
+  const visible = mapCaseToVisibleStage(stage as WorkflowStage);
+  return STORES_KIOSK_STAGES.has(visible as WorkflowStage);
+}
+
+/** Stores desk may work any case currently in Kit Preparation or Restock. */
+export function canStoresKioskWorkCase(implantCase: ImplantCase): boolean {
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return false;
+  return isStoresKioskStage(implantCase.currentStage);
+}
+
+export function canStoresKioskSubmitCase(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email' | 'role'>,
+): boolean {
+  if (employee.role !== 'stores') return false;
+  if (!canStoresKioskWorkCase(implantCase)) return false;
+  if (!isWorkflowStageEnabled(implantCase.currentStage)) return false;
+  if (implantCase.status === 'Waiting For Approval') return false;
+  if (isFcfsPoolCase(implantCase)) return false;
+
+  const stageIdx = getStageIndex(implantCase.currentStage);
+  const currentStageRecord = stageIdx >= 0 ? implantCase.stages[stageIdx] : undefined;
+  if (currentStageRecord?.status === 'Submitted') return false;
+  if (currentStageRecord?.status === 'Approved') {
+    return needsAssignmentReactivation(implantCase, employee);
+  }
+  return true;
+}
+
 /** Live case with a recorded postpone (surgery moved; kit stays at current stage). */
 export function isPostponedCase(c: ImplantCase): boolean {
   if (c.status === 'Completed' || c.status === 'Cancelled') return false;

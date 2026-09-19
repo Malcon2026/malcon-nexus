@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
   CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn, MapPin,
-  HandMetal,
+  HandMetal, LayoutGrid, FolderOpen, GitBranch,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -68,10 +68,34 @@ const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void
   </div>
 );
 
+const StoresCaseShortcuts: React.FC<{ onOpenTab: (tab: string) => void }> = ({ onOpenTab }) => (
+  <div className="grid grid-cols-3 gap-2 mb-3">
+    {(
+      [
+        { id: 'live-cases', label: 'Live cases', icon: LayoutGrid },
+        { id: 'cases', label: 'All cases', icon: FolderOpen },
+        { id: 'workflow', label: 'Workflow', icon: GitBranch },
+      ] as const
+    ).map(({ id, label, icon: Icon }) => (
+      <button
+        key={id}
+        type="button"
+        onClick={() => onOpenTab(id)}
+        className="rounded-xl border border-violet-100 bg-violet-50/50 px-2 py-2.5 text-center hover:border-violet-200 transition-colors"
+      >
+        <Icon className="h-4 w-4 text-violet-600 mx-auto mb-1" />
+        <span className="text-[10px] font-semibold text-gray-800 leading-tight block">{label}</span>
+      </button>
+    ))}
+  </div>
+);
+
 const HomeNavTiles: React.FC<{
   employee: Pick<import('../types').Employee, 'id' | 'email' | 'name'>;
   onOpen: (page: EmployeePage) => void;
-}> = ({ employee, onOpen }) => {
+  mode: 'employee' | 'stores';
+  onOpenSidebarTab?: (tab: string) => void;
+}> = ({ employee, onOpen, mode, onOpenSidebarTab }) => {
   const myCases = useMyCases(employee);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const pendingLeaveCount = useStore(
@@ -101,7 +125,7 @@ const HomeNavTiles: React.FC<{
       ? `Out at ${formatTimeIST(summary.punchOut.punchedAt)}`
       : 'Tap to punch in';
 
-  const tiles: {
+  const allTiles: {
     id: EmployeePage;
     title: string;
     titleTe: string;
@@ -111,9 +135,11 @@ const HomeNavTiles: React.FC<{
     badge?: number;
     foodRequired?: boolean;
     foodTile?: boolean;
+    hideOnStores?: boolean;
   }[] = [
     {
       id: 'food',
+      hideOnStores: true,
       title: 'FOOD',
       titleTe: '',
       icon: null,
@@ -129,6 +155,7 @@ const HomeNavTiles: React.FC<{
       icon: <Briefcase className="h-5 w-5 text-indigo-600" />,
       iconBg: 'bg-indigo-50',
       badge: activeCases + waitingCases || undefined,
+      hideOnStores: true,
     },
     {
       id: 'petrol',
@@ -175,8 +202,13 @@ const HomeNavTiles: React.FC<{
     },
   ];
 
+  const tiles = allTiles.filter((t) => !(mode === 'stores' && t.hideOnStores));
+
   return (
     <div className="space-y-3">
+      {mode === 'stores' && onOpenSidebarTab ? (
+        <StoresCaseShortcuts onOpenTab={onOpenSidebarTab} />
+      ) : null}
       <button
         type="button"
         onClick={() => onOpen('attendance')}
@@ -259,7 +291,10 @@ const HomeNavTiles: React.FC<{
   );
 };
 
-const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) => {
+const EmployeeRegisterPage: React.FC<{
+  employeeId: string;
+  bootstrapRole: 'employee' | 'stores';
+}> = ({ employeeId, bootstrapRole }) => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
 
   useEffect(() => {
@@ -267,7 +302,7 @@ const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) 
     void (async () => {
       try {
         const { bootstrapDeferred } = await import('../lib/database/bootstrap');
-        await bootstrapDeferred('employee', { employeeId });
+        await bootstrapDeferred(bootstrapRole, { employeeId });
         if (!cancelled) reloadFromDatabase();
       } catch (err) {
         console.warn('[register] employee attendance refresh failed:', err);
@@ -276,7 +311,7 @@ const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) 
     return () => {
       cancelled = true;
     };
-  }, [employeeId, reloadFromDatabase]);
+  }, [employeeId, bootstrapRole, reloadFromDatabase]);
 
   return (
     <AttendanceRegisterPanel
@@ -564,8 +599,12 @@ const EmployeeAlertsPage: React.FC = () => {
 
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
+  const viewMode = useStore((s) => s.viewMode);
+  const setActiveTab = useStore((s) => s.setActiveTab);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
-  const locationPrompt = useEmployeeLocationPrompt(true);
+  const isStoresKiosk = viewMode === 'stores';
+  const bootstrapRole: 'employee' | 'stores' = isStoresKiosk ? 'stores' : 'employee';
+  const locationPrompt = useEmployeeLocationPrompt(viewMode === 'employee' || isStoresKiosk);
   const [page, setPage] = useState<EmployeePage>('home');
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
@@ -576,7 +615,7 @@ export const EmployeeDashboard: React.FC = () => {
     void (async () => {
       try {
         const { bootstrapEssential } = await import('../lib/database/bootstrap');
-        await bootstrapEssential('employee', { employeeId: currentUser.id }, { force: true });
+        await bootstrapEssential(bootstrapRole, { employeeId: currentUser.id }, { force: true });
         if (!cancelled) reloadFromDatabase();
       } catch (err) {
         console.warn('[EmployeeDashboard] cases refresh failed:', err);
@@ -585,7 +624,7 @@ export const EmployeeDashboard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [page, currentUser.id, reloadFromDatabase]);
+  }, [page, currentUser.id, bootstrapRole, reloadFromDatabase]);
 
   if (viewCase) {
     return <CaseDetail case={viewCase} onBack={() => setViewCase(null)} />;
@@ -617,14 +656,19 @@ export const EmployeeDashboard: React.FC = () => {
               Hi, {currentUser.name.split(' ')[0]}
             </h1>
           </div>
-          <HomeNavTiles employee={currentUser} onOpen={setPage} />
+          <HomeNavTiles
+            employee={currentUser}
+            onOpen={setPage}
+            mode={bootstrapRole}
+            onOpenSidebarTab={isStoresKiosk ? setActiveTab : undefined}
+          />
         </>
       )}
 
       {page === 'attendance' && (
         <>
           <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
-          <EmployeeAttendanceHero onPunchInSuccess={() => setPage('food')} />
+          <EmployeeAttendanceHero onPunchInSuccess={() => setPage(isStoresKiosk ? 'home' : 'food')} />
         </>
       )}
 
@@ -649,7 +693,7 @@ export const EmployeeDashboard: React.FC = () => {
       {page === 'register' && (
         <>
           <PageHeader title="Register" titleTe="Attendance register" onBack={() => setPage('home')} />
-          <EmployeeRegisterPage employeeId={currentUser.id} />
+          <EmployeeRegisterPage employeeId={currentUser.id} bootstrapRole={bootstrapRole} />
         </>
       )}
 
@@ -660,7 +704,7 @@ export const EmployeeDashboard: React.FC = () => {
         </>
       )}
 
-      {page === 'food' && (
+      {page === 'food' && !isStoresKiosk && (
         <>
           <PageHeader title="Food" titleTe="Meals" onBack={() => setPage('home')} />
           <EmployeeFoodSection />
