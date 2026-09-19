@@ -14,13 +14,10 @@ interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
 }
 
-const DISPLAY_EMAIL =
-  (import.meta.env.VITE_LOGIN_DISPLAY_EMAIL as string | undefined)?.trim() ||
-  'nexus@malconnexus.com';
-
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [adminMode, setAdminMode] = useState(false);
 
+  const [adminEmail, setAdminEmail] = useState('');
   const [employeeCode, setEmployeeCode] = useState('');
   const [otp, setOtp] = useState('');
   const [otpStep, setOtpStep] = useState(false);
@@ -102,14 +99,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) {
-      setError('Please enter your password.');
+    if (!adminEmail.trim() || !password) {
+      setError('Please enter your email and password.');
       return;
     }
     setLoading(true);
     clearMessages();
 
-    const { employee, error: authError } = await authService.signIn(DISPLAY_EMAIL, password);
+    const { employee, error: authError } = await authService.signIn(adminEmail, password);
     setLoading(false);
 
     if (authError || !employee) {
@@ -189,10 +186,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   <input
                     id="login-admin-email"
                     type="email"
-                    value={DISPLAY_EMAIL}
-                    readOnly
-                    tabIndex={-1}
-                    className="nexus-login-input nexus-login-input-readonly w-full min-w-0 max-w-full pl-10 pr-4 py-2.5"
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    placeholder="admin@company.com"
+                    autoComplete="email"
+                    required
+                    className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 transition-all"
                   />
                 </div>
               </div>
