@@ -24,7 +24,7 @@ const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 const statusBadge: Record<PetrolRequestStatus, string> = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
-  issued: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  issued: 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25',
   receipt_submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   rejected: 'bg-red-50 text-red-700 border-red-200',
   cancelled: 'bg-gray-100 text-gray-600 border-gray-200',

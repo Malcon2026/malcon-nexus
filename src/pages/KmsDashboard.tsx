@@ -353,8 +353,8 @@ export const KmsDashboard: React.FC = () => {
         {[
           { label: 'Today', value: `${stats.todayKm} km`, sub: `${stats.todayTrips} trip${stats.todayTrips === 1 ? '' : 's'}`, icon: <Navigation className="h-4 w-4 text-sky-600" />, bg: 'bg-sky-50' },
           { label: 'Month km', value: stats.monthKm.toLocaleString('en-IN'), sub: `${stats.monthTripCount} completed`, icon: <Gauge className="h-4 w-4 text-cyan-600" />, bg: 'bg-cyan-50' },
-          { label: 'Bike routes', value: stats.bikeTrips, sub: '', icon: <MapPin className="h-4 w-4 text-[var(--color-accent)]" />, bg: 'bg-indigo-50' },
-          { label: 'Staff this month', value: stats.uniqueStaff, sub: '', icon: <Users className="h-4 w-4 text-violet-600" />, bg: 'bg-violet-50' },
+          { label: 'Bike routes', value: stats.bikeTrips, sub: '', icon: <MapPin className="h-4 w-4 text-[var(--color-accent)]" />, bg: 'bg-[var(--color-accent-muted)]' },
+          { label: 'Staff this month', value: stats.uniqueStaff, sub: '', icon: <Users className="h-4 w-4 text-[var(--color-accent)]" />, bg: 'bg-[var(--color-accent-muted)]' },
           { label: 'In progress', value: stats.inProgress.length, sub: '', icon: <Flag className="h-4 w-4 text-amber-600" />, bg: 'bg-amber-50' },
         ].map((item) => (
           <Card key={item.label} className="p-4">
@@ -529,7 +529,7 @@ export const KmsDashboard: React.FC = () => {
                   return (
                     <React.Fragment key={row.employeeId}>
                       <tr
-                        className={`cursor-pointer hover:bg-gray-50 ${open ? 'bg-indigo-50' : 'bg-white'}`}
+                        className={`cursor-pointer hover:bg-gray-50 ${open ? 'bg-[var(--color-accent-muted)]' : 'bg-white'}`}
                         onClick={() => setSelectedId((id) => (id === row.employeeId ? 'all' : row.employeeId))}
                       >
                         <td className="px-4 py-2.5 text-xs font-semibold tabular-nums text-gray-400">{index + 1}</td>

@@ -16,7 +16,7 @@ export const priorityDot: Record<Priority, string> = {
 
 export const statusColors: Record<CaseStatus, string> = {
   Draft: 'bg-gray-100 text-gray-600 border-gray-200',
-  Active: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  Active: 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25',
   'Waiting For Approval': 'bg-amber-50 text-amber-700 border-amber-200',
   Approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   Rejected: 'bg-red-50 text-red-700 border-red-200',
@@ -84,7 +84,7 @@ export const avatarColors = [
   'bg-pink-100 text-pink-700',
   'bg-cyan-100 text-cyan-700',
   'bg-amber-100 text-amber-700',
-  'bg-indigo-100 text-indigo-700',
+  'bg-[var(--color-accent-muted)] text-[var(--color-accent)]',
 ];
 
 export const getAvatarColor = (name: string) => {

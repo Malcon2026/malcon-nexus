@@ -169,7 +169,7 @@ export const TvNoticeBoardEditor: React.FC = () => {
     <Card className="max-w-full overflow-hidden">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Tv className="h-4 w-4 text-violet-700" />
+          <Tv className="h-4 w-4 text-[var(--color-accent)]" />
           <h3 className="text-sm font-semibold text-gray-900">TV Notice Board</h3>
         </div>
       </CardHeader>

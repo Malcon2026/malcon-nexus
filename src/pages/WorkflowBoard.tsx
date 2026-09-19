@@ -230,7 +230,7 @@ export const WorkflowBoard: React.FC = () => {
         <p className="text-xs font-medium text-gray-500 w-full sm:w-auto">Legend:</p>
         {[
           { color: 'bg-amber-400', label: 'Waiting for Approval' },
-          { color: 'bg-indigo-500', label: 'Active / In Progress' },
+          { color: 'bg-[var(--color-accent-muted)]0', label: 'Active / In Progress' },
           { color: 'bg-red-500', label: 'Overdue Surgery' },
           { color: 'bg-gray-300', label: 'Unassigned' },
         ].map(({ color, label }) => (

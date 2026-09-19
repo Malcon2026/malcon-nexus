@@ -435,7 +435,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
           <div className="flex items-center justify-between gap-2 px-1">
             <p className="text-sm font-semibold text-gray-800 truncate">
               {employeeRow.employeeCode ? (
-                <span className="font-mono text-indigo-700 mr-1.5">{employeeRow.employeeCode}</span>
+                <span className="font-mono text-[var(--color-accent)] mr-1.5">{employeeRow.employeeCode}</span>
               ) : null}
               {employeeRow.employeeName}
             </p>
@@ -470,7 +470,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                       </span>
                       <span
                         className={`text-xs font-semibold leading-none ${
-                          day.isToday ? 'text-indigo-800' : ''
+                          day.isToday ? 'text-[var(--color-accent)]' : ''
                         }`}
                       >
                         {day.day}
@@ -541,7 +541,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     key={day.dateKey}
                     className={`border-r border-gray-100 px-0.5 py-1.5 text-center ${
                       day.isToday
-                        ? 'bg-indigo-50'
+                        ? 'bg-[var(--color-accent-muted)]'
                         : day.isWeeklyOff
                           ? 'bg-gray-100/60'
                           : ''
@@ -553,7 +553,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                     )}
                     <div
                       className={`font-semibold text-[11px] ${
-                        day.isToday ? 'text-indigo-700' : 'text-gray-700'
+                        day.isToday ? 'text-[var(--color-accent)]' : 'text-gray-700'
                       }`}
                     >
                       {day.day}
@@ -580,7 +580,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
                   <tr key={row.employeeId} className="border-b border-gray-100 hover:bg-gray-50/50">
                     <td className="sticky left-0 z-10 bg-white border-r border-gray-200 px-3 py-2.5 whitespace-nowrap">
                       <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="font-mono text-[11px] font-semibold text-indigo-700 tabular-nums leading-none">
+                        <span className="font-mono text-[11px] font-semibold text-[var(--color-accent)] tabular-nums leading-none">
                           {row.employeeCode || '—'}
                         </span>
                         <span className="font-medium text-gray-900 text-[11px] leading-tight truncate max-w-[150px]">

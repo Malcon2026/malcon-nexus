@@ -97,7 +97,7 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
           type="button"
           disabled={disabled}
           onClick={() => inputRef.current?.click()}
-          className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-6 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 transition-colors disabled:opacity-50"
+          className="nexus-upload-zone w-full px-4 py-6 disabled:opacity-50"
         >
           <Camera className="h-9 w-9" />
           <span className="text-sm font-semibold">Take Selfie</span>
@@ -105,7 +105,7 @@ export const AttendanceSelfieCapture: React.FC<AttendanceSelfieCaptureProps> = (
       ) : (
         <div className="space-y-2">
           {processing && (
-            <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded-lg px-3 py-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
               <span>Please wait…</span>
             </div>

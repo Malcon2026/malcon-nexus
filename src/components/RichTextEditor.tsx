@@ -185,7 +185,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         data-placeholder={placeholder}
         className={`notice-rich-editor text-sm leading-relaxed outline-none focus:ring-0 empty:before:content-[attr(data-placeholder)] ${
           dark
-            ? 'text-[var(--mn-text)] empty:before:text-[var(--mn-dim)]'
+            ? 'text-[var(--color-label)] empty:before:text-[var(--color-label-tertiary)]'
             : 'text-stone-800 empty:before:text-gray-400'
         } ${embedded ? 'px-0 py-2' : 'px-3 py-2.5'}`}
         style={{ minHeight }}

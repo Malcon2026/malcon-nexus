@@ -161,11 +161,11 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
                               {employee?.department ?? '—'}
                             </Badge>
                             <Badge className={`${sc.className} text-[10px]`}>{sc.label}</Badge>
-                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">
+                            <Badge className="bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25 text-[10px]">
                               {request.punchType === 'in' ? 'Punch In' : 'Punch Out'}
                             </Badge>
                             {isToday && (
-                              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">
+                              <Badge className="bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25 text-[10px]">
                                 Today
                               </Badge>
                             )}

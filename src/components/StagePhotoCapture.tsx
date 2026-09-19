@@ -146,7 +146,7 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
             type="button"
             disabled={disabled}
             onClick={openCamera}
-            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 px-3 py-7 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 transition-colors disabled:opacity-50"
+            className="nexus-upload-zone flex-1 px-3 py-7 disabled:opacity-50"
           >
             <Camera className="h-9 w-9" />
             <span className="text-sm font-semibold">Take Photo</span>
@@ -156,17 +156,17 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
             type="button"
             disabled={disabled}
             onClick={openGallery}
-            className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-200 bg-violet-50/50 px-3 py-7 text-violet-700 hover:bg-violet-50 hover:border-violet-300 transition-colors disabled:opacity-50"
+            className="nexus-upload-zone flex-1 px-3 py-7 opacity-90 disabled:opacity-50"
           >
             <ImageIcon className="h-9 w-9" />
             <span className="text-sm font-semibold">Pick from Gallery</span>
-            <span className="text-[11px] text-violet-500">Choose existing photos</span>
+            <span className="text-[11px] text-[var(--color-label-secondary)]">Choose existing photos</span>
           </button>
         </div>
       ) : (
         <div className="space-y-3">
           {processing && (
-            <div className="flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded-lg px-3 py-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
               <span>Adding name, ID, date &amp; time to photo…</span>
             </div>

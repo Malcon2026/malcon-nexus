@@ -187,7 +187,7 @@ export const Hospitals: React.FC = () => {
                 <CardBody>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                      <div className="h-10 w-10 rounded-xl bg-[var(--color-accent-muted)] flex items-center justify-center shrink-0">
                         <Building2 className="h-5 w-5 text-[var(--color-accent)]" />
                       </div>
                       <div className="min-w-0">

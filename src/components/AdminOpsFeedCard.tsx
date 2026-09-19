@@ -46,7 +46,7 @@ const ChatBubble: React.FC<{
         'min-w-0 max-w-[calc(100%-2.5rem)] rounded-2xl px-3.5 py-2.5 ops-feed-font shadow-sm border',
         variant === 'en'
           ? 'rounded-bl-md bg-gray-100/90 border-gray-200/80 text-gray-900'
-          : 'rounded-bl-md bg-indigo-500/10 border-indigo-500/15 text-gray-800',
+          : 'rounded-bl-md bg-[var(--color-accent-muted)] border-[var(--color-accent)]/15 text-gray-800',
       )}
     >
       <p className="text-[11px] font-medium text-gray-500 mb-1">

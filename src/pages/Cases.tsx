@@ -358,7 +358,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                     {skippedStages.join(' · ')}
                   </p>
                 )}
-                <p className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-2 py-1">
+                <p className="text-xs font-semibold text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded px-2 py-1">
                   ▶ {form.startStage} (starts here)
                 </p>
                 {activeStages.length > 1 && (

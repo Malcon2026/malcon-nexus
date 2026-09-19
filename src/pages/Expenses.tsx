@@ -320,7 +320,7 @@ export const Expenses: React.FC = () => {
       {/* Summary cards — scoped to whichever day/month is currently selected below */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-3">
         {[
-          { label: 'Total kms driven', value: totals.kms.toLocaleString('en-IN'), bg: 'bg-indigo-50', icon: <Fuel className="h-4 w-4 text-indigo-700" /> },
+          { label: 'Total kms driven', value: totals.kms.toLocaleString('en-IN'), bg: 'bg-[var(--color-accent-muted)]', icon: <Fuel className="h-4 w-4 text-[var(--color-accent)]" /> },
           { label: 'Petrol', value: formatCurrency(totals.petrol), bg: 'bg-orange-50', icon: <Fuel className="h-4 w-4 text-orange-700" /> },
           { label: 'Food', value: formatCurrency(totals.food), bg: 'bg-emerald-50', icon: <Fuel className="h-4 w-4 text-emerald-700" /> },
           { label: 'Other', value: formatCurrency(totals.other), bg: 'bg-purple-50', icon: <Fuel className="h-4 w-4 text-purple-700" /> },
@@ -710,14 +710,14 @@ export const Expenses: React.FC = () => {
                       <th
                         key={day.dateKey}
                         className={`border-r border-gray-100 px-0.5 py-1 text-center ${
-                          day.isToday ? 'bg-indigo-50' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
+                          day.isToday ? 'bg-[var(--color-accent-muted)]' : day.isWeeklyOff ? 'bg-gray-100/60' : ''
                         }`}
                         title={`${day.weekday} ${day.dateKey}`}
                       >
                         {day.monthShort && (
                           <div className="text-[8px] text-gray-400 font-medium leading-none mb-0.5">{day.monthShort}</div>
                         )}
-                        <div className={`font-semibold ${day.isToday ? 'text-indigo-700' : 'text-gray-700'}`}>{day.day}</div>
+                        <div className={`font-semibold ${day.isToday ? 'text-[var(--color-accent)]' : 'text-gray-700'}`}>{day.day}</div>
                         <div className="text-[9px] text-gray-400 font-normal">{day.weekday.charAt(0)}</div>
                       </th>
                     ))}
@@ -750,7 +750,7 @@ export const Expenses: React.FC = () => {
                               onClick={() => setRegisterDetail({ row, day, entry })}
                               className={`inline-flex h-6 w-full max-w-[42px] items-center justify-center rounded font-semibold text-[10px] border ${
                                 entry
-                                  ? 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'
+                                  ? 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/20 hover:bg-[var(--color-accent-muted)]'
                                   : 'bg-gray-50 text-gray-300 border-transparent hover:bg-gray-100'
                               }`}
                               title={day.dateKey}

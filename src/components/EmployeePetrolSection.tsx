@@ -24,7 +24,7 @@ const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
 
 const statusBadge: Record<PetrolRequest['status'], string> = {
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
-  issued: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  issued: 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25',
   receipt_submitted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   rejected: 'bg-red-50 text-red-700 border-red-200',
   cancelled: 'bg-gray-100 text-gray-600 border-gray-200',
@@ -141,27 +141,27 @@ export const EmployeePetrolSection: React.FC<{ title?: string }> = ({ title = 'P
           ))}
 
           {activeToken && (
-            <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/60 space-y-2">
-              <p className="text-sm font-semibold text-indigo-900">Active token — fill at pump</p>
+            <div className="p-4 rounded-xl border border-[var(--color-accent)]/25 bg-[var(--color-accent-muted)]/80 space-y-2">
+              <p className="text-sm font-semibold text-[var(--color-label)]">Active token — fill at pump</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                <div className="rounded-lg bg-white border border-[var(--color-accent)]/20 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Book no</p>
                   <p className="font-bold text-gray-900">{activeToken.bookNo}</p>
                 </div>
-                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                <div className="rounded-lg bg-white border border-[var(--color-accent)]/20 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Token no</p>
                   <p className="font-bold text-gray-900">{activeToken.tokenNo}</p>
                 </div>
-                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                <div className="rounded-lg bg-white border border-[var(--color-accent)]/20 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Amount</p>
                   <p className="font-bold text-gray-900">{formatCurrency(activeToken.amount)}</p>
                 </div>
-                <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+                <div className="rounded-lg bg-white border border-[var(--color-accent)]/20 px-3 py-2">
                   <p className="text-[11px] text-gray-500">Vehicle</p>
                   <p className="font-bold text-gray-900">{activeToken.vehicleNo}</p>
                 </div>
               </div>
-              <p className="text-xs text-indigo-800">
+              <p className="text-xs text-[var(--color-accent)]">
                 After use, tell admin your km reading. Next token after {PETROL_KM_THRESHOLD} km.
               </p>
             </div>

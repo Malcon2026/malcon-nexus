@@ -151,7 +151,7 @@ export const EmployeeCsvImportModal: React.FC<EmployeeCsvImportModalProps> = ({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-8 text-indigo-700 hover:bg-indigo-50"
+            className="nexus-upload-zone w-full px-4 py-8"
           >
             <Upload className="h-8 w-8" />
             <span className="text-sm font-semibold">Choose CSV file</span>

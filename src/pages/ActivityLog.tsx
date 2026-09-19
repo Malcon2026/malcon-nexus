@@ -31,8 +31,8 @@ export const ActivityLog: React.FC = () => {
     });
 
   const actionColors: Record<string, string> = {
-    'Created': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    'Added': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'Created': 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25',
+    'Added': 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25',
     'Assigned': 'bg-blue-50 text-blue-700 border-blue-200',
     'Submitted': 'bg-amber-50 text-amber-700 border-amber-200',
     'Approved': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -135,7 +135,7 @@ export const ActivityLog: React.FC = () => {
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-bold text-gray-900">{log.performedBy}</span>
-                    <Badge className={`text-xs ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                    <Badge className={`text-xs ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]' : 'bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25'}`}>
                       {log.performedByRole}
                     </Badge>
                   </div>

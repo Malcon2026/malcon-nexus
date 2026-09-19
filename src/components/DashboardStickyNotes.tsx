@@ -82,13 +82,13 @@ const NoteEditor: React.FC<{
           value={note.title}
           onChange={(e) => onChange({ ...note, title: e.target.value, updatedAt: Date.now() })}
           placeholder="Title"
-          className="w-full bg-transparent text-base font-semibold text-[var(--mn-text)] placeholder:text-[var(--mn-dim)] outline-none"
+          className="w-full bg-transparent text-base font-semibold text-[var(--color-label)] placeholder:text-[var(--color-label-tertiary)] outline-none"
         />
         {expanded && (
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 p-1.5 rounded-lg text-[var(--mn-dim)] hover:text-[var(--mn-text)] hover:bg-white/5 transition-colors"
+            className="shrink-0 p-1.5 rounded-lg text-[var(--color-label-tertiary)] hover:text-[var(--color-label)] hover:bg-white/5 transition-colors"
             aria-label="Close note"
           >
             <X className="h-4 w-4" />
@@ -117,7 +117,7 @@ const NoteEditor: React.FC<{
             <button
               type="button"
               onClick={() => onChange({ ...note, pinned: !note.pinned, updatedAt: Date.now() })}
-              className="p-2 rounded-lg text-[var(--mn-muted)] hover:bg-white/5 hover:text-[var(--mn-text)] transition-colors"
+              className="p-2 rounded-lg text-[var(--color-label-secondary)] hover:bg-white/5 hover:text-[var(--color-label)] transition-colors"
               aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
               title={note.pinned ? 'Unpin' : 'Pin'}
             >
@@ -127,7 +127,7 @@ const NoteEditor: React.FC<{
               <button
                 type="button"
                 onClick={onDelete}
-                className="p-2 rounded-lg text-[var(--mn-muted)] hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                className="p-2 rounded-lg text-[var(--color-label-secondary)] hover:bg-red-500/10 hover:text-red-300 transition-colors"
                 aria-label="Delete note"
                 title="Delete"
               >
@@ -138,7 +138,7 @@ const NoteEditor: React.FC<{
               <button
                 type="button"
                 onClick={onSave}
-                className="ml-2 px-4 py-1.5 text-sm font-medium rounded-lg bg-[var(--mn-accent)] text-white hover:bg-[var(--mn-accent-hover)] transition-colors"
+                className="ml-2 px-4 py-1.5 text-sm font-medium rounded-lg bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors"
               >
                 {saveLabel}
               </button>
@@ -172,26 +172,26 @@ const NoteCard: React.FC<{
       <div className="p-4 pb-2">
         <div className="flex items-start justify-between gap-2 mb-2">
           {note.title ? (
-            <h3 className="text-sm font-semibold text-[var(--mn-text)] line-clamp-2 leading-snug">
+            <h3 className="text-sm font-semibold text-[var(--color-label)] line-clamp-2 leading-snug">
               {note.title}
             </h3>
           ) : (
-            <h3 className="text-sm text-[var(--mn-dim)] italic">Untitled</h3>
+            <h3 className="text-sm text-[var(--color-label-tertiary)] italic">Untitled</h3>
           )}
           {note.pinned && (
-            <Pin className="h-3.5 w-3.5 text-[var(--mn-muted)] shrink-0 fill-current rotate-45" />
+            <Pin className="h-3.5 w-3.5 text-[var(--color-label-secondary)] shrink-0 fill-current rotate-45" />
           )}
         </div>
         {hasBody && (
           <div
-            className="notice-html text-sm text-[var(--mn-muted)] line-clamp-[8] leading-relaxed"
+            className="notice-html text-sm text-[var(--color-label-secondary)] line-clamp-[8] leading-relaxed"
             dangerouslySetInnerHTML={{ __html: safeBody }}
           />
         )}
       </div>
 
       <div className="flex items-center justify-between px-4 pb-3 pt-1">
-        <span className="text-[10px] text-[var(--mn-dim)] tabular-nums">
+        <span className="text-[10px] text-[var(--color-label-tertiary)] tabular-nums">
           {formatNoteDate(note.updatedAt)}
         </span>
         <div className="note-card-actions flex items-center gap-0.5">
@@ -201,7 +201,7 @@ const NoteCard: React.FC<{
               e.stopPropagation();
               onPin();
             }}
-            className="p-1.5 rounded-md text-[var(--mn-dim)] hover:text-[var(--mn-text)] hover:bg-white/5"
+            className="p-1.5 rounded-md text-[var(--color-label-tertiary)] hover:text-[var(--color-label)] hover:bg-white/5"
             title={note.pinned ? 'Unpin' : 'Pin'}
           >
             {note.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
@@ -212,7 +212,7 @@ const NoteCard: React.FC<{
               e.stopPropagation();
               onDelete();
             }}
-            className="p-1.5 rounded-md text-[var(--mn-dim)] hover:text-red-300 hover:bg-red-500/10"
+            className="p-1.5 rounded-md text-[var(--color-label-tertiary)] hover:text-red-300 hover:bg-red-500/10"
             title="Delete"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -324,7 +324,7 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
     if (items.length === 0) return null;
     return (
       <section className="space-y-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--mn-dim)] px-0.5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-label-tertiary)] px-0.5">
           {title}
         </h2>
         <div className="notes-masonry">
@@ -347,7 +347,7 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
 
   if (!ready) {
     return (
-      <div className="flex items-center justify-center py-24 text-[var(--mn-dim)]">
+      <div className="flex items-center justify-center py-24 text-[var(--color-label-tertiary)]">
         <Loader2 className="h-5 w-5 animate-spin mr-2" />
         <span className="text-sm">Loading notes…</span>
       </div>
@@ -360,12 +360,12 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
         {!embedded && (
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="h-8 w-8 rounded-lg bg-[var(--mn-accent-soft)] flex items-center justify-center">
-                <StickyNote className="h-4 w-4 text-[var(--mn-accent-hover)]" />
+              <div className="h-8 w-8 rounded-lg bg-[var(--color-accent-muted)] flex items-center justify-center">
+                <StickyNote className="h-4 w-4 text-[var(--color-accent-hover)]" />
               </div>
-              <h1 className="text-xl font-bold text-[var(--mn-text)]">Notes</h1>
+              <h1 className="text-xl font-bold text-[var(--color-label)]">Notes</h1>
             </div>
-            <p className="text-sm text-[var(--mn-muted)] mt-1">
+            <p className="text-sm text-[var(--color-label-secondary)] mt-1">
               {notes.length} {notes.length === 1 ? 'note' : 'notes'}
               {saving ? ' · Saving…' : ' · Auto-saved'}
             </p>
@@ -374,7 +374,7 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
 
         <div className={`flex flex-col sm:flex-row gap-2 sm:items-center w-full ${embedded ? '' : 'lg:w-auto lg:min-w-[320px]'}`}>
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--mn-dim)]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-label-tertiary)]" />
             <input
               type="search"
               value={search}
@@ -390,7 +390,7 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
                 setComposerOpen(true);
                 setTimeout(() => composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
               }}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-[var(--mn-accent)] text-white hover:bg-[var(--mn-accent-hover)] transition-colors shrink-0"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors shrink-0"
             >
               <Plus className="h-4 w-4" />
               New note
@@ -429,16 +429,16 @@ export const DashboardStickyNotes: React.FC<DashboardStickyNotesProps> = ({ embe
 
       {/* Notes */}
       {filteredNotes.length === 0 ? (
-        <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-[var(--mn-border-strong)] bg-[var(--mn-surface)]/50">
-          <StickyNote className="h-10 w-10 text-[var(--mn-dim)] mx-auto mb-3 opacity-50" />
-          <p className="text-sm font-medium text-[var(--mn-muted)]">
+        <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-[var(--color-separator-opaque)] bg-[var(--color-bg-elevated)]/50">
+          <StickyNote className="h-10 w-10 text-[var(--color-label-tertiary)] mx-auto mb-3 opacity-50" />
+          <p className="text-sm font-medium text-[var(--color-label-secondary)]">
             {search ? 'No notes match your search' : 'No notes yet'}
           </p>
           {!search && !composerOpen && (
             <button
               type="button"
               onClick={() => setComposerOpen(true)}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[var(--mn-accent-soft)] text-[var(--mn-accent-hover)] hover:bg-[var(--mn-accent)]/20 transition-colors"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[var(--color-accent-muted)] text-[var(--color-accent-hover)] hover:bg-[var(--color-accent)]/20 transition-colors"
             >
               <Plus className="h-4 w-4" />
               Create your first note

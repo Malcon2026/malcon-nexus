@@ -26,7 +26,7 @@ function ThumbStack({ urls, emptyIcon }: { urls: string[]; emptyIcon: React.Reac
   if (!urls.length) {
     return (
       <div className="relative w-14 h-14 shrink-0">
-        <div className="absolute inset-0 rounded-xl bg-[var(--mn-surface-2)] border border-[var(--mn-border)] grid place-items-center text-[var(--mn-dim)]">
+        <div className="absolute inset-0 rounded-xl bg-[var(--color-bg)] border border-[var(--color-separator)] grid place-items-center text-[var(--color-label-tertiary)]">
           {emptyIcon}
         </div>
       </div>
@@ -42,7 +42,7 @@ function ThumbStack({ urls, emptyIcon }: { urls: string[]; emptyIcon: React.Reac
           src={url}
           alt=""
           loading="lazy"
-          className="absolute w-11 h-11 rounded-[10px] object-cover border-2 border-[var(--mn-bg)] shadow-md"
+          className="absolute w-11 h-11 rounded-[10px] object-cover border-2 border-[var(--color-bg)] shadow-md"
           style={{
             top: i * 3,
             left: i * 3,
@@ -75,17 +75,18 @@ function AlbumRow({
   isToday: boolean;
   onOpen: () => void;
 }) {
-  const accent = type === 'att' ? 'border-l-cyan-400/60' : 'border-l-violet-400/60';
+  const accent =
+    type === 'att' ? 'border-l-[var(--color-success)]/50' : 'border-l-[var(--color-accent)]/55';
   const badge =
     type === 'att'
-      ? 'bg-cyan-500/12 text-cyan-300'
-      : 'bg-violet-500/12 text-violet-300';
+      ? 'bg-emerald-50 text-[var(--color-success)]'
+      : 'bg-[var(--color-accent-muted)] text-[var(--color-accent)]';
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`w-full flex items-center gap-3.5 p-2.5 pr-3 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)]/80 backdrop-blur-sm text-left transition-all duration-200 hover:bg-[var(--mn-surface-2)] hover:border-[var(--mn-border-strong)] hover:-translate-y-px hover:shadow-lg border-l-[3px] ${accent} ${isToday ? 'ring-1 ring-cyan-500/20' : ''}`}
+      className={`w-full flex items-center gap-3.5 p-2.5 pr-3 rounded-2xl border border-[var(--color-separator)] bg-[var(--color-bg-elevated)]/80 backdrop-blur-sm text-left transition-all duration-200 hover:bg-[var(--color-bg)] hover:border-[var(--color-separator-opaque)] hover:-translate-y-px hover:shadow-lg border-l-[3px] ${accent} ${isToday ? 'ring-1 ring-[var(--color-accent)]/20' : ''}`}
     >
       <ThumbStack
         urls={thumbs}
@@ -93,16 +94,16 @@ function AlbumRow({
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight text-[var(--mn-text)] truncate">
+          <h3 className="text-[15px] font-semibold tracking-tight text-[var(--color-label)] truncate">
             {title}
           </h3>
           {isToday && (
-            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-50 text-[var(--color-success)]">
               Today
             </span>
           )}
         </div>
-        <p className="text-xs text-[var(--mn-muted)] mt-0.5 truncate">{dateLabel}</p>
+        <p className="text-xs text-[var(--color-label-secondary)] mt-0.5 truncate">{dateLabel}</p>
       </div>
       <span className={`shrink-0 min-w-9 h-9 px-2 rounded-xl grid place-items-center text-sm font-bold ${badge}`}>
         {count}
@@ -217,20 +218,20 @@ export function GalleryPage() {
   const currentPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null;
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--mn-bg)] text-[var(--mn-text)] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,211,238,0.07),transparent),radial-gradient(ellipse_60%_40%_at_100%_0%,rgba(167,139,250,0.05),transparent)]">
-      <header className="sticky top-0 z-20 border-b border-[var(--mn-border)] bg-[var(--mn-bg)]/80 backdrop-blur-xl">
+    <div className="min-h-[100dvh] bg-[var(--color-bg)] text-[var(--color-label)] bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(0,113,227,0.08),transparent)]">
+      <header className="sticky top-0 z-20 border-b border-[var(--color-separator)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           {openAlbum ? (
             <button
               type="button"
               onClick={goHome}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-[var(--mn-border)] bg-[var(--mn-surface)] text-sm font-medium text-[var(--mn-text)] hover:bg-[var(--mn-surface-2)] transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-[var(--color-separator)] bg-[var(--color-bg-elevated)] text-sm font-medium text-[var(--color-label)] hover:bg-[var(--color-bg)] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Albums
             </button>
           ) : (
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-400 grid place-items-center text-sm shadow-lg shadow-cyan-500/20 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[var(--color-accent)] text-white grid place-items-center text-sm shadow-md shrink-0">
               ◆
             </div>
           )}
@@ -239,7 +240,7 @@ export function GalleryPage() {
               {openAlbum ? openAlbum.title : 'Malcon Gallery'}
             </h1>
             {openAlbum ? (
-              <p className="text-xs text-[var(--mn-muted)] truncate">{openAlbum.dateLabel}</p>
+              <p className="text-xs text-[var(--color-label-secondary)] truncate">{openAlbum.dateLabel}</p>
             ) : null}
           </div>
         </div>
@@ -248,18 +249,18 @@ export function GalleryPage() {
       <main className="max-w-2xl mx-auto px-4 pb-12">
         {!token && (
           <div className="mt-10 text-center px-6">
-            <ImageOff className="w-10 h-10 mx-auto text-[var(--mn-dim)] mb-3" />
+            <ImageOff className="w-10 h-10 mx-auto text-[var(--color-label-tertiary)] mb-3" />
             <h2 className="text-lg font-semibold">Gallery link required</h2>
-            <p className="text-sm text-[var(--mn-muted)] mt-2">
+            <p className="text-sm text-[var(--color-label-secondary)] mt-2">
               Open this page with a secret token, e.g.{' '}
-              <code className="text-cyan-300/90">/gallery?token=…</code>
+              <code className="text-[var(--color-accent)]">/gallery?token=…</code>
             </p>
           </div>
         )}
 
         {token && loading && (
-          <div className="flex flex-col items-center justify-center py-24 gap-3 text-[var(--mn-muted)]">
-            <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-[var(--color-label-secondary)]">
+            <Loader2 className="w-8 h-8 animate-spin text-[var(--color-accent)]" />
             <p className="text-sm">Loading albums…</p>
           </div>
         )}
@@ -279,12 +280,12 @@ export function GalleryPage() {
             <section className="mt-7">
               <div className="flex items-center justify-between mb-3 px-0.5">
                 <div className="flex items-center gap-2.5 text-sm font-semibold">
-                  <span className="w-7 h-7 rounded-lg bg-cyan-500/12 text-cyan-300 grid place-items-center">
+                  <span className="w-7 h-7 rounded-lg bg-emerald-50 text-[var(--color-success)] grid place-items-center">
                     <Camera className="w-3.5 h-3.5" />
                   </span>
                   Attendance
                 </div>
-                <span className="text-xs text-[var(--mn-dim)]">{attTotal} photos</span>
+                <span className="text-xs text-[var(--color-label-tertiary)]">{attTotal} photos</span>
               </div>
               <div className="flex flex-col gap-2">
                 {attAlbums.map((a) => (
@@ -306,12 +307,12 @@ export function GalleryPage() {
             <section className="mt-8">
               <div className="flex items-center justify-between mb-3 px-0.5">
                 <div className="flex items-center gap-2.5 text-sm font-semibold">
-                  <span className="w-7 h-7 rounded-lg bg-violet-500/12 text-violet-300 grid place-items-center">
+                  <span className="w-7 h-7 rounded-lg bg-[var(--color-accent-muted)] text-[var(--color-accent)] grid place-items-center">
                     <FolderOpen className="w-3.5 h-3.5" />
                   </span>
                   Cases
                 </div>
-                <span className="text-xs text-[var(--mn-dim)]">{caseTotal} photos</span>
+                <span className="text-xs text-[var(--color-label-tertiary)]">{caseTotal} photos</span>
               </div>
               <div className="flex flex-col gap-2">
                 {caseAlbums.map((a) => (
@@ -330,7 +331,7 @@ export function GalleryPage() {
               </div>
             </section>
 
-            <p className="mt-10 p-4 rounded-xl border border-[var(--mn-border)] bg-[var(--mn-surface)]/50 text-xs text-[var(--mn-dim)] leading-relaxed">
+            <p className="mt-10 p-4 rounded-xl border border-[var(--color-separator)] bg-[var(--color-bg-elevated)]/50 text-xs text-[var(--color-label-tertiary)] leading-relaxed">
               Attendance selfies stay in cloud ~24 hours, then archive on office PC. Case photos ~30 days in cloud.
             </p>
           </>
@@ -338,12 +339,12 @@ export function GalleryPage() {
 
         {openAlbum && (
           <div className="pt-5 animate-in fade-in duration-300">
-            <div className="p-4 rounded-2xl border border-[var(--mn-border)] bg-[var(--mn-surface)]/80 mb-4">
+            <div className="p-4 rounded-2xl border border-[var(--color-separator)] bg-[var(--color-bg-elevated)]/80 mb-4">
               <span
                 className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full mb-2 ${
                   openAlbum.type === 'att'
-                    ? 'bg-cyan-500/12 text-cyan-300'
-                    : 'bg-violet-500/12 text-violet-300'
+                    ? 'bg-emerald-50 text-[var(--color-success)]'
+                    : 'bg-[var(--color-accent-muted)] text-[var(--color-accent)]'
                 }`}
               >
                 {openAlbum.type === 'att' ? (
@@ -357,35 +358,35 @@ export function GalleryPage() {
                 )}
               </span>
               <h3 className="text-lg font-bold tracking-tight">{openAlbum.title}</h3>
-              <p className="text-sm text-[var(--mn-muted)] mt-1">
+              <p className="text-sm text-[var(--color-label-secondary)] mt-1">
                 {photosLoading ? 'Loading…' : `${photos.length} photos · ${openAlbum.dateLabel}`}
               </p>
             </div>
 
             {photosLoading && (
               <div className="flex justify-center py-16">
-                <Loader2 className="w-7 h-7 animate-spin text-cyan-400" />
+                <Loader2 className="w-7 h-7 animate-spin text-[var(--color-accent)]" />
               </div>
             )}
 
             {!photosLoading && !photos.length && (
-              <div className="text-center py-16 px-6 rounded-2xl border border-dashed border-[var(--mn-border)]">
+              <div className="text-center py-16 px-6 rounded-2xl border border-dashed border-[var(--color-separator)]">
                 <div className="text-3xl mb-3 opacity-40">🌙</div>
                 <h4 className="font-semibold">No photos in cloud</h4>
-                <p className="text-sm text-[var(--mn-muted)] mt-2">
+                <p className="text-sm text-[var(--color-label-secondary)] mt-2">
                   Nothing stored for this date — may be archived on office PC.
                 </p>
               </div>
             )}
 
             {!photosLoading && photos.length > 0 && (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 rounded-2xl overflow-hidden bg-[var(--mn-border)]">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 rounded-2xl overflow-hidden bg-[var(--color-separator)]">
                 {photos.map((p, i) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => setLightboxIndex(i)}
-                    className="group relative aspect-square bg-[var(--mn-surface)] overflow-hidden"
+                    className="group relative aspect-square bg-[var(--color-bg-elevated)] overflow-hidden"
                   >
                     <img
                       src={p.url}
@@ -413,7 +414,7 @@ export function GalleryPage() {
           }}
         >
           <div className="absolute top-0 inset-x-0 flex items-center justify-between p-4 pt-[max(16px,env(safe-area-inset-top))]">
-            <span className="text-sm text-[var(--mn-muted)] tabular-nums">
+            <span className="text-sm text-[var(--color-label-secondary)] tabular-nums">
               {(lightboxIndex ?? 0) + 1} / {photos.length}
             </span>
             <button
@@ -449,7 +450,7 @@ export function GalleryPage() {
 
           <div className="absolute bottom-0 inset-x-0 p-6 pb-[max(24px,env(safe-area-inset-bottom))] text-center bg-gradient-to-t from-black/80 to-transparent">
             <h4 className="text-base font-semibold">{currentPhoto.cap}</h4>
-            <p className="text-sm text-[var(--mn-muted)] mt-1">
+            <p className="text-sm text-[var(--color-label-secondary)] mt-1">
               {currentPhoto.sub} · {formatPhotoTime(currentPhoto.at)}
             </p>
           </div>

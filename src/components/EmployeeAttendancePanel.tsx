@@ -255,7 +255,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
             aria-label="Attendance date"
           />
           {isToday && (
-            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px]">Today</Badge>
+            <Badge className="bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/25 text-[10px]">Today</Badge>
           )}
           {!isToday && (
             <p className="text-xs text-gray-500">
@@ -319,7 +319,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
           className="rounded-2xl border border-gray-200 bg-white text-gray-900 p-4 sm:p-5 shadow-sm max-w-3xl"
           id="attendance-share-list"
         >
-          <p className="text-center text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+          <p className="text-center text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
             Malcon Nexus
           </p>
           <h2 className="text-center text-base font-bold mt-0.5">{shareTitle}</h2>

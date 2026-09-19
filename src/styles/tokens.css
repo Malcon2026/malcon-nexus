@@ -76,20 +76,19 @@
   --duration-normal: 200ms;
   --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* Legacy aliases — used across pages & feature CSS */
+  /* Aliases — prefer --color-* in new code; these map old --mn-* call sites to TMS */
   --mn-bg: var(--color-bg);
   --mn-elevated: var(--color-bg-elevated);
-  --mn-surface: #ffffff;
-  --mn-surface-2: #f5f5f7;
+  --mn-surface: var(--color-bg-elevated);
+  --mn-surface-2: var(--color-bg);
   --mn-border: var(--color-separator);
-  --mn-border-strong: rgba(0, 0, 0, 0.12);
+  --mn-border-strong: var(--color-separator-opaque);
   --mn-text: var(--color-label);
   --mn-muted: var(--color-label-secondary);
   --mn-dim: var(--color-label-tertiary);
-  /* Purple retained for accents user asked to keep alongside TMS blue chrome */
-  --mn-accent: #7c6cf0;
-  --mn-accent-hover: #9a8cff;
-  --mn-accent-soft: rgba(124, 108, 240, 0.14);
+  --mn-accent: var(--color-accent);
+  --mn-accent-hover: var(--color-accent-hover);
+  --mn-accent-soft: var(--color-accent-muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

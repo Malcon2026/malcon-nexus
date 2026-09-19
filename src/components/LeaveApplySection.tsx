@@ -163,7 +163,7 @@ export const LeaveApplySection: React.FC = () => {
               e.preventDefault();
               void handleSubmit();
             }}
-            className="space-y-4 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl"
+            className="space-y-4 p-4 bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded-xl"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -184,7 +184,7 @@ export const LeaveApplySection: React.FC = () => {
               </div>
               <div className="flex items-end">
                 {workingDays > 0 && (
-                  <p className="text-xs text-indigo-700 bg-white border border-indigo-100 rounded-lg px-3 py-2 w-full">
+                  <p className="text-xs text-[var(--color-accent)] bg-white border border-[var(--color-accent)]/20 rounded-lg px-3 py-2 w-full">
                     {workingDays} working day{workingDays === 1 ? '' : 's'} (excl. Sundays)
                   </p>
                 )}
@@ -221,7 +221,7 @@ export const LeaveApplySection: React.FC = () => {
                     value={compOffWorkDate}
                     onChange={(e) => setCompOffWorkDate(e.target.value)}
                   />
-                  <p className="text-[11px] text-indigo-700/80 mt-1.5">
+                  <p className="text-[11px] text-[var(--color-accent)]/80 mt-1.5">
                     Pick the day you will work instead (often a Sunday).
                   </p>
                 </div>

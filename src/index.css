@@ -236,37 +236,37 @@ textarea {
 
 /* ── Admin Notes page (Google Keep style) ── */
 .notes-composer-shell {
-  background: var(--mn-surface);
-  border: 1px solid var(--mn-border-strong);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-separator-opaque);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .notes-composer-shell:focus-within {
-  border-color: rgba(124, 108, 240, 0.45);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(124, 108, 240, 0.12);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-popover), 0 0 0 3px var(--color-accent-muted);
 }
 
 .notes-composer-trigger {
-  background: var(--mn-surface);
-  border: 1px solid var(--mn-border-strong);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-separator-opaque);
   border-radius: 1rem;
-  color: var(--mn-dim);
+  color: var(--color-label-tertiary);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .notes-composer-trigger:hover {
-  background: var(--mn-surface-2);
+  background: var(--color-bg);
   border-color: rgba(148, 163, 184, 0.28);
-  color: var(--mn-muted);
+  color: var(--color-label-secondary);
 }
 
 .note-card {
   border-radius: 1rem;
   border-width: 2px;
   border-style: solid;
-  background: var(--mn-surface);
+  background: var(--color-bg-elevated);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -317,7 +317,7 @@ textarea {
   align-items: center;
   gap: 0.125rem;
   padding: 0.375rem 0.5rem;
-  border-bottom: 1px solid var(--mn-border);
+  border-bottom: 1px solid var(--color-separator);
   background: rgba(0, 0, 0, 0.03);
   border-radius: 0.5rem 0.5rem 0 0;
 }
@@ -325,13 +325,13 @@ textarea {
 .note-rich-toolbar button {
   padding: 0.375rem;
   border-radius: 0.375rem;
-  color: var(--mn-muted);
+  color: var(--color-label-secondary);
   transition: background 0.12s ease, color 0.12s ease;
 }
 
 .note-rich-toolbar button:hover {
   background: rgba(0, 0, 0, 0.06);
-  color: var(--mn-text);
+  color: var(--color-label);
 }
 
 .note-color-dot {
@@ -347,7 +347,7 @@ textarea {
 }
 
 .note-color-dot.is-selected {
-  box-shadow: 0 0 0 2px var(--mn-bg), 0 0 0 4px currentColor;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px currentColor;
 }
 
 .note-modal-backdrop {
@@ -357,7 +357,7 @@ textarea {
 
 /* ── Employee attendance hero (dashboard redesign) ── */
 .attendance-status-panel {
-  background: var(--mn-surface);
+  background: var(--color-bg-elevated);
 }
 
 .attendance-status-in {
@@ -366,8 +366,8 @@ textarea {
 }
 
 .attendance-status-out {
-  background: var(--mn-surface);
-  border-color: var(--mn-border-strong);
+  background: var(--color-bg-elevated);
+  border-color: var(--color-separator-opaque);
 }
 
 .attendance-status-warn,
@@ -383,7 +383,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--mn-border-strong);
+  border: 2px solid var(--color-separator-opaque);
 }
 
 .attendance-status-ring.in {
@@ -402,8 +402,8 @@ textarea {
 }
 
 .attendance-status-ring.out {
-  background: var(--mn-surface-2);
-  border-color: var(--mn-dim);
+  background: var(--color-bg);
+  border-color: var(--color-label-tertiary);
 }
 
 @keyframes attendance-ring-pulse {
@@ -419,7 +419,7 @@ textarea {
 .attendance-punch-tile {
   min-height: 9.5rem;
   border-radius: 1.25rem;
-  border: 1px solid var(--mn-border-strong);
+  border: 1px solid var(--color-separator-opaque);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -429,7 +429,7 @@ textarea {
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease;
   font-family: inherit;
-  color: var(--mn-text);
+  color: var(--color-label);
 }
 
 .attendance-punch-tile:disabled {
@@ -506,8 +506,8 @@ textarea {
 }
 
 .attendance-punch-in .attendance-punch-icon {
-  background: rgba(124, 108, 240, 0.2);
-  color: var(--mn-accent-hover);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
 }
 
 .attendance-punch-label {
@@ -520,7 +520,7 @@ textarea {
 .attendance-punch-hint {
   font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--mn-muted);
+  color: var(--color-label-secondary);
   text-transform: none;
   letter-spacing: 0;
   text-align: center;
@@ -531,7 +531,7 @@ textarea {
 .attendance-punch-hint-te {
   font-size: 0.625rem;
   font-weight: 500;
-  color: var(--mn-dim);
+  color: var(--color-label-tertiary);
   text-align: center;
   line-height: 1.25;
   max-width: 12rem;

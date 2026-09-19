@@ -364,7 +364,7 @@ export const Dashboard: React.FC = () => {
                     <div key={log.id} className="flex items-start gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
                       <div className="relative mt-0.5">
                         <Avatar name={log.performedBy} size="sm" />
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)]' : 'bg-[var(--mn-accent)]'}`}>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-label-secondary)]'}`}>
                           <Activity className="h-1.5 w-1.5 text-white" />
                         </div>
                       </div>

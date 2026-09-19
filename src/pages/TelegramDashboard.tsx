@@ -121,8 +121,8 @@ export const TelegramDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardBody className="flex items-center gap-3 py-4">
-            <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <Users className="h-5 w-5 text-indigo-700" />
+            <div className="h-10 w-10 rounded-lg bg-[var(--color-accent-muted)] flex items-center justify-center">
+              <Users className="h-5 w-5 text-[var(--color-accent)]" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{staff.length}</p>
@@ -199,7 +199,7 @@ export const TelegramDashboard: React.FC = () => {
               >
                 Not connected
               </button>
-              <button type="button" onClick={selectAllConnected} className="px-2.5 py-1 text-xs rounded-full bg-indigo-50 text-indigo-700">
+              <button type="button" onClick={selectAllConnected} className="px-2.5 py-1 text-xs rounded-full bg-[var(--color-accent-muted)] text-[var(--color-accent)]">
                 Select all connected
               </button>
               <button type="button" onClick={clearSelection} className="px-2.5 py-1 text-xs rounded-full bg-gray-50 text-gray-600">

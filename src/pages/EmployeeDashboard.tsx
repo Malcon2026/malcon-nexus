@@ -123,7 +123,7 @@ const HomeNavTiles: React.FC<{
       titleTe: 'Cases',
       hint: waitingCases > 0 ? `${waitingCases} waiting` : `${activeCases} active`,
       icon: <Briefcase className="h-5 w-5 text-[var(--color-accent)]" />,
-      iconBg: 'bg-indigo-50',
+      iconBg: 'bg-[var(--color-accent-muted)]',
       badge: activeCases + waitingCases || undefined,
     },
     {
@@ -179,12 +179,12 @@ const HomeNavTiles: React.FC<{
         className={`w-full text-left rounded-2xl border p-4 shadow-sm transition-all active:scale-[0.99] ${
           summary.isPunchedIn
             ? 'border-emerald-200 bg-emerald-50/40'
-            : 'border-gray-200 bg-white hover:border-indigo-200'
+            : 'border-gray-200 bg-white hover:border-[var(--color-accent)]/25'
         }`}
       >
         <div className="flex items-center gap-3">
           <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${
-            summary.isPunchedIn ? 'bg-emerald-100' : 'bg-indigo-50'
+            summary.isPunchedIn ? 'bg-emerald-100' : 'bg-[var(--color-accent-muted)]'
           }`}>
             <LogIn className={`h-6 w-6 ${summary.isPunchedIn ? 'text-emerald-700' : 'text-[var(--color-accent)]'}`} />
           </div>
