@@ -21,6 +21,7 @@ import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
 import { buildDashboardStaffSnapshot } from '../lib/dashboardStaffSnapshot';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const fadeUp = {
   initial: { opacity: 0, y: 16 },
@@ -44,7 +45,7 @@ interface KPICardProps {
 
 const KPICard: React.FC<KPICardProps> = ({ label, value, icon, iconBg, subtitle }) => (
   <motion.div variants={fadeUp} className="h-full">
-    <div className="bg-white rounded-2xl border border-gray-100 p-4 h-full flex flex-col gap-3 hover:shadow-md hover:border-gray-200/80 transition-all duration-200 cursor-default group">
+    <div className="bg-white rounded-[var(--radius-lg)] border border-[var(--color-separator)] p-4 h-full flex flex-col gap-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-popover)] hover:border-[var(--color-separator-opaque)] transition-all duration-200 cursor-default group">
       <div className="flex items-center gap-2.5">
         <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
           {icon}
@@ -145,26 +146,30 @@ export const Dashboard: React.FC = () => {
 
   const todayBoardTotal = insightMetrics.todayCasesCount;
 
+  const dateLabel = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Overview</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<FolderOpen className="h-4 w-4" />}
-          onClick={() => setActiveTab('cases')}
-          className="w-full sm:w-auto"
-        >
-          View All Cases
-        </Button>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1600px]" className="space-y-6">
+      <NexusPageHeader
+        title="Overview"
+        description={dateLabel}
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<FolderOpen className="h-4 w-4" />}
+            onClick={() => setActiveTab('cases')}
+            className="w-full sm:w-auto"
+          >
+            View All Cases
+          </Button>
+        }
+      />
 
       {/* KPI Grid */}
       <motion.div
@@ -176,8 +181,8 @@ export const Dashboard: React.FC = () => {
         <KPICard
           label="Today's board"
           value={todayBoardTotal}
-          icon={<FolderOpen className="h-4 w-4 text-indigo-600" />}
-          iconBg="bg-indigo-50"
+          icon={<FolderOpen className="h-4 w-4 text-[var(--color-accent)]" />}
+          iconBg="bg-[var(--color-accent-muted)]"
           subtitle={`${insightMetrics.todayOngoingCount} ongoing · ${insightMetrics.todayCompletedCount} done`}
         />
         <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" />
@@ -347,7 +352,7 @@ export const Dashboard: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
                 </div>
-                <button onClick={() => setActiveTab('activity')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                <button onClick={() => setActiveTab('activity')} className="text-xs nexus-link flex items-center gap-1">
                   View all <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
@@ -359,7 +364,7 @@ export const Dashboard: React.FC = () => {
                     <div key={log.id} className="flex items-start gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
                       <div className="relative mt-0.5">
                         <Avatar name={log.performedBy} size="sm" />
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${log.performedByRole === 'admin' ? 'bg-gray-900' : 'bg-indigo-500'}`}>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${log.performedByRole === 'admin' ? 'bg-gray-900' : 'bg-[var(--color-accent)]'}`}>
                           <Activity className="h-1.5 w-1.5 text-white" />
                         </div>
                       </div>
@@ -370,7 +375,7 @@ export const Dashboard: React.FC = () => {
                           {log.entityType === 'case' && (
                             <button
                               onClick={() => { setSelectedCase(log.entityId); setActiveTab('cases'); }}
-                              className="text-xs text-indigo-600 hover:underline font-medium"
+                              className="text-xs nexus-link"
                             >
                               {log.entityLabel}
                             </button>
@@ -400,7 +405,7 @@ export const Dashboard: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">Upcoming Surgeries</h3>
-                <button onClick={() => setActiveTab('cases')} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                <button onClick={() => setActiveTab('cases')} className="text-xs nexus-link flex items-center gap-1">
                   All <ArrowRight className="h-3 w-3" />
                 </button>
               </div>
@@ -447,6 +452,6 @@ export const Dashboard: React.FC = () => {
           </Card>
         </motion.div>
       </div>
-    </div>
+    </NexusPage>
   );
 };

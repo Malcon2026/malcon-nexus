@@ -52,17 +52,12 @@ const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void
   titleTe,
   onBack,
 }) => (
-  <div className="flex items-center gap-2 mb-4">
-    <button
-      type="button"
-      onClick={onBack}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-      aria-label="Back"
-    >
+  <div className="flex items-center gap-2 mb-5">
+    <button type="button" onClick={onBack} className="nexus-back-btn" aria-label="Back">
       <ChevronLeft className="h-5 w-5" />
     </button>
     <div className="min-w-0">
-      <h2 className="text-lg font-bold text-gray-900 leading-tight">{title}</h2>
+      <h2 className="nexus-page-header__title text-xl leading-tight">{title}</h2>
       {titleTe && <Te className="text-gray-500 mb-0">{titleTe}</Te>}
     </div>
   </div>
@@ -325,7 +320,7 @@ const EmployeeCasesPanel: React.FC<{
                   <CardBody className="py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <span className="text-sm font-bold text-indigo-600">{c.caseNumber}</span>
+                        <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
                         <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs ml-2`}>{c.currentStage}</Badge>
                         <p className="text-xs text-gray-500 mt-1">{c.hospital?.name}</p>
                       </div>
@@ -361,7 +356,7 @@ const EmployeeCasesPanel: React.FC<{
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className="text-sm font-bold text-indigo-600">{c.caseNumber}</span>
+                            <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
                             <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
                               <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                               {c.currentStage}
@@ -430,7 +425,7 @@ const EmployeeCasesPanel: React.FC<{
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="text-sm font-bold text-indigo-600">{c.caseNumber}</span>
+                          <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
                           <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
                             <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                             {c.currentStage}
@@ -604,8 +599,8 @@ export const EmployeeDashboard: React.FC = () => {
 
       {page === 'home' && (
         <>
-          <div className="mb-4">
-            <p className="text-xs text-gray-500">
+          <header className="nexus-page-header mb-2">
+            <p className="nexus-page-header__desc !mt-0">
               {new Date().toLocaleDateString('en-IN', {
                 weekday: 'long',
                 day: 'numeric',
@@ -613,10 +608,10 @@ export const EmployeeDashboard: React.FC = () => {
                 timeZone: 'Asia/Kolkata',
               })}
             </p>
-            <h1 className="text-xl font-bold text-gray-900 mt-0.5">
+            <h1 className="nexus-page-header__title mt-1">
               Hi, {currentUser.name.split(' ')[0]}
             </h1>
-          </div>
+          </header>
           <HomeNavTiles employee={currentUser} onOpen={setPage} />
         </>
       )}

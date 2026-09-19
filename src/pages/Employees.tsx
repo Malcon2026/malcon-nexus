@@ -12,6 +12,7 @@ import type { Department, Employee } from '../types';
 import { EmployeeCsvImportModal } from '../components/EmployeeCsvImportModal';
 import { filterAttendanceStaff } from '../lib/staff';
 import { buildEmployeeDepartmentFields, DEPARTMENTS_WITH_ALL, employeeCoversDepartment, getEmployeeDepartments, ASSIGNABLE_DEPARTMENTS } from '../constants/departments';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const DEPARTMENTS = DEPARTMENTS_WITH_ALL;
 
@@ -136,34 +137,35 @@ export const Employees: React.FC = () => {
   const maxCompleted = Math.max(1, ...employees.map(e => e.casesCompleted));
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0 overflow-x-hidden">
+    <NexusPage maxWidthClass="max-w-[1400px]">
       <EmployeeCsvImportModal isOpen={showCsvModal} onClose={() => setShowCsvModal(false)} />
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Employees</h1>
-        </div>
-        {viewMode === 'admin' && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Upload className="h-4 w-4" />}
-              onClick={() => setShowCsvModal(true)}
-            >
-              Import CSV
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus className="h-4 w-4" />}
-              onClick={handleOpenCreate}
-            >
-              Add Employee
-            </Button>
-          </div>
-        )}
-      </div>
+      <NexusPageHeader
+        title="Employees"
+        description="Team directory, roles, and login setup"
+        actions={
+          viewMode === 'admin' ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Upload className="h-4 w-4" />}
+                onClick={() => setShowCsvModal(true)}
+              >
+                Import CSV
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus className="h-4 w-4" />}
+                onClick={handleOpenCreate}
+              >
+                Add Employee
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <Card
@@ -182,7 +184,7 @@ export const Employees: React.FC = () => {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-indigo-600">{totalActive} active</p>
+              <p className="text-xs font-semibold text-[var(--color-accent)]">{totalActive} active</p>
               <p className="text-[10px] text-gray-400">{totalCompleted} done</p>
             </div>
           </div>
@@ -196,7 +198,7 @@ export const Employees: React.FC = () => {
                 <p className="text-[10px] text-gray-400">employees</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-semibold text-indigo-600">{active} active</p>
+                <p className="text-xs font-semibold text-[var(--color-accent)]">{active} active</p>
                 <p className="text-[10px] text-gray-400">{completed} done</p>
               </div>
             </div>
@@ -308,7 +310,7 @@ export const Employees: React.FC = () => {
                           <>
                             <button
                               onClick={() => handleOpenEdit(emp)}
-                              className="p-1 rounded-md text-gray-400 hover:text-indigo-600 transition-colors"
+                              className="p-1 rounded-md text-gray-400 hover:text-[var(--color-accent)] transition-colors"
                               title="Edit Employee"
                             >
                               <Edit3 className="h-3 w-3" />
@@ -499,6 +501,6 @@ export const Employees: React.FC = () => {
           </form>
         </Modal>
       )}
-    </div>
+    </NexusPage>
   );
 };

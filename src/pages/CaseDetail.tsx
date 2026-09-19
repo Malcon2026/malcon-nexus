@@ -23,6 +23,7 @@ import {
 } from '../utils/helpers';
 import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
+import { NexusPage } from '../components/layout/NexusPageHeader';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 
@@ -615,7 +616,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1400px]">
       {approvalModal && (
         <ApprovalModal
           isOpen={true}
@@ -654,12 +655,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-          <button onClick={onBack} className="mt-0.5 p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors shrink-0">
+          <button type="button" onClick={onBack} className="nexus-back-btn mt-0.5 shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900">{c.caseNumber}</h1>
+              <h1 className="nexus-page-header__title text-xl sm:text-2xl">{c.caseNumber}</h1>
               <Badge className={`${stc} text-xs`}>{c.status}</Badge>
               <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
             </div>
@@ -856,7 +857,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
             return (
               <React.Fragment key={stage}>
                 <div className={`flex flex-col items-center gap-1 ${idx === 0 ? 'flex-none' : 'flex-1'}`}>
-                  <div className={`h-2.5 w-full rounded-full transition-all ${completed ? 'bg-gray-900' : current ? `${sc2.dot} opacity-80` : 'bg-gray-100'}`} />
+                  <div className={`h-2.5 w-full rounded-full transition-all ${completed ? 'bg-[var(--color-accent)]' : current ? `${sc2.dot} opacity-80` : 'bg-gray-100'}`} />
                   <span className={`text-[9px] font-medium whitespace-nowrap ${current ? 'text-gray-900' : pending ? 'text-gray-400' : 'text-gray-600'}`}>
                     {stage.split(' ')[0]}
                   </span>
@@ -1063,10 +1064,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               const isCurrentStage = idx === currentStageIdx;
               const isDone = idx < currentStageIdx || stage.status === 'Approved';
               return (
-                <Card key={stage.stage} className={isCurrentStage ? 'ring-2 ring-indigo-200' : ''}>
+                <Card key={stage.stage} className={isCurrentStage ? 'ring-2 ring-[var(--color-accent-muted)]' : ''}>
                   <CardBody>
                     <div className="flex items-start gap-4">
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold ${isDone ? 'bg-gray-900 text-white' : isCurrentStage ? `${sc2.bg} ${sc2.text}` : 'bg-gray-100 text-gray-400'}`}>
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold ${isDone ? 'bg-[var(--color-accent)] text-white' : isCurrentStage ? `${sc2.bg} ${sc2.text}` : 'bg-gray-100 text-gray-400'}`}>
                         {isDone ? <CheckCircle className="h-5 w-5" /> : idx + 1}
                       </div>
                       <div className="flex-1">
@@ -1154,8 +1155,8 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       <img src={doc.url} alt={doc.name} className="w-full max-h-72 object-contain bg-gray-50" />
                     ) : null}
                     <div className="flex items-center gap-4 p-3">
-                      <div className="h-9 w-9 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                        <FileText className="h-4 w-4 text-indigo-600" />
+                      <div className="h-9 w-9 rounded-lg bg-[var(--color-accent-muted)] flex items-center justify-center shrink-0">
+                        <FileText className="h-4 w-4 text-[var(--color-accent)]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900">{doc.name}</p>
@@ -1251,6 +1252,6 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           </Card>
         )}
       </motion.div>
-    </div>
+    </NexusPage>
   );
 };

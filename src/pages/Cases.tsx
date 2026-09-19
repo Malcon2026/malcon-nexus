@@ -23,6 +23,7 @@ import {
   getTodaySurgeryDateKey,
   type SurgeryDateMode,
 } from '../components/SurgeryDateQuickPick';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   STAGE_DEPARTMENT_MAP,
@@ -577,7 +578,7 @@ export const Cases: React.FC = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1600px]">
       <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
       <CaseCsvExportModal
         isOpen={showExport}
@@ -586,17 +587,16 @@ export const Cases: React.FC = () => {
         title="Export Cases to CSV"
       />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Implant Cases</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{filtered.length} cases found</p>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
-          <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
-        </div>
-      </div>
+      <NexusPageHeader
+        title="Implant Cases"
+        description={`${filtered.length} cases found`}
+        actions={
+          <>
+            <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
+            <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
+          </>
+        }
+      />
 
       {/* Filters Bar */}
       <Card className="mb-4">
@@ -606,7 +606,7 @@ export const Cases: React.FC = () => {
             <input
               type="text"
               placeholder="Search cases, hospitals, doctors..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+              className="nexus-field-input"
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(0); }}
             />
@@ -682,7 +682,7 @@ export const Cases: React.FC = () => {
               <div className="flex items-start justify-between gap-3 mb-3">
                 <button
                   onClick={() => setSelectedCase(c.id)}
-                  className="text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+                  className="text-sm font-semibold nexus-link"
                 >
                   {c.caseNumber}
                 </button>
@@ -798,7 +798,7 @@ export const Cases: React.FC = () => {
                     <td className="px-4 py-3.5">
                       <button
                         onClick={() => setSelectedCase(c.id)}
-                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                        className="text-sm font-semibold nexus-link"
                       >
                         {c.caseNumber}
                       </button>
@@ -928,7 +928,7 @@ export const Cases: React.FC = () => {
                 key={i}
                 onClick={() => setPage(i)}
                 title={pageButtonTitle(i)}
-                className={`h-7 min-w-7 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`h-7 min-w-7 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>
@@ -949,7 +949,7 @@ export const Cases: React.FC = () => {
                 key={i}
                 onClick={() => setPage(i)}
                 title={pageButtonTitle(i)}
-                className={`h-8 min-w-8 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`h-8 min-w-8 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>
@@ -964,7 +964,7 @@ export const Cases: React.FC = () => {
           <EditCaseModal isOpen={true} onClose={() => setEditCaseId(null)} case={editingCase} />
         ) : null;
       })()}
-    </div>
+    </NexusPage>
   );
 };
 

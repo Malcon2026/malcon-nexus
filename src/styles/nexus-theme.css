@@ -28,7 +28,6 @@
 
 .nexus-page-inner {
   width: 100%;
-  max-width: 1180px;
   margin: 0 auto;
   padding: var(--space-4) var(--space-4) var(--space-8);
 }
@@ -212,4 +211,126 @@
   .nexus-topbar-search {
     width: 16rem;
   }
+}
+
+/* —— Page headers (Phase 2) —— */
+
+.nexus-page-header {
+  margin-bottom: var(--space-6);
+}
+
+.nexus-page-header__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .nexus-page-header__row {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.nexus-page-header__title {
+  font-size: var(--text-title-2);
+  font-weight: var(--weight-bold);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  color: var(--color-label);
+}
+
+.nexus-page-header__desc {
+  font-size: 15px;
+  line-height: var(--leading-normal);
+  color: var(--color-label-secondary);
+  margin-top: var(--space-2);
+}
+
+.nexus-page-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.nexus-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 0.5px solid var(--color-separator);
+  background: var(--color-bg-elevated);
+  color: var(--color-label-secondary);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.nexus-back-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-label);
+}
+
+.nexus-link {
+  color: var(--color-accent);
+  font-weight: var(--weight-medium);
+}
+
+.nexus-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.nexus-field-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.875rem 0.5rem 2.25rem;
+  font-size: var(--text-body);
+  color: var(--color-label);
+  background: #f5f5f7;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.nexus-field-input:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+.nexus-field-input--plain {
+  padding-left: 0.875rem;
+}
+
+.nexus-segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-pill);
+}
+
+.nexus-segmented button {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  color: var(--color-label-secondary);
+  cursor: pointer;
+}
+
+.nexus-segmented button.is-active {
+  background: #fff;
+  color: var(--color-label);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }

@@ -16,6 +16,7 @@ import { useStore } from '../store/useStore';
 import { getNextWorkflowStage } from '../lib/caseWorkflow';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const getNextStage = (c: ImplantCase): WorkflowStage | null => {
   return getNextWorkflowStage(c.currentStage, { skipBilling: Boolean(c.cancelReason) });
@@ -203,7 +204,7 @@ export const ApprovalQueue: React.FC = () => {
   const actionCase = actionModal ? cases.find(c => c.id === actionModal.caseId) : null;
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1400px]">
       {actionModal && actionCase && (
         <ActionModal
           isOpen={true}
@@ -213,20 +214,18 @@ export const ApprovalQueue: React.FC = () => {
         />
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Approval Queue</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {pendingCases.length > 0 && (
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+      <NexusPageHeader
+        title="Approval Queue"
+        description="Review stage submissions from the field"
+        actions={
+          pendingCases.length > 0 ? (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
               <Clock className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-semibold text-amber-700">{pendingCases.length} pending</span>
             </div>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {pendingCases.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24">
@@ -261,7 +260,7 @@ export const ApprovalQueue: React.FC = () => {
                         <div className="flex items-center gap-3 flex-wrap mb-3">
                           <button
                             onClick={() => { setSelectedCase(c.id); setActiveTab('cases'); }}
-                            className="text-base font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                            className="text-base font-bold nexus-link"
                           >
                             {c.caseNumber}
                           </button>
@@ -400,6 +399,6 @@ export const ApprovalQueue: React.FC = () => {
           })}
         </div>
       )}
-    </div>
+    </NexusPage>
   );
 };

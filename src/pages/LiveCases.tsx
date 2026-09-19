@@ -11,6 +11,8 @@ import { useStore } from '../store/useStore';
 import { isCaseAssignedToEmployee, isFcfsPoolCase, FCFS_POOL_ENABLED, getCurrentStageTeamDisplay, findStageRecord, VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import type { ImplantCase, Priority, WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, formatCurrency } from '../utils/helpers';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { Button } from '../components/ui/Button';
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES.filter((stage) => stage !== 'Completed');
@@ -101,22 +103,22 @@ export const LiveCases: React.FC = () => {
   }, [baseLiveCases, filterStage]);
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1800px] mx-auto w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Live Cases</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{liveCases.length} in progress</p>
-        </div>
-        <button
-          onClick={() => void handleRefresh()}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-60 transition-colors shrink-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1800px]">
+      <NexusPageHeader
+        title="Live Cases"
+        description={`${liveCases.length} in progress`}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-2 mb-6">
@@ -125,7 +127,7 @@ export const LiveCases: React.FC = () => {
           <input
             type="text"
             placeholder="Search case, hospital, surgery, doctor, product..."
-            className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white"
+            className="nexus-field-input"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -231,7 +233,7 @@ export const LiveCases: React.FC = () => {
                   onClick={() => { setSelectedCase(c.id); setActiveTab('cases'); }}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="text-sm font-bold text-indigo-600">{c.caseNumber}</p>
+                    <p className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</p>
                     <Badge className={`${pc} text-[10px] shrink-0`}>{c.priority}</Badge>
                   </div>
 
@@ -360,7 +362,7 @@ export const LiveCases: React.FC = () => {
                   {canEdit(c) && (
                     <button
                       onClick={() => setEditCaseId(c.id)}
-                      className="flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded-md hover:bg-indigo-50"
+                      className="flex items-center gap-1 text-[11px] font-medium nexus-link px-2 py-1 rounded-md hover:bg-[var(--color-accent-muted)]"
                     >
                       <Edit3 className="h-3 w-3" /> Edit
                     </button>
@@ -396,6 +398,6 @@ export const LiveCases: React.FC = () => {
           <EditCaseModal isOpen={true} onClose={() => setEditCaseId(null)} case={editingCase} />
         ) : null;
       })()}
-    </div>
+    </NexusPage>
   );
 };

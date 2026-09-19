@@ -13,6 +13,8 @@ import {
   subscribeToWebPush,
   webPushPermission,
 } from '../lib/webPush';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+
 const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
   { id: 'notice', label: 'Notice Board', icon: <Megaphone className="h-4 w-4" />, adminOnly: true },
@@ -23,7 +25,7 @@ const tabs: { id: string; label: string; icon: React.ReactNode; adminOnly?: bool
   { id: 'data', label: 'Data & Export', icon: <Database className="h-4 w-4" /> },
 ];
 
-const inputClass = "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white";
+const inputClass = "nexus-field-input nexus-field-input--plain w-full min-h-[40px] py-2 text-sm";
 const labelClass = "block text-xs font-medium text-gray-700 mb-1.5";
 
 // Notification preferences keys
@@ -158,16 +160,14 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1000px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1000px]">
       <CaseCsvExportModal
         isOpen={showCaseExport}
         onClose={() => setShowCaseExport(false)}
         cases={cases}
         title="Export All Cases to CSV"
       />
-      <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Settings</h1>
-      </div>
+      <NexusPageHeader title="Settings" description="Profile, notifications, and company preferences" />
 
       {/* Save confirmation */}
       {saved && (
@@ -191,7 +191,7 @@ export const Settings: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 sm:gap-2.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all mb-0.5 whitespace-nowrap shrink-0 md:w-full ${activeTab === tab.id ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`flex items-center gap-2 sm:gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all mb-0.5 whitespace-nowrap shrink-0 md:w-full ${activeTab === tab.id ? 'bg-[var(--color-accent)] text-white shadow-sm' : 'text-gray-600 hover:bg-black/[0.05]'}`}
               >
                 <span>{tab.icon}</span>
                 {tab.label}
@@ -495,6 +495,6 @@ export const Settings: React.FC = () => {
           </motion.div>
         </div>
       </div>
-    </div>
+    </NexusPage>
   );
 };
