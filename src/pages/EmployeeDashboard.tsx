@@ -217,12 +217,12 @@ const HomeNavTiles: React.FC<{
             key={tile.id}
             type="button"
             onClick={() => onOpen(tile.id)}
-            className={`relative text-left rounded-2xl border p-4 shadow-sm transition-colors active:scale-[0.98] min-h-[8.5rem] ${blinkClass} ${
+            className={`relative text-left rounded-[var(--radius-lg)] border p-4 shadow-[var(--shadow-card)] transition-all active:scale-[0.98] min-h-[8.5rem] ${blinkClass} ${
               tile.foodRequired
                 ? 'border-rose-300 bg-rose-50/30 hover:border-rose-400 ring-1 ring-rose-200'
                 : isFood && foodTileBlink === 'new'
                   ? 'border-rose-200 bg-white hover:border-rose-300'
-                  : 'border-gray-200 bg-white hover:border-indigo-200'
+                  : 'border-[var(--color-separator)] bg-white hover:border-[var(--color-accent)]/30 hover:shadow-[var(--shadow-popover)]'
             }`}
           >
             {!isFood && tile.badge != null && tile.badge > 0 && (
@@ -592,7 +592,7 @@ export const EmployeeDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0 overflow-x-hidden">
+    <div className="nexus-page-inner max-w-[1200px] w-full min-w-0 overflow-x-hidden">
       <EmployeeLocationBanner
         permission={locationPrompt.permission}
         requesting={locationPrompt.requesting}

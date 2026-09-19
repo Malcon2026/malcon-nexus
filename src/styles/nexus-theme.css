@@ -1,0 +1,215 @@
+/**
+ * App shell — TMS-style sidebar, top bar, page canvas.
+ */
+
+::selection {
+  background: rgba(0, 113, 227, 0.2);
+}
+
+.nexus-app-shell {
+  background: var(--color-bg);
+  color: var(--color-label);
+}
+
+.nexus-app-main {
+  background: var(--color-bg);
+}
+
+.nexus-page {
+  animation: nexus-page-in 0.3s var(--ease-standard);
+}
+
+@keyframes nexus-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.nexus-page-inner {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+
+@media (min-width: 640px) {
+  .nexus-page-inner {
+    padding: var(--space-6) var(--space-5) var(--space-8);
+  }
+}
+
+/* —— Sidebar —— */
+
+.nexus-sidebar {
+  background: var(--color-bg-sidebar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-right: 0.5px solid rgba(0, 0, 0, 0.08);
+  color: var(--color-label);
+}
+
+.nexus-sidebar-brand-title {
+  font-size: 15px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--color-label);
+}
+
+.nexus-sidebar-brand-sub {
+  font-size: var(--text-caption);
+  color: var(--color-label-tertiary);
+}
+
+.nexus-sidebar-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: var(--weight-medium);
+  color: var(--color-label-secondary);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.nexus-sidebar-link:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-label);
+}
+
+.nexus-sidebar-link.is-active {
+  background: var(--sidebar-nav-active-bg);
+  color: var(--color-label);
+  font-weight: var(--weight-semibold);
+}
+
+.nexus-sidebar-link.is-active .nexus-sidebar-link-icon {
+  color: var(--color-accent);
+}
+
+.nexus-sidebar-link-icon {
+  color: var(--color-label-tertiary);
+  flex-shrink: 0;
+}
+
+.nexus-sidebar-link.is-active .nexus-sidebar-badge {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.nexus-sidebar-badge {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  min-width: 20px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-label-secondary);
+}
+
+.nexus-sidebar-collapse-btn {
+  position: absolute;
+  right: -12px;
+  top: 4rem;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 0.5px solid var(--color-separator-opaque);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-label-secondary);
+  cursor: pointer;
+  z-index: 30;
+}
+
+.nexus-sidebar-collapse-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* —— Top bar —— */
+
+.nexus-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: var(--topbar-height);
+  padding: 0 var(--space-4);
+  background: rgba(251, 251, 253, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 1024px) {
+  .nexus-topbar {
+    padding: 0 var(--space-5);
+  }
+}
+
+.nexus-topbar-title {
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-semibold);
+  color: var(--color-label);
+}
+
+.nexus-topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-medium);
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+  border: 0.5px solid rgba(0, 113, 227, 0.2);
+}
+
+.nexus-topbar-icon-btn {
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--color-label-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.nexus-topbar-icon-btn:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-label);
+}
+
+.nexus-topbar-search {
+  padding: 0.375rem 1rem 0.375rem 2rem;
+  font-size: var(--text-body);
+  background: rgba(0, 0, 0, 0.04);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-label);
+  width: 12rem;
+}
+
+.nexus-topbar-search:focus {
+  outline: none;
+  background: #fff;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+@media (min-width: 1024px) {
+  .nexus-topbar-search {
+    width: 16rem;
+  }
+}

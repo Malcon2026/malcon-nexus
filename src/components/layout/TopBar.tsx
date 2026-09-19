@@ -62,48 +62,43 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
   };
 
   return (
-    <header className="h-14 bg-[#05070c]/90 backdrop-blur-md border-b border-gray-200 flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-3 shrink-0 z-10">
-      {/* Mobile menu */}
+    <header className="nexus-topbar flex items-center gap-2 sm:gap-3 shrink-0">
       <button
         onClick={() => setMobileSidebarOpen(true)}
-        className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
+        className="nexus-topbar-icon-btn lg:hidden shrink-0"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Title */}
       <div className="flex-1 min-w-0">
-        <h1 className="text-sm font-semibold text-gray-900 truncate">
+        <h1 className="nexus-topbar-title truncate">
           {pageTitle[activeTab] || 'Dashboard'}
         </h1>
       </div>
 
-      {/* Search — tablet+ */}
       <div className="relative hidden md:block shrink-0">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-label-tertiary)]" />
         <input
           type="text"
           placeholder="Search cases, hospitals..."
-          className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400 w-48 lg:w-64 placeholder:text-gray-400 text-gray-800"
+          className="nexus-topbar-search"
         />
       </div>
 
-      {/* Role badge */}
-      <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 shrink-0 capitalize">
+      <span className="nexus-topbar-chip hidden sm:inline-flex shrink-0 capitalize">
         {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'petrol' ? 'Petrol desk' : formatEmployeeDepartments(currentUser)}
       </span>
 
-      {/* Notifications */}
       <div className="relative shrink-0">
         <button
           onClick={() => { setShowNotifs(!showNotifs); setShowUserMenu(false); }}
-          className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-800 transition-colors"
+          className="nexus-topbar-icon-btn relative"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
-            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full ring-2 ring-[#05070c]" />
+            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full ring-2 ring-[var(--color-bg-sidebar)]" />
           )}
         </button>
 
@@ -116,9 +111,9 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.97 }}
                 transition={{ duration: 0.15 }}
-                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-xl shadow-xl shadow-black/40 border border-gray-200 z-50 overflow-hidden"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-80 bg-white rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] border border-[var(--color-separator)] z-50 overflow-hidden"
               >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-separator)]">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">Notifications</span>
                     {unread > 0 && (
@@ -126,7 +121,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                     )}
                   </div>
                   {unread > 0 && (
-                    <button onClick={markAllNotificationsRead} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                    <button onClick={markAllNotificationsRead} className="text-xs text-[var(--color-accent)] hover:underline font-medium">
                       Mark all read
                     </button>
                   )}
@@ -138,7 +133,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                       onClick={() => markNotificationRead(n.id)}
                       className={cn(
                         'px-4 py-3 cursor-pointer transition-colors',
-                        n.read ? 'hover:bg-gray-50' : 'bg-indigo-50/50 hover:bg-indigo-50'
+                        n.read ? 'hover:bg-gray-50' : 'bg-blue-50/40 hover:bg-blue-50/70'
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -148,7 +143,7 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                           <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{n.message}</p>
                           <p className="text-[10px] text-gray-400 mt-1">{timeAgo(n.timestamp)}</p>
                         </div>
-                        {!n.read && <div className="h-1.5 w-1.5 bg-indigo-400 rounded-full shrink-0 mt-2" />}
+                        {!n.read && <div className="h-1.5 w-1.5 bg-[var(--color-accent)] rounded-full shrink-0 mt-2" />}
                       </div>
                     </div>
                   ))}
@@ -159,11 +154,10 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         </AnimatePresence>
       </div>
 
-      {/* User Menu */}
       <div className="relative shrink-0">
         <button
           onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifs(false); }}
-          className="flex items-center gap-1.5 sm:gap-2.5 px-1.5 sm:px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2.5 px-1.5 sm:px-2 py-1.5 rounded-xl hover:bg-black/[0.05] transition-colors"
         >
           <Avatar name={currentUser.name} size="sm" />
           <div className="hidden md:block text-left">
@@ -181,9 +175,9 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-56 bg-white rounded-xl shadow-xl shadow-black/40 border border-gray-200 z-50 overflow-hidden py-1"
+                className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-14 sm:top-full sm:mt-2 sm:w-56 bg-white rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] border border-[var(--color-separator)] z-50 overflow-hidden py-1"
               >
-                <div className="px-4 py-3 border-b border-gray-200">
+                <div className="px-4 py-3 border-b border-[var(--color-separator)]">
                   <p className="text-xs font-semibold text-gray-900">{currentUser.name}</p>
                   <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
                 </div>

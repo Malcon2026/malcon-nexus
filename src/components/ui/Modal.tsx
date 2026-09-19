@@ -63,7 +63,7 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
@@ -72,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className={cn(
-              'relative w-full mx-2 sm:mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-xl shadow-black/40 border border-gray-200 flex flex-col min-w-0',
+              'relative w-full mx-2 sm:mx-auto bg-white rounded-t-[var(--radius-lg)] sm:rounded-[var(--radius-lg)] shadow-[var(--shadow-modal)] border border-[var(--color-separator)] flex flex-col min-w-0',
               fixedHeight ? 'h-[min(88vh,720px)] max-h-[88vh]' : 'max-h-[92vh] sm:max-h-[90vh]',
               sizeClasses[size],
             )}

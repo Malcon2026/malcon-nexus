@@ -49,8 +49,8 @@ const pageTransition = { duration: 0.2 };
 function DataHydrationBar({ active }: { active: boolean }) {
   if (!active) return null;
   return (
-    <div className="h-0.5 w-full bg-indigo-50 shrink-0">
-      <div className="h-full w-full bg-indigo-500/80 animate-pulse" />
+    <div className="h-0.5 w-full bg-blue-50 shrink-0">
+      <div className="h-full w-full bg-[#0071e3]/80 animate-pulse" />
     </div>
   );
 }
@@ -271,14 +271,14 @@ function MainApp() {
 
   return (
     <AppErrorBoundary>
-    <div className="flex h-[100dvh] w-full max-w-full min-w-0 bg-[var(--mn-bg)] overflow-hidden">
+    <div className="nexus-app-shell flex h-[100dvh] w-full max-w-full min-w-0 overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 min-w-0 flex flex-col bg-[var(--mn-bg)] overflow-hidden">
+      <div className="nexus-app-main flex-1 min-w-0 flex flex-col overflow-hidden">
         <TopBar onLogout={handleLogout} />
         <DataHydrationBar active={isHydrating} />
 
-        <main className="flex-1 min-w-0 bg-[var(--mn-bg)] overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeTab}-${viewMode}`}
@@ -287,7 +287,7 @@ function MainApp() {
               animate="animate"
               exit="exit"
               transition={pageTransition}
-              className="min-h-full w-full min-w-0 max-w-full overflow-x-hidden bg-[var(--mn-bg)]"
+              className="nexus-page min-h-full w-full min-w-0 max-w-full overflow-x-hidden"
             >
               {renderPage()}
             </motion.div>

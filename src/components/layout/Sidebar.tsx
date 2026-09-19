@@ -160,18 +160,14 @@ export const Sidebar: React.FC = () => {
         type="button"
         onClick={() => handleNavClick(item.id)}
         className={cn(
-          'w-full flex items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
-          nested ? 'pl-9 pr-3' : 'px-3',
-          isActive
-            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
-            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
+          'nexus-sidebar-link',
+          nested && 'pl-9',
+          isActive && 'is-active',
           !showLabels && !nested && 'justify-center px-2',
         )}
         title={!showLabels ? item.label : undefined}
       >
-        <span className={cn('shrink-0', isActive ? 'text-indigo-400' : 'text-gray-400')}>
-          {item.icon}
-        </span>
+        <span className="nexus-sidebar-link-icon shrink-0">{item.icon}</span>
         <AnimatePresence>
           {showLabels && (
             <motion.span
@@ -186,10 +182,7 @@ export const Sidebar: React.FC = () => {
         </AnimatePresence>
         {showLabels && badge !== undefined && badge > 0 && (
           <span
-            className={cn(
-              'text-xs font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center',
-              isActive ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600',
-            )}
+            className="nexus-sidebar-badge"
           >
             {badge}
           </span>
@@ -206,15 +199,10 @@ export const Sidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => handleNavClick(casesGroupActive ? activeTab : 'cases')}
-          className={cn(
-            'w-full flex items-center justify-center px-2 py-2.5 rounded-lg text-sm font-medium border border-transparent',
-            casesGroupActive
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800',
-          )}
+          className={cn('nexus-sidebar-link justify-center px-2', casesGroupActive && 'is-active')}
           title="Cases"
         >
-          <FolderOpen className={cn('h-4 w-4', casesGroupActive ? 'text-indigo-400' : 'text-gray-400')} />
+          <FolderOpen className="nexus-sidebar-link-icon h-4 w-4" />
         </button>
       );
     }
@@ -224,19 +212,12 @@ export const Sidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => setCasesGroupOpen((o) => !o)}
-          className={cn(
-            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border border-transparent',
-            casesGroupActive && !casesGroupOpen
-              ? 'bg-indigo-50/60 text-indigo-700 border-indigo-100'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800',
-          )}
+          className={cn('nexus-sidebar-link', casesGroupActive && !casesGroupOpen && 'is-active')}
         >
-          <FolderOpen className={cn('h-4 w-4 shrink-0', casesGroupActive ? 'text-indigo-400' : 'text-gray-400')} />
+          <FolderOpen className="nexus-sidebar-link-icon h-4 w-4 shrink-0" />
           <span className="flex-1 text-left truncate">Cases</span>
           {casesGroupBadge !== undefined && (
-            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 min-w-[20px] text-center">
-              {casesGroupBadge}
-            </span>
+            <span className="nexus-sidebar-badge">{casesGroupBadge}</span>
           )}
           <ChevronDown
             className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', casesGroupOpen && 'rotate-180')}
@@ -263,7 +244,7 @@ export const Sidebar: React.FC = () => {
     <>
       <div
         className={cn(
-          'flex items-center px-4 py-5 border-b border-gray-200',
+          'flex items-center px-4 py-5 border-b border-[var(--color-separator)]',
           !showLabels ? 'justify-center' : 'gap-3 justify-between lg:justify-start',
         )}
       >
@@ -277,8 +258,8 @@ export const Sidebar: React.FC = () => {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
               >
-                <p className="text-sm font-bold text-gray-900 leading-none">Malcon Nexus</p>
-                <p className="text-[10px] text-gray-400 mt-0.5 leading-none">by Malcon Life Sciences</p>
+                <p className="nexus-sidebar-brand-title leading-none">Malcon Nexus</p>
+                <p className="nexus-sidebar-brand-sub mt-0.5 leading-none">by Malcon Life Sciences</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -286,7 +267,7 @@ export const Sidebar: React.FC = () => {
         <button
           type="button"
           onClick={() => setMobileSidebarOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          className="lg:hidden p-1.5 rounded-lg hover:bg-black/[0.05] text-[var(--color-label-secondary)]"
           aria-label="Close menu"
         >
           <X className="h-4 w-4" />
@@ -305,7 +286,7 @@ export const Sidebar: React.FC = () => {
         )}
       </nav>
 
-      <div className="px-3 py-3 border-t border-gray-200 space-y-2 mt-auto">
+      <div className="px-3 py-3 border-t border-[var(--color-separator)] space-y-2 mt-auto">
         {showLabels ? (
           <PoweredByAiBadge variant="sidebar" />
         ) : (
@@ -313,7 +294,7 @@ export const Sidebar: React.FC = () => {
         )}
         {showLabels && (
           <p
-            className="text-[10px] text-gray-500 leading-none px-0.5"
+            className="text-[10px] text-[var(--color-label-tertiary)] leading-none px-0.5"
             title="Build time — confirms you're on the latest deploy"
           >
             Build: {new Date(__BUILD_TIME__).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
@@ -332,7 +313,7 @@ export const Sidebar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
             onClick={() => setMobileSidebarOpen(false)}
           />
         )}
@@ -342,7 +323,7 @@ export const Sidebar: React.FC = () => {
         initial={false}
         animate={{ x: mobileSidebarOpen ? 0 : '-100%' }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
-        className="fixed inset-y-0 left-0 w-[min(280px,85vw)] flex flex-col bg-[#05070c] border-r border-gray-200 h-screen z-50 lg:hidden shadow-xl shadow-black/50"
+        className="nexus-sidebar fixed inset-y-0 left-0 w-[min(280px,85vw)] flex flex-col h-screen z-50 lg:hidden shadow-[var(--shadow-popover)]"
       >
         {sidebarContent}
       </motion.aside>
@@ -350,14 +331,14 @@ export const Sidebar: React.FC = () => {
       <motion.aside
         animate={{ width: sidebarCollapsed ? 64 : 232 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="relative hidden lg:flex flex-col bg-[#05070c] border-r border-gray-200 h-screen shrink-0 z-20"
+        className="nexus-sidebar relative hidden lg:flex flex-col h-screen shrink-0 z-20"
       >
         {sidebarContent}
 
         <button
           type="button"
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute -right-3 top-16 h-6 w-6 bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-sm shadow-black/40 hover:border-indigo-400 transition-all z-30"
+          className="nexus-sidebar-collapse-btn"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {sidebarCollapsed ? (

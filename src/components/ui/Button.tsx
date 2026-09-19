@@ -21,16 +21,18 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const base =
-    'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-[var(--mn-bg)] disabled:opacity-50 disabled:cursor-not-allowed select-none';
+    'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--color-bg)] disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const variants = {
-    primary: 'bg-indigo-500 text-[#06080f] hover:bg-indigo-400 focus:ring-indigo-500 shadow-sm shadow-indigo-500/25',
-    secondary: 'bg-gray-100 text-gray-800 hover:bg-gray-200 focus:ring-gray-300',
-    outline: 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 focus:ring-gray-400 shadow-sm',
-    ghost: 'text-gray-500 hover:bg-gray-100 hover:text-gray-800 focus:ring-gray-300',
+    primary:
+      'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] focus:ring-[var(--color-accent)] shadow-sm',
+    secondary: 'bg-black/[0.05] text-[var(--color-label)] hover:bg-black/[0.08] focus:ring-gray-300',
+    outline:
+      'border border-[var(--color-separator-opaque)] bg-white text-[var(--color-label)] hover:bg-[var(--color-bg)] focus:ring-gray-300 shadow-sm',
+    ghost: 'text-[var(--color-label-secondary)] hover:bg-black/[0.05] hover:text-[var(--color-label)] focus:ring-gray-300',
     danger: 'bg-red-600 text-white hover:bg-red-500 focus:ring-red-500 shadow-sm',
-    success: 'bg-emerald-600 text-[#06080f] hover:bg-emerald-500 focus:ring-emerald-500 shadow-sm',
-    warning: 'bg-amber-500 text-[#06080f] hover:bg-amber-400 focus:ring-amber-400 shadow-sm',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-500 focus:ring-emerald-500 shadow-sm',
+    warning: 'bg-amber-500 text-[#1d1d1f] hover:bg-amber-400 focus:ring-amber-400 shadow-sm',
   };
 
   const sizes = {
