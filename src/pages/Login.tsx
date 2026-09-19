@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Lock, Mail, AlertCircle, Loader2,
@@ -14,7 +14,6 @@ interface LoginProps {
   onLoginSuccess: (employee: Employee) => void;
 }
 
-const buildSha = import.meta.env.VITE_BUILD_SHA || 'local';
 const DISPLAY_EMAIL =
   (import.meta.env.VITE_LOGIN_DISPLAY_EMAIL as string | undefined)?.trim() ||
   'nexus@malconnexus.com';
@@ -24,22 +23,34 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
   const [employeeCode, setEmployeeCode] = useState('');
   const [otp, setOtp] = useState('');
+  const [otpStep, setOtpStep] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
-  const clearMessages = () => {
-    setError(null);
-    setInfo(null);
-  };
+  useEffect(() => {
+    if (otpStep) {
+      otpInputRef.current?.focus();
+    }
+  }, [otpStep]);
+
+  const clearMessages = () => setError(null);
 
   const switchMode = (admin: boolean) => {
     setAdminMode(admin);
+    setOtpStep(false);
+    setOtp('');
+    clearMessages();
+  };
+
+  const backToEmployeeId = () => {
+    setOtpStep(false);
+    setOtp('');
     clearMessages();
   };
 
@@ -51,20 +62,26 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setSendingOtp(true);
     clearMessages();
 
-    const { error: otpError, message } = await authService.requestLoginOtp(employeeCode);
+    const { error: otpError } = await authService.requestLoginOtp(employeeCode);
     setSendingOtp(false);
 
     if (otpError) {
       setError(otpError);
       return;
     }
-    setInfo(message ?? 'Check Telegram for your 6-digit code.');
+    setOtpStep(true);
   };
 
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeCode.trim() || !otp.trim()) {
-      setError('Enter Employee ID and the OTP from Telegram.');
+
+    if (!otpStep) {
+      await handleSendOtp();
+      return;
+    }
+
+    if (!employeeCode.trim() || otp.length !== 6) {
+      setError('Enter the 6-digit code from Telegram.');
       return;
     }
     setLoading(true);
@@ -159,11 +176,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <h1 className="nexus-login-title">
               {adminMode ? 'Admin sign in' : 'Sign in'}
             </h1>
-            {!adminMode && (
-              <p className="nexus-login-muted text-sm mt-2">
-                Employee ID and OTP from Telegram.
-              </p>
-            )}
           </div>
 
           {adminMode ? (
@@ -234,101 +246,100 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </form>
           ) : (
             <form onSubmit={handleEmployeeSubmit} className="space-y-5 w-full min-w-0">
-              <div className="min-w-0">
-                <label htmlFor="login-employee-code" className="nexus-login-label block mb-1.5">
-                  Employee ID
-                </label>
-                <div className="relative min-w-0">
-                  <Hash className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
-                  <input
-                    id="login-employee-code"
-                    type="text"
-                    inputMode="numeric"
-                    value={employeeCode}
-                    onChange={(e) => setEmployeeCode(e.target.value)}
-                    placeholder="e.g. 0165"
-                    autoComplete="username"
-                    required
-                    className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 transition-all"
-                  />
-                </div>
-              </div>
+              {!otpStep ? (
+                <>
+                  <div className="min-w-0">
+                    <label htmlFor="login-employee-code" className="nexus-login-label block mb-1.5">
+                      Employee ID
+                    </label>
+                    <div className="relative min-w-0">
+                      <Hash className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
+                      <input
+                        id="login-employee-code"
+                        type="text"
+                        inputMode="numeric"
+                        value={employeeCode}
+                        onChange={(e) => setEmployeeCode(e.target.value)}
+                        placeholder="e.g. 0165"
+                        autoComplete="username"
+                        required
+                        className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 transition-all"
+                      />
+                    </div>
+                  </div>
 
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                disabled={sendingOtp || !employeeCode.trim()}
-                className="nexus-login-secondary w-full py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {sendingOtp ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending…
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Send OTP via Telegram
-                  </>
-                )}
-              </button>
+                  {error && <LoginAlert>{error}</LoginAlert>}
 
-              <div className="min-w-0">
-                <label htmlFor="login-otp" className="nexus-login-label block mb-1.5">
-                  OTP from Telegram
-                </label>
-                <input
-                  id="login-otp"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="6-digit code"
-                  required
-                  className="nexus-login-input w-full min-w-0 max-w-full px-4 py-2.5 tracking-[0.2em] text-center font-medium transition-all"
-                />
-              </div>
+                  <button
+                    type="submit"
+                    disabled={sendingOtp || !employeeCode.trim()}
+                    className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    {sendingOtp ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Send OTP via Telegram
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="min-w-0">
+                    <label htmlFor="login-otp" className="nexus-login-label block mb-1.5">
+                      Code
+                    </label>
+                    <input
+                      ref={otpInputRef}
+                      id="login-otp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="6-digit code"
+                      required
+                      className="nexus-login-input w-full min-w-0 max-w-full px-4 py-2.5 tracking-[0.2em] text-center font-medium transition-all"
+                    />
+                  </div>
 
-              {info && !error && (
-                <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5">
-                  {info}
-                </p>
+                  {error && <LoginAlert>{error}</LoginAlert>}
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.length !== 6}
+                    className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Signing in…
+                      </>
+                    ) : (
+                      <>
+                        Sign in
+                        <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={backToEmployeeId}
+                    className="nexus-login-admin-link w-full text-center text-sm py-1"
+                  >
+                    Change Employee ID
+                  </button>
+                </>
               )}
-              {error && <LoginAlert>{error}</LoginAlert>}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    Sign in
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                  </>
-                )}
-              </button>
             </form>
           )}
-
-          <p className="nexus-login-muted text-center mt-8 px-1 break-words">
-            {adminMode ? (
-              <span className="nexus-login-brand-name font-medium">Admin access only.</span>
-            ) : (
-              <>
-                Link Telegram: @Malcon_Nexus_bot →{' '}
-                <span className="nexus-login-brand-name font-medium">/start YOUR_ID</span>
-              </>
-            )}
-          </p>
-          <p className="nexus-login-build text-center mt-3">Build {buildSha}</p>
         </motion.div>
       </div>
     </div>
