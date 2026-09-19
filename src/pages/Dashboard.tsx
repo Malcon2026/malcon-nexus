@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   FolderOpen, Clock, Stethoscope, Sparkles, Receipt,
-  CheckCircle2, Calendar, ArrowUpRight, ArrowRight,
+  CheckCircle2, Calendar, ArrowRight,
   AlertTriangle, Activity
 } from 'lucide-react';
 import {
@@ -27,7 +27,9 @@ import { filterAttendanceStaff } from '../lib/staff';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
+import { DashboardAttendanceSection } from '../components/DashboardAttendanceSection';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
+import { buildDashboardAttendanceMetrics } from '../lib/dashboardAttendanceMetrics';
 import { buildDashboardStaffSnapshot } from '../lib/dashboardStaffSnapshot';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
@@ -111,12 +113,12 @@ export const Dashboard: React.FC = () => {
     employees,
     activityLog,
     attendanceRecords,
+    attendanceApprovalRequests,
     foodSelections,
     leaveRequests,
     setActiveTab,
     setSelectedCase,
     getDailyData,
-    getDepartmentPerformance,
     getStageDistribution,
   } = useStore();
 
@@ -126,7 +128,6 @@ export const Dashboard: React.FC = () => {
     () => dailyData.reduce((sum, row) => sum + row.completed, 0),
     [dailyData],
   );
-  const departmentPerformance = getDepartmentPerformance();
   const todaySurgeryDate = getTodaySurgeryDateKey();
   const stageDistribution = getStageDistribution(todaySurgeryDate);
   const stageDistributionTotal = stageDistribution.reduce((sum, item) => sum + item.count, 0);
@@ -152,6 +153,17 @@ export const Dashboard: React.FC = () => {
   const staffSnapshot = useMemo(
     () => buildDashboardStaffSnapshot(employees, attendanceRecords, foodSelections, leaveRequests),
     [employees, attendanceRecords, foodSelections, leaveRequests],
+  );
+
+  const attendanceMetrics = useMemo(
+    () =>
+      buildDashboardAttendanceMetrics(
+        employees,
+        attendanceRecords,
+        leaveRequests,
+        attendanceApprovalRequests,
+      ),
+    [employees, attendanceRecords, leaveRequests, attendanceApprovalRequests],
   );
 
   const insightMetrics = useMemo(
@@ -359,36 +371,15 @@ export const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Department Performance */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Department Performance</h3>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                Avg 93.3%
-              </div>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={departmentPerformance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5ea" vertical={false} />
-                <XAxis dataKey="department" tick={{ fontSize: 10, fill: '#8b97ab' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} domain={[80, 100]} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 113, 227, 0.06)' }} />
-                <Bar dataKey="onTime" name="On Time %" fill="#0071e3" radius={[5, 5, 0, 0]} maxBarSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardBody>
-        </Card>
+        <DashboardAttendanceSection
+          metrics={attendanceMetrics}
+          onOpenAttendance={() => setActiveTab('attendance')}
+        />
       </motion.div>
 
       {/* Bottom Row */}
