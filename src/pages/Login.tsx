@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Lock, Mail, AlertCircle, Loader2,
-  ArrowRight, Hash, Send,
+  ArrowRight, Hash, Shield, Send,
 } from 'lucide-react';
 import { authService } from '../lib/auth';
 import type { Employee } from '../types';
@@ -20,55 +20,64 @@ const DISPLAY_EMAIL =
   'nexus@malconnexus.com';
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+  const [adminMode, setAdminMode] = useState(false);
+
   const [employeeCode, setEmployeeCode] = useState('');
   const [otp, setOtp] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
-  const [employeeLoading, setEmployeeLoading] = useState(false);
-  const [employeeError, setEmployeeError] = useState<string | null>(null);
-  const [employeeInfo, setEmployeeInfo] = useState<string | null>(null);
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminError, setAdminError] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const clearMessages = () => {
+    setError(null);
+    setInfo(null);
+  };
+
+  const switchMode = (admin: boolean) => {
+    setAdminMode(admin);
+    clearMessages();
+  };
 
   const handleSendOtp = async () => {
     if (!employeeCode.trim()) {
-      setEmployeeError('Enter your Employee ID.');
-      setEmployeeInfo(null);
+      setError('Enter your Employee ID.');
       return;
     }
     setSendingOtp(true);
-    setEmployeeError(null);
-    setEmployeeInfo(null);
+    clearMessages();
 
     const { error: otpError, message } = await authService.requestLoginOtp(employeeCode);
     setSendingOtp(false);
 
     if (otpError) {
-      setEmployeeError(otpError);
+      setError(otpError);
       return;
     }
-    setEmployeeInfo(message ?? 'Check Telegram for your 6-digit code.');
+    setInfo(message ?? 'Check Telegram for your 6-digit code.');
   };
 
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeCode.trim() || !otp.trim()) {
-      setEmployeeError('Enter Employee ID and the OTP from Telegram.');
+      setError('Enter Employee ID and the OTP from Telegram.');
       return;
     }
-    setEmployeeLoading(true);
-    setEmployeeError(null);
+    setLoading(true);
+    clearMessages();
 
     const { employee, error: authError } = await authService.signInWithTelegramOtp(
       employeeCode,
       otp,
     );
-    setEmployeeLoading(false);
+    setLoading(false);
 
     if (authError || !employee) {
-      setEmployeeError(authError ?? 'Login failed. Please try again.');
+      setError(authError ?? 'Login failed. Please try again.');
       return;
     }
     onLoginSuccess(employee);
@@ -77,26 +86,40 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password) {
-      setAdminError('Please enter your password.');
+      setError('Please enter your password.');
       return;
     }
-    setAdminLoading(true);
-    setAdminError(null);
+    setLoading(true);
+    clearMessages();
 
     const { employee, error: authError } = await authService.signIn(DISPLAY_EMAIL, password);
-    setAdminLoading(false);
+    setLoading(false);
 
     if (authError || !employee) {
-      setAdminError(authError ?? 'Login failed. Please try again.');
+      setError(authError ?? 'Login failed. Please try again.');
       return;
     }
     onLoginSuccess(employee);
   };
 
   return (
-    <div className="nexus-login-page min-h-screen w-full max-w-full overflow-x-hidden flex flex-col lg:flex-row">
-      {/* ── Left panel (DMS-style hero) ── */}
-      <div className="nexus-login-hero hidden lg:flex lg:w-[48%] xl:w-[50%] lg:min-w-0 relative flex-col justify-center p-12 xl:p-16 overflow-hidden border-r">
+    <div className="nexus-login-page min-h-screen w-full max-w-full overflow-x-hidden flex flex-col lg:flex-row relative">
+      <button
+        type="button"
+        onClick={() => switchMode(!adminMode)}
+        className="nexus-login-admin-link absolute top-4 right-4 z-20 inline-flex items-center gap-1.5 text-sm font-medium"
+      >
+        {adminMode ? (
+          <>← Employee sign in</>
+        ) : (
+          <>
+            <Shield className="h-3.5 w-3.5" aria-hidden />
+            Admin login
+          </>
+        )}
+      </button>
+
+      <div className="nexus-login-hero hidden lg:flex lg:w-[52%] xl:w-[55%] lg:min-w-0 relative flex-col justify-center p-12 xl:p-16 overflow-hidden border-r">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,15 +135,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         </motion.div>
       </div>
 
-      {/* ── Right: two login sections ── */}
-      <div className="nexus-login-panel flex-1 min-w-0 w-full flex items-center justify-center px-4 py-8 sm:px-6 lg:p-12 overflow-x-hidden">
+      <div className="nexus-login-panel flex-1 min-w-0 w-full flex items-center justify-center px-4 py-6 sm:px-6 sm:py-10 lg:p-16 overflow-x-hidden">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="w-full min-w-0 max-w-[480px]"
+          className="w-full min-w-0 max-w-[420px]"
         >
-          <div className="lg:hidden flex flex-col items-center mb-8">
+          <div className="lg:hidden flex flex-col items-center mb-10">
             <img src={loginLogo} alt="Malcon Nexus" className="h-14 w-14 object-contain" />
             <p className="nexus-login-brand-name text-sm mt-3">Malcon Nexus</p>
             <p className="nexus-login-brand-sub text-xs mt-0.5">by Malcon Life Sciences</p>
@@ -129,18 +151,89 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
 
-          <div className="hidden lg:flex justify-center mb-6">
-            <img src={loginLogo} alt="Malcon Nexus" className="h-14 w-14 object-contain" />
+          <div className="hidden lg:flex justify-center mb-8">
+            <img src={loginLogo} alt="Malcon Nexus" className="h-16 w-16 object-contain" />
           </div>
 
-          <h1 className="nexus-login-title text-center lg:text-left mb-6">Sign in</h1>
+          <div className="mb-8 text-center lg:text-left pr-24 sm:pr-28">
+            <h1 className="nexus-login-title">
+              {adminMode ? 'Admin sign in' : 'Sign in'}
+            </h1>
+            {!adminMode && (
+              <p className="nexus-login-muted text-sm mt-2">
+                Employee ID and OTP from Telegram.
+              </p>
+            )}
+          </div>
 
-          {/* ── Employee login ── */}
-          <section className="nexus-login-section" aria-labelledby="employee-login-heading">
-            <h2 id="employee-login-heading" className="nexus-login-section-title">
-              Employee login
-            </h2>
-            <form onSubmit={handleEmployeeSubmit} className="space-y-4 w-full min-w-0">
+          {adminMode ? (
+            <form onSubmit={handleAdminSubmit} className="space-y-5 w-full min-w-0">
+              <div className="min-w-0">
+                <label htmlFor="login-admin-email" className="nexus-login-label block mb-1.5">
+                  Email
+                </label>
+                <div className="relative min-w-0">
+                  <Mail className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
+                  <input
+                    id="login-admin-email"
+                    type="email"
+                    value={DISPLAY_EMAIL}
+                    readOnly
+                    tabIndex={-1}
+                    className="nexus-login-input nexus-login-input-readonly w-full min-w-0 max-w-full pl-10 pr-4 py-2.5"
+                  />
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <label htmlFor="login-admin-password" className="nexus-login-label block mb-1.5">
+                  Password
+                </label>
+                <div className="relative min-w-0">
+                  <Lock className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
+                  <input
+                    id="login-admin-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-11 py-2.5 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="nexus-login-icon absolute right-3.5 top-1/2 -translate-y-1/2 hover:opacity-80 transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {error && <LoginAlert>{error}</LoginAlert>}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Signing in…
+                  </>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmployeeSubmit} className="space-y-5 w-full min-w-0">
               <div className="min-w-0">
                 <label htmlFor="login-employee-code" className="nexus-login-label block mb-1.5">
                   Employee ID
@@ -198,19 +291,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 />
               </div>
 
-              {employeeInfo && !employeeError && (
+              {info && !error && (
                 <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5">
-                  {employeeInfo}
+                  {info}
                 </p>
               )}
-              {employeeError && <LoginAlert>{employeeError}</LoginAlert>}
+              {error && <LoginAlert>{error}</LoginAlert>}
 
               <button
                 type="submit"
-                disabled={employeeLoading}
+                disabled={loading}
                 className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
               >
-                {employeeLoading ? (
+                {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Signing in…
@@ -223,85 +316,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 )}
               </button>
             </form>
-          </section>
-
-          <div className="nexus-login-section-divider" role="separator" aria-hidden />
-
-          {/* ── Admin login ── */}
-          <section className="nexus-login-section" aria-labelledby="admin-login-heading">
-            <h2 id="admin-login-heading" className="nexus-login-section-title">
-              Admin login
-            </h2>
-            <form onSubmit={handleAdminSubmit} className="space-y-4 w-full min-w-0">
-              <div className="min-w-0">
-                <label htmlFor="login-admin-email" className="nexus-login-label block mb-1.5">
-                  Email
-                </label>
-                <div className="relative min-w-0">
-                  <Mail className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
-                  <input
-                    id="login-admin-email"
-                    type="email"
-                    value={DISPLAY_EMAIL}
-                    readOnly
-                    tabIndex={-1}
-                    className="nexus-login-input nexus-login-input-readonly w-full min-w-0 max-w-full pl-10 pr-4 py-2.5"
-                  />
-                </div>
-              </div>
-
-              <div className="min-w-0">
-                <label htmlFor="login-admin-password" className="nexus-login-label block mb-1.5">
-                  Password
-                </label>
-                <div className="relative min-w-0">
-                  <Lock className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
-                  <input
-                    id="login-admin-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    required
-                    className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-11 py-2.5 transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="nexus-login-icon absolute right-3.5 top-1/2 -translate-y-1/2 hover:opacity-80 transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {adminError && <LoginAlert>{adminError}</LoginAlert>}
-
-              <button
-                type="submit"
-                disabled={adminLoading}
-                className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
-              >
-                {adminLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    Admin sign in
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                  </>
-                )}
-              </button>
-            </form>
-          </section>
+          )}
 
           <p className="nexus-login-muted text-center mt-8 px-1 break-words">
-            Link Telegram: @Malcon_Nexus_bot →{' '}
-            <span className="nexus-login-brand-name font-medium">/start YOUR_ID</span>
+            {adminMode ? (
+              <span className="nexus-login-brand-name font-medium">Admin access only.</span>
+            ) : (
+              <>
+                Link Telegram: @Malcon_Nexus_bot →{' '}
+                <span className="nexus-login-brand-name font-medium">/start YOUR_ID</span>
+              </>
+            )}
           </p>
           <p className="nexus-login-build text-center mt-3">Build {buildSha}</p>
         </motion.div>
