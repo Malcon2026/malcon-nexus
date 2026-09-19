@@ -8,6 +8,7 @@ import { useStore } from '../store/useStore';
 import { getCurrentStageTeamDisplay, isPostponedCase } from '../lib/caseWorkflow';
 import { formatDate, getStageStyle, getPriorityStyle } from '../utils/helpers';
 import { getISTDateKey } from '../lib/attendance';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 export const PostponedCases: React.FC = () => {
   const { cases, viewMode, setSelectedCase, setActiveTab } = useStore();
@@ -49,31 +50,29 @@ export const PostponedCases: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Postponed Cases</h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-xl">
-            Surgeries rescheduled — workflow stage and kit location are unchanged until staff move the case forward.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-lg">
-            <CalendarClock className="h-4 w-4 text-sky-600" />
-            <span className="text-sm font-semibold text-sky-800">{postponed.length} postponed</span>
+    <NexusPage maxWidthClass="max-w-[1400px]">
+      <NexusPageHeader
+        title="Postponed Cases"
+        description="Surgeries rescheduled — workflow stage and kit location are unchanged until staff move the case forward."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-sky-50 border border-sky-200 px-3 py-1.5 rounded-lg">
+              <CalendarClock className="h-4 w-4 text-sky-600" />
+              <span className="text-sm font-semibold text-sky-800">{postponed.length} postponed</span>
+            </div>
+            {overdue > 0 && (
+              <span className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg">
+                {overdue} past new date — follow up
+              </span>
+            )}
+            {dueSoon > 0 && (
+              <span className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg">
+                {dueSoon} upcoming
+              </span>
+            )}
           </div>
-          {overdue > 0 && (
-            <span className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg">
-              {overdue} past new date — follow up
-            </span>
-          )}
-          {dueSoon > 0 && (
-            <span className="text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg">
-              {dueSoon} upcoming
-            </span>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       <div className="relative mb-4 max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -82,7 +81,7 @@ export const PostponedCases: React.FC = () => {
           placeholder="Search case, hospital, reason…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+          className="nexus-field-input"
         />
       </div>
 
@@ -176,6 +175,6 @@ export const PostponedCases: React.FC = () => {
           </CardBody>
         </Card>
       )}
-    </div>
+    </NexusPage>
   );
 };

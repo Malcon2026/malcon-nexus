@@ -13,6 +13,7 @@ import {
   SurgeryDateQuickPick,
   type SurgeryDateMode,
 } from '../components/SurgeryDateQuickPick';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
   'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
@@ -68,27 +69,28 @@ export const WorkflowBoard: React.FC = () => {
         : formatDate(surgeryDate);
 
   return (
-    <div className="p-4 sm:p-6 h-full flex flex-col max-w-[1800px] mx-auto w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Workflow Board</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+    <NexusPage maxWidthClass="max-w-[1800px]" className="h-full flex flex-col">
+      <NexusPageHeader
+        title="Workflow Board"
+        description={
+          <>
             Cases for surgery on <span className="font-medium text-gray-700">{dateLabel}</span>
             {' '}({boardCases.length} case{boardCases.length === 1 ? '' : 's'})
-          </p>
-        </div>
-        <div className="flex flex-col sm:items-end gap-3 min-w-0 sm:max-w-xs w-full sm:w-auto">
-          <SurgeryDateQuickPick
-            value={surgeryDate}
-            mode={surgeryDateMode}
-            onChange={(nextDate, nextMode) => {
-              setSurgeryDate(nextDate);
-              setSurgeryDateMode(nextMode);
-            }}
-          />
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <div className="flex flex-col sm:items-end gap-3 min-w-0 sm:max-w-xs w-full sm:w-auto">
+            <SurgeryDateQuickPick
+              value={surgeryDate}
+              mode={surgeryDateMode}
+              onChange={(nextDate, nextMode) => {
+                setSurgeryDate(nextDate);
+                setSurgeryDateMode(nextMode);
+              }}
+            />
+          </div>
+        }
+      />
 
       {/* Board */}
       <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-w-full">
@@ -238,6 +240,6 @@ export const WorkflowBoard: React.FC = () => {
           </div>
         ))}
       </div>
-    </div>
+    </NexusPage>
   );
 };

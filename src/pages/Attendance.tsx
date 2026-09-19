@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { Card } from '../components/ui/Card';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import { useStore } from '../store/useStore';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { EmployeeAttendancePanel } from '../components/EmployeeAttendancePanel';
@@ -32,8 +33,12 @@ export const Attendance: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
-      <div className="flex flex-wrap gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+    <NexusPage maxWidthClass="max-w-[1400px]">
+      <NexusPageHeader
+        title="Attendance"
+        description="Daily presence, register, and leave / off-site approvals."
+      />
+      <div className="nexus-segmented mb-6 flex-wrap">
         {([
           { id: 'today' as const, label: 'Today' },
           { id: 'register' as const, label: 'Register' },
@@ -46,9 +51,7 @@ export const Attendance: React.FC = () => {
             key={id}
             type="button"
             onClick={() => setPageTab(id)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              pageTab === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={pageTab === id ? 'is-active' : undefined}
           >
             {label}
           </button>
@@ -58,6 +61,6 @@ export const Attendance: React.FC = () => {
       {pageTab === 'today' && <EmployeeAttendancePanel />}
       {pageTab === 'register' && <AttendanceRegisterPanel compactHeader />}
       {pageTab === 'approvals' && <AttendanceApprovalsPanel />}
-    </div>
+    </NexusPage>
   );
 };

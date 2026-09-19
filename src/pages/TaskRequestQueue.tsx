@@ -8,6 +8,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import { groupPendingRequestsByCase, isFcfsPoolCase } from '../lib/caseTaskRequests';
 import { priorityColors, stageColors, formatDate, timeAgo } from '../utils/helpers';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 export const TaskRequestQueue: React.FC = () => {
   const {
@@ -54,18 +55,19 @@ export const TaskRequestQueue: React.FC = () => {
   const totalPending = entries.reduce((n, e) => n + e.requests.length, 0);
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Task Requests</h1>
-        </div>
-        {totalPending > 0 && (
-          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
-            <Clock className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-semibold text-amber-700">{totalPending} pending</span>
-          </div>
-        )}
-      </div>
+    <NexusPage maxWidthClass="max-w-[1400px]">
+      <NexusPageHeader
+        title="Task Requests"
+        description="FCFS pool pickup requests awaiting admin approval."
+        actions={
+          totalPending > 0 ? (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-semibold text-amber-700">{totalPending} pending</span>
+            </div>
+          ) : undefined
+        }
+      />
 
       {entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24">
@@ -163,6 +165,6 @@ export const TaskRequestQueue: React.FC = () => {
           })}
         </div>
       )}
-    </div>
+    </NexusPage>
   );
 };

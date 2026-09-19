@@ -1,10 +1,12 @@
 import React from 'react';
 import { DashboardStickyNotes } from '../components/DashboardStickyNotes';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 export const Notes: React.FC = () => {
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1600px]">
+      <NexusPageHeader title="Sticky Notes" description="Team notes visible on the dashboard." />
       <DashboardStickyNotes />
-    </div>
+    </NexusPage>
   );
 };

@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import type { Hospital } from '../types';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const inputClass = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
 const labelClass = 'block text-xs font-medium text-gray-700 mb-1.5';
@@ -101,26 +102,23 @@ export const Hospitals: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Hospitals</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {hospitals.length} registered hospitals across {cities.length} cities
-          </p>
-        </div>
-        {viewMode === 'admin' && (
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus className="h-4 w-4" />}
-            onClick={handleOpenCreate}
-          >
-            Add Hospital
-          </Button>
-        )}
-      </div>
+    <NexusPage maxWidthClass="max-w-[1400px]">
+      <NexusPageHeader
+        title="Hospitals"
+        description={`${hospitals.length} registered hospitals across ${cities.length} cities`}
+        actions={
+          viewMode === 'admin' ? (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={handleOpenCreate}
+            >
+              Add Hospital
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -149,7 +147,7 @@ export const Hospitals: React.FC = () => {
           <input
             type="text"
             placeholder="Search hospitals..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+            className="nexus-field-input"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -157,7 +155,7 @@ export const Hospitals: React.FC = () => {
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterCity('All')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterCity === 'All' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterCity === 'All' ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             All
           </button>
@@ -165,7 +163,7 @@ export const Hospitals: React.FC = () => {
             <button
               key={city}
               onClick={() => setFilterCity(city)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterCity === city ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${filterCity === city ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {city}
             </button>
@@ -377,6 +375,6 @@ export const Hospitals: React.FC = () => {
           </form>
         </Modal>
       )}
-    </div>
+    </NexusPage>
   );
 };

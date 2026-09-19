@@ -29,6 +29,7 @@ import {
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { VISIBLE_WORKFLOW_STAGES } from '../lib/caseWorkflow';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'updatedAt' | 'status' | 'currentStage';
 type SortDir = 'asc' | 'desc';
@@ -165,40 +166,38 @@ export const CaseHistory: React.FC = () => {
   );
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto w-full min-w-0">
+    <NexusPage maxWidthClass="max-w-[1600px]">
       <CaseCsvExportModal
         isOpen={showExport}
         onClose={() => setShowExport(false)}
         cases={filtered}
         title="Export Case History to CSV"
       />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Archive className="h-5 w-5 text-indigo-600" />
-            Case History
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<Download className="h-4 w-4" />}
-            onClick={() => setShowExport(true)}
-          >
-            Export CSV
-          </Button>
-        </div>
-      </div>
+      <NexusPageHeader
+        title="Case History"
+        description={`${filtered.length} cases in current view`}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Download className="h-4 w-4" />}
+              onClick={() => setShowExport(true)}
+            >
+              Export CSV
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
@@ -233,7 +232,7 @@ export const CaseHistory: React.FC = () => {
                 }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   active
-                    ? 'bg-gray-900 text-white border-gray-900'
+                    ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-gray-900'
                 }`}
               >
@@ -250,7 +249,7 @@ export const CaseHistory: React.FC = () => {
             <input
               type="text"
               placeholder="Search case ID, hospital, doctor, employee..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+              className="nexus-field-input"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -431,6 +430,6 @@ export const CaseHistory: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </NexusPage>
   );
 };

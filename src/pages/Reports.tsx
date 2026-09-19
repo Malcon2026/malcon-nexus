@@ -13,6 +13,7 @@ import type { ReportDateFilter } from '../utils/reportFilters';
 import { REPORT_DATE_RANGE_LABELS, isTimestampInRange } from '../utils/reportFilters';
 import type { CaseDateField } from '../utils/caseExport';
 import { KM_INCENTIVE_RULE_LABEL } from '../lib/kmIncentive';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import {
   filterCasesForExport,
   exportCasesCsv,
@@ -226,10 +227,8 @@ export const Reports: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1400px] mx-auto w-full min-w-0">
-      <div className="mb-6">
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1400px]">
+      <NexusPageHeader title="Reports" description="Export registers and operational summaries." />
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
         <div className="space-y-2">
@@ -244,7 +243,7 @@ export const Reports: React.FC = () => {
               }}
               className={`w-full text-left rounded-xl border p-4 transition-all ${
                 selectedReport === report.id
-                  ? 'border-gray-900 bg-gray-900 text-white shadow-md'
+                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-md'
                   : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
               }`}
             >
@@ -398,7 +397,7 @@ export const Reports: React.FC = () => {
                     key={r.id}
                     className={`text-[10px] cursor-pointer ${
                       selectedReport === r.id
-                        ? 'bg-gray-900 text-white border-gray-900'
+                        ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
                         : 'bg-gray-100 text-gray-600 border-gray-200'
                     }`}
                   >
@@ -410,6 +409,6 @@ export const Reports: React.FC = () => {
           </CardBody>
         </Card>
       </div>
-    </div>
+    </NexusPage>
   );
 };

@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { useStore } from '../store/useStore';
 import { departmentColors, formatDateTime } from '../utils/helpers';
 import type { Department } from '../types';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 export const ActivityLog: React.FC = () => {
   const { activityLog, setSelectedCase, setActiveTab } = useStore();
@@ -61,13 +62,8 @@ export const ActivityLog: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Activity Log</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{filteredLogs.length} events recorded</p>
-        </div>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1200px]">
+      <NexusPageHeader title="Activity Log" description={`${filteredLogs.length} events recorded`} />
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -76,17 +72,18 @@ export const ActivityLog: React.FC = () => {
           <input
             type="text"
             placeholder="Search activities..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-gray-50"
+            className="nexus-field-input"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div className="nexus-segmented">
           {(['all', 'admin', 'employee'] as const).map(role => (
             <button
               key={role}
+              type="button"
               onClick={() => setFilterRole(role)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${filterRole === role ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`capitalize ${filterRole === role ? 'is-active' : ''}`}
             >
               {role === 'all' ? 'All Roles' : role === 'admin' ? 'Admin' : 'Employees'}
             </button>
@@ -136,7 +133,7 @@ export const ActivityLog: React.FC = () => {
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-bold text-gray-900">{log.performedBy}</span>
-                    <Badge className={`text-xs ${log.performedByRole === 'admin' ? 'bg-gray-900 text-white border-gray-900' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                    <Badge className={`text-xs ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
                       {log.performedByRole}
                     </Badge>
                   </div>
@@ -147,7 +144,7 @@ export const ActivityLog: React.FC = () => {
                   {log.entityType === 'case' && (
                     <button
                       onClick={() => { setSelectedCase(log.entityId); setActiveTab('cases'); }}
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline"
+                      className="nexus-link text-xs font-semibold"
                     >
                       {log.entityLabel}
                     </button>
@@ -172,6 +169,6 @@ export const ActivityLog: React.FC = () => {
           </div>
         )}
       </div>
-    </div>      
+    </NexusPage>
   );
 };

@@ -19,6 +19,7 @@ import {
   type ExpenseRegisterDayColumn,
   type ExpenseRegisterEmployeeRow,
 } from '../lib/expenseRegister';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-300 bg-white';
@@ -308,20 +309,20 @@ export const Expenses: React.FC = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Petrol, Food &amp; Other Expenses</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </Button>
-          <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openNewForm()}>
-            Add expense
-          </Button>
-        </div>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1600px]">
+      <NexusPageHeader
+        title="Petrol, Food & Other Expenses"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </Button>
+            <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => openNewForm()}>
+              Add expense
+            </Button>
+          </>
+        }
+      />
 
       {/* Summary cards — scoped to whichever day/month is currently selected below */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-3">
@@ -962,6 +963,6 @@ export const Expenses: React.FC = () => {
           </div>
         </Modal>
       )}
-    </div>
+    </NexusPage>
   );
 };

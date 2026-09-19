@@ -15,6 +15,7 @@ import {
   PETROL_TOKEN_AMOUNT,
 } from '../lib/petrol';
 import { formatCurrency, formatDate } from '../utils/helpers';
+import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const inputClass =
   'w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 bg-white';
@@ -150,18 +151,11 @@ export const PetrolDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1200px] mx-auto w-full min-w-0 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Fuel className="h-5 w-5 text-orange-600" />
-            Petrol Tokens
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            ₹{PETROL_TOKEN_AMOUNT} per token · {PETROL_KM_THRESHOLD} km before next issue
-          </p>
-        </div>
-      </div>
+    <NexusPage maxWidthClass="max-w-[1200px]" className="space-y-6">
+      <NexusPageHeader
+        title="Petrol Tokens"
+        description={`₹${PETROL_TOKEN_AMOUNT} per token · ${PETROL_KM_THRESHOLD} km before next issue`}
+      />
 
       {error && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
@@ -175,7 +169,7 @@ export const PetrolDashboard: React.FC = () => {
             onClick={() => setTab(t.id)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
               tab === t.id
-                ? 'bg-gray-900 text-white border-gray-900'
+                ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
           >
@@ -189,7 +183,7 @@ export const PetrolDashboard: React.FC = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="search"
-          className={`${inputClass} pl-9`}
+          className="nexus-field-input"
           placeholder="Search name, vehicle, book, token…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -356,6 +350,6 @@ export const PetrolDashboard: React.FC = () => {
           </p>
         </div>
       </Modal>
-    </div>
+    </NexusPage>
   );
 };

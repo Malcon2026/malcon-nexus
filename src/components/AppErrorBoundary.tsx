@@ -24,7 +24,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50 p-6">
+        <div className="min-h-[100dvh] flex items-center justify-center bg-[var(--color-bg)] p-6">
           <div className="max-w-md w-full bg-white rounded-2xl border border-red-100 shadow-sm p-8 text-center">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h1 className="text-lg font-bold text-gray-900">Something went wrong</h1>

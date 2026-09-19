@@ -23,7 +23,7 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
       <div className="p-5 space-y-3">
         {rows.map((row) => (
           <div key={row.keys} className="flex items-center justify-between gap-4">
-            <kbd className="px-2 py-1 text-xs font-mono font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-md shrink-0">
+            <kbd className="nexus-kbd shrink-0">
               {row.keys}
             </kbd>
             <span className="text-sm text-gray-600 text-right">{row.action}</span>
