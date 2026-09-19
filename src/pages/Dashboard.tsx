@@ -6,9 +6,17 @@ import {
   AlertTriangle, Activity
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  ComposedChart, Area, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
+
+/** Weekly trend chart — TMS minimal palette */
+const WEEK_CHART = {
+  cases: '#0071e3',
+  completed: '#30b07a',
+  axis: '#86868b',
+  grid: '#ececf1',
+} as const;
 import { Card, CardHeader, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
@@ -75,13 +83,13 @@ interface CustomTooltipProps {
 const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border border-gray-100 rounded-xl shadow-lg p-3">
-        <p className="text-xs font-semibold text-gray-700 mb-1">{label}</p>
+      <div className="rounded-[var(--radius-md)] border border-[var(--color-separator)] bg-[var(--color-bg-elevated)] px-3 py-2.5 shadow-[var(--shadow-popover)]">
+        <p className="text-[11px] font-medium text-[var(--color-label-secondary)] mb-1.5">{label}</p>
         {payload.map((p) => (
           <div key={p.name} className="flex items-center gap-2 text-xs">
-            <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-            <span className="text-gray-500">{p.name}:</span>
-            <span className="font-semibold text-gray-800">{p.value}</span>
+            <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
+            <span className="text-[var(--color-label-secondary)]">{p.name}</span>
+            <span className="font-semibold text-[var(--color-label)] tabular-nums ml-auto">{p.value}</span>
           </div>
         ))}
       </div>
@@ -89,6 +97,13 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label })
   }
   return null;
 };
+
+const weekChartActiveDot = (stroke: string) => ({
+  r: 4,
+  stroke,
+  strokeWidth: 2,
+  fill: '#ffffff',
+});
 
 export const Dashboard: React.FC = () => {
   const {
@@ -224,27 +239,71 @@ export const Dashboard: React.FC = () => {
                   <h3 className="text-sm font-semibold text-gray-900">This week · Mon–Sun</h3>
                   <p className="text-xs text-gray-500 mt-0.5">Surgeries per day (IST)</p>
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-gray-500 shrink-0">
-                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-sm bg-[var(--color-accent)]" /><span>Cases</span></div>
-                  <div className="flex items-center gap-1"><div className="h-2 w-2 rounded-sm bg-emerald-500" /><span>Done</span></div>
+                <div className="flex items-center gap-3 text-[10px] text-[var(--color-label-secondary)] shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-0.5 w-3 rounded-full bg-[var(--color-accent)]" aria-hidden />
+                    <span>Cases</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-0.5 w-3 rounded-full bg-[#30b07a]" aria-hidden />
+                    <span>Done</span>
+                  </div>
                 </div>
               </div>
             </CardHeader>
             <CardBody className="flex-1 min-h-0 pb-4">
               <ResponsiveContainer width="100%" height="100%" minHeight={220}>
-                <BarChart
-                  data={dailyData}
-                  margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-                  barGap={2}
-                  barCategoryGap="22%"
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5ea" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} interval={0} />
-                  <YAxis tick={{ fontSize: 11, fill: '#8b97ab' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 113, 227, 0.06)' }} />
-                  <Bar dataKey="cases" name="Cases" fill="#0071e3" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="completed" name="Completed" fill="#34d399" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                </BarChart>
+                <ComposedChart data={dailyData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="weekCasesFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={WEEK_CHART.cases} stopOpacity={0.16} />
+                      <stop offset="92%" stopColor={WEEK_CHART.cases} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke={WEEK_CHART.grid} vertical={false} strokeDasharray="0" />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 11, fill: WEEK_CHART.axis, fontWeight: 500 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    dy={6}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: WEEK_CHART.axis }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    cursor={{ stroke: WEEK_CHART.grid, strokeWidth: 1 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="cases"
+                    name="Cases"
+                    stroke={WEEK_CHART.cases}
+                    strokeWidth={2}
+                    fill="url(#weekCasesFill)"
+                    dot={false}
+                    activeDot={weekChartActiveDot(WEEK_CHART.cases)}
+                    isAnimationActive
+                    animationDuration={480}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="completed"
+                    name="Completed"
+                    stroke={WEEK_CHART.completed}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={weekChartActiveDot(WEEK_CHART.completed)}
+                    isAnimationActive
+                    animationDuration={480}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </CardBody>
           </Card>
