@@ -25,7 +25,7 @@ const emptyForm = {
   email: '',
   phone: '',
   employeeCode: '',
-  role: 'employee' as 'admin' | 'employee' | 'petrol',
+  role: 'employee' as 'admin' | 'employee' | 'petrol' | 'stores',
 };
 
 export const Employees: React.FC = () => {
@@ -110,7 +110,7 @@ export const Employees: React.FC = () => {
   };
 
   const filtered = employees
-    .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol')
+    .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol' || e.role === 'stores')
     .filter((e) => filterDept === 'All' || employeeCoversDepartment(e, filterDept))
     .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()) || (e.employeeCode || '').includes(search.trim()));
 
@@ -293,6 +293,9 @@ export const Employees: React.FC = () => {
                           ))}
                           {emp.role === 'petrol' && (
                             <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-[10px]">Petrol desk</Badge>
+                          )}
+                          {emp.role === 'stores' && (
+                            <Badge className="bg-violet-50 text-violet-700 border-violet-200 text-[10px]">Stores kiosk</Badge>
                           )}
                           {emp.role === 'admin' && (
                             <Badge className="bg-gray-900 text-white border-gray-900 text-[10px]">Admin</Badge>
@@ -489,11 +492,12 @@ export const Employees: React.FC = () => {
               <select
                 className={inputClass}
                 value={form.role}
-                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' })}
+                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' | 'stores' })}
               >
                 <option value="employee">Employee</option>
                 <option value="admin">Administrator</option>
                 <option value="petrol">Petrol desk</option>
+                <option value="stores">Stores kiosk (cases only)</option>
               </select>
             </div>
           </form>

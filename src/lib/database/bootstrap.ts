@@ -21,7 +21,7 @@ import { FCFS_POOL_ENABLED } from '../caseWorkflow';
 import { getISTDateKey } from '../attendance';
 import { foodLoadWindow } from '../food';
 
-type BootstrapRole = 'admin' | 'employee' | 'petrol';
+type BootstrapRole = 'admin' | 'employee' | 'petrol' | 'stores';
 
 export interface BootstrapOptions {
   employeeId?: string;
@@ -177,10 +177,31 @@ function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
   ];
 }
 
+function storesKioskEssentialTasks(employeeId: string): BootstrapTask[] {
+  return [
+    {
+      key: 'employees',
+      run: async () => {
+        const self = await sbEmployeeRepo.getById(employeeId);
+        return self ? [self] : [];
+      },
+    },
+    { key: 'cases', run: () => sbCaseRepo.getAll() },
+    { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+    { key: 'kits', run: () => sbKitRepo.getAll() },
+    { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
+  ];
+}
+
 function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?: BootstrapOptions): BootstrapTask[] {
   if (role === 'petrol') {
     return tier === 'essential' && options?.employeeId
       ? petrolEssentialTasks(options.employeeId)
+      : [];
+  }
+  if (role === 'stores') {
+    return tier === 'essential' && options?.employeeId
+      ? storesKioskEssentialTasks(options.employeeId)
       : [];
   }
   if (role === 'employee') {
@@ -202,7 +223,7 @@ function shouldSkipEssentialFetch(
 ): boolean {
   if (runOptions?.force) return false;
   // Admins must always load fresh leave / off-site approval queues.
-  if (role === 'admin' || role === 'petrol') return false;
+  if (role === 'admin' || role === 'petrol' || role === 'stores') return false;
   if (!options?.employeeId) return false;
   return isBootstrapCacheFresh(options.employeeId);
 }
@@ -286,6 +307,8 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
         ]
       : role === 'petrol'
         ? ['employees', 'petrolRequests']
+        : role === 'stores'
+          ? ['employees', 'cases', 'hospitals', 'kits', 'notifications']
       : [
           'employees',
           'attendanceRecords',

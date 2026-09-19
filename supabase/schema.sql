@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS employees (
     'Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit',
     'Accounts', 'Bill Submission', 'Office Staff', 'Admin'
   )),
-  role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee', 'petrol')),
+  role         TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('admin', 'employee', 'petrol', 'stores')),
   status       TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   avatar       TEXT NOT NULL DEFAULT '',
   phone        TEXT NOT NULL DEFAULT '',

@@ -87,7 +87,10 @@ export const Settings: React.FC = () => {
   const isAdmin = viewMode === 'admin' || currentUser.role === 'admin';
   const visibleTabs = tabs.filter((tab) => {
     if (tab.adminOnly && !isAdmin) return false;
-    if (viewMode === 'petrol' && (tab.id === 'company' || tab.id === 'data' || tab.id === 'notice' || tab.id === 'tv-notice')) {
+    if (
+      (viewMode === 'petrol' || viewMode === 'stores') &&
+      (tab.id === 'company' || tab.id === 'data' || tab.id === 'notice' || tab.id === 'tv-notice')
+    ) {
       return false;
     }
     return true;

@@ -24,6 +24,7 @@ import { Settings } from './pages/Settings';
 import { TelegramDashboard } from './pages/TelegramDashboard';
 import { Notes } from './pages/Notes';
 import { EmployeeDashboard } from './pages/EmployeeDashboard';
+import { StoresKioskHome } from './pages/StoresKioskHome';
 import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
@@ -92,7 +93,14 @@ function MainApp() {
         restoreBootstrapCache,
         persistBootstrapCache,
       } = await import('./lib/database/bootstrap');
-      const role = employee.role === 'admin' ? 'admin' : employee.role === 'petrol' ? 'petrol' : 'employee';
+      const role =
+        employee.role === 'admin'
+          ? 'admin'
+          : employee.role === 'petrol'
+            ? 'petrol'
+            : employee.role === 'stores'
+              ? 'stores'
+              : 'employee';
       const options = { employeeId: employee.id };
 
       const hadCache = restoreBootstrapCache(employee.id);
@@ -209,6 +217,23 @@ function MainApp() {
           return <Settings />;
         default:
           return <PetrolDashboard />;
+      }
+    }
+
+    if (viewMode === 'stores') {
+      switch (activeTab) {
+        case 'dashboard':
+          return <StoresKioskHome />;
+        case 'cases':
+          return <Cases />;
+        case 'live-cases':
+          return <LiveCases />;
+        case 'workflow':
+          return <WorkflowBoard />;
+        case 'settings':
+          return <Settings />;
+        default:
+          return <LiveCases />;
       }
     }
 

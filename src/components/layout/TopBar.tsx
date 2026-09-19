@@ -91,7 +91,13 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
 
       {/* Role badge */}
       <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-xs font-medium text-indigo-700 shrink-0 capitalize">
-        {currentUser.role === 'admin' ? 'Admin' : currentUser.role === 'petrol' ? 'Petrol desk' : formatEmployeeDepartments(currentUser)}
+        {currentUser.role === 'admin'
+          ? 'Admin'
+          : currentUser.role === 'petrol'
+            ? 'Petrol desk'
+            : currentUser.role === 'stores'
+              ? 'Stores kiosk'
+              : formatEmployeeDepartments(currentUser)}
       </span>
 
       {/* Notifications */}

@@ -43,6 +43,7 @@ import {
   PETROL_TOKEN_AMOUNT,
   placeholderStaffEmail,
 } from '../lib/petrol';
+import { defaultStoresKioskTab, isStoresKioskTab } from '../lib/storesKioskAccess';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
@@ -84,7 +85,7 @@ const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
 interface AppState {
   // Auth / View Mode
   currentUser: Employee;
-  viewMode: 'admin' | 'employee' | 'petrol';
+  viewMode: 'admin' | 'employee' | 'petrol' | 'stores';
 
   // State Collections
   cases: ImplantCase[];
@@ -695,7 +696,10 @@ const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string 
 
 const persistLocationTripSession = (employee: { id: string; role: Employee['role'] }) => {
   if (!USE_SUPABASE) return;
-  const role = employee.role === 'admin' || employee.role === 'petrol' ? employee.role : 'employee';
+  const role =
+    employee.role === 'admin' || employee.role === 'petrol' || employee.role === 'stores'
+      ? employee.role
+      : 'employee';
   void import('../lib/database/bootstrap').then(({ persistBootstrapCache }) => {
     persistBootstrapCache(employee.id, role);
   });
@@ -964,12 +968,18 @@ const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 const applyUserSession = (
   user: Employee,
   current: { activeTab: string },
-): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol'; activeTab: string } => {
+): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol' | 'stores'; activeTab: string } => {
   if (user.role === 'petrol') {
     const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
       ? current.activeTab
       : 'petrol-dashboard';
     return { currentUser: user, viewMode: 'petrol', activeTab };
+  }
+  if (user.role === 'stores') {
+    const activeTab = isStoresKioskTab(current.activeTab)
+      ? current.activeTab
+      : defaultStoresKioskTab();
+    return { currentUser: user, viewMode: 'stores', activeTab };
   }
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   let activeTab = current.activeTab;
@@ -981,7 +991,14 @@ const applyUserSession = (
 
 export const useStore = create<AppState>((set, get) => ({
   currentUser: adminUser,
-  viewMode: adminUser.role === 'admin' ? 'admin' : adminUser.role === 'petrol' ? 'petrol' : 'employee',
+  viewMode:
+    adminUser.role === 'admin'
+      ? 'admin'
+      : adminUser.role === 'petrol'
+        ? 'petrol'
+        : adminUser.role === 'stores'
+          ? 'stores'
+          : 'employee',
   cases: initialCases,
   selectedCaseId: null,
   notifications: initialNotifications,
