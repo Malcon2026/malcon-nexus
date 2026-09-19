@@ -83,13 +83,22 @@
   background: #ececf1;
 }
 
-.nexus-login-page .nexus-login-admin-link {
-  color: #0071e3;
+.nexus-login-page .nexus-login-section {
+  padding: 1.25rem 0;
 }
 
-.nexus-login-page .nexus-login-admin-link:hover {
-  color: #0077ed;
-  text-decoration: underline;
+.nexus-login-page .nexus-login-section-title {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: #1d1d1f;
+  margin-bottom: 1rem;
+}
+
+.nexus-login-page .nexus-login-section-divider {
+  height: 1px;
+  margin: 0.5rem 0 1rem;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .nexus-login-page .nexus-login-muted {
