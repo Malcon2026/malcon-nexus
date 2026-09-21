@@ -112,7 +112,7 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'rounded-2xl border border-gray-200 bg-gray-50/40 shadow-sm overflow-hidden flex flex-col min-h-0',
+        'dash-brief overflow-hidden flex flex-col min-h-0',
         className,
       )}
     >

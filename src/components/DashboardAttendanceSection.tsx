@@ -7,6 +7,7 @@ import type { DashboardAttendanceMetrics } from '../lib/dashboardAttendanceMetri
 type Props = {
   metrics: DashboardAttendanceMetrics;
   onOpenAttendance: () => void;
+  className?: string;
 };
 
 type StripSegment = {
@@ -28,7 +29,7 @@ function pct(count: number, total: number): number {
   return (count / total) * 100;
 }
 
-export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAttendance }) => {
+export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAttendance, className }) => {
   const { totalStaff } = metrics;
   const accounted = metrics.present + metrics.onLeave + metrics.absent;
 
@@ -79,7 +80,7 @@ export const DashboardAttendanceSection: React.FC<Props> = ({ metrics, onOpenAtt
       : null;
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>

@@ -1,29 +1,18 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
-  FolderOpen, Clock, Stethoscope, Sparkles, Receipt,
-  CheckCircle2, Calendar, ArrowRight,
-  AlertTriangle, Activity
+  FolderOpen, Stethoscope, Calendar, ArrowRight, AlertTriangle, Activity,
+  LayoutGrid, Users, ClipboardCheck,
 } from 'lucide-react';
 import {
-  ComposedChart, Area, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-
-/** Weekly trend chart — TMS minimal palette */
-const WEEK_CHART = {
-  cases: '#0071e3',
-  completed: '#30b07a',
-  axis: '#86868b',
-  grid: '#ececf1',
-} as const;
-import { Card, CardHeader, CardBody } from '../components/ui/Card';
+import { CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
-import { filterAttendanceStaff } from '../lib/staff';
+import { formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { getISTDateKey } from '../lib/attendance';
@@ -34,42 +23,12 @@ import { buildDashboardAttendanceMetrics } from '../lib/dashboardAttendanceMetri
 import { buildDashboardStaffSnapshot } from '../lib/dashboardStaffSnapshot';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
-const fadeUp = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.3 },
-};
-
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.07 } },
-};
-
-interface KPICardProps {
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  iconBg: string;
-  trend?: string;
-  trendUp?: boolean;
-  subtitle?: string;
-}
-
-const KPICard: React.FC<KPICardProps> = ({ label, value, icon, iconBg, subtitle }) => (
-  <motion.div variants={fadeUp} className="h-full">
-    <div className="bg-white rounded-[var(--radius-lg)] border border-[var(--color-separator)] p-4 h-full flex flex-col gap-3 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-popover)] hover:border-[var(--color-separator-opaque)] transition-all duration-200 cursor-default group">
-      <div className="flex items-center gap-2.5">
-        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
-          {icon}
-        </div>
-        <span className="text-xs font-medium text-gray-500 leading-tight">{label}</span>
-      </div>
-      <div className="flex-1 flex flex-col justify-end">
-        <span className="text-2xl font-bold text-gray-900 tracking-tight">{value}</span>
-        {subtitle && <span className="text-[11px] text-gray-400 mt-0.5">{subtitle}</span>}
-      </div>
-    </div>
-  </motion.div>
-);
+const WEEK_CHART = {
+  cases: '#0071e3',
+  completed: '#30b07a',
+  axis: '#86868b',
+  grid: '#ececf1',
+} as const;
 
 interface TooltipPayloadItem {
   name: string;
@@ -83,22 +42,20 @@ interface CustomTooltipProps {
   label?: string;
 }
 
-const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-[var(--radius-md)] border border-[var(--color-separator)] bg-[var(--color-bg-elevated)] px-3 py-2.5 shadow-[var(--shadow-popover)]">
-        <p className="text-[11px] font-medium text-[var(--color-label-secondary)] mb-1.5">{label}</p>
-        {payload.map((p) => (
-          <div key={p.name} className="flex items-center gap-2 text-xs">
-            <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
-            <span className="text-[var(--color-label-secondary)]">{p.name}</span>
-            <span className="font-semibold text-[var(--color-label)] tabular-nums ml-auto">{p.value}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
+const ChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-[var(--radius-md)] border border-[var(--color-separator)] bg-[var(--color-bg-elevated)] px-3 py-2.5 shadow-[var(--shadow-popover)]">
+      <p className="text-[11px] font-medium text-[var(--color-label-secondary)] mb-1.5">{label}</p>
+      {payload.map((p) => (
+        <div key={p.name} className="flex items-center gap-2 text-xs">
+          <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
+          <span className="text-[var(--color-label-secondary)]">{p.name}</span>
+          <span className="font-semibold text-[var(--color-label)] tabular-nums ml-auto">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const weekChartActiveDot = (stroke: string) => ({
@@ -107,6 +64,12 @@ const weekChartActiveDot = (stroke: string) => ({
   strokeWidth: 2,
   fill: '#ffffff',
 });
+
+function greetingForHour(h: number): string {
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export const Dashboard: React.FC = () => {
   const {
@@ -130,27 +93,28 @@ export const Dashboard: React.FC = () => {
     () => dailyData.reduce((sum, row) => sum + row.completed, 0),
     [dailyData],
   );
+
   const todaySurgeryDate = getTodaySurgeryDateKey();
   const stageDistribution = getStageDistribution(todaySurgeryDate);
   const stageDistributionTotal = stageDistribution.reduce((sum, item) => sum + item.count, 0);
+  const stageMax = Math.max(...stageDistribution.map((s) => s.count), 1);
 
-  const activeCases = cases.filter(c => c.status === 'Active' || c.status === 'Waiting For Approval');
-  const pendingApprovals = cases.filter(c => c.status === 'Waiting For Approval');
-  const surgeryCases = cases.filter(c => c.currentStage === 'Surgery');
-  const cleaningQueue = cases.filter(c => normalizeWorkflowStage(c.currentStage) === 'Cleaning & Audit');
+  const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
+  const surgeryCases = cases.filter((c) => c.currentStage === 'Surgery');
+  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Cleaning & Audit');
   const restockPending = cases.filter(
     (c) => mapCaseToVisibleStage(c.currentStage) === 'Restock' && c.status !== 'Completed' && c.status !== 'Cancelled',
   );
   const fcfsPoolTotal = countFcfsPoolCases(cases);
-  const completedCases = cases.filter(c => c.status === 'Completed');
-  const todayAssignments = cases.filter(c => c.currentDepartment !== null && c.status === 'Active');
+  const completedCases = cases.filter((c) => c.status === 'Completed');
+  const todayAssignments = cases.filter((c) => c.currentDepartment !== null && c.status === 'Active');
 
-  const allLogs = activityLog.slice(0, 8);
+  const recentLogs = activityLog.slice(0, 6);
 
   const upcomingCases = cases
-    .filter(c => c.status !== 'Completed' && c.status !== 'Cancelled')
+    .filter((c) => c.status !== 'Completed' && c.status !== 'Cancelled')
     .sort((a, b) => new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime())
-    .slice(0, 4);
+    .slice(0, 5);
 
   const staffSnapshot = useMemo(
     () =>
@@ -182,138 +146,167 @@ export const Dashboard: React.FC = () => {
     [cases, stageDistribution, todaySurgeryDate, staffSnapshot],
   );
 
-  const todayBoardTotal = insightMetrics.todayCasesCount;
-
-  const dateLabel = new Date().toLocaleDateString('en-IN', {
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString('en-IN', {
     weekday: 'long',
-    year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
+    year: 'numeric',
   });
+  const greeting = greetingForHour(now.getHours());
+
+  const goCases = () => setActiveTab('cases');
+  const goApprovals = () => setActiveTab('approvals');
+  const goWorkflow = () => setActiveTab('workflow');
+  const goAttendance = () => setActiveTab('attendance');
 
   return (
-    <NexusPage maxWidthClass="max-w-[1600px]" className="space-y-6">
+    <NexusPage maxWidthClass="max-w-[1280px]" className="dash-root space-y-8">
       <NexusPageHeader
-        title="Overview"
+        title={greeting}
         description={dateLabel}
         actions={
           <Button
             variant="primary"
             size="sm"
             icon={<FolderOpen className="h-4 w-4" />}
-            onClick={() => setActiveTab('cases')}
+            onClick={goCases}
             className="w-full sm:w-auto"
           >
-            View All Cases
+            All cases
           </Button>
         }
       />
 
-      {/* KPI Grid */}
-      <motion.div
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 items-stretch"
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="dash-hero"
+        aria-label="Today at a glance"
       >
-        <KPICard
-          label="Today's board"
-          value={todayBoardTotal}
-          icon={<FolderOpen className="h-4 w-4 text-[var(--color-accent)]" />}
-          iconBg="bg-[var(--color-accent-muted)]"
-          subtitle={`${insightMetrics.todayOngoingCount} ongoing · ${insightMetrics.todayCompletedCount} done`}
-        />
-        <KPICard label="Pending Approvals" value={pendingApprovals.length} icon={<Clock className="h-4 w-4 text-amber-600" />} iconBg="bg-amber-50" />
-        <KPICard label="In Surgery" value={surgeryCases.length} icon={<Stethoscope className="h-4 w-4 text-blue-600" />} iconBg="bg-blue-50" />
-        <KPICard label="Cleaning & Audit" value={cleaningQueue.length} icon={<Sparkles className="h-4 w-4 text-cyan-600" />} iconBg="bg-cyan-50" />
-        <KPICard label="Restock Pending" value={restockPending.length} icon={<Receipt className="h-4 w-4 text-emerald-600" />} iconBg="bg-emerald-50" />
-        <KPICard label="Completed" value={completedCases.length} icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} iconBg="bg-green-50" />
-        <KPICard label="Today's Tasks" value={todayAssignments.length} icon={<Calendar className="h-4 w-4 text-purple-600" />} iconBg="bg-purple-50" subtitle={fcfsPoolTotal > 0 ? `${fcfsPoolTotal} in pool` : undefined} />
-        <KPICard
-          label="This week"
-          value={weekCaseTotal}
-          icon={<Activity className="h-4 w-4 text-sky-600" />}
-          iconBg="bg-sky-50"
-          subtitle={`Mon–Sun · ${weekCompletedTotal} completed`}
-        />
-      </motion.div>
+        <div className="dash-hero__inner">
+          <div className="min-w-0">
+            <p className="dash-hero__kicker">Today&apos;s surgery board</p>
+            <p className="dash-hero__value">{insightMetrics.todayCasesCount}</p>
+            <p className="dash-hero__meta">
+              <strong>{insightMetrics.todayOngoingCount}</strong> ongoing ·{' '}
+              <strong>{insightMetrics.todayCompletedCount}</strong> completed
+              {insightMetrics.todayPendingApprovals > 0 && (
+                <>
+                  {' '}
+                  · <strong>{insightMetrics.todayPendingApprovals}</strong> awaiting approval
+                </>
+              )}
+              {fcfsPoolTotal > 0 && (
+                <>
+                  {' '}
+                  · <strong>{fcfsPoolTotal}</strong> in FCFS pool
+                </>
+              )}
+            </p>
+          </div>
 
-      {/* Ops feed + week chart + stage pie — three equal tiles */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-w-0 items-stretch">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="min-h-[360px] lg:min-h-[400px] h-full"
-        >
-          <AdminOpsFeedCard metrics={insightMetrics} className="h-full" />
-        </motion.div>
+          <div className="dash-stat-grid w-full md:w-auto" role="group" aria-label="Live queue">
+            <button type="button" className="dash-stat-cell" onClick={goApprovals}>
+              <p className={`dash-stat-cell__value ${pendingApprovals.length ? 'dash-stat-cell__value--warn' : ''}`}>
+                {pendingApprovals.length}
+              </p>
+              <p className="dash-stat-cell__label">Approvals</p>
+            </button>
+            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
+              <p className="dash-stat-cell__value">{surgeryCases.length}</p>
+              <p className="dash-stat-cell__label">In surgery</p>
+            </button>
+            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
+              <p className="dash-stat-cell__value">{cleaningQueue.length}</p>
+              <p className="dash-stat-cell__label">Cleaning</p>
+            </button>
+            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
+              <p className="dash-stat-cell__value">{restockPending.length}</p>
+              <p className="dash-stat-cell__label">Restock</p>
+            </button>
+          </div>
+        </div>
+      </motion.section>
 
+      <div className="dash-quick">
+        <button type="button" className="dash-quick__btn" onClick={goWorkflow}>
+          <LayoutGrid className="h-4 w-4" aria-hidden />
+          Workflow
+        </button>
+        <button type="button" className="dash-quick__btn" onClick={goApprovals}>
+          <ClipboardCheck className="h-4 w-4" aria-hidden />
+          Approval queue
+        </button>
+        <button type="button" className="dash-quick__btn" onClick={goAttendance}>
+          <Users className="h-4 w-4" aria-hidden />
+          Attendance
+        </button>
+        <button type="button" className="dash-quick__btn" onClick={() => setActiveTab('live-cases')}>
+          <Stethoscope className="h-4 w-4" aria-hidden />
+          Live cases
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-w-0 items-stretch">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          className="lg:col-span-7 min-w-0"
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="min-h-[360px] lg:min-h-[400px] h-full"
+          transition={{ delay: 0.05, duration: 0.35 }}
         >
-          <Card className="h-full flex flex-col">
-            <CardHeader className="shrink-0">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">This week · Mon–Sun</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Surgeries per day (IST)</p>
-                </div>
-                <div className="flex items-center gap-3 text-[10px] text-[var(--color-label-secondary)] shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-0.5 w-3 rounded-full bg-[var(--color-accent)]" aria-hidden />
-                    <span>Cases</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-0.5 w-3 rounded-full bg-[#30b07a]" aria-hidden />
-                    <span>Done</span>
-                  </div>
-                </div>
+          <div className="dash-panel h-full">
+            <div className="dash-panel__head flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div>
+                <h2 className="dash-panel__title">This week</h2>
+                <p className="dash-panel__sub">Surgeries per day · Mon–Sun · IST</p>
               </div>
-            </CardHeader>
-            <CardBody className="flex-1 min-h-0 pb-4">
-              <ResponsiveContainer width="100%" height="100%" minHeight={220}>
-                <ComposedChart data={dailyData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
+              <div className="dash-legend shrink-0">
+                <span>
+                  <span className="dash-legend__dot" style={{ background: WEEK_CHART.cases }} aria-hidden />
+                  Cases
+                </span>
+                <span>
+                  <span className="dash-legend__dot" style={{ background: WEEK_CHART.completed }} aria-hidden />
+                  Completed
+                </span>
+              </div>
+            </div>
+            <div className="dash-panel__body dash-panel__body--chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={dailyData} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="weekCasesFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={WEEK_CHART.cases} stopOpacity={0.16} />
-                      <stop offset="92%" stopColor={WEEK_CHART.cases} stopOpacity={0} />
+                    <linearGradient id="dashWeekCasesFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={WEEK_CHART.cases} stopOpacity={0.14} />
+                      <stop offset="100%" stopColor={WEEK_CHART.cases} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke={WEEK_CHART.grid} vertical={false} strokeDasharray="0" />
+                  <CartesianGrid stroke={WEEK_CHART.grid} vertical={false} />
                   <XAxis
                     dataKey="day"
                     tick={{ fontSize: 11, fill: WEEK_CHART.axis, fontWeight: 500 }}
                     axisLine={false}
                     tickLine={false}
-                    interval={0}
-                    dy={6}
+                    dy={8}
                   />
                   <YAxis
                     tick={{ fontSize: 11, fill: WEEK_CHART.axis }}
                     axisLine={false}
                     tickLine={false}
                     allowDecimals={false}
-                    width={28}
+                    width={32}
                   />
-                  <Tooltip
-                    content={<CustomTooltip />}
-                    cursor={{ stroke: WEEK_CHART.grid, strokeWidth: 1 }}
-                  />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: WEEK_CHART.grid, strokeWidth: 1 }} />
                   <Area
                     type="monotone"
                     dataKey="cases"
                     name="Cases"
                     stroke={WEEK_CHART.cases}
                     strokeWidth={2}
-                    fill="url(#weekCasesFill)"
+                    fill="url(#dashWeekCasesFill)"
                     dot={false}
                     activeDot={weekChartActiveDot(WEEK_CHART.cases)}
-                    isAnimationActive
-                    animationDuration={480}
                   />
                   <Line
                     type="monotone"
@@ -323,191 +316,230 @@ export const Dashboard: React.FC = () => {
                     strokeWidth={2}
                     dot={false}
                     activeDot={weekChartActiveDot(WEEK_CHART.completed)}
-                    isAnimationActive
-                    animationDuration={480}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
-            </CardBody>
-          </Card>
+              <div className="dash-week-footer">
+                <span>
+                  Week total: <strong>{weekCaseTotal}</strong> cases
+                </span>
+                <span>
+                  Completed: <strong>{weekCompletedTotal}</strong>
+                </span>
+                <span>
+                  Active tasks today: <strong>{todayAssignments.length}</strong>
+                </span>
+                <span>
+                  All-time completed: <strong>{completedCases.length}</strong>
+                </span>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          className="lg:col-span-5 min-w-0 min-h-[320px] lg:min-h-[360px]"
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="min-h-[360px] lg:min-h-[400px] h-full"
+          transition={{ delay: 0.1, duration: 0.35 }}
         >
-          <Card className="h-full flex flex-col">
-            <CardHeader className="shrink-0">
-              <h3 className="text-sm font-semibold text-gray-900">Cases by Stage</h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Today ({stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'})
+          <AdminOpsFeedCard metrics={insightMetrics} className="h-full min-h-[320px]" />
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-w-0">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.35 }}
+        >
+          <div className="dash-panel h-full">
+            <div className="dash-panel__head">
+              <h2 className="dash-panel__title">Pipeline today</h2>
+              <p className="dash-panel__sub">
+                {stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'} on today&apos;s board
               </p>
-            </CardHeader>
-            <CardBody className="flex-1 flex flex-col min-h-0">
+            </div>
+            <div className="dash-panel__body">
               {stageDistributionTotal === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
+                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center">
                   No cases scheduled for today
-                </div>
+                </p>
               ) : (
-                <>
-                  <div className="flex-1 min-h-[120px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={stageDistribution} cx="50%" cy="50%" innerRadius={36} outerRadius={58} paddingAngle={2} dataKey="count">
-                          {stageDistribution.map((entry, index) => (
-                            <Cell key={index} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [value, 'Cases']} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-1.5 mt-2 shrink-0 max-h-[120px] overflow-y-auto">
-                    {stageDistribution.map((item) => (
-                      <div key={item.stage} className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="h-2 w-2 rounded-full shrink-0" style={{ background: item.color }} />
-                          <span className="text-xs text-gray-600 truncate">{item.stage}</span>
-                        </div>
-                        <span className="text-xs font-semibold text-gray-900 tabular-nums">{item.count}</span>
+                <ul className="list-none m-0 p-0">
+                  {stageDistribution.map((item) => (
+                    <li key={item.stage} className="dash-pipeline-row">
+                      <span className="dash-pipeline-row__label" title={item.stage}>
+                        {item.stage}
+                      </span>
+                      <div className="dash-pipeline-row__track" aria-hidden>
+                        <div
+                          className="dash-pipeline-row__fill"
+                          style={{
+                            width: `${(item.count / stageMax) * 100}%`,
+                            backgroundColor: item.color,
+                          }}
+                        />
                       </div>
-                    ))}
-                  </div>
-                </>
+                      <span className="dash-pipeline-row__count">{item.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.14, duration: 0.35 }}
+        >
+          <div className="dash-panel h-full flex flex-col">
+            <div className="dash-panel__head flex items-center justify-between gap-2">
+              <div>
+                <h2 className="dash-panel__title">Up next</h2>
+                <p className="dash-panel__sub">Nearest surgery dates</p>
+              </div>
+              <button type="button" onClick={goCases} className="text-xs nexus-link flex items-center gap-1 shrink-0">
+                All <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+            <CardBody className="p-0 flex-1 min-h-0">
+              {upcomingCases.length === 0 ? (
+                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center px-5">No open cases</p>
+              ) : (
+                upcomingCases.map((c) => {
+                  const sc = getStageStyle(c.currentStage);
+                  const pc = getPriorityStyle(c.priority);
+                  const overdue = new Date(c.surgeryDate) < new Date() && c.status !== 'Completed';
+                  return (
+                    <div
+                      key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      className="dash-list-item dash-list-item--clickable"
+                      onClick={() => {
+                        setSelectedCase(c.id);
+                        goCases();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedCase(c.id);
+                          goCases();
+                        }
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-[var(--color-label)]">{c.caseNumber}</span>
+                          <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
+                        </div>
+                        <p className="text-xs text-[var(--color-label-secondary)] truncate mt-0.5">
+                          {c.hospital?.name ?? 'Unknown hospital'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[10px]`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                            {c.currentStage}
+                          </Badge>
+                          <span className="text-[11px] text-[var(--color-label-tertiary)] inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(c.surgeryDate)}
+                          </span>
+                        </div>
+                        {overdue && (
+                          <p className="flex items-center gap-1 mt-1.5 text-[11px] text-red-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            Surgery date passed
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </CardBody>
-          </Card>
+          </div>
         </motion.div>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        className="dash-attendance-wrap"
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.16, duration: 0.35 }}
       >
         <DashboardAttendanceSection
           metrics={attendanceMetrics}
-          onOpenAttendance={() => setActiveTab('attendance')}
+          onOpenAttendance={goAttendance}
         />
       </motion.div>
 
-      {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2"
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
-                </div>
-                <button onClick={() => setActiveTab('activity')} className="text-xs nexus-link flex items-center gap-1">
-                  View all <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardBody className="p-0">
-              <div className="divide-y divide-gray-50">
-                {allLogs.map((log) => {
-                  return (
-                    <div key={log.id} className="flex items-start gap-3 px-6 py-3 hover:bg-gray-50/50 transition-colors">
-                      <div className="relative mt-0.5">
-                        <Avatar name={log.performedBy} size="sm" />
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${log.performedByRole === 'admin' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-label-secondary)]'}`}>
-                          <Activity className="h-1.5 w-1.5 text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-gray-900">{log.performedBy}</span>
-                          <span className="text-xs text-gray-500">{log.action}</span>
-                          {log.entityType === 'case' && (
-                            <button
-                              onClick={() => { setSelectedCase(log.entityId); setActiveTab('cases'); }}
-                              className="text-xs nexus-link"
-                            >
-                              {log.entityLabel}
-                            </button>
-                          )}
-                          {log.entityType !== 'case' && (
-                            <span className="text-xs text-gray-500 font-medium">{log.entityLabel}</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">{log.details}</p>
-                      </div>
-                      <span className="text-[10px] text-gray-400 shrink-0">{timeAgo(log.timestamp)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardBody>
-          </Card>
-        </motion.div>
-
-        {/* Upcoming Surgeries */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Upcoming Surgeries</h3>
-                <button onClick={() => setActiveTab('cases')} className="text-xs nexus-link flex items-center gap-1">
-                  All <ArrowRight className="h-3 w-3" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardBody className="p-0">
-              <div className="divide-y divide-gray-50">
-                {upcomingCases.map((c) => {
-                  const sc = getStageStyle(c.currentStage);
-                  const pc = getPriorityStyle(c.priority);
-                  return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18, duration: 0.35 }}
+      >
+        <div className="dash-panel">
+          <div className="dash-panel__head flex items-center justify-between gap-2">
+            <div>
+              <h2 className="dash-panel__title">Recent activity</h2>
+              <p className="dash-panel__sub">Latest updates across Nexus</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('activity')}
+              className="text-xs nexus-link flex items-center gap-1 shrink-0"
+            >
+              View all <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+          <CardBody className="p-0">
+            {recentLogs.length === 0 ? (
+              <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center">No activity yet</p>
+            ) : (
+              recentLogs.map((log) => (
+                <div key={log.id} className="dash-list-item">
+                  <div className="relative mt-0.5 shrink-0">
+                    <Avatar name={log.performedBy} size="sm" />
                     <div
-                      key={c.id}
-                      className="px-5 py-3.5 hover:bg-gray-50/50 cursor-pointer transition-colors"
-                      onClick={() => { setSelectedCase(c.id); setActiveTab('cases'); }}
+                      className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white flex items-center justify-center ${
+                        log.performedByRole === 'admin' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-label-secondary)]'
+                      }`}
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-900">{c.caseNumber}</p>
-                          <p className="text-xs text-gray-500 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
-                        </div>
-                        <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[10px]`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-                          {c.currentStage}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(c.surgeryDate)}
-                        </div>
-                      </div>
-                      {new Date(c.surgeryDate) < new Date() && c.status !== 'Completed' && (
-                        <div className="flex items-center gap-1 mt-1.5 text-[10px] text-red-600">
-                          <AlertTriangle className="h-3 w-3" />
-                          Surgery date passed
-                        </div>
+                      <Activity className="h-1.5 w-1.5 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="font-semibold text-[var(--color-label)]">{log.performedBy}</span>
+                      <span className="text-[var(--color-label-secondary)]">{log.action}</span>
+                      {log.entityType === 'case' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCase(log.entityId);
+                            goCases();
+                          }}
+                          className="nexus-link font-medium"
+                        >
+                          {log.entityLabel}
+                        </button>
+                      ) : (
+                        <span className="text-[var(--color-label-secondary)] font-medium">{log.entityLabel}</span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </CardBody>
-          </Card>
-        </motion.div>
-      </div>
+                    <p className="text-xs text-[var(--color-label-tertiary)] mt-0.5 truncate">{log.details}</p>
+                  </div>
+                  <span className="text-[10px] text-[var(--color-label-tertiary)] shrink-0">{timeAgo(log.timestamp)}</span>
+                </div>
+              ))
+            )}
+          </CardBody>
+        </div>
+      </motion.div>
     </NexusPage>
   );
 };
