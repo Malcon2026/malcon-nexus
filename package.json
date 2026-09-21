@@ -22,7 +22,8 @@
     "tv:setup": "node scripts/setup-tv.mjs",
     "gallery:publish": "node scripts/publish-gallery-site.mjs",
     "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs",
-    "build:vercel-legacy": "node scripts/build-vercel-legacy.mjs"
+    "build:vercel-legacy": "node scripts/build-vercel-legacy.mjs",
+    "icons:generate": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
@@ -45,6 +46,7 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vite": "7.3.2",

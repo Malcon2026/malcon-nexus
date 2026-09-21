@@ -1,4 +1,4 @@
-/* Malcon Nexus — Web Push service worker (icon v20260917) */
+/* Malcon Nexus — Web Push service worker (icon v20260321) */
 self.addEventListener('push', (event) => {
   let payload = { title: 'Malcon Nexus', body: '', url: '/' };
   try {
@@ -10,8 +10,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/malcon-nexus-icon-192.png?v=20260917',
-      badge: '/malcon-nexus-icon-192.png?v=20260917',
+      icon: '/icons/icon-light-192.png?v=20260321',
+      badge: '/icons/icon-light-192.png?v=20260321',
       tag: payload.tag ?? 'malcon-nexus',
       data: { url: payload.url ?? '/' },
     }),
