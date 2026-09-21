@@ -27,4 +27,4 @@ Staff should bookmark **https://app.malconnexus.com/** only (not legacy Vercel U
 
 ## Legacy Vercel URL
 
-The connected Vercel project (e.g. `malcon-nexus-gamma.vercel.app`) deploys **`npm run build:vercel-legacy`** only — a looping GIF page, not the app. Real builds use `npm run build` + `npm run deploy:hostinger`.
+The connected Vercel project (e.g. `malcon-nexus-gamma.vercel.app`) deploys **`npm run build:vercel-legacy`** only — a blank page (clears old service workers), not the app. Real builds use `npm run build` + `npm run deploy:hostinger`.
