@@ -28,6 +28,7 @@ import { EmployeeFoodSection } from '../components/EmployeeFoodSection';
 import { getFoodSelectionForDay, isFoodSelectionSubmitted } from '../lib/food';
 import { getFoodTileBlinkLevel, isFoodTileAttentionPeriod } from '../lib/foodPreferences';
 import { getISTDateKey } from '../lib/attendance';
+import { isStoreManager } from '../lib/roles';
 import { AttendanceRegisterPanel } from '../components/AttendanceRegisterPanel';
 import { Te } from '../components/BilingualText';
 import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
@@ -65,7 +66,7 @@ const PageHeader: React.FC<{ title: string; titleTe?: string; onBack: () => void
 );
 
 const HomeNavTiles: React.FC<{
-  employee: Pick<import('../types').Employee, 'id' | 'email' | 'name'>;
+  employee: Pick<import('../types').Employee, 'id' | 'email' | 'name' | 'role'>;
   onOpen: (page: EmployeePage) => void;
 }> = ({ employee, onOpen }) => {
   const myCases = useMyCases(employee);
@@ -121,7 +122,11 @@ const HomeNavTiles: React.FC<{
       id: 'cases',
       title: 'Cases',
       titleTe: 'Cases',
-      hint: waitingCases > 0 ? `${waitingCases} waiting` : `${activeCases} active`,
+      hint: isStoreManager(employee.role)
+        ? 'Prepare kits · upload Kit Prep photos'
+        : waitingCases > 0
+          ? `${waitingCases} waiting`
+          : `${activeCases} active`,
       icon: <Briefcase className="h-5 w-5 text-[var(--color-accent)]" />,
       iconBg: 'bg-[var(--color-accent-muted)]',
       badge: activeCases + waitingCases || undefined,
@@ -612,6 +617,13 @@ export const EmployeeDashboard: React.FC = () => {
             <h1 className="nexus-page-header__title mt-1">
               Hi, {currentUser.name.split(' ')[0]}
             </h1>
+            {isStoreManager(currentUser.role) && (
+              <p className="nexus-page-header__desc mt-3 max-w-md">
+                Store manager — punch in as usual, add cases and assign staff from{' '}
+                <strong className="font-medium text-[var(--color-label)]">Cases</strong>, then upload photos when the kit is ready at{' '}
+                <strong className="font-medium text-[var(--color-label)]">Kit Preparation</strong>.
+              </p>
+            )}
           </header>
           <HomeNavTiles employee={currentUser} onOpen={setPage} />
         </>

@@ -50,8 +50,10 @@ import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceAppro
 import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
 import {
   bootstrapRoleForEmployee,
+  canBypassAssigneeForSubmit,
   canManageAllCases,
   isFullAdmin,
+  isStoreManager,
   viewModeForRole,
 } from '../lib/roles';
 import { foodLoadWindow } from '../lib/food';
@@ -1353,6 +1355,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   approveStage: async (caseId, adminNotes) => {
     const state = get();
+    if (isStoreManager(state.currentUser.role)) return;
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
@@ -1475,6 +1478,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   forceAdvanceCase: async (caseId, targetStage, adminNotes) => {
     const state = get();
+    if (isStoreManager(state.currentUser.role)) {
+      throw new Error('Only full admins can force-advance cases.');
+    }
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) throw new Error('Case not found');
 
@@ -2132,6 +2138,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   rejectStage: async (caseId, adminNotes) => {
     const state = get();
+    if (isStoreManager(state.currentUser.role)) return;
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
@@ -2529,7 +2536,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (normalizeWorkflowStage(c.currentStage) === 'Restock' && !restockOutcome) {
       return { error: 'Please choose Restocked or Order.' };
     }
-    if (!canManageAllCases(state.currentUser.role)) {
+    if (
+      isStoreManager(state.currentUser.role) &&
+      normalizeWorkflowStage(c.currentStage) !== 'Kit Preparation'
+    ) {
+      return {
+        error: 'Store managers prepare kits and upload photos at Kit Preparation only.',
+      };
+    }
+    if (!canBypassAssigneeForSubmit(state.currentUser.role, c.currentStage)) {
       const assignedId = c.assignedEmployee?.id;
       if (!assignedId) {
         return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
@@ -2753,6 +2768,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   closeCase: async (caseId) => {
     const state = get();
+    if (isStoreManager(state.currentUser.role)) return;
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
@@ -2978,6 +2994,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (!nextDate) throw new Error('Please pick the new surgery date.');
 
     const state = get();
+    if (isStoreManager(state.currentUser.role)) {
+      throw new Error('Only full admins can postpone cases.');
+    }
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
     if (c.status === 'Completed' || c.status === 'Cancelled') {

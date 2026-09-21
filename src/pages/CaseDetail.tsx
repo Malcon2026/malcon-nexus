@@ -27,7 +27,7 @@ import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
-import { isCaseOpsView, isFullAdmin } from '../lib/roles';
+import { isFullAdmin, isKitPreparationStage } from '../lib/roles';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -584,8 +584,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
-  const isCaseOps = isCaseOpsView(viewMode);
   const isFullAdminUser = isFullAdmin(currentUser.role);
+  const isStoreManagerUser = viewMode === 'store_manager';
+  const atKitPrep = isKitPreparationStage(c.currentStage);
+  const canStoreManagerKitSubmit =
+    isStoreManagerUser &&
+    atKitPrep &&
+    c.status === 'Active';
   const canCancel = isFullAdminUser && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canPostpone =
     isFullAdminUser &&
@@ -674,7 +679,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap lg:justify-end">
-          {isCaseOps && (
+          {isFullAdminUser && (
             <>
               {isWaitingApproval && (
                 <>
@@ -738,6 +743,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               )}
             </>
           )}
+          {isStoreManagerUser && isActive && atKitPrep && (
+            <Button variant="outline" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>
+              Reassign kit prep
+            </Button>
+          )}
           {viewMode === 'employee' && canRequest && (
             <Button
               variant="primary"
@@ -762,8 +772,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               {STAGE_ACTIONS[c.currentStage]}
             </Button>
           )}
+          {canStoreManagerKitSubmit && (
+            <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
+              Upload kit photos
+            </Button>
+          )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>
-          {(isCaseOps || canEmployeeEdit) && (
+          {(isFullAdminUser || isStoreManagerUser || canEmployeeEdit) && (
             <Button variant="outline" size="sm" icon={<Edit3 className="h-4 w-4" />} onClick={() => setShowEdit(true)}>Edit</Button>
           )}
           {isFullAdminUser && (
@@ -789,13 +804,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-900">Open pool — {c.currentStage}</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              {isCaseOps
+              {isFullAdminUser
                 ? `${pendingForCase.length} pending request${pendingForCase.length === 1 ? '' : 's'}. Assign from the list below, Task Requests page, or pick anyone manually.`
                 : myPendingRequest
                   ? 'Your request is waiting for admin approval.'
                   : 'Request this case — admin will assign who handles it.'}
             </p>
-            {isCaseOps && pendingForCase.length > 0 && (
+            {isFullAdminUser && pendingForCase.length > 0 && (
               <div className="mt-3 space-y-2">
                 {pendingForCase.map((r) => (
                   <div key={r.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-100">
