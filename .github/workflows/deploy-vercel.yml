@@ -23,11 +23,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Vercel legacy page (blank; app lives on Hostinger)
+      - name: Build Vercel legacy page (beta notice; app lives on Hostinger)
         run: npm run build:vercel-legacy
 
       - name: Verify legacy Vercel bundle
         run: |
           test -f dist/index.html
           test ! -f dist/gallery.html
-          ! grep -qE 'giphy|/src/main' dist/index.html
+          grep -q 'Thank you — beta team' dist/index.html
+          ! grep -q '/src/main' dist/index.html
