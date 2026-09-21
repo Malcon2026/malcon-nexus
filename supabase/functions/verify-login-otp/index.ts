@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Use Admin login with email and password.' }, 403);
     }
 
+    if (match.role === 'petrol') {
+      return jsonResponse({ error: 'Petrol desk uses its own login. Contact admin.' }, 403);
+    }
+
     if (match.status !== 'Active') {
       return jsonResponse({ error: 'Your account is inactive. Contact admin.' }, 403);
     }

@@ -41,7 +41,7 @@ export const WorkflowBoard: React.FC = () => {
     (async () => {
       try {
         const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
-        const role = viewMode === 'admin' ? 'admin' : 'employee';
+        const role = viewMode === 'admin' || viewMode === 'case_manager' ? 'admin' : 'employee';
         await bootstrapSupabaseData(role, role === 'employee' ? { employeeId: currentUser.id } : undefined, { force: true });
         if (!cancelled) reloadFromDatabase();
       } catch (err) {

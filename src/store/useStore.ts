@@ -48,6 +48,12 @@ import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
 import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbFieldTeamAttendanceRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
 import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
+import {
+  bootstrapRoleForEmployee,
+  canManageAllCases,
+  isFullAdmin,
+  viewModeForRole,
+} from '../lib/roles';
 import { foodLoadWindow } from '../lib/food';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import {
@@ -86,7 +92,7 @@ const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
 interface AppState {
   // Auth / View Mode
   currentUser: Employee;
-  viewMode: 'admin' | 'employee' | 'petrol';
+  viewMode: 'admin' | 'employee' | 'petrol' | 'case_manager';
 
   // State Collections
   cases: ImplantCase[];
@@ -818,7 +824,7 @@ const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string 
 
 const persistLocationTripSession = (employee: { id: string; role: Employee['role'] }) => {
   if (!USE_SUPABASE) return;
-  const role = employee.role === 'admin' || employee.role === 'petrol' ? employee.role : 'employee';
+  const role = bootstrapRoleForEmployee(employee.role);
   void import('../lib/database/bootstrap').then(({ persistBootstrapCache }) => {
     persistBootstrapCache(employee.id, role);
   });
@@ -1084,16 +1090,21 @@ const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderA
 
 const ADMIN_ONLY_TABS = ['approvals', 'postponed-cases', 'task-requests', 'employees', 'attendance', 'attendance-approvals', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
+const CASE_MANAGER_TABS = ['dashboard', 'cases', 'live-cases', 'workflow', 'settings'];
 
 const applyUserSession = (
   user: Employee,
   current: { activeTab: string },
-): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol'; activeTab: string } => {
+): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol' | 'case_manager'; activeTab: string } => {
   if (user.role === 'petrol') {
     const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
       ? current.activeTab
       : 'petrol-dashboard';
     return { currentUser: user, viewMode: 'petrol', activeTab };
+  }
+  if (user.role === 'case_manager') {
+    const activeTab = CASE_MANAGER_TABS.includes(current.activeTab) ? current.activeTab : 'dashboard';
+    return { currentUser: user, viewMode: 'case_manager', activeTab };
   }
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   let activeTab = current.activeTab;
@@ -1105,7 +1116,7 @@ const applyUserSession = (
 
 export const useStore = create<AppState>((set, get) => ({
   currentUser: adminUser,
-  viewMode: adminUser.role === 'admin' ? 'admin' : adminUser.role === 'petrol' ? 'petrol' : 'employee',
+  viewMode: viewModeForRole(adminUser.role),
   cases: initialCases,
   selectedCaseId: null,
   notifications: initialNotifications,
@@ -1412,7 +1423,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     let updatedEmployees = state.employees;
     // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
-    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+    const canUpdateEmployeeStats = canManageAllCases(state.currentUser.role);
     if (advancingUnassigned && c.assignedEmployee && canUpdateEmployeeStats) {
       const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
       if (prev) {
@@ -1536,7 +1547,7 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     let updatedEmployees = state.employees;
-    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+    const canUpdateEmployeeStats = canManageAllCases(state.currentUser.role);
 
     if (canUpdateEmployeeStats && c.assignedEmployee) {
       const prev = state.employees.find((e) => e.id === c.assignedEmployee?.id);
@@ -1934,7 +1945,7 @@ export const useStore = create<AppState>((set, get) => ({
     );
 
     let updatedEmployees = state.employees;
-    const canUpdateEmployeeStats = state.currentUser.role === 'admin';
+    const canUpdateEmployeeStats = canManageAllCases(state.currentUser.role);
     if (
       canUpdateEmployeeStats &&
       currentDraft !== undefined &&
@@ -2059,7 +2070,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     let updatedEmployees = state.employees;
     // Only admins can update another employee's workload counts (RLS blocks cross-user updates).
-    if (state.currentUser.role === 'admin') {
+    if (canManageAllCases(state.currentUser.role)) {
       const employeeList = Database.getAll<Employee>('employees');
       const target = employeeList.find((e) => e.id === employee.id);
       if (target) {
@@ -2271,7 +2282,7 @@ export const useStore = create<AppState>((set, get) => ({
           employee.id,
           reviewed,
         );
-        if (state.viewMode === 'admin') {
+        if (state.viewMode === 'admin' || state.viewMode === 'case_manager') {
           updatedTaskRequests = await sbCaseTaskRequestRepo.getAll();
         } else {
           updatedTaskRequests = await sbCaseTaskRequestRepo.getForEmployee(state.currentUser.id);
@@ -2518,7 +2529,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (normalizeWorkflowStage(c.currentStage) === 'Restock' && !restockOutcome) {
       return { error: 'Please choose Restocked or Order.' };
     }
-    if (state.currentUser.role !== 'admin') {
+    if (!canManageAllCases(state.currentUser.role)) {
       const assignedId = c.assignedEmployee?.id;
       if (!assignedId) {
         return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
@@ -3104,7 +3115,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const skipLogin =
       options?.skipLogin
-      || state.currentUser.role !== 'admin'
+      || !isFullAdmin(state.currentUser.role)
       || !typedEmail;
     if (USE_SUPABASE && !skipLogin) {
       const { error: loginError } = await createEmployeeLogin(

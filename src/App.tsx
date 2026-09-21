@@ -93,7 +93,8 @@ function MainApp() {
         restoreBootstrapCache,
         persistBootstrapCache,
       } = await import('./lib/database/bootstrap');
-      const role = employee.role === 'admin' ? 'admin' : employee.role === 'petrol' ? 'petrol' : 'employee';
+      const { bootstrapRoleForEmployee } = await import('./lib/roles');
+      const role = bootstrapRoleForEmployee(employee.role);
       const options = { employeeId: employee.id };
 
       const hadCache = restoreBootstrapCache(employee.id);
@@ -109,7 +110,7 @@ function MainApp() {
         persistBootstrapCache(employee.id, role);
       }
 
-      if (!hadCache && role === 'employee') {
+      if (!hadCache && (role === 'employee' || role === 'case_manager')) {
         setIsHydrating(false);
         console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
       }
@@ -117,7 +118,7 @@ function MainApp() {
       void bootstrapDeferred(role, options).then(async () => {
         if (generation !== hydrateGeneration.current) return;
         reloadFromDatabase();
-        if (role === 'employee') {
+        if (role === 'employee' || role === 'case_manager') {
           await useStore.getState().repairStuckAssignmentsForCurrentUser();
           reloadFromDatabase();
         }
@@ -213,7 +214,7 @@ function MainApp() {
       }
     }
 
-    if (viewMode === 'employee') {
+    if (viewMode === 'employee' || viewMode === 'case_manager') {
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
         case 'cases':       return <Cases />;

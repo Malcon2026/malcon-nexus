@@ -33,6 +33,7 @@ import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { getISTDateKey } from '../../lib/attendance';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isPostponedCase } from '../../lib/caseWorkflow';
+import { isFullAdmin } from '../../lib/roles';
 import loginLogo from '../../assets/login-logo.png';
 import { PoweredByAiBadge } from '../PoweredByAiBadge';
 
@@ -134,7 +135,8 @@ export const Sidebar: React.FC = () => {
     return total > 0 ? total : undefined;
   }, [activeCases, postponedCount]);
 
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = isFullAdmin(currentUser.role);
+  const isCaseManager = currentUser.role === 'case_manager';
 
   const visibleCaseChildren = useMemo(
     () => casesGroupChildren.filter((item) => !item.adminOnly || isAdmin),
@@ -146,6 +148,9 @@ export const Sidebar: React.FC = () => {
     if (!FCFS_POOL_ENABLED && item.id === 'task-requests') return false;
     if (currentUser.role === 'petrol') {
       return item.id === 'petrol-dashboard' || item.id === 'settings';
+    }
+    if (isCaseManager) {
+      return item.id === 'dashboard' || item.id === 'workflow' || item.id === 'settings';
     }
     return !item.adminOnly || isAdmin;
   };

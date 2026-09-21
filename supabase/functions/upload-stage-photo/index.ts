@@ -81,9 +81,9 @@ Deno.serve(async (req) => {
 
     if (!caseRow) return jsonResponse({ error: 'Case not found' }, 404);
 
-    const isAdmin = caller.role === 'admin';
+    const isCaseOps = caller.role === 'admin' || caller.role === 'case_manager';
     const isAssignee = caseRow.assigned_employee_id === caller.id;
-    if (!isAdmin && !isAssignee) {
+    if (!isCaseOps && !isAssignee) {
       return jsonResponse({ error: 'You are not assigned to this case' }, 403);
     }
 

@@ -5,6 +5,7 @@
 import { supabase } from './supabase';
 import { sbEmployeeRepo } from './database/repositories/supabaseRepositories';
 import type { Employee } from '../types';
+import { isFullAdmin, usesEmployeeSignIn } from './roles';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export interface AuthResult {
@@ -105,7 +106,7 @@ export const authService = {
       return { employee: null, error: 'No employee account found. Contact your administrator.' };
     }
 
-    if (employee.role === 'admin') {
+    if (isFullAdmin(employee.role)) {
       pendingManualSignIn = false;
       await supabase.auth.signOut();
       return { employee: null, error: 'Use Admin login with email and password.' };
@@ -156,12 +157,21 @@ export const authService = {
       };
     }
 
-    if (employee.role !== 'admin') {
+    if (usesEmployeeSignIn(employee.role)) {
       pendingManualSignIn = false;
       await supabase.auth.signOut();
       return {
         employee: null,
         error: 'Staff sign in with Employee ID and Telegram OTP.',
+      };
+    }
+
+    if (employee.role !== 'admin') {
+      pendingManualSignIn = false;
+      await supabase.auth.signOut();
+      return {
+        employee: null,
+        error: 'This login type is not supported. Contact your administrator.',
       };
     }
 

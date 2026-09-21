@@ -44,7 +44,7 @@ export interface Employee {
   departments?: Department[];
   email: string;
   avatar: string;
-  role: 'admin' | 'employee' | 'petrol';
+  role: 'admin' | 'employee' | 'petrol' | 'case_manager';
   status: 'Active' | 'Inactive';
   casesCompleted: number;
   casesActive: number;

@@ -51,7 +51,7 @@ function stageAssignmentsFromCase(c: ImplantCase): Record<AssignableStage, strin
 export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, case: c }) => {
   const { updateCase, updateCaseStageAssignments, hospitals, employees, viewMode, currentUser } =
     useStore();
-  const isAdmin = viewMode === 'admin';
+  const isAdmin = viewMode === 'admin' || viewMode === 'case_manager';
   const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
 
   const [form, setForm] = useState({

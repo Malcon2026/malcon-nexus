@@ -479,7 +479,8 @@ export const Cases: React.FC = () => {
     }
   }, [createCaseSignal]);
 
-  const canEdit = (c: ImplantCase) => viewMode === 'admin' || isCaseVisibleToEmployee(c, currentUser);
+  const canEdit = (c: ImplantCase) =>
+    viewMode === 'admin' || viewMode === 'case_manager' || isCaseVisibleToEmployee(c, currentUser);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -578,6 +579,8 @@ export const Cases: React.FC = () => {
     </span>
   );
 
+  const canCreateCases = viewMode === 'admin' || viewMode === 'case_manager';
+
   return (
     <NexusPage maxWidthClass="max-w-[1600px]">
       <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
@@ -592,10 +595,12 @@ export const Cases: React.FC = () => {
         title="Implant Cases"
         description={`${filtered.length} cases found`}
         actions={
-          <>
-            <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
-            <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
-          </>
+          canCreateCases ? (
+            <>
+              <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
+              <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -728,7 +733,7 @@ export const Cases: React.FC = () => {
                       <Edit3 className="h-4 w-4" />
                     </button>
                   )}
-                  {viewMode === 'admin' && (
+                  {(viewMode === 'admin' || viewMode === 'case_manager') && (
                     <button
                       onClick={() => {
                         if (confirm(`Are you sure you want to delete case ${c.caseNumber}?`)) {
@@ -885,7 +890,7 @@ export const Cases: React.FC = () => {
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {viewMode === 'admin' && (
+                        {(viewMode === 'admin' || viewMode === 'case_manager') && (
                           <button
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete case ${c.caseNumber}?`)) {

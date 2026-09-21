@@ -27,6 +27,7 @@ import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
+import { isCaseOpsView, isFullAdmin } from '../lib/roles';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -583,27 +584,31 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isApproved = c.status === 'Approved';
   const isActive = c.status === 'Active';
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
-  const canCancel = viewMode === 'admin' && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
+  const isCaseOps = isCaseOpsView(viewMode);
+  const isFullAdminUser = isFullAdmin(currentUser.role);
+  const canCancel = isFullAdminUser && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canPostpone =
-    viewMode === 'admin' &&
+    isFullAdminUser &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
     !c.cancelReason;
   const canForceAdvance =
-    viewMode === 'admin' &&
+    isFullAdminUser &&
     c.currentStage !== 'Completed' &&
     c.status !== 'Completed' &&
     c.status !== 'Cancelled' &&
     c.status !== 'Waiting For Approval';
-  const canEmployeeSubmit = viewMode === 'employee' && canEmployeeSubmitCase(c, currentUser);
-  const canEmployeeEdit = viewMode === 'employee' && isCaseVisibleToEmployee(c, currentUser);
+  const canEmployeeSubmit =
+    (viewMode === 'employee' || viewMode === 'case_manager') && canEmployeeSubmitCase(c, currentUser);
+  const canEmployeeEdit =
+    (viewMode === 'employee' || viewMode === 'case_manager') && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
   const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
   const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
   const canRequest = viewMode === 'employee' && canEmployeeRequestTask(c, caseTaskRequests, currentUser);
 
   useEffect(() => {
-    if (viewMode !== 'employee') return;
+    if (viewMode !== 'employee' && viewMode !== 'case_manager') return;
     if (!needsAssignmentReactivation(c, currentUser)) return;
     void reactivateAssignedCase(c.id);
   }, [c.id, c.status, c.currentStage, viewMode, currentUser, reactivateAssignedCase, c.assignedEmployee?.id]);
@@ -669,7 +674,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap lg:justify-end">
-          {viewMode === 'admin' && (
+          {isCaseOps && (
             <>
               {isWaitingApproval && (
                 <>
@@ -758,10 +763,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
             </Button>
           )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>
-          {(viewMode === 'admin' || canEmployeeEdit) && (
+          {(isCaseOps || canEmployeeEdit) && (
             <Button variant="outline" size="sm" icon={<Edit3 className="h-4 w-4" />} onClick={() => setShowEdit(true)}>Edit</Button>
           )}
-          {viewMode === 'admin' && (
+          {isFullAdminUser && (
             <Button
               variant="danger"
               size="sm"
@@ -784,13 +789,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-900">Open pool — {c.currentStage}</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              {viewMode === 'admin'
+              {isCaseOps
                 ? `${pendingForCase.length} pending request${pendingForCase.length === 1 ? '' : 's'}. Assign from the list below, Task Requests page, or pick anyone manually.`
                 : myPendingRequest
                   ? 'Your request is waiting for admin approval.'
                   : 'Request this case — admin will assign who handles it.'}
             </p>
-            {viewMode === 'admin' && pendingForCase.length > 0 && (
+            {isCaseOps && pendingForCase.length > 0 && (
               <div className="mt-3 space-y-2">
                 {pendingForCase.map((r) => (
                   <div key={r.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/80 border border-amber-100">
