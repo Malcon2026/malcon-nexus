@@ -9,7 +9,7 @@ import { normalizeWorkflowStage } from '../utils/helpers';
 import { formatUnknownError } from '../utils/errors';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'Submit to Admin',
+  'Set Preparation': 'Submit to Admin',
   'Delivery': 'Mark Delivery Completed',
   'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Mark Pickup Completed',

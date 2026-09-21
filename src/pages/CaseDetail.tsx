@@ -27,14 +27,14 @@ import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
-import { isFullAdmin, isKitPreparationStage } from '../lib/roles';
+import { isFullAdmin, isSetPreparationStage } from '../lib/roles';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'Submit to Admin',
+  'Set Preparation': 'Submit to Admin',
   'Delivery': 'Delivery Completed',
   'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Pickup Completed',
@@ -243,7 +243,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
 };
 
 const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'Stores',
+  'Set Preparation': 'Stores',
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
@@ -586,10 +586,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const returningUnused = Boolean(c.cancelReason) && c.status !== 'Cancelled' && c.currentStage !== 'Completed';
   const isFullAdminUser = isFullAdmin(currentUser.role);
   const isStoreManagerUser = viewMode === 'store_manager';
-  const atKitPrep = isKitPreparationStage(c.currentStage);
-  const canStoreManagerKitSubmit =
+  const atSetPrep = isSetPreparationStage(c.currentStage);
+  const canStoreManagerSetSubmit =
     isStoreManagerUser &&
-    atKitPrep &&
+    atSetPrep &&
     c.status === 'Active';
   const canCancel = isFullAdminUser && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canPostpone =
@@ -743,9 +743,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               )}
             </>
           )}
-          {isStoreManagerUser && isActive && atKitPrep && (
+          {isStoreManagerUser && isActive && atSetPrep && (
             <Button variant="outline" size="sm" icon={<User className="h-4 w-4" />} onClick={() => setAssignStage(c.currentStage)}>
-              Reassign kit prep
+              Reassign set prep
             </Button>
           )}
           {viewMode === 'employee' && canRequest && (
@@ -772,9 +772,9 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               {STAGE_ACTIONS[c.currentStage]}
             </Button>
           )}
-          {canStoreManagerKitSubmit && (
+          {canStoreManagerSetSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
-              Upload kit photos
+              Upload set photos
             </Button>
           )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>

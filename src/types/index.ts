@@ -11,7 +11,7 @@ export type CaseStatus =
   | 'Cancelled';
 
 export type WorkflowStage =
-  | 'Kit Preparation'
+  | 'Set Preparation'
   | 'Delivery'
   | 'Surgery'
   | 'Pickup from Hospital'

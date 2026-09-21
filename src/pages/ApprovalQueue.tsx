@@ -23,7 +23,7 @@ const getNextStage = (c: ImplantCase): WorkflowStage | null => {
 };
 
 const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'Stores',
+  'Set Preparation': 'Stores',
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',

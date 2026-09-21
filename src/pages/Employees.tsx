@@ -498,7 +498,7 @@ export const Employees: React.FC = () => {
                 onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' | 'store_manager' })}
               >
                 <option value="employee">Employee</option>
-                <option value="store_manager">Store manager (OTP · kit prep & cases)</option>
+                <option value="store_manager">Store manager (OTP · set prep & cases)</option>
                 <option value="admin">Administrator</option>
                 <option value="petrol">Petrol desk</option>
               </select>

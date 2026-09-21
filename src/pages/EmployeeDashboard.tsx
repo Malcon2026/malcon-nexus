@@ -123,7 +123,7 @@ const HomeNavTiles: React.FC<{
       title: 'Cases',
       titleTe: 'Cases',
       hint: isStoreManager(employee.role)
-        ? 'Prepare kits · upload Kit Prep photos'
+        ? 'Prepare sets · upload Set Prep photos'
         : waitingCases > 0
           ? `${waitingCases} waiting`
           : `${activeCases} active`,
@@ -620,8 +620,8 @@ export const EmployeeDashboard: React.FC = () => {
             {isStoreManager(currentUser.role) && (
               <p className="nexus-page-header__desc mt-3 max-w-md">
                 Store manager — punch in as usual, add cases and assign staff from{' '}
-                <strong className="font-medium text-[var(--color-label)]">Cases</strong>, then upload photos when the kit is ready at{' '}
-                <strong className="font-medium text-[var(--color-label)]">Kit Preparation</strong>.
+                <strong className="font-medium text-[var(--color-label)]">Cases</strong>, then upload photos when the set is ready at{' '}
+                <strong className="font-medium text-[var(--color-label)]">Set Preparation</strong>.
               </p>
             )}
           </header>

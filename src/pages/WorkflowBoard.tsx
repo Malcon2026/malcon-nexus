@@ -16,7 +16,7 @@ import {
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const STAGE_LABELS: Record<WorkflowStage, { title: string; desc: string }> = {
-  'Kit Preparation': { title: 'Kit Preparation', desc: 'Stores dept' },
+  'Set Preparation': { title: 'Set Preparation', desc: 'Stores — prepare implant set' },
   'Delivery': { title: 'Delivery', desc: 'Delivery dept' },
   'Surgery': { title: 'Surgery', desc: 'Scrub person' },
   'Pickup from Hospital': { title: 'Pickup from Hospital', desc: 'Delivery / Drivers (RTD pool)' },

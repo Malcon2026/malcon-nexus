@@ -94,7 +94,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     implantCompany: '',
     priority: 'Medium' as Priority,
     remarks: '',
-    startStage: 'Kit Preparation' as AssignableStage,
+    startStage: 'Set Preparation' as AssignableStage,
     stageEmployeeIds: emptyStageIds(),
     stageAssistantIds: emptyStageAssistantIds(),
     stageExtraPerson: emptyStageExtraFlags(),
@@ -120,7 +120,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
       implantCompany: '',
       priority: 'Medium',
       remarks: '',
-      startStage: 'Kit Preparation',
+      startStage: 'Set Preparation',
       stageEmployeeIds: emptyStageIds(),
       stageAssistantIds: emptyStageAssistantIds(),
       stageExtraPerson: emptyStageExtraFlags(),
@@ -333,7 +333,7 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                 {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => (
                   <option key={stage} value={stage}>
                     {stage}
-                    {stage === 'Kit Preparation' ? ' (normal start)' : ''}
+                    {stage === 'Set Preparation' ? ' (normal start)' : ''}
                   </option>
                 ))}
               </select>

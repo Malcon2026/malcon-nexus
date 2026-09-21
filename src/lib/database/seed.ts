@@ -1,7 +1,7 @@
 import type { Employee, Hospital, Doctor, WorkflowStage, Department } from '../../types';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation',
+  'Set Preparation',
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
@@ -13,7 +13,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
 ];
 
 export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
-  'Kit Preparation': 'Stores',
+  'Set Preparation': 'Stores',
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',

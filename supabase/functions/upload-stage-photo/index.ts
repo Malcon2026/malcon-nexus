@@ -82,18 +82,18 @@ Deno.serve(async (req) => {
     if (!caseRow) return jsonResponse({ error: 'Case not found' }, 404);
 
     const stageKey = sanitizeStage(stage);
-    const isKitPrep = stageKey === 'kit-preparation';
+    const isSetPrep = stageKey === 'set-preparation' || stageKey === 'kit-preparation';
     const isAdmin = caller.role === 'admin';
-    const isStoreKit =
-      caller.role === 'store_manager' && isKitPrep;
-    if (caller.role === 'store_manager' && !isKitPrep) {
+    const isStoreSetPrep =
+      caller.role === 'store_manager' && isSetPrep;
+    if (caller.role === 'store_manager' && !isSetPrep) {
       return jsonResponse(
-        { error: 'Store managers can upload Kit Preparation photos only.' },
+        { error: 'Store managers can upload Set Preparation photos only.' },
         403,
       );
     }
     const isAssignee = caseRow.assigned_employee_id === caller.id;
-    if (!isAdmin && !isStoreKit && !isAssignee) {
+    if (!isAdmin && !isStoreSetPrep && !isAssignee) {
       return jsonResponse({ error: 'You are not assigned to this case' }, 403);
     }
 

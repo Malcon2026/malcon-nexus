@@ -24,7 +24,7 @@ const paymentBadge: Record<NonNullable<ImplantCase['paymentStatus']>, string> = 
 };
 
 const STAGE_TILE_LABELS: Record<WorkflowStage, string> = {
-  'Kit Preparation': 'Kit Prep',
+  'Set Preparation': 'Set Prep',
   'Delivery': 'Delivery',
   'Surgery': 'Surgery',
   'Pickup from Hospital': 'Pickup',

@@ -19,7 +19,7 @@ const INK_MUTED = '#9aa5b8';
 const INK_DIM = '#5b6478';
 
 const STAGE_COLOR: Record<WorkflowStage, string> = {
-  'Kit Preparation': '#7c3aed',
+  'Set Preparation': '#7c3aed',
   'Delivery': '#e11d48',
   'Surgery': '#2563eb',
   'Pickup from Hospital': '#db2777',
@@ -190,7 +190,7 @@ function CaseRow({ c, zebra }: { c: ImplantCase; zebra: boolean }) {
   const closedCancelled = c.status === 'Cancelled';
   const isCompleted = c.status === 'Completed';
   const returning = Boolean(c.cancelReason) && !closedCancelled;
-  const stageColor = closedCancelled ? '#d97706' : (STAGE_COLOR[c.currentStage] ?? STAGE_COLOR['Kit Preparation']);
+  const stageColor = closedCancelled ? '#d97706' : (STAGE_COLOR[c.currentStage] ?? STAGE_COLOR['Set Preparation']);
   const stageLabel = closedCancelled ? 'Cancelled' : c.currentStage;
   const isOverdue = !closedCancelled && !isCompleted && new Date(c.surgeryDate) < new Date();
   const remark = tvRemark(c);

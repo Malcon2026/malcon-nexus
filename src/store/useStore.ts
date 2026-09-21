@@ -85,7 +85,7 @@ import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed',
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed',
 ];
 
 /** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
@@ -348,7 +348,7 @@ const getNextStage = (current: WorkflowStage, skipBilling = false): WorkflowStag
 
 const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
   const map: Record<WorkflowStage, Department | null> = {
-    'Kit Preparation': 'Stores',
+    'Set Preparation': 'Stores',
     'Delivery': 'Delivery',
     'Surgery': 'Scrub Person',
     'Pickup from Hospital': 'Delivery',
@@ -1168,7 +1168,7 @@ export const useStore = create<AppState>((set, get) => ({
     const assignments = caseData.stageAssignments ?? {};
     const assistantAssignments = caseData.stageAssistantAssignments ?? {};
 
-    const startStage = normalizeWorkflowStageName(caseData.startStage ?? 'Kit Preparation');
+    const startStage = normalizeWorkflowStageName(caseData.startStage ?? 'Set Preparation');
     if (startStage === 'Completed') {
       throw new Error('A case cannot start at Completed. Pick a work stage.');
     }
@@ -1278,7 +1278,7 @@ export const useStore = create<AppState>((set, get) => ({
           details:
             startIdx > 0
               ? `New implant case created for ${caseData.hospital?.name}. Started at ${startStage}${startEmp ? ` with ${startEmp.name}` : ''}; earlier stages marked skipped.`
-              : `New implant case created for ${caseData.hospital?.name}${startEmp ? `. Started with ${startEmp.name} (Kit Preparation)` : ''}.`,
+              : `New implant case created for ${caseData.hospital?.name}${startEmp ? `. Started with ${startEmp.name} (Set Preparation)` : ''}.`,
         },
       ],
       comments: [],
@@ -2538,10 +2538,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (
       isStoreManager(state.currentUser.role) &&
-      normalizeWorkflowStage(c.currentStage) !== 'Kit Preparation'
+      normalizeWorkflowStage(c.currentStage) !== 'Set Preparation'
     ) {
       return {
-        error: 'Store managers prepare kits and upload photos at Kit Preparation only.',
+        error: 'Store managers prepare sets and upload photos at Set Preparation only.',
       };
     }
     if (!canBypassAssigneeForSubmit(state.currentUser.role, c.currentStage)) {
@@ -5482,7 +5482,7 @@ export const useStore = create<AppState>((set, get) => ({
       ? cases.filter((c) => matchesSurgeryDateKey(c.surgeryDate, surgeryDateKey))
       : cases;
     const colors: Record<WorkflowStage, string> = {
-      'Kit Preparation': '#6366f1',
+      'Set Preparation': '#6366f1',
       'Delivery': '#f43f5e',
       'Surgery': '#8b5cf6',
       'Pickup from Hospital': '#ec4899',

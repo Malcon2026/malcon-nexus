@@ -3,7 +3,7 @@ import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment 
 import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
 
 export const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Kit Preparation',
+  'Set Preparation',
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
@@ -41,7 +41,7 @@ export const VISIBLE_WORKFLOW_STAGES: WorkflowStage[] = WORKFLOW_STAGES.filter(
 
 /** Stages that need an employee when creating a case. */
 export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] = [
-  'Kit Preparation',
+  'Set Preparation',
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
@@ -52,7 +52,7 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
 ];
 
 export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
-  'Kit Preparation': 'Stores',
+  'Set Preparation': 'Stores',
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
@@ -216,7 +216,8 @@ const STAGE_STATUS_RANK: Record<string, number> = {
 };
 
 export function normalizeWorkflowStageName(stage: string | null | undefined): WorkflowStage {
-  if (!stage) return 'Kit Preparation';
+  if (!stage) return 'Set Preparation';
+  if (stage === 'Kit Preparation') return 'Set Preparation';
   if (stage === 'Collection') return 'Bill Submission';
   if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
     return 'Cleaning & Audit';
@@ -224,7 +225,7 @@ export function normalizeWorkflowStageName(stage: string | null | undefined): Wo
   if ((WORKFLOW_STAGES as string[]).includes(stage)) {
     return stage as WorkflowStage;
   }
-  return 'Kit Preparation';
+  return 'Set Preparation';
 }
 
 function emptyStage(stage: WorkflowStage): StageRecord {
@@ -314,9 +315,9 @@ export function isPostSurgeryStage(stage: WorkflowStage): boolean {
   return idx > surgeryIdx && stage !== 'Completed';
 }
 
-/** Stages shown on the office TV board — Kit Prep through Restock (inclusive). Completed cases for today also show. */
+/** Stages shown on the office TV board — Set Prep through Restock (inclusive). Completed cases for today also show. */
 const TV_BOARD_STAGES = new Set<WorkflowStage>([
-  'Kit Preparation',
+  'Set Preparation',
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
@@ -406,7 +407,7 @@ export function withUnusedImplantsRemark(existing: string | undefined): string {
  */
 export function returnStageAfterCancel(current: WorkflowStage): WorkflowStage | null {
   const idx = getStageIndex(current);
-  const kitIdx = getStageIndex('Kit Preparation');
+  const kitIdx = getStageIndex('Set Preparation');
   const pickupIdx = getStageIndex('Pickup from Hospital');
   const restockIdx = getStageIndex('Restock');
   if (idx > kitIdx && idx < pickupIdx) return 'Pickup from Hospital';

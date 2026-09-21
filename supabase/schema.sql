@@ -129,8 +129,8 @@ CREATE TABLE IF NOT EXISTS cases (
     'Draft','Active','Waiting For Approval','Approved',
     'Rejected','Changes Requested','Completed','Cancelled'
   )),
-  current_stage       TEXT NOT NULL DEFAULT 'Kit Preparation' CHECK (current_stage IN (
-    'Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Restock','Billing','Bill Submission','Completed'
+  current_stage       TEXT NOT NULL DEFAULT 'Set Preparation' CHECK (current_stage IN (
+    'Set Preparation','Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Restock','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
     'Stores','Delivery','Drivers','Scrub Person','Cleaning & Audit',

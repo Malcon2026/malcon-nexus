@@ -4,7 +4,10 @@ export type AppViewMode = 'admin' | 'employee' | 'petrol' | 'store_manager';
 
 export type BootstrapRole = 'admin' | 'employee' | 'petrol' | 'store_manager';
 
-export const KIT_PREPARATION_STAGE = 'Kit Preparation';
+export const SET_PREPARATION_STAGE = 'Set Preparation';
+
+/** Legacy value in older rows — treated as set preparation. */
+export const LEGACY_KIT_PREPARATION_STAGE = 'Kit Preparation';
 
 export function viewModeForRole(role: Employee['role']): AppViewMode {
   if (role === 'admin') return 'admin';
@@ -28,10 +31,13 @@ export function isStoreManager(role: Employee['role']): boolean {
   return role === 'store_manager';
 }
 
-export function isKitPreparationStage(stage: string): boolean {
+export function isSetPreparationStage(stage: string): boolean {
   const normalized = stage.replace(/\s+/g, ' ').trim();
-  return normalized === KIT_PREPARATION_STAGE;
+  return normalized === SET_PREPARATION_STAGE || normalized === LEGACY_KIT_PREPARATION_STAGE;
 }
+
+/** @deprecated Use isSetPreparationStage */
+export const isKitPreparationStage = isSetPreparationStage;
 
 /** Create cases, assign team, edit case board (Stores lead). */
 export function canManageCaseBoard(role: Employee['role']): boolean {
@@ -52,10 +58,10 @@ export function usesEmployeeSignIn(role: Employee['role']): boolean {
   return role === 'employee' || role === 'store_manager';
 }
 
-/** Stage submit + photos: admin any stage; store manager Kit Preparation only. */
+/** Stage submit + photos: admin any stage; store manager Set Preparation only. */
 export function canBypassAssigneeForSubmit(role: Employee['role'], currentStage: string): boolean {
   if (role === 'admin') return true;
-  if (role === 'store_manager') return isKitPreparationStage(currentStage);
+  if (role === 'store_manager') return isSetPreparationStage(currentStage);
   return false;
 }
 

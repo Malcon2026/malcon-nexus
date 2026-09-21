@@ -26,7 +26,7 @@ export const statusColors: Record<CaseStatus, string> = {
 };
 
 export const stageColors: Record<WorkflowStage, { bg: string; text: string; border: string; dot: string }> = {
-  'Kit Preparation': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-500' },
+  'Set Preparation': { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', dot: 'bg-violet-500' },
   'Delivery': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
   'Surgery': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
   'Pickup from Hospital': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200', dot: 'bg-pink-500' },
@@ -57,11 +57,12 @@ export function getPriorityStyle(priority: string | null | undefined) {
 
 export function normalizeWorkflowStage(stage: string | null | undefined): WorkflowStage {
   if (stage === 'Collection') return 'Bill Submission';
+  if (stage === 'Kit Preparation') return 'Set Preparation';
   if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
     return 'Cleaning & Audit';
   }
   if (stage && stage in stageColors) return stage as WorkflowStage;
-  return 'Kit Preparation';
+  return 'Set Preparation';
 }
 
 export const departmentColors: Record<Department, string> = {
@@ -136,7 +137,7 @@ export const timeAgo = (dateStr: string) => {
 
 export const getStageIndex = (stage: WorkflowStage): number => {
   const stages: WorkflowStage[] = [
-    'Kit Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
+    'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
   ];
   return stages.indexOf(normalizeWorkflowStage(stage));
 };
