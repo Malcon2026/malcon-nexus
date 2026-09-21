@@ -92,7 +92,7 @@ const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
 interface AppState {
   // Auth / View Mode
   currentUser: Employee;
-  viewMode: 'admin' | 'employee' | 'petrol' | 'case_manager';
+  viewMode: 'admin' | 'employee' | 'petrol' | 'store_manager';
 
   // State Collections
   cases: ImplantCase[];
@@ -1090,21 +1090,21 @@ const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderA
 
 const ADMIN_ONLY_TABS = ['approvals', 'postponed-cases', 'task-requests', 'employees', 'attendance', 'attendance-approvals', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
-const CASE_MANAGER_TABS = ['dashboard', 'cases', 'live-cases', 'workflow', 'settings'];
+const STORE_MANAGER_TABS = ['dashboard', 'cases', 'live-cases', 'workflow', 'settings'];
 
 const applyUserSession = (
   user: Employee,
   current: { activeTab: string },
-): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol' | 'case_manager'; activeTab: string } => {
+): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol' | 'store_manager'; activeTab: string } => {
   if (user.role === 'petrol') {
     const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
       ? current.activeTab
       : 'petrol-dashboard';
     return { currentUser: user, viewMode: 'petrol', activeTab };
   }
-  if (user.role === 'case_manager') {
-    const activeTab = CASE_MANAGER_TABS.includes(current.activeTab) ? current.activeTab : 'dashboard';
-    return { currentUser: user, viewMode: 'case_manager', activeTab };
+  if (user.role === 'store_manager') {
+    const activeTab = STORE_MANAGER_TABS.includes(current.activeTab) ? current.activeTab : 'dashboard';
+    return { currentUser: user, viewMode: 'store_manager', activeTab };
   }
   const viewMode = user.role === 'admin' ? 'admin' : 'employee';
   let activeTab = current.activeTab;
@@ -2282,7 +2282,7 @@ export const useStore = create<AppState>((set, get) => ({
           employee.id,
           reviewed,
         );
-        if (state.viewMode === 'admin' || state.viewMode === 'case_manager') {
+        if (state.viewMode === 'admin' || state.viewMode === 'store_manager') {
           updatedTaskRequests = await sbCaseTaskRequestRepo.getAll();
         } else {
           updatedTaskRequests = await sbCaseTaskRequestRepo.getForEmployee(state.currentUser.id);

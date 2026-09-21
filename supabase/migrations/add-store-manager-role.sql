@@ -1,39 +1,39 @@
--- Case manager role: OTP login, employee attendance, full case ops (no full admin).
+-- Store manager role: OTP login, employee attendance, full case ops (no full admin).
 -- Run in Supabase Dashboard → SQL Editor after add-petrol-desk-role.sql
 
 BEGIN;
 
 ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_role_check;
 ALTER TABLE employees ADD CONSTRAINT employees_role_check
-  CHECK (role IN ('admin', 'employee', 'petrol', 'case_manager'));
+  CHECK (role IN ('admin', 'employee', 'petrol', 'store_manager'));
 
 -- Cases: same write access as admin
 DROP POLICY IF EXISTS "cases_admin_all" ON cases;
 CREATE POLICY "cases_admin_all" ON cases
-  FOR ALL USING (current_user_role() IN ('admin', 'case_manager'));
+  FOR ALL USING (current_user_role() IN ('admin', 'store_manager'));
 
 -- Assign dropdown + workload counts when reassigning
-DROP POLICY IF EXISTS "employees_case_manager_select" ON employees;
-CREATE POLICY "employees_case_manager_select" ON employees
-  FOR SELECT USING (current_user_role() = 'case_manager');
+DROP POLICY IF EXISTS "employees_store_manager_select" ON employees;
+CREATE POLICY "employees_store_manager_select" ON employees
+  FOR SELECT USING (current_user_role() = 'store_manager');
 
-DROP POLICY IF EXISTS "employees_case_manager_update" ON employees;
-CREATE POLICY "employees_case_manager_update" ON employees
+DROP POLICY IF EXISTS "employees_store_manager_update" ON employees;
+CREATE POLICY "employees_store_manager_update" ON employees
   FOR UPDATE
-  USING (current_user_role() = 'case_manager')
-  WITH CHECK (current_user_role() = 'case_manager');
+  USING (current_user_role() = 'store_manager')
+  WITH CHECK (current_user_role() = 'store_manager');
 
 -- Stage approval records tied to cases
-DROP POLICY IF EXISTS "approvals_case_manager_all" ON approvals;
-CREATE POLICY "approvals_case_manager_all" ON approvals
-  FOR ALL USING (current_user_role() = 'case_manager');
+DROP POLICY IF EXISTS "approvals_store_manager_all" ON approvals;
+CREATE POLICY "approvals_store_manager_all" ON approvals
+  FOR ALL USING (current_user_role() = 'store_manager');
 
 -- Activity on case actions
-DROP POLICY IF EXISTS "activity_case_manager_all" ON activity_log;
-CREATE POLICY "activity_case_manager_all" ON activity_log
-  FOR ALL USING (current_user_role() = 'case_manager');
+DROP POLICY IF EXISTS "activity_store_manager_all" ON activity_log;
+CREATE POLICY "activity_store_manager_all" ON activity_log
+  FOR ALL USING (current_user_role() = 'store_manager');
 
--- Employee submit RPC: case managers save like admin
+-- Employee submit RPC: store managers save like admin
 CREATE OR REPLACE FUNCTION public.save_case_for_session(p_case jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -59,7 +59,7 @@ BEGIN
     RAISE EXCEPTION 'Case not found in database. Refresh the page or ask admin to confirm the case was created.';
   END IF;
 
-  IF role NOT IN ('admin', 'case_manager') THEN
+  IF role NOT IN ('admin', 'store_manager') THEN
     IF emp_id IS NULL THEN
       RAISE EXCEPTION 'Your login is not linked to an employee profile. Log out and sign in again.';
     END IF;

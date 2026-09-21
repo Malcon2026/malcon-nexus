@@ -45,13 +45,13 @@ export const LiveCases: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const canEdit = (c: ImplantCase) =>
-    viewMode === 'admin' || viewMode === 'case_manager' || isCaseAssignedToEmployee(c, currentUser);
+    viewMode === 'admin' || viewMode === 'store_manager' || isCaseAssignedToEmployee(c, currentUser);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
       const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
-      const role = viewMode === 'admin' || viewMode === 'case_manager' ? 'admin' : 'employee';
+      const role = viewMode === 'admin' || viewMode === 'store_manager' ? 'admin' : 'employee';
       await bootstrapSupabaseData(role, role === 'employee' ? { employeeId: currentUser.id } : undefined, { force: true });
       reloadFromDatabase();
     } catch (err) {
@@ -368,7 +368,7 @@ export const LiveCases: React.FC = () => {
                       <Edit3 className="h-3 w-3" /> Edit
                     </button>
                   )}
-                  {(viewMode === 'admin' || viewMode === 'case_manager') && (
+                  {(viewMode === 'admin' || viewMode === 'store_manager') && (
                     <button
                       onClick={() => {
                         if (confirm(`Delete case ${c.caseNumber}? This cannot be undone.`)) {

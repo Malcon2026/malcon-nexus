@@ -136,7 +136,7 @@ export const Sidebar: React.FC = () => {
   }, [activeCases, postponedCount]);
 
   const isAdmin = isFullAdmin(currentUser.role);
-  const isCaseManager = currentUser.role === 'case_manager';
+  const isStoreManager = currentUser.role === 'store_manager';
 
   const visibleCaseChildren = useMemo(
     () => casesGroupChildren.filter((item) => !item.adminOnly || isAdmin),
@@ -149,7 +149,7 @@ export const Sidebar: React.FC = () => {
     if (currentUser.role === 'petrol') {
       return item.id === 'petrol-dashboard' || item.id === 'settings';
     }
-    if (isCaseManager) {
+    if (isStoreManager) {
       return item.id === 'dashboard' || item.id === 'workflow' || item.id === 'settings';
     }
     return !item.adminOnly || isAdmin;

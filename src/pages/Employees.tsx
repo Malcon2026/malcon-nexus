@@ -27,7 +27,7 @@ const emptyForm = {
   email: '',
   phone: '',
   employeeCode: '',
-  role: 'employee' as 'admin' | 'employee' | 'petrol' | 'case_manager',
+  role: 'employee' as 'admin' | 'employee' | 'petrol' | 'store_manager',
 };
 
 export const Employees: React.FC = () => {
@@ -112,7 +112,7 @@ export const Employees: React.FC = () => {
   };
 
   const filtered = employees
-    .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol' || e.role === 'case_manager')
+    .filter((e) => e.role === 'employee' || e.role === 'admin' || e.role === 'petrol' || e.role === 'store_manager')
     .filter((e) => filterDept === 'All' || employeeCoversDepartment(e, filterDept))
     .filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()) || (e.employeeCode || '').includes(search.trim()));
 
@@ -297,8 +297,8 @@ export const Employees: React.FC = () => {
                           {emp.role === 'petrol' && (
                             <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-[10px]">Petrol desk</Badge>
                           )}
-                          {emp.role === 'case_manager' && (
-                            <Badge className="bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/20 text-[10px]">Case manager</Badge>
+                          {emp.role === 'store_manager' && (
+                            <Badge className="bg-[var(--color-accent-muted)] text-[var(--color-accent)] border-[var(--color-accent)]/20 text-[10px]">Store manager</Badge>
                           )}
                           {emp.role === 'admin' && (
                             <Badge className="bg-[var(--color-accent)] text-white border-[var(--color-accent)] text-[10px]">Admin</Badge>
@@ -495,10 +495,10 @@ export const Employees: React.FC = () => {
               <select
                 className={inputClass}
                 value={form.role}
-                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' | 'case_manager' })}
+                onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'employee' | 'petrol' | 'store_manager' })}
               >
                 <option value="employee">Employee</option>
-                <option value="case_manager">Case manager (OTP · cases only)</option>
+                <option value="store_manager">Store manager (OTP · cases only)</option>
                 <option value="admin">Administrator</option>
                 <option value="petrol">Petrol desk</option>
               </select>

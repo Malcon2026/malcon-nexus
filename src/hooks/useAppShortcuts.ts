@@ -34,7 +34,7 @@ export function useAppShortcuts({ enabled = true, onShowHelp, shortcutsHelpOpen 
 
       const key = e.key.toLowerCase();
 
-      if (key === 'n' && (viewMode === 'admin' || viewMode === 'case_manager')) {
+      if (key === 'n' && (viewMode === 'admin' || viewMode === 'store_manager')) {
         e.preventDefault();
         requestCreateCase();
         return;

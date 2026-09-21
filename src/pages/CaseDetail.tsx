@@ -599,16 +599,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     c.status !== 'Cancelled' &&
     c.status !== 'Waiting For Approval';
   const canEmployeeSubmit =
-    (viewMode === 'employee' || viewMode === 'case_manager') && canEmployeeSubmitCase(c, currentUser);
+    (viewMode === 'employee' || viewMode === 'store_manager') && canEmployeeSubmitCase(c, currentUser);
   const canEmployeeEdit =
-    (viewMode === 'employee' || viewMode === 'case_manager') && isCaseVisibleToEmployee(c, currentUser);
+    (viewMode === 'employee' || viewMode === 'store_manager') && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
   const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
   const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
   const canRequest = viewMode === 'employee' && canEmployeeRequestTask(c, caseTaskRequests, currentUser);
 
   useEffect(() => {
-    if (viewMode !== 'employee' && viewMode !== 'case_manager') return;
+    if (viewMode !== 'employee' && viewMode !== 'store_manager') return;
     if (!needsAssignmentReactivation(c, currentUser)) return;
     void reactivateAssignedCase(c.id);
   }, [c.id, c.status, c.currentStage, viewMode, currentUser, reactivateAssignedCase, c.assignedEmployee?.id]);

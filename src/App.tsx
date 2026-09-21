@@ -110,7 +110,7 @@ function MainApp() {
         persistBootstrapCache(employee.id, role);
       }
 
-      if (!hadCache && (role === 'employee' || role === 'case_manager')) {
+      if (!hadCache && (role === 'employee' || role === 'store_manager')) {
         setIsHydrating(false);
         console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
       }
@@ -118,7 +118,7 @@ function MainApp() {
       void bootstrapDeferred(role, options).then(async () => {
         if (generation !== hydrateGeneration.current) return;
         reloadFromDatabase();
-        if (role === 'employee' || role === 'case_manager') {
+        if (role === 'employee' || role === 'store_manager') {
           await useStore.getState().repairStuckAssignmentsForCurrentUser();
           reloadFromDatabase();
         }
@@ -214,7 +214,7 @@ function MainApp() {
       }
     }
 
-    if (viewMode === 'employee' || viewMode === 'case_manager') {
+    if (viewMode === 'employee' || viewMode === 'store_manager') {
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
         case 'cases':       return <Cases />;

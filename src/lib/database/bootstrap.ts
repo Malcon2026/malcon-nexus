@@ -179,8 +179,8 @@ function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
   ];
 }
 
-/** OTP case leads: employee attendance + full case board for assign/create. */
-function caseManagerEssentialTasks(employeeId: string): BootstrapTask[] {
+/** Store managers: employee attendance + full case board for assign/create. */
+function storeManagerEssentialTasks(employeeId: string): BootstrapTask[] {
   const base = employeeEssentialTasks(employeeId).filter((t) => t.key !== 'cases' && t.key !== 'employees');
   return [
     ...base,
@@ -192,7 +192,7 @@ function caseManagerEssentialTasks(employeeId: string): BootstrapTask[] {
   ];
 }
 
-function caseManagerDeferredTasks(): BootstrapTask[] {
+function storeManagerDeferredTasks(): BootstrapTask[] {
   return [{ key: 'kits', run: () => sbKitRepo.getAll() }];
 }
 
@@ -202,11 +202,11 @@ function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?:
       ? petrolEssentialTasks(options.employeeId)
       : [];
   }
-  if (role === 'case_manager') {
+  if (role === 'store_manager') {
     if (!options?.employeeId) return [];
     return tier === 'essential'
-      ? caseManagerEssentialTasks(options.employeeId)
-      : caseManagerDeferredTasks();
+      ? storeManagerEssentialTasks(options.employeeId)
+      : storeManagerDeferredTasks();
   }
   if (role === 'employee') {
     if (!options?.employeeId) {
@@ -227,7 +227,7 @@ function shouldSkipEssentialFetch(
 ): boolean {
   if (runOptions?.force) return false;
   // Admins must always load fresh leave / off-site approval queues.
-  if (role === 'admin' || role === 'petrol' || role === 'case_manager') return false;
+  if (role === 'admin' || role === 'petrol' || role === 'store_manager') return false;
   if (!options?.employeeId) return false;
   return isBootstrapCacheFresh(options.employeeId);
 }
@@ -311,7 +311,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
         ]
       : role === 'petrol'
         ? ['employees', 'petrolRequests']
-        : role === 'case_manager'
+        : role === 'store_manager'
           ? [
               'employees',
               'attendanceRecords',
@@ -380,7 +380,7 @@ export async function bootstrapEssential(
   if (shouldSkipEssentialFetch(role, options, runOptions)) {
     // Session cache is from login time and does not include punches made later.
     // Always re-read location trips so refresh does not wipe them.
-    if ((role === 'employee' || role === 'case_manager') && options?.employeeId) {
+    if ((role === 'employee' || role === 'store_manager') && options?.employeeId) {
       await runBootstrapTasks(
         [{ key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(options.employeeId!) }],
         'locationTrips',
