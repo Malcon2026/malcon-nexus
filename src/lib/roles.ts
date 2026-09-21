@@ -27,6 +27,11 @@ export function isFullAdmin(role: Employee['role']): boolean {
   return role === 'admin';
 }
 
+/** View team register and mark attendance (not full admin). */
+export function canManageTeamAttendance(role: Employee['role']): boolean {
+  return role === 'admin' || role === 'store_manager';
+}
+
 export function isStoreManager(role: Employee['role']): boolean {
   return role === 'store_manager';
 }

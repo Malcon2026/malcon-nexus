@@ -19,37 +19,6 @@ export const FOOD_MEALS: { id: FoodMeal; label: string; iconSrc: string }[] = [
   { id: 'dinner', label: 'Dinner', iconSrc: '/food/dinner.svg' },
 ];
 
-/** Three canteen choices per meal — pick individually in “One by one” mode. */
-export const FOOD_MEAL_ITEMS: Record<
-  FoodMeal,
-  { id: string; label: string; labelTe: string }[]
-> = {
-  breakfast: [
-    { id: 'bf_tiffin', label: 'Tiffin', labelTe: 'Tiffin' },
-    { id: 'bf_tea', label: 'Tea / coffee', labelTe: 'Tea / coffee' },
-    { id: 'bf_egg', label: 'Egg', labelTe: 'Egg' },
-  ],
-  lunch: [
-    { id: 'ln_veg', label: 'Veg meal', labelTe: 'Veg meal' },
-    { id: 'ln_egg', label: 'Egg meal', labelTe: 'Egg meal' },
-    { id: 'ln_curd', label: 'Curd rice', labelTe: 'Curd rice' },
-  ],
-  dinner: [
-    { id: 'dn_veg', label: 'Veg meal', labelTe: 'Veg meal' },
-    { id: 'dn_chapati', label: 'Chapati meal', labelTe: 'Chapati meal' },
-    { id: 'dn_light', label: 'Light meal', labelTe: 'Light meal' },
-  ],
-};
-
-export function mealEnabledFromItems(itemIds: string[]): boolean {
-  return itemIds.length > 0;
-}
-
-export function itemLabelsForMeal(meal: FoodMeal, itemIds: string[]): string {
-  const map = new Map(FOOD_MEAL_ITEMS[meal].map((i) => [i.id, i.label]));
-  return itemIds.map((id) => map.get(id) ?? id).join(', ');
-}
-
 export function emptyFoodSelection(
   employeeId: string,
   employeeName: string,

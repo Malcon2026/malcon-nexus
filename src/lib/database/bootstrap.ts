@@ -179,13 +179,21 @@ function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
   ];
 }
 
-/** Store managers: employee attendance + full case board for assign/create. */
+/** Store managers: team attendance register + full case board for assign/create. */
 function storeManagerEssentialTasks(employeeId: string): BootstrapTask[] {
-  const base = employeeEssentialTasks(employeeId).filter((t) => t.key !== 'cases' && t.key !== 'employees');
+  const base = employeeEssentialTasks(employeeId).filter(
+    (t) =>
+      !['cases', 'employees', 'attendanceRecords', 'leaveRequests', 'attendanceApprovalRequests'].includes(
+        t.key,
+      ),
+  );
   return [
     ...base,
     { key: 'cases', run: () => sbCaseRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
+    { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
+    { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+    { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'doctors', run: () => sbDoctorRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'approvals', run: () => sbApprovalRepo.getAll() },

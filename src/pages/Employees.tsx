@@ -122,7 +122,9 @@ export const Employees: React.FC = () => {
   const totalActive = rosterStaff.filter((e) => e.casesActive > 0).length;
   const totalCompleted = rosterStaff.reduce((s, e) => s + e.casesCompleted, 0);
   const inactiveCount = employees.filter(
-    (e) => (e.role === 'employee' || e.role === 'admin') && e.status !== 'Active',
+    (e) =>
+      (e.role === 'employee' || e.role === 'admin' || e.role === 'store_manager') &&
+      e.status !== 'Active',
   ).length;
 
   const deptStats = DEPARTMENTS.slice(1).map((dept) => {

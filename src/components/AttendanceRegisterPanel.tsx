@@ -23,6 +23,7 @@ import {
 } from '../lib/attendanceRegister';
 import { getISTDateKey, summarizeDayAttendance } from '../lib/attendance';
 import { LEAVE_TYPES } from '../lib/leave';
+import { canManageTeamAttendance } from '../lib/roles';
 
 /** ISO punchedAt -> "HH:mm" 24h string in IST, for prefilling <input type="time">. */
 function toHHMM(iso: string): string {
@@ -57,7 +58,7 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
   const addManualAttendance = useStore((s) => s.addManualAttendance);
   const addManualLeave = useStore((s) => s.addManualLeave);
   const clearManualDayMark = useStore((s) => s.clearManualDayMark);
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = canManageTeamAttendance(currentUser.role);
 
   const now = new Date();
   const [monthValue, setMonthValue] = useState(formatYearMonth(now.getFullYear(), now.getMonth() + 1));

@@ -22,6 +22,11 @@ import {
   stageExtraFlagsFromCase,
 } from './StageExtraPersonFields';
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
+import { isStoreManager } from '../lib/roles';
+import { usePhoneViewport } from '../hooks/usePhoneViewport';
+import { QUICK_CASE_ASSIGN_STAGES } from '../lib/createCaseFromDraft';
+import { PriorityQuickPick } from './PriorityQuickPick';
+import { SurgeryDateQuickPick } from './SurgeryDateQuickPick';
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -53,6 +58,10 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     useStore();
   const isAdmin = viewMode === 'admin' || viewMode === 'store_manager';
   const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
+  const isPhone = usePhoneViewport();
+  const storeManagerMobile = isStoreManager(currentUser.role) && isPhone;
+  const storeManagerUser = isStoreManager(currentUser.role);
+  const assignStages = storeManagerMobile ? QUICK_CASE_ASSIGN_STAGES : ASSIGNABLE_WORKFLOW_STAGES;
 
   const [form, setForm] = useState({
     hospitalId: c.hospital.id,
@@ -194,7 +203,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
       onClose={onClose}
       title="Edit Implant Case"
       subtitle={`Case ${c.caseNumber}`}
-      size={isAdmin ? 'xl' : 'lg'}
+      size={storeManagerMobile ? 'md' : isAdmin ? 'xl' : 'lg'}
       footer={
         <div className="flex items-center justify-end gap-3">
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting}>
@@ -227,7 +236,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
 
         {isAdmin && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={storeManagerMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
               <div>
                 <label className={labelClass}>Hospital *</label>
                 <HospitalSearchSelect
@@ -250,28 +259,43 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={storeManagerMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
               <div>
                 <label className={labelClass}>Surgery Date *</label>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={form.surgeryDate}
-                  onChange={(e) => setForm({ ...form, surgeryDate: e.target.value })}
-                />
+                {storeManagerMobile ? (
+                  <SurgeryDateQuickPick
+                    value={form.surgeryDate}
+                    mode="today"
+                    onChange={(surgeryDate) => setForm({ ...form, surgeryDate })}
+                  />
+                ) : (
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={form.surgeryDate}
+                    onChange={(e) => setForm({ ...form, surgeryDate: e.target.value })}
+                  />
+                )}
               </div>
               <div>
                 <label className={labelClass}>Priority *</label>
-                <select
-                  className={inputClass}
-                  value={form.priority}
-                  onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                  <option value="Critical">Critical</option>
-                </select>
+                {storeManagerMobile ? (
+                  <PriorityQuickPick
+                    value={form.priority}
+                    onChange={(priority) => setForm({ ...form, priority })}
+                  />
+                ) : (
+                  <select
+                    className={inputClass}
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                )}
               </div>
             </div>
 
@@ -286,33 +310,35 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Implant Type</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="e.g. Knee Implant, Hip Implant"
-                  value={form.implantType}
-                  onChange={(e) => setForm({ ...form, implantType: e.target.value })}
-                />
+            {!storeManagerUser && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Implant Type</label>
+                  <input
+                    type="text"
+                    className={inputClass}
+                    placeholder="e.g. Knee Implant, Hip Implant"
+                    value={form.implantType}
+                    onChange={(e) => setForm({ ...form, implantType: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Implant Company</label>
+                  <input
+                    type="text"
+                    className={inputClass}
+                    placeholder="e.g. Zimmer Biomet, Stryker"
+                    value={form.implantCompany}
+                    onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
+                  />
+                </div>
               </div>
-              <div>
-                <label className={labelClass}>Implant Company</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="e.g. Zimmer Biomet, Stryker"
-                  value={form.implantCompany}
-                  onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
-                />
-              </div>
-            </div>
+            )}
 
             <div>
               <label className={labelClass}>Remarks / Notes</label>
               <textarea
-                rows={3}
+                rows={storeManagerMobile ? 2 : 3}
                 className={inputClass}
                 placeholder="Add any special instructions..."
                 value={form.remarks}
@@ -320,6 +346,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               />
             </div>
 
+            {!storeManagerUser && (
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-3">Billing</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -366,11 +393,14 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                 </div>
               </div>
             </div>
+            )}
 
             <div className="pt-2 border-t border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Assign team</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                {storeManagerMobile ? 'Assign team (key stages)' : 'Assign team'}
+              </h3>
               <div className="space-y-3">
-                {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => {
+                {assignStages.map((stage) => {
                   const deptHint = STAGE_DEPARTMENT_MAP[stage];
                   const fcfs = isFcfsStage(stage);
                   const isCurrent = stage === c.currentStage;
@@ -414,7 +444,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                         allowSelf={stage === 'Surgery'}
                         placeholder="Unassigned"
                       />
-                      {stageSupportsAssistant(stage) && !fcfs ? (
+                      {!storeManagerMobile && stageSupportsAssistant(stage) && !fcfs ? (
                         <StageExtraPersonFields
                           stage={stage}
                           employees={activeEmployees}

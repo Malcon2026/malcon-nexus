@@ -45,6 +45,8 @@ import {
   emptyStageExtraFlags,
 } from '../components/StageExtraPersonFields';
 import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
+import { QuickCreateCaseModal } from '../components/QuickCreateCaseModal';
+import { usePhoneViewport } from '../hooks/usePhoneViewport';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 
@@ -580,10 +582,16 @@ export const Cases: React.FC = () => {
   );
 
   const canCreateCases = viewMode === 'admin' || viewMode === 'store_manager';
+  const isPhone = usePhoneViewport();
+  const useQuickCreate = viewMode === 'store_manager' && isPhone;
 
   return (
     <NexusPage maxWidthClass="max-w-[1600px]">
-      <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
+      {useQuickCreate ? (
+        <QuickCreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
+      ) : (
+        <CreateCaseModal isOpen={showCreate} onClose={() => setShowCreate(false)} />
+      )}
       <CaseCsvExportModal
         isOpen={showExport}
         onClose={() => setShowExport(false)}
@@ -598,7 +606,9 @@ export const Cases: React.FC = () => {
           canCreateCases ? (
             <>
               <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />} className="flex-1 sm:flex-none" onClick={() => setShowExport(true)}>Export CSV</Button>
-              <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">New Case</Button>
+              <Button variant="primary" size="sm" icon={<Plus className="h-4 w-4" />} onClick={() => setShowCreate(true)} className="flex-1 sm:flex-none">
+                {useQuickCreate ? 'New case' : 'New Case'}
+              </Button>
             </>
           ) : undefined
         }

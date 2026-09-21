@@ -8,10 +8,13 @@ export type StaffLike = {
 
 /**
  * People who appear on the attendance register / active workforce count:
- * active employees and admins (admins may have manual attendance).
+ * active employees, store managers, and admins (admins may have manual attendance).
  */
 export function isAttendanceStaff(person: StaffLike): boolean {
-  return (person.role === 'employee' || person.role === 'admin') && person.status === 'Active';
+  return (
+    (person.role === 'employee' || person.role === 'admin' || person.role === 'store_manager') &&
+    person.status === 'Active'
+  );
 }
 
 export function filterAttendanceStaff<T extends StaffLike>(people: T[]): T[] {

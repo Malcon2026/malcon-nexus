@@ -160,8 +160,9 @@ const HomeNavTiles: React.FC<{
     },
     {
       id: 'register',
-      title: 'Register',
+      title: isStoreManager(employee.role) ? 'Team register' : 'Register',
       titleTe: 'Attendance',
+      hint: isStoreManager(employee.role) ? 'Mark team attendance' : undefined,
       icon: <ClipboardList className="h-5 w-5 text-sky-600" />,
       iconBg: 'bg-sky-50',
     },
@@ -260,15 +261,19 @@ const HomeNavTiles: React.FC<{
   );
 };
 
-const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) => {
+const EmployeeRegisterPage: React.FC<{
+  employeeId: string;
+  teamRegister?: boolean;
+}> = ({ employeeId, teamRegister = false }) => {
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const { bootstrapDeferred } = await import('../lib/database/bootstrap');
-        await bootstrapDeferred('employee', { employeeId });
+        const { bootstrapEssential } = await import('../lib/database/bootstrap');
+        const role = teamRegister ? 'store_manager' : 'employee';
+        await bootstrapEssential(role, { employeeId }, { force: teamRegister });
         if (!cancelled) reloadFromDatabase();
       } catch (err) {
         console.warn('[register] employee attendance refresh failed:', err);
@@ -277,12 +282,12 @@ const EmployeeRegisterPage: React.FC<{ employeeId: string }> = ({ employeeId }) 
     return () => {
       cancelled = true;
     };
-  }, [employeeId, reloadFromDatabase]);
+  }, [employeeId, teamRegister, reloadFromDatabase]);
 
   return (
     <AttendanceRegisterPanel
-      employeeId={employeeId}
-      title="My Attendance"
+      employeeId={teamRegister ? undefined : employeeId}
+      title={teamRegister ? 'Team attendance' : 'My Attendance'}
       subtitle="P = Present · UL = Unpaid · WO = Sunday off"
     />
   );
@@ -656,8 +661,15 @@ export const EmployeeDashboard: React.FC = () => {
 
       {page === 'register' && (
         <>
-          <PageHeader title="Register" titleTe="Attendance register" onBack={() => setPage('home')} />
-          <EmployeeRegisterPage employeeId={currentUser.id} />
+          <PageHeader
+            title={isStoreManager(currentUser.role) ? 'Team register' : 'Register'}
+            titleTe="Attendance register"
+            onBack={() => setPage('home')}
+          />
+          <EmployeeRegisterPage
+            employeeId={currentUser.id}
+            teamRegister={isStoreManager(currentUser.role)}
+          />
         </>
       )}
 
