@@ -27,6 +27,7 @@ import {
   getISTDateKey,
   type GeoPosition,
 } from '../lib/attendance';
+import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
 import { requestLocationAccess } from '../lib/geolocationPrompt';
 import { formatAttendanceError } from '../lib/attendanceBilingual';
 import { getFoodOpenAfterPunchIn, setFoodOpenAfterPunchIn } from '../lib/foodPreferences';
@@ -50,6 +51,7 @@ type EmployeeAttendanceHeroProps = {
 export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ onPunchInSuccess }) => {
   const attendanceRecords = useStore((s) => s.attendanceRecords);
   const attendanceApprovalRequests = useStore((s) => s.attendanceApprovalRequests);
+  const fieldTeamAttendanceApprovals = useStore((s) => s.fieldTeamAttendanceApprovals);
   const currentUser = useStore((s) => s.currentUser);
   const punchAttendance = useStore((s) => s.punchAttendance);
   const punchOut = useStore((s) => s.punchOut);
@@ -75,6 +77,13 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
   const punchOutDisabled = !summary.isPunchedIn;
 
   const punchInActive = !punchInDisabled && !priorDayOpenSession;
+  const fieldTeamDayCredit = fieldTeamAttendanceApprovals.find(
+    (a) => a.employeeId === currentUser.id && a.dateKey === todayKey,
+  );
+  const fieldTeamAwaitingCredit =
+    requiresFieldTeamAttendanceApproval(currentUser) &&
+    Boolean(summary.punchIn) &&
+    fieldTeamDayCredit?.status !== 'approved';
   const punchOutActive = !punchOutDisabled;
 
   const [now, setNow] = useState(new Date());
@@ -477,6 +486,13 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
             first; attendance approval is separate.
           </span>
         </label>
+
+        {fieldTeamAwaitingCredit && (
+          <div className="text-xs text-[var(--color-label-secondary)] bg-[var(--color-bg)] border border-[var(--color-separator)] rounded-lg px-3 py-2 mb-3">
+            Your punch in/out is recorded. Today&apos;s attendance on the register stays{' '}
+            <strong>absent</strong> until admin approves in Attendance Approvals.
+          </div>
+        )}
 
         {pendingOffsiteIn && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 space-y-1.5">

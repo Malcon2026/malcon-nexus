@@ -12,6 +12,7 @@ import { TaskRequestQueue } from './pages/TaskRequestQueue';
 import { PostponedCases } from './pages/PostponedCases';
 import { Employees } from './pages/Employees';
 import { Attendance } from './pages/Attendance';
+import { AttendanceApprovals } from './pages/AttendanceApprovals';
 import { Expenses } from './pages/Expenses';
 import { PetrolDashboard } from './pages/PetrolDashboard';
 import { FoodDashboard } from './pages/FoodDashboard';
@@ -235,6 +236,7 @@ function MainApp() {
       case 'employees':  return <Employees />;
       case 'telegram':   return <TelegramDashboard />;
       case 'attendance': return <Attendance />;
+      case 'attendance-approvals': return <AttendanceApprovals />;
       case 'expenses':   return <Expenses />;
       case 'petrol-dashboard': return <PetrolDashboard />;
       case 'food-dashboard': return <FoodDashboard />;

@@ -1,4 +1,5 @@
-import type { AttendanceApprovalRequest, AttendanceRecord, PunchType } from '../types';
+import type { AttendanceApprovalRequest, AttendanceRecord, Employee, FieldTeamAttendanceApproval, PunchType } from '../types';
+import { requiresFieldTeamAttendanceApproval, getFieldTeamApprovalForDay } from './fieldTeamAttendance';
 import { filterAttendanceStaff } from './staff';
 
 /** Malcon Nexus office — CCWW+RJ, Hyderabad, Telangana (7J9WCCWW+RJ) */
@@ -376,6 +377,9 @@ export interface EmployeeAttendanceRow extends TodayAttendanceSummary {
   status: AttendanceDayStatus;
   /** Prior-day punch-in still open — not counted as punched in for `dateKey`. */
   unclosedPriorShift?: boolean;
+  /** Punches exist but day credit awaits admin (Stores / Scrub / Delivery). */
+  fieldTeamPendingCredit?: boolean;
+  fieldTeamCreditStatus?: FieldTeamAttendanceApproval['status'];
 }
 
 export function getPendingOffsitePunchRequest(
@@ -434,9 +438,10 @@ export function getPendingOffsitePunchOutRequest(
 }
 
 export function buildEmployeeAttendanceReport(
-  employees: { id: string; name: string; department: string; role: string; status: string }[],
+  employees: Pick<Employee, 'id' | 'name' | 'department' | 'departments' | 'role' | 'status'>[],
   records: AttendanceRecord[],
   dateKey = getISTDateKey(),
+  fieldTeamApprovals?: FieldTeamAttendanceApproval[],
 ): EmployeeAttendanceRow[] {
   const dayIndex = buildEmployeeDayAttendanceIndex(records);
   const todayKey = getISTDateKey();
@@ -459,13 +464,32 @@ export function buildEmployeeAttendanceReport(
         summary = dayIndex.get(employee.id)?.get(dateKey) ?? EMPTY_DAY_SUMMARY;
       }
       const unclosedFrom = getUnclosedShiftFromDateKey(records, employee.id, dateKey);
+      let status = getAttendanceDayStatus(summary);
+      let fieldTeamPendingCredit: boolean | undefined;
+      let fieldTeamCreditStatus: FieldTeamAttendanceApproval['status'] | undefined;
+
+      if (requiresFieldTeamAttendanceApproval(employee)) {
+        const credit = getFieldTeamApprovalForDay(fieldTeamApprovals, employee.id, dateKey);
+        fieldTeamCreditStatus = credit?.status;
+        if (credit?.status === 'approved') {
+          // Keep punch-derived status (in / out).
+        } else {
+          status = 'absent';
+          if (summary.punchIn) {
+            fieldTeamPendingCredit = !credit || credit.status === 'pending';
+          }
+        }
+      }
+
       return {
         employeeId: employee.id,
         employeeName: employee.name,
         department: employee.department,
-        status: getAttendanceDayStatus(summary),
+        status,
         unclosedPriorShift: unclosedFrom !== null,
         unclosedShiftFromDateKey: unclosedFrom,
+        fieldTeamPendingCredit,
+        fieldTeamCreditStatus,
         ...summary,
       };
     })

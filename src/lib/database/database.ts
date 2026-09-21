@@ -108,6 +108,7 @@ export const Database = {
     storage.removeItem('activityLog');
     storage.removeItem('attendanceRecords');
     storage.removeItem('attendanceApprovalRequests');
+    storage.removeItem('fieldTeamAttendanceApprovals');
     storage.removeItem('petrolRequests');
     storage.removeItem('foodSelections');
     storage.removeItem('locationTrips');
@@ -128,6 +129,7 @@ export const Database = {
     storage.setItem('activityLog', []);
     storage.setItem('attendanceRecords', []);
     storage.setItem('attendanceApprovalRequests', []);
+    storage.setItem('fieldTeamAttendanceApprovals', []);
     storage.setItem('petrolRequests', []);
     storage.setItem('foodSelections', []);
     storage.setItem('locationTrips', []);

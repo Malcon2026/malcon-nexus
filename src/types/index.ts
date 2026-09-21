@@ -319,6 +319,22 @@ export interface LocationTrip {
 
 export type AttendanceApprovalStatus = 'pending' | 'approved' | 'rejected';
 
+/** Stores / Scrub / Delivery — punches recorded; register “present” only after admin approves the day. */
+export interface FieldTeamAttendanceApproval {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  dateKey: string;
+  status: AttendanceApprovalStatus;
+  reviewedBy: string | null;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  adminNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AttendanceApprovalRequest {
   id: string;
   employeeId: string;

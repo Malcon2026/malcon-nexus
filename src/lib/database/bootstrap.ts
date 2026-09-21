@@ -12,6 +12,7 @@ import {
   sbKitRepo,
   sbAttendanceRepo,
   sbAttendanceApprovalRepo,
+  sbFieldTeamAttendanceRepo,
   sbLeaveRepo,
   sbPetrolRepo,
   sbLocationTripRepo,
@@ -144,6 +145,7 @@ function adminEssentialTasks(): BootstrapTask[] {
     { key: 'notifications', run: () => sbNotificationRepo.getAll() },
     { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+    { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
     { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
     {
@@ -321,6 +323,7 @@ export async function refreshApprovalQueues(): Promise<void> {
       { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
       { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
       { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+      { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
       { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
     ],
     'approvals',

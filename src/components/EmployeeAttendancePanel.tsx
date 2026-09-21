@@ -86,6 +86,7 @@ function shareTitleForFilter(filterStatus: StatusFilter, isToday: boolean): stri
 export const EmployeeAttendancePanel: React.FC = () => {
   const employees = useStore((s) => s.employees);
   const attendanceRecords = useStore((s) => s.attendanceRecords);
+  const fieldTeamAttendanceApprovals = useStore((s) => s.fieldTeamAttendanceApprovals);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState<Department | 'All'>('All');
@@ -128,8 +129,8 @@ export const EmployeeAttendancePanel: React.FC = () => {
   }, [dateKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const report = useMemo(
-    () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey),
-    [employees, attendanceRecords, dateKey],
+    () => buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey, fieldTeamAttendanceApprovals),
+    [employees, attendanceRecords, dateKey, fieldTeamAttendanceApprovals],
   );
 
   const filtered = report.filter((row) => {

@@ -10,6 +10,7 @@ import type {
   Employee, Hospital, Doctor, ImplantCase,
   Notification, Approval, Department, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord,
   AttendanceApprovalRequest,
+  FieldTeamAttendanceApproval,
   LeaveRequest,
   DailyExpense,
   PetrolRequest,
@@ -1008,6 +1009,78 @@ export const sbAttendanceApprovalRepo = {
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const { error } = await supabase.from('attendance_approval_requests').delete().in('id', ids);
+    if (error) throw error;
+  },
+};
+
+function mapFieldTeamAttendanceRow(row: Record<string, unknown>): FieldTeamAttendanceApproval {
+  return {
+    id: row.id as string,
+    employeeId: row.employee_id as string,
+    employeeName: row.employee_name as string,
+    department: row.department as string,
+    dateKey: normalizeDateKey(row.date_key as string),
+    status: row.status as FieldTeamAttendanceApproval['status'],
+    reviewedBy: (row.reviewed_by as string | null) ?? null,
+    reviewedById: (row.reviewed_by_id as string | null) ?? null,
+    reviewedAt: (row.reviewed_at as string | null) ?? null,
+    adminNotes: (row.admin_notes as string | null) ?? '',
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export const sbFieldTeamAttendanceRepo = {
+  async getAll(): Promise<FieldTeamAttendanceApproval[]> {
+    const { data, error } = await supabase
+      .from('field_team_attendance_approvals')
+      .select('*')
+      .order('date_key', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => mapFieldTeamAttendanceRow(row));
+  },
+
+  async getForDate(dateKey: string): Promise<FieldTeamAttendanceApproval[]> {
+    const { data, error } = await supabase
+      .from('field_team_attendance_approvals')
+      .select('*')
+      .eq('date_key', dateKey);
+    if (error) throw error;
+    return (data ?? []).map((row) => mapFieldTeamAttendanceRow(row));
+  },
+
+  async upsert(row: FieldTeamAttendanceApproval): Promise<void> {
+    const { error } = await supabase.from('field_team_attendance_approvals').upsert(
+      {
+        id: row.id,
+        employee_id: row.employeeId,
+        employee_name: row.employeeName,
+        department: row.department,
+        date_key: row.dateKey,
+        status: row.status,
+        reviewed_by: row.reviewedBy,
+        reviewed_by_id: row.reviewedById,
+        reviewed_at: row.reviewedAt,
+        admin_notes: row.adminNotes,
+        created_at: row.createdAt,
+        updated_at: row.updatedAt,
+      },
+      { onConflict: 'employee_id,date_key' },
+    );
+    if (error) throw error;
+  },
+
+  async update(id: string, updates: Partial<FieldTeamAttendanceApproval>): Promise<void> {
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
+    if (updates.reviewedById !== undefined) payload.reviewed_by_id = updates.reviewedById;
+    if (updates.reviewedAt !== undefined) payload.reviewed_at = updates.reviewedAt;
+    if (updates.adminNotes !== undefined) payload.admin_notes = updates.adminNotes;
+    if (updates.employeeName !== undefined) payload.employee_name = updates.employeeName;
+    if (updates.department !== undefined) payload.department = updates.department;
+
+    const { error } = await supabase.from('field_team_attendance_approvals').update(payload).eq('id', id);
     if (error) throw error;
   },
 };

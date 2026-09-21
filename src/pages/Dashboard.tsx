@@ -26,6 +26,7 @@ import { priorityColors, stageColors, formatDate, timeAgo, getStageStyle, getPri
 import { filterAttendanceStaff } from '../lib/staff';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
+import { getISTDateKey } from '../lib/attendance';
 import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
 import { DashboardAttendanceSection } from '../components/DashboardAttendanceSection';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
@@ -114,6 +115,7 @@ export const Dashboard: React.FC = () => {
     activityLog,
     attendanceRecords,
     attendanceApprovalRequests,
+    fieldTeamAttendanceApprovals,
     foodSelections,
     leaveRequests,
     setActiveTab,
@@ -151,8 +153,16 @@ export const Dashboard: React.FC = () => {
     .slice(0, 4);
 
   const staffSnapshot = useMemo(
-    () => buildDashboardStaffSnapshot(employees, attendanceRecords, foodSelections, leaveRequests),
-    [employees, attendanceRecords, foodSelections, leaveRequests],
+    () =>
+      buildDashboardStaffSnapshot(
+        employees,
+        attendanceRecords,
+        foodSelections,
+        leaveRequests,
+        getISTDateKey(),
+        fieldTeamAttendanceApprovals,
+      ),
+    [employees, attendanceRecords, foodSelections, leaveRequests, fieldTeamAttendanceApprovals],
   );
 
   const attendanceMetrics = useMemo(
@@ -162,8 +172,9 @@ export const Dashboard: React.FC = () => {
         attendanceRecords,
         leaveRequests,
         attendanceApprovalRequests,
+        fieldTeamAttendanceApprovals,
       ),
-    [employees, attendanceRecords, leaveRequests, attendanceApprovalRequests],
+    [employees, attendanceRecords, leaveRequests, attendanceApprovalRequests, fieldTeamAttendanceApprovals],
   );
 
   const insightMetrics = useMemo(

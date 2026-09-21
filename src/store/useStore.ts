@@ -3,6 +3,7 @@ import type {
   ImplantCase, Employee, Notification, WorkflowStage, Department,
   Hospital, Doctor, Approval, DepartmentInfo, SurgicalKit, ActivityEvent, AttendanceRecord, PunchType,
   AttendanceApprovalRequest,
+  FieldTeamAttendanceApproval,
   LeaveRequest, LeaveType,
   DailyExpense,
   PetrolRequest,
@@ -45,7 +46,8 @@ import {
 } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbFieldTeamAttendanceRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
+import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
 import { foodLoadWindow } from '../lib/food';
 import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import {
@@ -98,6 +100,7 @@ interface AppState {
   activityLog: ActivityEvent[];
   attendanceRecords: AttendanceRecord[];
   attendanceApprovalRequests: AttendanceApprovalRequest[];
+  fieldTeamAttendanceApprovals: FieldTeamAttendanceApproval[];
   leaveRequests: LeaveRequest[];
   petrolRequests: PetrolRequest[];
   foodSelections: EmployeeFoodSelection[];
@@ -229,6 +232,8 @@ interface AppState {
   ) => Promise<{ error: string | null }>;
   approveAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
   rejectAttendanceApprovalRequest: (requestId: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  approveFieldTeamAttendanceDay: (employeeId: string, dateKey: string, adminNotes?: string) => Promise<{ error: string | null }>;
+  rejectFieldTeamAttendanceDay: (employeeId: string, dateKey: string, adminNotes?: string) => Promise<{ error: string | null }>;
   getMyTodayAttendance: () => ReturnType<typeof summarizeLiveAttendance>;
   startLocationTrip: (
     position: GeoPosition,
@@ -516,6 +521,124 @@ const persistAttendanceApprovalRequest = async (
   const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
   Database.saveAll('attendanceApprovalRequests', [request, ...list]);
   return { error: null };
+};
+
+const upsertFieldTeamAttendanceApprovalLocal = (row: FieldTeamAttendanceApproval) => {
+  const list = Database.getAll<FieldTeamAttendanceApproval>('fieldTeamAttendanceApprovals');
+  const next = [
+    row,
+    ...list.filter((a) => !(a.employeeId === row.employeeId && a.dateKey === row.dateKey)),
+  ];
+  if (USE_SUPABASE) {
+    setCache('fieldTeamAttendanceApprovals', next);
+  } else {
+    Database.saveAll('fieldTeamAttendanceApprovals', next);
+  }
+};
+
+const persistFieldTeamAttendanceApproval = async (
+  row: FieldTeamAttendanceApproval,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbFieldTeamAttendanceRepo.upsert(row);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save field-team attendance approval';
+      console.error('[field-team-attendance] persist failed:', err);
+      if (message.includes('field_team_attendance_approvals') && message.includes('does not exist')) {
+        return {
+          error: 'Field-team attendance approval is not set up in the database yet. Run the latest Supabase migration.',
+        };
+      }
+      return { error: message };
+    }
+    upsertFieldTeamAttendanceApprovalLocal(row);
+    return { error: null };
+  }
+  upsertFieldTeamAttendanceApprovalLocal(row);
+  return { error: null };
+};
+
+const updateFieldTeamAttendanceApproval = async (
+  id: string,
+  updates: Partial<FieldTeamAttendanceApproval>,
+): Promise<{ error: string | null }> => {
+  if (USE_SUPABASE) {
+    try {
+      await sbFieldTeamAttendanceRepo.update(id, updates);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update field-team attendance approval';
+      console.error('[field-team-attendance] update failed:', err);
+      return { error: message };
+    }
+    const list = Database.getAll<FieldTeamAttendanceApproval>('fieldTeamAttendanceApprovals');
+    setCache(
+      'fieldTeamAttendanceApprovals',
+      list.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r)),
+    );
+    return { error: null };
+  }
+  const list = Database.getAll<FieldTeamAttendanceApproval>('fieldTeamAttendanceApprovals');
+  Database.saveAll(
+    'fieldTeamAttendanceApprovals',
+    list.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r)),
+  );
+  return { error: null };
+};
+
+const ensureFieldTeamPendingApprovalAfterPunch = async (
+  employee: Employee,
+  punchedAt: string,
+  getState: () => AppState,
+  setState: (partial: Partial<AppState> | ((s: AppState) => Partial<AppState>)) => void,
+) => {
+  if (!requiresFieldTeamAttendanceApproval(employee)) return;
+  const dateKey = getISTDateKey(punchedAt);
+  const existing = getState().fieldTeamAttendanceApprovals.find(
+    (a) => a.employeeId === employee.id && a.dateKey === dateKey,
+  );
+  if (existing?.status === 'approved') return;
+  if (existing?.status === 'pending') return;
+
+  const now = new Date().toISOString();
+  const row: FieldTeamAttendanceApproval = existing
+    ? {
+        ...existing,
+        status: 'pending',
+        reviewedBy: null,
+        reviewedById: null,
+        reviewedAt: null,
+        adminNotes: '',
+        updatedAt: now,
+      }
+    : {
+        id: newId(),
+        employeeId: employee.id,
+        employeeName: employee.name,
+        department: employee.department,
+        dateKey,
+        status: 'pending',
+        reviewedBy: null,
+        reviewedById: null,
+        reviewedAt: null,
+        adminNotes: '',
+        createdAt: now,
+        updatedAt: now,
+      };
+
+  const result = await persistFieldTeamAttendanceApproval(row);
+  if (result.error) {
+    console.warn('[field-team-attendance]', result.error);
+    return;
+  }
+  setState((s) => ({
+    fieldTeamAttendanceApprovals: [
+      row,
+      ...s.fieldTeamAttendanceApprovals.filter(
+        (a) => !(a.employeeId === row.employeeId && a.dateKey === row.dateKey),
+      ),
+    ],
+  }));
 };
 
 const updateAttendanceApprovalRequest = async (
@@ -936,6 +1059,7 @@ const initialKits = Database.getAll<SurgicalKit>('kits');
 const initialActivity = Database.getAll<ActivityEvent>('activityLog');
 const initialAttendance = Database.getAll<AttendanceRecord>('attendanceRecords');
 const initialAttendanceApprovals = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
+const initialFieldTeamApprovals = Database.getAll<FieldTeamAttendanceApproval>('fieldTeamAttendanceApprovals');
 const initialLeaveRequests = Database.getAll<LeaveRequest>('leaveRequests');
 const initialPetrolRequests = Database.getAll<PetrolRequest>('petrolRequests');
 const initialFoodSelections = Database.getAll<EmployeeFoodSelection>('foodSelections');
@@ -958,7 +1082,7 @@ const placeholderAdmin: Employee = {
 
 const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderAdmin;
 
-const ADMIN_ONLY_TABS = ['approvals', 'postponed-cases', 'task-requests', 'employees', 'attendance', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
+const ADMIN_ONLY_TABS = ['approvals', 'postponed-cases', 'task-requests', 'employees', 'attendance', 'attendance-approvals', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
 
 const applyUserSession = (
@@ -993,6 +1117,7 @@ export const useStore = create<AppState>((set, get) => ({
   activityLog: initialActivity,
   attendanceRecords: initialAttendance,
   attendanceApprovalRequests: initialAttendanceApprovals,
+  fieldTeamAttendanceApprovals: initialFieldTeamApprovals,
   leaveRequests: initialLeaveRequests,
   petrolRequests: initialPetrolRequests,
   foodSelections: initialFoodSelections,
@@ -3556,6 +3681,8 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
 
+    await ensureFieldTeamPendingApprovalAfterPunch(currentUser, punchedAt, get, set);
+
     return { error: null };
   },
 
@@ -3603,6 +3730,8 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceRecords: [record, ...s.attendanceRecords],
       activityLog: [activity, ...s.activityLog],
     }));
+
+    await ensureFieldTeamPendingApprovalAfterPunch(currentUser, punchedAt, get, set);
 
     return { error: null };
   },
@@ -3705,6 +3834,35 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
     if (USE_SUPABASE) setCache('attendanceRecords', get().attendanceRecords);
+
+    if (requiresFieldTeamAttendanceApproval(employee)) {
+      const reviewedAt = new Date().toISOString();
+      const approvedRow: FieldTeamAttendanceApproval = {
+        id: newId(),
+        employeeId,
+        employeeName: employee.name,
+        department: employee.department,
+        dateKey,
+        status: 'approved',
+        reviewedBy: state.currentUser.name,
+        reviewedById: state.currentUser.id,
+        reviewedAt,
+        adminNotes: 'Manual attendance entry',
+        createdAt: reviewedAt,
+        updatedAt: reviewedAt,
+      };
+      const creditResult = await persistFieldTeamAttendanceApproval(approvedRow);
+      if (!creditResult.error) {
+        set((s) => ({
+          fieldTeamAttendanceApprovals: [
+            approvedRow,
+            ...s.fieldTeamAttendanceApprovals.filter(
+              (a) => !(a.employeeId === employeeId && a.dateKey === dateKey),
+            ),
+          ],
+        }));
+      }
+    }
 
     return { error: null };
   },
@@ -4347,6 +4505,144 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceApprovalRequests: s.attendanceApprovalRequests.map((r) =>
         r.id === requestId ? { ...r, ...updates } : r,
       ),
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  approveFieldTeamAttendanceDay: async (employeeId, dateKey, adminNotes = '') => {
+    const { currentUser, employees, fieldTeamAttendanceApprovals } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can approve attendance.' };
+    }
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!requiresFieldTeamAttendanceApproval(employee)) {
+      return { error: 'This employee is not on a field-team attendance approval roster.' };
+    }
+
+    const reviewedAt = new Date().toISOString();
+    const existing = fieldTeamAttendanceApprovals.find(
+      (a) => a.employeeId === employeeId && a.dateKey === dateKey,
+    );
+    const row: FieldTeamAttendanceApproval = existing
+      ? {
+          ...existing,
+          status: 'approved',
+          reviewedBy: currentUser.name,
+          reviewedById: currentUser.id,
+          reviewedAt,
+          adminNotes: adminNotes.trim(),
+          updatedAt: reviewedAt,
+        }
+      : {
+          id: newId(),
+          employeeId,
+          employeeName: employee.name,
+          department: employee.department,
+          dateKey,
+          status: 'approved',
+          reviewedBy: currentUser.name,
+          reviewedById: currentUser.id,
+          reviewedAt,
+          adminNotes: adminNotes.trim(),
+          createdAt: reviewedAt,
+          updatedAt: reviewedAt,
+        };
+
+    const persistResult = await persistFieldTeamAttendanceApproval(row);
+    if (persistResult.error) return persistResult;
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Approved Field Attendance',
+      entityType: 'attendance',
+      entityId: row.id,
+      entityLabel: employee.name,
+      performedBy: currentUser.name,
+      performedByRole: 'admin',
+      timestamp: reviewedAt,
+      details: `Approved attendance credit for ${employee.name} on ${dateKey}.`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      fieldTeamAttendanceApprovals: [
+        row,
+        ...s.fieldTeamAttendanceApprovals.filter(
+          (a) => !(a.employeeId === employeeId && a.dateKey === dateKey),
+        ),
+      ],
+      activityLog: [activity, ...s.activityLog],
+    }));
+
+    return { error: null };
+  },
+
+  rejectFieldTeamAttendanceDay: async (employeeId, dateKey, adminNotes = '') => {
+    const { currentUser, employees, fieldTeamAttendanceApprovals } = get();
+    if (currentUser.role !== 'admin') {
+      return { error: 'Only admins can reject attendance.' };
+    }
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return { error: 'Employee not found.' };
+    if (!requiresFieldTeamAttendanceApproval(employee)) {
+      return { error: 'This employee is not on a field-team attendance approval roster.' };
+    }
+
+    const reviewedAt = new Date().toISOString();
+    const existing = fieldTeamAttendanceApprovals.find(
+      (a) => a.employeeId === employeeId && a.dateKey === dateKey,
+    );
+    const row: FieldTeamAttendanceApproval = existing
+      ? {
+          ...existing,
+          status: 'rejected',
+          reviewedBy: currentUser.name,
+          reviewedById: currentUser.id,
+          reviewedAt,
+          adminNotes: adminNotes.trim(),
+          updatedAt: reviewedAt,
+        }
+      : {
+          id: newId(),
+          employeeId,
+          employeeName: employee.name,
+          department: employee.department,
+          dateKey,
+          status: 'rejected',
+          reviewedBy: currentUser.name,
+          reviewedById: currentUser.id,
+          reviewedAt,
+          adminNotes: adminNotes.trim(),
+          createdAt: reviewedAt,
+          updatedAt: reviewedAt,
+        };
+
+    const persistResult = await persistFieldTeamAttendanceApproval(row);
+    if (persistResult.error) return persistResult;
+
+    const activity: ActivityEvent = {
+      id: newId(),
+      action: 'Rejected Field Attendance',
+      entityType: 'attendance',
+      entityId: row.id,
+      entityLabel: employee.name,
+      performedBy: currentUser.name,
+      performedByRole: 'admin',
+      timestamp: reviewedAt,
+      details: `Did not approve attendance for ${employee.name} on ${dateKey}.`,
+    };
+    persistActivity(activity);
+
+    set((s) => ({
+      fieldTeamAttendanceApprovals: [
+        row,
+        ...s.fieldTeamAttendanceApprovals.filter(
+          (a) => !(a.employeeId === employeeId && a.dateKey === dateKey),
+        ),
+      ],
       activityLog: [activity, ...s.activityLog],
     }));
 
@@ -5191,6 +5487,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [],
       attendanceRecords: [],
       attendanceApprovalRequests: [],
+      fieldTeamAttendanceApprovals: [],
       leaveRequests: [],
       petrolRequests: [],
       locationTrips: [],
@@ -5221,6 +5518,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: Database.getAll<ActivityEvent>('activityLog'),
       attendanceRecords: Database.getAll<AttendanceRecord>('attendanceRecords'),
       attendanceApprovalRequests: Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests'),
+      fieldTeamAttendanceApprovals: Database.getAll<FieldTeamAttendanceApproval>('fieldTeamAttendanceApprovals'),
       leaveRequests: Database.getAll<LeaveRequest>('leaveRequests'),
       petrolRequests: Database.getAll<PetrolRequest>('petrolRequests'),
       foodSelections: Database.getAll<EmployeeFoodSelection>('foodSelections'),

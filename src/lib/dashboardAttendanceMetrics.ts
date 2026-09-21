@@ -1,4 +1,10 @@
-import type { AttendanceApprovalRequest, AttendanceRecord, Employee, LeaveRequest } from '../types';
+import type {
+  AttendanceApprovalRequest,
+  AttendanceRecord,
+  Employee,
+  FieldTeamAttendanceApproval,
+  LeaveRequest,
+} from '../types';
 import { buildEmployeeAttendanceReport, getISTDateKey } from './attendance';
 
 export type DashboardAttendanceMetrics = {
@@ -38,9 +44,15 @@ export function buildDashboardAttendanceMetrics(
   attendanceRecords: AttendanceRecord[],
   leaveRequests: LeaveRequest[],
   attendanceApprovalRequests: AttendanceApprovalRequest[] | undefined,
+  fieldTeamAttendanceApprovals: FieldTeamAttendanceApproval[] | undefined,
   dateKey = getISTDateKey(),
 ): DashboardAttendanceMetrics {
-  const report = buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey);
+  const report = buildEmployeeAttendanceReport(
+    employees,
+    attendanceRecords,
+    dateKey,
+    fieldTeamAttendanceApprovals,
+  );
   const rows = report.filter((row) => row.department !== 'Admin');
 
   let punchedIn = 0;

@@ -1,4 +1,10 @@
-import type { AttendanceRecord, Employee, EmployeeFoodSelection, LeaveRequest } from '../types';
+import type {
+  AttendanceRecord,
+  Employee,
+  EmployeeFoodSelection,
+  FieldTeamAttendanceApproval,
+  LeaveRequest,
+} from '../types';
 import { buildEmployeeAttendanceReport } from './attendance';
 import { getISTDateKey } from './attendance';
 import { isFoodSelectionSubmitted, getFoodSelectionForDay } from './food';
@@ -42,9 +48,15 @@ export function buildDashboardStaffSnapshot(
   foodSelections: EmployeeFoodSelection[],
   leaveRequests: LeaveRequest[],
   dateKey = getISTDateKey(),
+  fieldTeamAttendanceApprovals: FieldTeamAttendanceApproval[] = [],
 ): DashboardStaffSnapshot {
   const staff = filterAttendanceStaff(employees).filter((e) => e.role === 'employee' && e.status === 'Active');
-  const rows = buildEmployeeAttendanceReport(employees, attendanceRecords, dateKey);
+  const rows = buildEmployeeAttendanceReport(
+    employees,
+    attendanceRecords,
+    dateKey,
+    fieldTeamAttendanceApprovals,
+  );
   const rowById = new Map(rows.map((r) => [r.employeeId, r]));
 
   const highlights: StaffHighlight[] = [];

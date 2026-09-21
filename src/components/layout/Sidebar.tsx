@@ -30,6 +30,7 @@ import {
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import { countPendingLeaveSubmissions } from '../../lib/leave';
+import { getISTDateKey } from '../../lib/attendance';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isPostponedCase } from '../../lib/caseWorkflow';
 import loginLogo from '../../assets/login-logo.png';
@@ -61,6 +62,7 @@ const topNavItems: NavItem[] = [
   { id: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" />, adminOnly: true },
   { id: 'telegram', label: 'Telegram', icon: <MessageCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'attendance', label: 'Attendance', icon: <ClipboardList className="h-4 w-4" />, adminOnly: true },
+  { id: 'attendance-approvals', label: 'Attendance Approvals', icon: <CheckCircle className="h-4 w-4" />, adminOnly: true },
   { id: 'expenses', label: 'Expenses', icon: <Fuel className="h-4 w-4" />, adminOnly: true },
   { id: 'petrol-dashboard', label: 'Petrol Dashboard', icon: <Ticket className="h-4 w-4" />, adminOnly: true },
   { id: 'food-dashboard', label: 'Food', icon: <UtensilsCrossed className="h-4 w-4" />, adminOnly: true },
@@ -87,6 +89,7 @@ export const Sidebar: React.FC = () => {
     currentUser,
     leaveRequests,
     attendanceApprovalRequests,
+    fieldTeamAttendanceApprovals,
     petrolRequests,
     caseTaskRequests,
   } = useStore();
@@ -105,6 +108,10 @@ export const Sidebar: React.FC = () => {
   const pendingAttendanceApprovals =
     countPendingLeaveSubmissions(leaveRequests) +
     attendanceApprovalRequests.filter((r) => r.status === 'pending').length;
+  const todayKey = getISTDateKey();
+  const pendingFieldTeamAttendance = fieldTeamAttendanceApprovals.filter(
+    (a) => a.dateKey === todayKey && a.status === 'pending',
+  ).length;
   const postponedCount = cases.filter(isPostponedCase).length;
 
   const getBadge = (id: string) => {
@@ -113,6 +120,7 @@ export const Sidebar: React.FC = () => {
     if (id === 'task-requests') return pendingTaskRequests || undefined;
     if (id === 'cases' || id === 'live-cases') return activeCases;
     if (id === 'attendance') return pendingAttendanceApprovals;
+    if (id === 'attendance-approvals') return pendingFieldTeamAttendance || undefined;
     if (id === 'petrol-dashboard') {
       return petrolRequests.filter((r) => r.status === 'pending' || r.status === 'issued').length;
     }
