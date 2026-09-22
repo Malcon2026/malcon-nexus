@@ -44,21 +44,45 @@ async function employeeFromSession(session: Session | null): Promise<Employee | 
   return found;
 }
 
-function parseFunctionError(data: unknown, invokeError: Error | null): string {
-  if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
-    return (data as { error: string }).error;
+/** Invoke login edge functions via fetch so 4xx bodies surface real error messages. */
+async function invokeLoginFunction<T extends Record<string, unknown>>(
+  name: 'request-login-otp' | 'verify-login-otp',
+  body: Record<string, unknown>,
+): Promise<{ data: T | null; error: string | null }> {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+  if (!baseUrl || !anonKey) {
+    return { data: null, error: 'App is not configured for Supabase.' };
   }
-  return invokeError?.message ?? 'Request failed';
+
+  const res = await fetch(`${baseUrl}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${anonKey}`,
+      apikey: anonKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    return { data: null, error: typeof data.error === 'string' ? data.error : `Request failed (${res.status})` };
+  }
+  if (typeof data.error === 'string') {
+    return { data: null, error: data.error };
+  }
+  return { data, error: null };
 }
 
 export const authService = {
   /** Request a Telegram OTP for employee sign-in (non-admin). */
   async requestLoginOtp(employeeCode: string): Promise<{ error: string | null; message?: string }> {
-    const { data, error } = await supabase.functions.invoke('request-login-otp', {
-      body: { employeeCode: employeeCode.trim() },
-    });
-    if (error) return { error: error.message };
-    if (data?.error) return { error: String(data.error) };
+    const { data, error } = await invokeLoginFunction<{ message?: string; ok?: boolean }>(
+      'request-login-otp',
+      { employeeCode: employeeCode.trim() },
+    );
+    if (error) return { error };
     return { error: null, message: typeof data?.message === 'string' ? data.message : undefined };
   },
 
@@ -66,13 +90,14 @@ export const authService = {
   async signInWithTelegramOtp(employeeCode: string, otp: string): Promise<AuthResult> {
     pendingManualSignIn = true;
 
-    const { data, error } = await supabase.functions.invoke('verify-login-otp', {
-      body: { employeeCode: employeeCode.trim(), otp: otp.trim() },
+    const { data, error } = await invokeLoginFunction<{ token_hash?: string }>('verify-login-otp', {
+      employeeCode: employeeCode.trim(),
+      otp: otp.trim(),
     });
 
-    if (error || data?.error) {
+    if (error) {
       pendingManualSignIn = false;
-      return { employee: null, error: parseFunctionError(data, error) };
+      return { employee: null, error };
     }
 
     const tokenHash = data?.token_hash as string | undefined;
