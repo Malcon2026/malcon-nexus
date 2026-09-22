@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Sync stage photos from Supabase → local Windows folders (one folder per employee).
+ * Sync stage photos from Supabase → office PC under PHOTOS_ROOT:
+ *   {YYYY}/{MM}/{YYYY-MM-DD}/Cases/{Employee}/{CaseNumber}/*.jpg
  *
  * Run on your 24/7 office server:
  *   node scripts/windows-photo-sync.mjs
@@ -30,6 +31,12 @@ import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
+import {
+  officeDayCategoryDir,
+  officeRelativeDayPath,
+  sanitizeFolderName,
+  sanitizeFilePart,
+} from './lib/office-archive-paths.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -50,22 +57,6 @@ function loadEnv() {
     return envPath;
   }
   return null;
-}
-
-function sanitizeFolderName(name) {
-  return String(name || 'Unknown Employee')
-    .replace(/[<>:"/\\|?*]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80) || 'Unknown Employee';
-}
-
-function sanitizeFilePart(value) {
-  return String(value || 'file')
-    .replace(/[<>:"/\\|?*]/g, '-')
-    .replace(/\s+/g, '-')
-    .trim()
-    .slice(0, 60) || 'file';
 }
 
 function isImageDocument(doc) {
@@ -230,8 +221,14 @@ for (const caseRow of cases ?? []) {
         (doc.uploadedAt || new Date().toISOString()).replace(/[:.]/g, '-'),
       );
       const fileName = `${stageName}-${timestamp}-${String(doc.id).slice(0, 8)}${ext}`;
-      const destDir = join(photosRoot, employeeName, caseNumber);
+      const photoAt = doc.uploadedAt || new Date().toISOString();
+      const destDir = join(
+        officeDayCategoryDir(photosRoot, photoAt, 'Cases'),
+        employeeName,
+        caseNumber,
+      );
       const destPath = join(destDir, fileName);
+      const logPath = officeRelativeDayPath(photoAt, 'Cases', employeeName, caseNumber, fileName);
 
       mkdirSync(destDir, { recursive: true });
 
@@ -239,10 +236,10 @@ for (const caseRow of cases ?? []) {
         await downloadToFile(archiveDownloadUrl(doc), destPath);
         synced.add(doc.id);
         downloaded += 1;
-        console.log(`✓ ${employeeName} / ${caseNumber} / ${fileName}`);
+        console.log(`✓ ${logPath}`);
       } catch (err) {
         failed += 1;
-        console.error(`✗ ${employeeName} / ${caseNumber} / ${fileName}`);
+        console.error(`✗ ${logPath}`);
         console.error(`  ${err instanceof Error ? err.message : String(err)}`);
       }
     }

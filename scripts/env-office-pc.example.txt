@@ -1,10 +1,25 @@
 # Copy to D:\malcon-nexus\.env (office server PC). Fill Supabase keys from dashboard.
+#
+# One photos folder on the server (map as \\SERVER\MalconNexusPhotos):
+#
+#   D:\MalconNexus\Photos\
+#     2026\
+#       09\
+#         2026-09-22\
+#           Cases\
+#             Vinay Jakati\
+#               IMP-2026-279\
+#                 Set-Preparation-....jpg
+#           Attendance\
+#             Rajesh_093015_a1b2c3d4.jpg
+#
+# Dates use India (IST). Case photos file by upload date; attendance by punch date.
 
 VITE_SUPABASE_URL=https://YOUR_NEW_PROJECT_REF.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_secret_here
 
 PHOTOS_ROOT=D:\MalconNexus\Photos
-SELFIE_ARCHIVE_ROOT=D:\MalconNexus\PunchInSelfies
+# Optional legacy (only if PHOTOS_ROOT unset): SELFIE_ARCHIVE_ROOT=D:\MalconNexus\PunchInSelfies
 ATTENDANCE_WHATSAPP_SESSION_PATH=D:\MalconNexus\WhatsAppSession
 ATTENDANCE_REPORTS_DIR=D:\MalconNexus\AttendanceReports
 

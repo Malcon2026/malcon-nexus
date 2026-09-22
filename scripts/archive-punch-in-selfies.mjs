@@ -12,7 +12,10 @@
  * Required .env (server only — never commit):
  *   VITE_SUPABASE_URL=https://your-project.supabase.co
  *   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
- *   SELFIE_ARCHIVE_ROOT=D:\MalconNexus\PunchInSelfies
+ *   PHOTOS_ROOT=D:\MalconNexus\Photos
+ *     (legacy: SELFIE_ARCHIVE_ROOT — same tree if PHOTOS_ROOT unset)
+ *
+ * Saves under: {YYYY}/{MM}/{YYYY-MM-DD}/Attendance/
  *
  * Optional:
  *   SELFIE_CLOUD_RETENTION_HOURS=24   (use 0 to purge cloud copies as soon as local file exists)
@@ -35,6 +38,12 @@ import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
+import {
+  officeDayCategoryDir,
+  officeRelativeDayPath,
+  sanitizeFilePart,
+  istTimePart,
+} from './lib/office-archive-paths.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BUCKET = 'attendance-selfies';
@@ -72,41 +81,6 @@ function parseRetentionHours(value, fallback) {
 
 function isTruthy(value) {
   return ['1', 'true', 'yes', 'on'].includes(String(value ?? '').trim().toLowerCase());
-}
-
-function sanitizeFilePart(value) {
-  return String(value || 'file')
-    .replace(/[<>:"/\\|?*]/g, '-')
-    .replace(/\s+/g, '-')
-    .trim()
-    .slice(0, 60) || 'file';
-}
-
-/** IST calendar date YYYY-MM-DD from an ISO timestamp. */
-function istDateKey(iso) {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return 'unknown-date';
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d);
-}
-
-/** IST HHmmss for filenames. */
-function istTimePart(iso) {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return '000000';
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).formatToParts(d);
-  const get = (type) => parts.find((p) => p.type === type)?.value ?? '00';
-  return `${get('hour')}${get('minute')}${get('second')}`;
 }
 
 function guessExtension(url) {
@@ -147,27 +121,29 @@ async function downloadToFile(url, destPath) {
 }
 
 function buildLocalPath(archiveRoot, item) {
-  const dateFolder = istDateKey(item.at);
   const name = sanitizeFilePart(item.employeeName);
   const time = istTimePart(item.at);
   const idShort = String(item.id).replace(/-/g, '').slice(0, 8);
   const ext = guessExtension(item.selfieUrl);
   const fileName = `${name}_${time}_${idShort}${ext}`;
-  const destDir = join(archiveRoot, dateFolder);
-  return { destDir, destPath: join(destDir, fileName), dateFolder, fileName };
+  const destDir = officeDayCategoryDir(archiveRoot, item.at, 'Attendance');
+  const relPath = officeRelativeDayPath(item.at, 'Attendance', fileName);
+  return { destDir, destPath: join(destDir, fileName), relPath, fileName };
 }
 
 const envFile = loadEnv();
 const url = process.env.VITE_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const archiveRoot = process.env.SELFIE_ARCHIVE_ROOT;
+const archiveRoot = process.env.PHOTOS_ROOT || process.env.SELFIE_ARCHIVE_ROOT;
 
 if (!url || !key) {
   console.error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
 }
 if (!archiveRoot) {
-  console.error('Missing SELFIE_ARCHIVE_ROOT in .env (example: D:\\MalconNexus\\PunchInSelfies)');
+  console.error(
+    'Missing PHOTOS_ROOT in .env (example: D:\\MalconNexus\\Photos). Legacy: SELFIE_ARCHIVE_ROOT also works.',
+  );
   process.exit(1);
 }
 
@@ -268,7 +244,7 @@ let purgeCapReached = false;
 
 for (const item of items) {
   const key = `${item.source}:${item.id}`;
-  const { destDir, destPath, dateFolder, fileName } = buildLocalPath(archiveRoot, item);
+  const { destDir, destPath, relPath, fileName } = buildLocalPath(archiveRoot, item);
 
   let localPath = state.localPathsByKey[key];
   if (localPath && !localFileExists(localPath)) {
@@ -286,20 +262,20 @@ for (const item of items) {
       mkdirSync(destDir, { recursive: true });
       try {
         if (dryRun) {
-          logLine(`[dry-run] would download ${dateFolder}/${fileName}`);
+          logLine(`[dry-run] would download ${relPath}`);
         } else {
           await downloadToFile(item.selfieUrl, destPath);
           if (!localFileExists(destPath)) {
             throw new Error('Download completed but file missing or empty');
           }
-          logLine(`✓ downloaded ${dateFolder}/${fileName}`);
+          logLine(`✓ downloaded ${relPath}`);
         }
         localPath = destPath;
         state.localPathsByKey[key] = destPath;
         downloaded += 1;
       } catch (err) {
         downloadFailed += 1;
-        logLine(`✗ download failed ${dateFolder}/${fileName}: ${err instanceof Error ? err.message : String(err)}`);
+        logLine(`✗ download failed ${relPath}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   } else {
