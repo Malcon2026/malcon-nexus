@@ -12,6 +12,7 @@ import {
 import type { Hospital } from '../types';
 import type { StageWithAssistant } from './caseWorkflow';
 import type { SurgeryDateMode } from '../components/SurgeryDateQuickPick';
+import { normalizeCaseTextFields } from './textFormat';
 
 function emptyStageAssistantIds(): Record<StageWithAssistant, string> {
   return { Delivery: '', Surgery: '' };
@@ -83,12 +84,20 @@ export function buildCreateCasePayload(
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
   if (!hospital) throw new Error('Hospital not found. Pick the hospital again.');
 
+  const text = normalizeCaseTextFields({
+    doctorName: form.doctorName,
+    implantRequired: form.implantRequired,
+    implantType: form.implantType,
+    implantCompany: form.implantCompany,
+    remarks: form.remarks,
+  });
+
   const startIdx = ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage);
   const activeStages = ASSIGNABLE_WORKFLOW_STAGES.slice(startIdx);
 
   const doctor = {
     id: `doc-${Date.now()}`,
-    name: form.doctorName.trim(),
+    name: text.doctorName ?? '',
     specialization: 'Surgeon',
     hospitalId: hospital.id,
     phone: '',
@@ -143,11 +152,11 @@ export function buildCreateCasePayload(
     hospital,
     doctor,
     surgeryDate: form.surgeryDate,
-    implantRequired: form.implantRequired,
-    implantType: form.implantType,
-    implantCompany: form.implantCompany,
+    implantRequired: text.implantRequired ?? '',
+    implantType: text.implantType ?? '',
+    implantCompany: text.implantCompany ?? '',
     priority: form.priority,
-    remarks: form.remarks,
+    remarks: text.remarks ?? '',
     dueDate: form.surgeryDate,
     startStage: form.startStage,
     stageAssignments,

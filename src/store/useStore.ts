@@ -66,6 +66,7 @@ import {
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
+import { normalizeCaseTextFields } from '../lib/textFormat';
 import { isSetPreparationStage } from '../lib/roles';
 import {
   type CancelCaseReasonType,
@@ -1166,6 +1167,26 @@ export const useStore = create<AppState>((set, get) => ({
 
   createCase: async (caseData) => {
     const state = get();
+    const formatted = normalizeCaseTextFields({
+      doctorName: caseData.doctor?.name,
+      implantRequired: caseData.implantRequired,
+      implantType: caseData.implantType,
+      implantCompany: caseData.implantCompany,
+      remarks: caseData.remarks,
+    });
+    if (caseData.doctor?.name) {
+      caseData = {
+        ...caseData,
+        doctor: { ...caseData.doctor, name: formatted.doctorName ?? caseData.doctor.name },
+      };
+    }
+    caseData = {
+      ...caseData,
+      implantRequired: formatted.implantRequired ?? caseData.implantRequired,
+      implantType: formatted.implantType ?? caseData.implantType,
+      implantCompany: formatted.implantCompany ?? caseData.implantCompany,
+      remarks: formatted.remarks ?? caseData.remarks,
+    };
     const caseId = newId();
     const assignments = caseData.stageAssignments ?? {};
     const assistantAssignments = caseData.stageAssistantAssignments ?? {};
@@ -1357,7 +1378,22 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateCase: async (id, updates) => {
-    const updated = await taskRepository.update(id, updates);
+    const formatted = normalizeCaseTextFields({
+      doctorName: updates.doctor?.name,
+      implantRequired: updates.implantRequired,
+      implantType: updates.implantType,
+      implantCompany: updates.implantCompany,
+      remarks: updates.remarks,
+    });
+    const patch: Partial<ImplantCase> = { ...updates };
+    if (updates.doctor?.name !== undefined) {
+      patch.doctor = { ...updates.doctor, name: formatted.doctorName ?? updates.doctor.name };
+    }
+    if (updates.implantRequired !== undefined) patch.implantRequired = formatted.implantRequired ?? '';
+    if (updates.implantType !== undefined) patch.implantType = formatted.implantType ?? '';
+    if (updates.implantCompany !== undefined) patch.implantCompany = formatted.implantCompany ?? '';
+    if (updates.remarks !== undefined) patch.remarks = formatted.remarks ?? '';
+    const updated = await taskRepository.update(id, patch);
     set((s) => ({
       cases: s.cases.map((c) => (c.id === id ? updated : c)),
     }));

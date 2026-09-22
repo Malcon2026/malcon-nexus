@@ -21,6 +21,7 @@ import { STAGE_DEPARTMENT_MAP } from '../lib/caseWorkflow';
 import { formatDate } from '../utils/helpers';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
+import { normalizeSentenceText, normalizeTitleCaseWords } from '../lib/textFormat';
 
 const STEPS = [
   { key: 'place', label: 'Hospital', icon: Building2 },
@@ -246,6 +247,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   placeholder="Surgeon name"
                   value={form.doctorName}
                   onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, doctorName: normalizeTitleCaseWords(e.target.value) })
+                  }
                   disabled={!form.hospitalId}
                 />
               </div>
@@ -280,6 +284,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   placeholder="e.g. TKR, ACL, Hip replacement"
                   value={form.implantRequired}
                   onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, implantRequired: normalizeTitleCaseWords(e.target.value) })
+                  }
                   autoFocus
                 />
               </div>
@@ -295,6 +302,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   placeholder="Kit notes, timing, anything stores or delivery should know"
                   value={form.remarks}
                   onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })
+                  }
                 />
               </div>
             </section>

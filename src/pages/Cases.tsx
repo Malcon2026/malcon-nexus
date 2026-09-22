@@ -51,6 +51,7 @@ import {
   shouldDefaultPreparationToCurrentUser,
 } from '../lib/assignableEmployees';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
+import { normalizeSentenceText, normalizeTitleCaseWords } from '../lib/textFormat';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 
@@ -277,6 +278,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                 className={inputClass}
                 value={form.doctorName}
                 onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
+                onBlur={(e) =>
+                  setForm({ ...form, doctorName: normalizeTitleCaseWords(e.target.value) })
+                }
                 disabled={!form.hospitalId}
               />
             </div>
@@ -305,6 +309,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                 placeholder="e.g. Total Knee Replacement"
                 value={form.implantRequired}
                 onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
+                onBlur={(e) =>
+                  setForm({ ...form, implantRequired: normalizeTitleCaseWords(e.target.value) })
+                }
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -316,6 +323,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                   placeholder="e.g. Knee Implant"
                   value={form.implantType}
                   onChange={(e) => setForm({ ...form, implantType: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, implantType: normalizeTitleCaseWords(e.target.value) })
+                  }
                 />
               </div>
               <div>
@@ -326,6 +336,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                   placeholder="e.g. Zimmer Biomet"
                   value={form.implantCompany}
                   onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, implantCompany: normalizeTitleCaseWords(e.target.value) })
+                  }
                 />
               </div>
             </div>
@@ -337,6 +350,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                 placeholder="Any special instructions or notes..."
                 value={form.remarks}
                 onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                onBlur={(e) =>
+                  setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })
+                }
               />
             </div>
           </section>

@@ -24,6 +24,7 @@ import {
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
+import { normalizeSentenceText, normalizeTitleCaseWords } from '../lib/textFormat';
 import { usePhoneViewport } from '../hooks/usePhoneViewport';
 import { QUICK_CASE_ASSIGN_STAGES } from '../lib/createCaseFromDraft';
 import { PriorityQuickPick } from './PriorityQuickPick';
@@ -246,6 +247,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
               placeholder="Add any special instructions or updates..."
               value={form.remarks}
               onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+              onBlur={(e) =>
+                setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })
+              }
               autoFocus
             />
           </div>
@@ -271,6 +275,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                   className={inputClass}
                   value={form.doctorName}
                   onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
+                  onBlur={(e) =>
+                    setForm({ ...form, doctorName: normalizeTitleCaseWords(e.target.value) })
+                  }
                   disabled={!form.hospitalId}
                 />
               </div>
@@ -326,6 +333,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                 placeholder="e.g. Total Knee Replacement"
                 value={form.implantRequired}
                 onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
+                onBlur={(e) =>
+                  setForm({ ...form, implantRequired: normalizeTitleCaseWords(e.target.value) })
+                }
               />
             </div>
 
@@ -339,6 +349,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                     placeholder="e.g. Knee Implant, Hip Implant"
                     value={form.implantType}
                     onChange={(e) => setForm({ ...form, implantType: e.target.value })}
+                    onBlur={(e) =>
+                      setForm({ ...form, implantType: normalizeTitleCaseWords(e.target.value) })
+                    }
                   />
                 </div>
                 <div>
@@ -349,6 +362,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                     placeholder="e.g. Zimmer Biomet, Stryker"
                     value={form.implantCompany}
                     onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
+                    onBlur={(e) =>
+                      setForm({ ...form, implantCompany: normalizeTitleCaseWords(e.target.value) })
+                    }
                   />
                 </div>
               </div>
@@ -362,6 +378,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                 placeholder="Add any special instructions..."
                 value={form.remarks}
                 onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                onBlur={(e) =>
+                  setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })
+                }
               />
             </div>
 
