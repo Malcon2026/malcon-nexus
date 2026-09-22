@@ -15,7 +15,7 @@
  *   SELFIE_ARCHIVE_ROOT=D:\MalconNexus\PunchInSelfies
  *
  * Optional:
- *   SELFIE_CLOUD_RETENTION_HOURS=24
+ *   SELFIE_CLOUD_RETENTION_HOURS=24   (use 0 to purge cloud copies as soon as local file exists)
  *   SELFIE_ARCHIVE_MAX_DOWNLOADS_PER_RUN=50
  *   SELFIE_ARCHIVE_MAX_DELETIONS_PER_RUN=50
  *   SELFIE_ARCHIVE_DRY_RUN=true
@@ -61,6 +61,13 @@ function loadEnv() {
 function parsePositiveInt(value, fallback) {
   const n = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** 0 = purge from cloud as soon as a local copy exists (after download pass). */
+function parseRetentionHours(value, fallback) {
+  const raw = String(value ?? '').trim();
+  if (raw === '0') return 0;
+  return parsePositiveInt(value, fallback);
 }
 
 function isTruthy(value) {
@@ -166,7 +173,7 @@ if (!archiveRoot) {
 
 mkdirSync(archiveRoot, { recursive: true });
 
-const retentionHours = parsePositiveInt(process.env.SELFIE_CLOUD_RETENTION_HOURS, 24);
+const retentionHours = parseRetentionHours(process.env.SELFIE_CLOUD_RETENTION_HOURS, 24);
 const maxDownloads = parsePositiveInt(process.env.SELFIE_ARCHIVE_MAX_DOWNLOADS_PER_RUN, 50);
 const maxDeletions = parsePositiveInt(process.env.SELFIE_ARCHIVE_MAX_DELETIONS_PER_RUN, 50);
 const dryRun = isTruthy(process.env.SELFIE_ARCHIVE_DRY_RUN);

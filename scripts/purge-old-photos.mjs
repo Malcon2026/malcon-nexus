@@ -11,7 +11,7 @@
  *   PHOTOS_ROOT=D:\MalconNexus\Photos
  *
  * Optional:
- *   PHOTOS_CLEANUP_RETENTION_DAYS=30
+ *   PHOTOS_CLEANUP_RETENTION_DAYS=30   (use 0 for aggressive cloud cleanup — local PHOTOS_ROOT unchanged)
  *   PHOTOS_CLEANUP_MAX_DELETIONS_PER_RUN=50
  *   PHOTOS_CLEANUP_DRY_RUN=true   # log only, no deletes
  */
@@ -45,6 +45,13 @@ function loadEnv() {
 function parsePositiveInt(value, fallback) {
   const n = Number.parseInt(String(value ?? ''), 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** 0 = remove all stage photos from cloud that are already past upload time (PC archive via sync). */
+function parseRetentionDays(value, fallback) {
+  const raw = String(value ?? '').trim();
+  if (raw === '0') return 0;
+  return parsePositiveInt(value, fallback);
 }
 
 function isTruthy(value) {
@@ -92,7 +99,7 @@ if (!photosRoot) {
 
 mkdirSync(photosRoot, { recursive: true });
 
-const retentionDays = parsePositiveInt(process.env.PHOTOS_CLEANUP_RETENTION_DAYS, 30);
+const retentionDays = parseRetentionDays(process.env.PHOTOS_CLEANUP_RETENTION_DAYS, 30);
 const maxDeletions = parsePositiveInt(process.env.PHOTOS_CLEANUP_MAX_DELETIONS_PER_RUN, 50);
 const dryRun = isTruthy(process.env.PHOTOS_CLEANUP_DRY_RUN);
 const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
