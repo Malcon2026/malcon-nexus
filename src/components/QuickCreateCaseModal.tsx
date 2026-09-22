@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Building2, Calendar, CheckCircle2, ClipboardList, Stethoscope, Users } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { HospitalSearchSelect } from './HospitalSearchSelect';
@@ -21,23 +22,30 @@ import { formatDate } from '../utils/helpers';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 
-const STEPS = ['Hospital & doctor', 'Surgery', 'Team', 'Review'] as const;
+const STEPS = [
+  { key: 'place', label: 'Hospital', icon: Building2 },
+  { key: 'surgery', label: 'Surgery', icon: Stethoscope },
+  { key: 'team', label: 'Team', icon: Users },
+  { key: 'review', label: 'Review', icon: CheckCircle2 },
+] as const;
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
 };
 
+function freshDraft(): CreateCaseDraft {
+  const draft = emptyCreateCaseDraft();
+  draft.surgeryDate = getTodaySurgeryDateKey();
+  return draft;
+}
+
 export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const { createCase, hospitals, employees, currentUser } = useStore();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<CreateCaseDraft>(() => {
-    const draft = emptyCreateCaseDraft();
-    draft.surgeryDate = getTodaySurgeryDateKey();
-    return draft;
-  });
+  const [form, setForm] = useState<CreateCaseDraft>(freshDraft);
 
   const activeEmployees = useMemo(
     () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
@@ -49,11 +57,20 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const draft = freshDraft();
+    if (allowPrepAssignToMe) {
+      draft.stageEmployeeIds[SET_PREPARATION_STAGE] = currentUser.id;
+    }
+    setForm(draft);
+    setStep(0);
+    setError(null);
+  }, [isOpen, allowPrepAssignToMe, currentUser.id]);
+
   const resetAndClose = () => {
     setStep(0);
-    const draft = emptyCreateCaseDraft();
-    draft.surgeryDate = getTodaySurgeryDateKey();
-    setForm(draft);
+    setForm(freshDraft());
     setError(null);
     onClose();
   };
@@ -107,38 +124,64 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  const inputClass = `${NEXUS_FORM_CONTROL} text-base`;
-  const labelClass = 'block text-sm font-medium text-gray-800 mb-2';
+  const inputClass = `${NEXUS_FORM_CONTROL} text-base min-h-[48px]`;
+  const labelClass = 'block text-sm font-semibold text-gray-800 mb-2';
+  const stepMeta = STEPS[step];
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={resetAndClose}
-      title="New case"
-      subtitle={`Step ${step + 1} of ${STEPS.length} — ${STEPS[step]}`}
-      size="md"
-      bodyClassName="px-4 pb-2"
+      title="New implant case"
+      subtitle={`Step ${step + 1} of ${STEPS.length} · ${stepMeta.label}`}
+      size="screen"
+      dismissOnBackdrop={false}
+      bodyClassName="flex flex-col min-h-0 bg-gradient-to-b from-gray-50/80 to-white"
       footer={
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-3 w-full max-w-2xl mx-auto">
           {error && (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {step > 0 ? (
-              <Button type="button" variant="outline" className="flex-1 min-h-11" onClick={goBack} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 min-h-[52px] text-base"
+                onClick={goBack}
+                disabled={submitting}
+              >
                 Back
               </Button>
             ) : (
-              <Button type="button" variant="outline" className="flex-1 min-h-11" onClick={resetAndClose} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 min-h-[52px] text-base"
+                onClick={resetAndClose}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
             )}
             {step < STEPS.length - 1 ? (
-              <Button type="button" variant="primary" className="flex-1 min-h-11" onClick={goNext} disabled={submitting}>
-                Next
+              <Button
+                type="button"
+                variant="primary"
+                className="flex-1 min-h-[52px] text-base font-semibold"
+                onClick={goNext}
+                disabled={submitting}
+              >
+                Continue
               </Button>
             ) : (
-              <Button type="button" variant="primary" className="flex-1 min-h-11" onClick={() => void handleCreate()} disabled={submitting}>
+              <Button
+                type="button"
+                variant="primary"
+                className="flex-1 min-h-[52px] text-base font-semibold"
+                onClick={() => void handleCreate()}
+                disabled={submitting}
+              >
                 {submitting ? 'Creating…' : 'Create case'}
               </Button>
             )}
@@ -146,142 +189,219 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
       }
     >
-      <div className="flex gap-1.5 mb-5">
-        {STEPS.map((label, i) => (
-          <div
-            key={label}
-            className={`h-1.5 flex-1 rounded-full ${i <= step ? 'bg-[var(--color-accent)]' : 'bg-gray-200'}`}
-            title={label}
-          />
-        ))}
-      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 sm:py-8">
+          {/* Step rail */}
+          <nav className="mb-8" aria-label="Progress">
+            <ol className="flex items-center gap-1 sm:gap-2">
+              {STEPS.map((s, i) => {
+                const Icon = s.icon;
+                const done = i < step;
+                const current = i === step;
+                return (
+                  <li key={s.key} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+                    <div
+                      className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border-2 transition-colors ${
+                        done
+                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                          : current
+                            ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)] text-[var(--color-accent)]'
+                            : 'border-gray-200 bg-white text-gray-400'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" aria-hidden />
+                    </div>
+                    <span
+                      className={`text-[10px] sm:text-xs font-medium truncate w-full text-center ${
+                        current ? 'text-gray-900' : 'text-gray-400'
+                      }`}
+                    >
+                      {s.label}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
 
-      {step === 0 && (
-        <div className="space-y-4 pb-4">
-          <div>
-            <label className={labelClass}>Hospital</label>
-            <HospitalSearchSelect
-              hospitals={hospitals}
-              value={form.hospitalId}
-              onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
-              placeholder="Search hospital…"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Doctor</label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder="Doctor name"
-              value={form.doctorName}
-              onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
-              disabled={!form.hospitalId}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Surgery date</label>
-            <SurgeryDateQuickPick
-              value={form.surgeryDate || getTodaySurgeryDateKey()}
-              mode="today"
-              onChange={(surgeryDate) => setForm({ ...form, surgeryDate })}
-            />
-          </div>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div className="space-y-4 pb-4">
-          <div>
-            <label className={labelClass}>Surgery / procedure</label>
-            <input
-              type="text"
-              className={inputClass}
-              placeholder="e.g. TKR, ACL"
-              value={form.implantRequired}
-              onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Priority</label>
-            <PriorityQuickPick value={form.priority} onChange={(priority) => setForm({ ...form, priority })} />
-          </div>
-          <div>
-            <label className={labelClass}>Notes (optional)</label>
-            <textarea
-              className={`${inputClass} resize-none min-h-[4.5rem]`}
-              rows={2}
-              placeholder="Any short note for the team"
-              value={form.remarks}
-              onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-            />
-          </div>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="space-y-4 pb-4">
-          <p className="text-sm text-gray-600">
-            Optional — you can assign people later from the case. Set Preparation is where store photos happen.
-          </p>
-          {QUICK_CASE_ASSIGN_STAGES.map((stage) => {
-            const deptHint = STAGE_DEPARTMENT_MAP[stage];
-            return (
-              <div key={stage} className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 space-y-2">
-                <p className="text-sm font-semibold text-gray-900">{stage}</p>
-                {deptHint ? <p className="text-xs text-gray-500">{deptHint}</p> : null}
-                <EmployeeSearchSelect
-                  employees={activeEmployees}
-                  value={form.stageEmployeeIds[stage] ?? ''}
-                  onChange={(value) =>
-                    setForm({
-                      ...form,
-                      stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
-                    })
-                  }
-                  suggestedDepartment={deptHint}
-                  allowSelf={stage === 'Surgery'}
-                  allowAssignToMe={stage === SET_PREPARATION_STAGE && allowPrepAssignToMe}
-                  currentUser={currentUser}
-                  assignToMeLabel="Assign to me"
-                  placeholder="Assign later…"
+          {step === 0 && (
+            <section className="space-y-5 animate-in fade-in duration-200">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-900">
+                Start with where and when the surgery happens. You can add implant details on the next step.
+              </div>
+              <div>
+                <label className={labelClass}>Hospital</label>
+                <HospitalSearchSelect
+                  hospitals={hospitals}
+                  value={form.hospitalId}
+                  onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
+                  placeholder="Search hospital name or city…"
                 />
               </div>
-            );
-          })}
-          <Button type="button" variant="ghost" size="sm" className="w-full" onClick={goNext}>
-            Skip team — assign later
-          </Button>
-        </div>
-      )}
+              <div>
+                <label className={labelClass}>Doctor</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Surgeon name"
+                  value={form.doctorName}
+                  onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
+                  disabled={!form.hospitalId}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    Surgery date
+                  </span>
+                </label>
+                <SurgeryDateQuickPick
+                  value={form.surgeryDate || getTodaySurgeryDateKey()}
+                  mode="today"
+                  onChange={(surgeryDate) => setForm({ ...form, surgeryDate })}
+                />
+              </div>
+            </section>
+          )}
 
-      {step === 3 && (
-        <div className="space-y-3 pb-4 text-sm">
-          <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
-            <div className="px-3 py-2.5 flex justify-between gap-3">
-              <span className="text-gray-500">Hospital</span>
-              <span className="font-medium text-gray-900 text-right">{hospital?.name ?? '—'}</span>
-            </div>
-            <div className="px-3 py-2.5 flex justify-between gap-3">
-              <span className="text-gray-500">Doctor</span>
-              <span className="font-medium text-gray-900 text-right">{form.doctorName || '—'}</span>
-            </div>
-            <div className="px-3 py-2.5 flex justify-between gap-3">
-              <span className="text-gray-500">Date</span>
-              <span className="font-medium text-gray-900">{form.surgeryDate ? formatDate(form.surgeryDate) : '—'}</span>
-            </div>
-            <div className="px-3 py-2.5 flex justify-between gap-3">
-              <span className="text-gray-500">Surgery</span>
-              <span className="font-medium text-gray-900 text-right">{form.implantRequired || '—'}</span>
-            </div>
-            <div className="px-3 py-2.5 flex justify-between gap-3">
-              <span className="text-gray-500">Priority</span>
-              <span className="font-medium text-gray-900">{form.priority}</span>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500">Case starts at Set Preparation.</p>
+          {step === 1 && (
+            <section className="space-y-5 animate-in fade-in duration-200">
+              <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+                What procedure is planned? Keep it short — the team sees this on the board.
+              </div>
+              <div>
+                <label className={labelClass}>Surgery / procedure</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="e.g. TKR, ACL, Hip replacement"
+                  value={form.implantRequired}
+                  onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Priority</label>
+                <PriorityQuickPick value={form.priority} onChange={(priority) => setForm({ ...form, priority })} />
+              </div>
+              <div>
+                <label className={labelClass}>Notes for the team (optional)</label>
+                <textarea
+                  className={`${inputClass} resize-none min-h-[100px] py-3`}
+                  rows={3}
+                  placeholder="Kit notes, timing, anything stores or delivery should know"
+                  value={form.remarks}
+                  onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                />
+              </div>
+            </section>
+          )}
+
+          {step === 2 && (
+            <section className="space-y-4 animate-in fade-in duration-200">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
+                <p className="font-medium">Set Preparation starts here</p>
+                <p className="mt-1 text-amber-900/90">
+                  Assign who prepares the set (often you). Other stages can wait — assign them later from the case.
+                </p>
+              </div>
+
+              {QUICK_CASE_ASSIGN_STAGES.map((stage) => {
+                const deptHint = STAGE_DEPARTMENT_MAP[stage];
+                const isPrep = stage === SET_PREPARATION_STAGE;
+                return (
+                  <div
+                    key={stage}
+                    className={`rounded-2xl border p-4 space-y-3 shadow-sm ${
+                      isPrep ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-muted)]/20' : 'border-gray-100 bg-white'
+                    }`}
+                  >
+                    <div>
+                      <p className="text-base font-semibold text-gray-900">{stage}</p>
+                      {deptHint ? <p className="text-xs text-gray-500 mt-0.5">{deptHint}</p> : null}
+                    </div>
+                    {isPrep && allowPrepAssignToMe && (
+                      <Button
+                        type="button"
+                        variant={form.stageEmployeeIds[stage] === currentUser.id ? 'primary' : 'outline'}
+                        className="w-full min-h-[44px] justify-center"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: currentUser.id },
+                          })
+                        }
+                      >
+                        Assign to me ({currentUser.name.split(' ')[0]})
+                      </Button>
+                    )}
+                    <EmployeeSearchSelect
+                      employees={activeEmployees}
+                      value={form.stageEmployeeIds[stage] ?? ''}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
+                        })
+                      }
+                      suggestedDepartment={deptHint}
+                      allowSelf={stage === 'Surgery'}
+                      allowAssignToMe={isPrep && allowPrepAssignToMe}
+                      currentUser={currentUser}
+                      assignToMeLabel="Assign to me"
+                      placeholder={isPrep ? 'Or pick someone else…' : 'Assign later…'}
+                    />
+                  </div>
+                );
+              })}
+
+              <button
+                type="button"
+                className="w-full text-center text-sm font-medium text-[var(--color-accent)] py-3 hover:underline"
+                onClick={goNext}
+              >
+                Skip for now — I&apos;ll assign later
+              </button>
+            </section>
+          )}
+
+          {step === 3 && (
+            <section className="space-y-5 animate-in fade-in duration-200">
+              <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-4">
+                <ClipboardList className="h-5 w-5 text-emerald-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-emerald-950">Ready to create</p>
+                  <p className="text-sm text-emerald-900/80 mt-0.5">
+                    Case opens at Set Preparation. You can edit assignments anytime from the case page.
+                  </p>
+                </div>
+              </div>
+
+              <dl className="rounded-2xl border border-gray-100 bg-white divide-y divide-gray-100 shadow-sm overflow-hidden">
+                {[
+                  ['Hospital', hospital?.name ?? '—'],
+                  ['Doctor', form.doctorName || '—'],
+                  ['Surgery date', form.surgeryDate ? formatDate(form.surgeryDate) : '—'],
+                  ['Procedure', form.implantRequired || '—'],
+                  ['Priority', form.priority],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4 px-4 py-3.5 sm:px-5">
+                    <dt className="text-sm text-gray-500 shrink-0">{label}</dt>
+                    <dd className="text-sm font-semibold text-gray-900 text-right">{value}</dd>
+                  </div>
+                ))}
+                {form.remarks.trim() ? (
+                  <div className="px-4 py-3.5 sm:px-5">
+                    <dt className="text-sm text-gray-500 mb-1">Notes</dt>
+                    <dd className="text-sm text-gray-800">{form.remarks}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+          )}
         </div>
-      )}
+      </div>
     </Modal>
   );
 };

@@ -46,7 +46,6 @@ import {
 } from '../components/StageExtraPersonFields';
 import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
 import { QuickCreateCaseModal } from '../components/QuickCreateCaseModal';
-import { usePhoneViewport } from '../hooks/usePhoneViewport';
 import {
   listEmployeesForCaseAssignment,
   shouldDefaultPreparationToCurrentUser,
@@ -606,8 +605,7 @@ export const Cases: React.FC = () => {
   );
 
   const canCreateCases = viewMode === 'admin' || viewMode === 'store_manager';
-  const isPhone = usePhoneViewport();
-  const useQuickCreate = viewMode === 'store_manager' && isPhone;
+  const useQuickCreate = viewMode === 'store_manager';
 
   return (
     <NexusPage maxWidthClass="max-w-[1600px]">
