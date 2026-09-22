@@ -31,7 +31,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   onClose,
   implantCase: initialCase,
 }) => {
-  const { submitStage, currentUser, cases } = useStore();
+  const { submitStage, currentUser, cases, viewMode } = useStore();
   const c = cases.find((x) => x.id === initialCase.id) ?? initialCase;
 
   const [notes, setNotes] = useState('');
@@ -51,12 +51,21 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
   const stage = normalizeWorkflowStage(c.currentStage);
   const isRestock = stage === 'Restock';
-  const title = isRestock ? 'Restock' : STAGE_ACTIONS[stage] || 'Submit Work';
+  const isStoreSetPrep =
+    viewMode === 'store_manager' && stage === 'Set Preparation';
+  const title = isRestock
+    ? 'Restock'
+    : isStoreSetPrep
+      ? 'Set preparation photos'
+      : STAGE_ACTIONS[stage] || 'Submit Work';
+  const submitLabel = isStoreSetPrep ? 'Complete set & go to Delivery' : 'Submit to Admin';
   const formReady = notes.trim().length > 0 && photos.length > 0 && !submitting;
 
   const notesPlaceholder = isRestock
     ? 'Restocked: what was refilled. Order: what was ordered, supplier, follow-up…'
-    : 'Describe what was completed, any issues found, items used, observations...';
+    : isStoreSetPrep
+      ? 'Brief note — kit complete, any missing items, special handling…'
+      : 'Describe what was completed, any issues found, items used, observations...';
 
   const resetForm = () => {
     photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
@@ -162,7 +171,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               disabled={!formReady}
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             >
-              {busyLabel ?? 'Submit to Admin'}
+              {busyLabel ?? submitLabel}
             </Button>
           )}
         </div>
@@ -233,6 +242,10 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         {isRestock ? (
           <p className="text-xs text-gray-500">
             After photo + notes, use the <strong>Restocked</strong> or <strong>Order</strong> button below.
+          </p>
+        ) : isStoreSetPrep ? (
+          <p className="text-xs text-gray-500">
+            Add at least one photo of the prepared set. The case moves to <strong>Delivery</strong> when you submit.
           </p>
         ) : (
           <p className="text-xs text-gray-400">

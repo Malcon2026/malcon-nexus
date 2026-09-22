@@ -1,4 +1,5 @@
-import type { Employee } from '../types';
+import type { Employee, ImplantCase } from '../types';
+import { findStageRecord, isCaseAssignedToEmployee } from './caseWorkflow';
 
 export type AppViewMode = 'admin' | 'employee' | 'petrol' | 'store_manager';
 
@@ -68,6 +69,30 @@ export function canBypassAssigneeForSubmit(role: Employee['role'], currentStage:
   if (role === 'admin') return true;
   if (role === 'store_manager') return isSetPreparationStage(currentStage);
   return false;
+}
+
+/** Store lead finished preparing the set — upload photos and advance to Delivery. */
+export function canStoreManagerSubmitSetPreparation(
+  implantCase: ImplantCase,
+  user: Pick<Employee, 'id' | 'email' | 'role'>,
+): boolean {
+  if (user.role !== 'store_manager') return false;
+  if (!isSetPreparationStage(implantCase.currentStage)) return false;
+  if (
+    implantCase.status === 'Waiting For Approval' ||
+    implantCase.status === 'Completed' ||
+    implantCase.status === 'Cancelled'
+  ) {
+    return false;
+  }
+  const prep = findStageRecord(implantCase.stages, 'Set Preparation');
+  if (prep?.status === 'Submitted' || prep?.status === 'Approved') return false;
+
+  if (isCaseAssignedToEmployee(implantCase, user)) return true;
+  if (prep?.assignedEmployee && isCaseAssignedToEmployee({ ...implantCase, assignedEmployee: prep.assignedEmployee }, user)) {
+    return true;
+  }
+  return canBypassAssigneeForSubmit(user.role, implantCase.currentStage);
 }
 
 export function activityLogRole(role: Employee['role']): 'admin' | 'employee' {

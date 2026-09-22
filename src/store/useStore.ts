@@ -1005,6 +1005,11 @@ function buildAutoAdvanceFromSubmit(
   const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
   const advancingUnassigned = Boolean(next && next !== 'Completed');
   const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
+  const nextAssignee =
+    next && next !== 'Completed' && !isFcfsStage(next)
+      ? findStageRecord(c.stages, next)?.assignedEmployee ?? null
+      : null;
+  const fromSetPrep = normalizeWorkflowStageName(c.currentStage) === 'Set Preparation';
 
   let updatedStages = normalizeCaseStages(
     c.stages.map((s, i) =>
@@ -1048,12 +1053,19 @@ function buildAutoAdvanceFromSubmit(
         : `${c.currentStage} submitted and approved. ${opts.autoNotes}`,
   };
 
+  let statusAfter: ImplantCase['status'] = 'Approved';
+  if (advancingUnassigned) {
+    if (advancingToFcfs || nextAssignee) statusAfter = 'Active';
+    else if (fromSetPrep && next === 'Delivery') statusAfter = 'Active';
+    else statusAfter = 'Draft';
+  }
+
   return {
     stages: updatedStages,
-    status: advancingUnassigned ? (advancingToFcfs ? 'Active' : 'Draft') : 'Approved',
+    status: statusAfter,
     currentStage: advancingUnassigned && next ? next : c.currentStage,
     currentDepartment: advancingUnassigned && next ? getDepartmentForStage(next) : c.currentDepartment,
-    assignedEmployee: advancingUnassigned ? null : c.assignedEmployee,
+    assignedEmployee: advancingUnassigned ? nextAssignee : c.assignedEmployee,
     advanceLog,
     nextStage: next,
   };

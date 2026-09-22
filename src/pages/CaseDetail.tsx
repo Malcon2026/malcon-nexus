@@ -27,7 +27,7 @@ import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
-import { isFullAdmin, isSetPreparationStage } from '../lib/roles';
+import { canStoreManagerSubmitSetPreparation, isFullAdmin, isSetPreparationStage } from '../lib/roles';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -598,9 +598,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const isStoreManagerUser = viewMode === 'store_manager';
   const atSetPrep = isSetPreparationStage(c.currentStage);
   const canStoreManagerSetSubmit =
-    isStoreManagerUser &&
-    atSetPrep &&
-    c.status === 'Active';
+    isStoreManagerUser && canStoreManagerSubmitSetPreparation(c, currentUser);
   const canCancel = isFullAdminUser && c.status !== 'Completed' && c.status !== 'Cancelled' && !c.cancelReason;
   const canPostpone =
     isFullAdminUser &&
