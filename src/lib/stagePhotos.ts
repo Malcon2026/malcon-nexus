@@ -302,38 +302,50 @@ async function uploadStagePhotoToStorage(
 
   await ensureUploadSession();
 
-  const cloudFile = await compressImageForUpload(file, {
+  const thumbFile = await compressImageForUpload(file, {
     maxEdge: CLOUD_PHOTO_MAX_EDGE,
     targetBytes: CLOUD_PHOTO_TARGET_BYTES,
   });
 
   const photoId = crypto.randomUUID();
-  const path = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}-thumb.jpg`;
+  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
+  const fullPath = `${basePath}-full.jpg`;
+  const thumbPath = `${basePath}-thumb.jpg`;
 
   const bucket = supabase.storage.from('stage-photos');
   const contentType = 'image/jpeg';
 
-  const { error: uploadError } = await bucket.upload(path, cloudFile, {
+  const { error: fullError } = await bucket.upload(fullPath, file, {
+    contentType: file.type || contentType,
+    upsert: false,
+  });
+  if (fullError) {
+    throw new Error(mapStorageUploadError(fullError.message));
+  }
+
+  const { error: thumbError } = await bucket.upload(thumbPath, thumbFile, {
     contentType,
     upsert: false,
   });
-  if (uploadError) {
-    throw new Error(mapStorageUploadError(uploadError.message));
+  if (thumbError) {
+    await bucket.remove([fullPath]);
+    throw new Error(mapStorageUploadError(thumbError.message));
   }
 
-  const { data: publicUrl } = bucket.getPublicUrl(path);
-  if (!publicUrl.publicUrl) {
+  const { data: thumbPublic } = bucket.getPublicUrl(thumbPath);
+  if (!thumbPublic.publicUrl) {
     throw new Error('Photo uploaded but the URL could not be created.');
   }
 
+  // Case record stores thumb URL only — full stays in storage briefly for office PC sync, not linked in app.
   return {
     id: photoId,
     name: `${stage} photo`,
     type: contentType,
-    size: formatFileSize(cloudFile.size),
+    size: formatFileSize(thumbFile.size),
     uploadedBy,
     uploadedAt: new Date().toISOString(),
-    url: publicUrl.publicUrl,
+    url: thumbPublic.publicUrl,
   };
 }
 
@@ -396,7 +408,23 @@ export function stagePhotoDisplayUrl(doc: Document): string {
   return doc.url;
 }
 
-/** Office PC sync uses the same cloud thumbnail (no full-res in Supabase). */
+/** Derive full-res public URL from thumb URL (same path, -full.jpg). */
+export function stagePhotoFullUrlFromThumb(thumbUrl: string): string | null {
+  if (!thumbUrl || thumbUrl.startsWith('data:')) return null;
+  if (!thumbUrl.includes('-thumb.jpg')) return null;
+  try {
+    const u = new URL(thumbUrl);
+    u.pathname = u.pathname.replace(/-thumb\.jpg$/i, '-full.jpg');
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Office PC sync downloads full file; app never receives this URL in the case record. */
 export function stagePhotoArchiveUrl(doc: Document): string {
-  return doc.url;
+  if (doc.archiveUrl && !doc.archiveUrl.startsWith('data:')) {
+    return doc.archiveUrl;
+  }
+  return stagePhotoFullUrlFromThumb(doc.url) ?? doc.url;
 }

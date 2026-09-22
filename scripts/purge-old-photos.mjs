@@ -78,12 +78,21 @@ function storagePathFromUrl(url) {
   }
 }
 
+function fullStoragePathFromThumbPath(thumbPath) {
+  if (!thumbPath || !thumbPath.includes('-thumb.jpg')) return null;
+  return thumbPath.replace(/-thumb\.jpg$/i, '-full.jpg');
+}
+
 function storagePathsForDocument(doc) {
   const paths = new Set();
   for (const raw of [doc.url, doc.archiveUrl]) {
     if (!raw || String(raw).startsWith('data:')) continue;
     const path = storagePathFromUrl(raw);
-    if (path) paths.add(path);
+    if (path) {
+      paths.add(path);
+      const pairedFull = fullStoragePathFromThumbPath(path);
+      if (pairedFull) paths.add(pairedFull);
+    }
   }
   return [...paths];
 }

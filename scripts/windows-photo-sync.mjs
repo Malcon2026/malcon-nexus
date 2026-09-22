@@ -75,12 +75,24 @@ function isImageDocument(doc) {
   return type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(name) || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(doc.url);
 }
 
-/** Prefer full-resolution cloud copy for local archive (thumb-only url is for app egress). */
+function fullDownloadUrlFromThumb(thumbUrl) {
+  if (!thumbUrl || String(thumbUrl).startsWith('data:')) return null;
+  if (!String(thumbUrl).includes('-thumb.jpg')) return null;
+  try {
+    const u = new URL(thumbUrl);
+    u.pathname = u.pathname.replace(/-thumb\.jpg$/i, '-full.jpg');
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Download full-res for PC archive; case JSON only exposes thumb URL to the app. */
 function archiveDownloadUrl(doc) {
   if (doc.archiveUrl && !String(doc.archiveUrl).startsWith('data:')) {
     return doc.archiveUrl;
   }
-  return doc.url;
+  return fullDownloadUrlFromThumb(doc.url) ?? doc.url;
 }
 
 function guessExtension(doc) {
