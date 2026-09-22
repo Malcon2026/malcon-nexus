@@ -262,13 +262,16 @@ interface AssignModalProps {
 }
 
 const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage }) => {
-  const { assignEmployee, markSurgerySelfPerformed, employees } = useStore();
+  const { assignEmployee, markSurgerySelfPerformed, employees, currentUser } = useStore();
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [selfChosen, setSelfChosen] = useState(false);
   const [selfNotes, setSelfNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const suggestedDept = STAGE_TO_DEPT[nextStage] ?? null;
   const allowSelf = nextStage === 'Surgery';
+  const allowAssignToMe =
+    nextStage === 'Set Preparation' &&
+    (currentUser.role === 'store_manager' || (currentUser.role as string) === 'case_manager');
 
   const resetLocal = () => {
     setSelectedEmp(null);
@@ -337,6 +340,13 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
           selfDescription="No scrub person needed. Marks Surgery done and moves the case to Pickup from Hospital."
           isSelfSelected={selfChosen}
           onSelectSelf={() => { setSelfChosen(true); setSelectedEmp(null); }}
+          allowAssignToMe={allowAssignToMe}
+          currentUser={currentUser}
+          assignToMeLabel="Assign to me"
+          onSelectMe={() => {
+            setSelectedEmp(currentUser);
+            setSelfChosen(false);
+          }}
         />
         {selfChosen && (
           <div className="mt-1">

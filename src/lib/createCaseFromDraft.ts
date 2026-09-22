@@ -1,4 +1,5 @@
 import type { Employee, Priority } from '../types';
+import { shouldDefaultPreparationToCurrentUser } from './assignableEmployees';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
   SURGERY_SELF_ASSIGNMENT_VALUE,
@@ -60,6 +61,7 @@ export function buildCreateCasePayload(
   form: CreateCaseDraft,
   hospitals: Hospital[],
   employees: Employee[],
+  currentUser?: Employee | null,
 ): {
   hospital: Hospital;
   doctor: { id: string; name: string; specialization: string; hospitalId: string; phone: string };
@@ -90,13 +92,27 @@ export function buildCreateCasePayload(
   };
 
   const surgerySelfPerformed = form.stageEmployeeIds.Surgery === SURGERY_SELF_ASSIGNMENT_VALUE;
+  const stageEmployeeIds = { ...form.stageEmployeeIds };
+  if (
+    currentUser &&
+    shouldDefaultPreparationToCurrentUser(
+      form.startStage,
+      Boolean(stageEmployeeIds['Set Preparation']),
+      currentUser,
+    )
+  ) {
+    stageEmployeeIds['Set Preparation'] = currentUser.id;
+  }
+
   const stageAssignments: StageAssignments = {};
   for (const stage of activeStages) {
     if (isFcfsStage(stage)) continue;
     if (stage === 'Surgery' && surgerySelfPerformed) continue;
-    const empId = form.stageEmployeeIds[stage];
+    const empId = stageEmployeeIds[stage];
     if (!empId) continue;
-    const emp = employees.find((e) => e.id === empId);
+    const emp =
+      employees.find((e) => e.id === empId) ??
+      (currentUser && empId === currentUser.id ? currentUser : undefined);
     if (!emp) throw new Error(`Could not find employee for ${stage}. Please reselect.`);
     stageAssignments[stage] = emp;
   }

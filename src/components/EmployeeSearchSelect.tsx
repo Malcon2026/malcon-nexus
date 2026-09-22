@@ -6,6 +6,7 @@ import type { Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
 import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
 import { SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 
 interface EmployeeSearchSelectProps {
   employees: Employee[];
@@ -16,6 +17,10 @@ interface EmployeeSearchSelectProps {
   suggestedDepartment?: string | null;
   allowSelf?: boolean;
   selfLabel?: string;
+  /** Pick the signed-in user as assignee (Set Preparation / store lead). */
+  allowAssignToMe?: boolean;
+  assignToMeLabel?: string;
+  currentUser?: Employee | null;
   disabled?: boolean;
 }
 
@@ -51,6 +56,9 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
   suggestedDepartment,
   allowSelf = false,
   selfLabel = 'Self — Hospital performs surgery',
+  allowAssignToMe = false,
+  assignToMeLabel = 'Assign to me',
+  currentUser = null,
   disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
@@ -59,8 +67,8 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const activeEmployees = useMemo(
-    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
-    [employees],
+    () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
+    [employees, currentUser],
   );
 
   const sortedEmployees = useMemo(
@@ -193,6 +201,31 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
                 {placeholder}
               </button>
             )}
+
+            {allowAssignToMe && currentUser && (() => {
+              const q = query.trim().toLowerCase();
+              const meLabel = assignToMeLabel.toLowerCase();
+              const showMe =
+                !q ||
+                q.includes('me') ||
+                meLabel.includes(q) ||
+                currentUser.name.toLowerCase().includes(q);
+              if (!showMe) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={() => pick(currentUser.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                    value === currentUser.id
+                      ? 'bg-[var(--color-accent-muted)] text-gray-900'
+                      : 'hover:bg-gray-50 text-gray-800'
+                  }`}
+                >
+                  <Avatar name={currentUser.name} size="xs" />
+                  <span className="text-sm font-medium truncate">{assignToMeLabel}</span>
+                </button>
+              );
+            })()}
 
             {allowSelf && (() => {
               const q = query.trim().toLowerCase();

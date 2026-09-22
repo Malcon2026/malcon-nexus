@@ -22,7 +22,8 @@ import {
   stageExtraFlagsFromCase,
 } from './StageExtraPersonFields';
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
-import { isStoreManager } from '../lib/roles';
+import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
+import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { usePhoneViewport } from '../hooks/usePhoneViewport';
 import { QUICK_CASE_ASSIGN_STAGES } from '../lib/createCaseFromDraft';
 import { PriorityQuickPick } from './PriorityQuickPick';
@@ -83,9 +84,12 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
   const [error, setError] = useState<string | null>(null);
 
   const activeEmployees = useMemo(
-    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
-    [employees],
+    () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
+    [employees, currentUser],
   );
+
+  const allowPrepAssignToMe =
+    storeManagerUser || (currentUser.role as string) === 'case_manager';
 
   const initialStageIds = useMemo(() => stageAssignmentsFromCase(c), [c]);
   const initialAssistantIds = useMemo(() => stageAssistantsFromCase(c.stages), [c.stages]);
@@ -442,6 +446,9 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                         }}
                         suggestedDepartment={deptHint}
                         allowSelf={stage === 'Surgery'}
+                        allowAssignToMe={stage === SET_PREPARATION_STAGE && allowPrepAssignToMe}
+                        currentUser={currentUser}
+                        assignToMeLabel="Assign to me"
                         placeholder="Unassigned"
                       />
                       {!storeManagerMobile && stageSupportsAssistant(stage) && !fcfs ? (

@@ -65,6 +65,8 @@ import {
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
 import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
+import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
+import { isSetPreparationStage } from '../lib/roles';
 import {
   type CancelCaseReasonType,
   cancelCaseLogPhrase,
@@ -1174,7 +1176,15 @@ export const useStore = create<AppState>((set, get) => ({
     }
     const startIdx = WORKFLOW_STAGES.indexOf(startStage);
 
-    const startEmpRaw = assignments[startStage as keyof StageAssignments] ?? null;
+    let startEmpRaw = assignments[startStage as keyof StageAssignments] ?? null;
+    if (
+      !startEmpRaw &&
+      isSetPreparationStage(startStage) &&
+      shouldDefaultPreparationToCurrentUser(startStage, false, state.currentUser)
+    ) {
+      startEmpRaw = state.currentUser;
+      assignments['Set Preparation' as keyof StageAssignments] = state.currentUser;
+    }
     const startEmp = isFcfsStage(startStage) ? null : startEmpRaw;
     if (startEmp && (!startEmp.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(startEmp.id))) {
       throw new Error(`Cannot assign ${startEmp.name}: missing employee id. Refresh the page and pick employees again.`);

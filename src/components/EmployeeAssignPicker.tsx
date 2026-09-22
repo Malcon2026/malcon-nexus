@@ -6,6 +6,7 @@ import type { Department, Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
 import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
+import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 
 export const ASSIGN_DEPARTMENTS: Department[] = [
   'Stores',
@@ -33,6 +34,10 @@ interface EmployeeAssignPickerProps {
   selfDescription?: string;
   isSelfSelected?: boolean;
   onSelectSelf?: () => void;
+  allowAssignToMe?: boolean;
+  assignToMeLabel?: string;
+  currentUser?: Employee | null;
+  onSelectMe?: () => void;
 }
 
 export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
@@ -46,12 +51,16 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
   selfDescription = 'No Malcon staff needed. Marks this stage done and moves the case forward.',
   isSelfSelected = false,
   onSelectSelf,
+  allowAssignToMe = false,
+  assignToMeLabel = 'Assign to me',
+  currentUser = null,
+  onSelectMe,
 }) => {
   const [deptFilter, setDeptFilter] = useState<DeptFilter>(defaultFilter);
 
   const activeEmployees = useMemo(
-    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
-    [employees],
+    () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
+    [employees, currentUser],
   );
 
   const visibleEmployees = useMemo(() => {
@@ -83,6 +92,28 @@ export const EmployeeAssignPicker: React.FC<EmployeeAssignPickerProps> = ({
           </option>
         ))}
       </select>
+
+      {allowAssignToMe && currentUser && onSelectMe && (
+        <div
+          onClick={onSelectMe}
+          className={`flex items-center gap-4 p-3 mb-3 rounded-xl border-2 cursor-pointer transition-all ${
+            selected?.id === currentUser.id
+              ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]/30'
+              : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          <Avatar name={currentUser.name} size="md" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">{assignToMeLabel}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{currentUser.name}</p>
+          </div>
+          <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 border-gray-300">
+            {selected?.id === currentUser.id && (
+              <div className="h-2 w-2 bg-[var(--color-accent)] rounded-full" />
+            )}
+          </div>
+        </div>
+      )}
 
       {allowSelfOption && (
         <div

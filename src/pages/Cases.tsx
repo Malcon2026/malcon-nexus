@@ -47,6 +47,11 @@ import {
 import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
 import { QuickCreateCaseModal } from '../components/QuickCreateCaseModal';
 import { usePhoneViewport } from '../hooks/usePhoneViewport';
+import {
+  listEmployeesForCaseAssignment,
+  shouldDefaultPreparationToCurrentUser,
+} from '../lib/assignableEmployees';
+import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 
 type SortKey = 'caseNumber' | 'hospital' | 'surgeryDate' | 'currentStage' | 'priority' | 'status';
 
@@ -84,7 +89,7 @@ const emptyStageIds = (): Record<AssignableStage, string> =>
   >;
 
 const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
-  const { createCase, hospitals, employees } = useStore();
+  const { createCase, hospitals, employees, currentUser } = useStore();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     hospitalId: '',
@@ -107,9 +112,12 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
   const skippedStages = ASSIGNABLE_WORKFLOW_STAGES.slice(0, startIdx);
 
   const activeEmployees = useMemo(
-    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
-    [employees],
+    () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
+    [employees, currentUser],
   );
+
+  const allowPrepAssignToMe =
+    isStoreManager(currentUser.role) || (currentUser.role as string) === 'case_manager';
 
   const resetForm = () => {
     setForm({
@@ -148,13 +156,26 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
     };
 
     const surgerySelfPerformed = form.stageEmployeeIds.Surgery === SURGERY_SELF_ASSIGNMENT_VALUE;
+    const stageEmployeeIds = { ...form.stageEmployeeIds };
+    if (
+      shouldDefaultPreparationToCurrentUser(
+        form.startStage,
+        Boolean(stageEmployeeIds[SET_PREPARATION_STAGE]),
+        currentUser,
+      )
+    ) {
+      stageEmployeeIds[SET_PREPARATION_STAGE] = currentUser.id;
+    }
+
     const stageAssignments: StageAssignments = {};
     for (const stage of activeStages) {
       if (isFcfsStage(stage)) continue;
       if (stage === 'Surgery' && surgerySelfPerformed) continue;
-      const empId = form.stageEmployeeIds[stage];
+      const empId = stageEmployeeIds[stage];
       if (!empId) continue;
-      const emp = employees.find((e) => e.id === empId);
+      const emp =
+        employees.find((e) => e.id === empId) ??
+        (empId === currentUser.id ? currentUser : undefined);
       if (!emp) {
         alert(`Could not find employee for ${stage}. Please reselect.`);
         return;
@@ -421,6 +442,9 @@ const CreateCaseModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ i
                           }
                           suggestedDepartment={deptHint}
                           allowSelf={stage === 'Surgery'}
+                          allowAssignToMe={stage === SET_PREPARATION_STAGE && allowPrepAssignToMe}
+                          currentUser={currentUser}
+                          assignToMeLabel="Assign to me"
                           placeholder="Assign later..."
                         />
                       )}

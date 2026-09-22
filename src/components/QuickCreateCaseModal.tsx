@@ -18,6 +18,8 @@ import {
 } from '../lib/createCaseFromDraft';
 import { STAGE_DEPARTMENT_MAP } from '../lib/caseWorkflow';
 import { formatDate } from '../utils/helpers';
+import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
+import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 
 const STEPS = ['Hospital & doctor', 'Surgery', 'Team', 'Review'] as const;
 
@@ -27,7 +29,7 @@ type Props = {
 };
 
 export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { createCase, hospitals, employees } = useStore();
+  const { createCase, hospitals, employees, currentUser } = useStore();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +40,12 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   });
 
   const activeEmployees = useMemo(
-    () => employees.filter((e) => e.role === 'employee' && e.status === 'Active'),
-    [employees],
+    () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
+    [employees, currentUser],
   );
+
+  const allowPrepAssignToMe =
+    isStoreManager(currentUser.role) || (currentUser.role as string) === 'case_manager';
 
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
 
@@ -92,7 +97,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setError(null);
     setSubmitting(true);
     try {
-      const payload = buildCreateCasePayload(form, hospitals, employees);
+      const payload = buildCreateCasePayload(form, hospitals, employees, currentUser);
       await createCase(payload);
       resetAndClose();
     } catch (err) {
@@ -236,6 +241,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   }
                   suggestedDepartment={deptHint}
                   allowSelf={stage === 'Surgery'}
+                  allowAssignToMe={stage === SET_PREPARATION_STAGE && allowPrepAssignToMe}
+                  currentUser={currentUser}
+                  assignToMeLabel="Assign to me"
                   placeholder="Assign later…"
                 />
               </div>
