@@ -9,10 +9,11 @@ const MAX_PHOTOS_PER_SUBMISSION = 10;
 export const MAX_RAW_PHOTO_BYTES = 25 * 1024 * 1024;
 /** After compress, keep under storage limit. */
 export const MAX_UPLOAD_PHOTO_BYTES = 5 * 1024 * 1024;
+/** Stamped photo for upload — single cloud copy (thumbnail) to limit storage & egress. */
+const CLOUD_PHOTO_MAX_EDGE = 640;
+const CLOUD_PHOTO_TARGET_BYTES = 180 * 1024;
 const MAX_IMAGE_EDGE = 1600;
 const TARGET_UPLOAD_BYTES = 550 * 1024;
-const THUMB_MAX_EDGE = 480;
-const TARGET_THUMB_BYTES = 120 * 1024;
 
 export { MAX_PHOTOS_PER_SUBMISSION };
 
@@ -301,38 +302,27 @@ async function uploadStagePhotoToStorage(
 
   await ensureUploadSession();
 
-  const photoId = crypto.randomUUID();
-  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
-  const fullPath = `${basePath}-full.jpg`;
-  const thumbFile = await compressImageForUpload(file, {
-    maxEdge: THUMB_MAX_EDGE,
-    targetBytes: TARGET_THUMB_BYTES,
+  const cloudFile = await compressImageForUpload(file, {
+    maxEdge: CLOUD_PHOTO_MAX_EDGE,
+    targetBytes: CLOUD_PHOTO_TARGET_BYTES,
   });
-  const thumbPath = `${basePath}-thumb.jpg`;
+
+  const photoId = crypto.randomUUID();
+  const path = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}-thumb.jpg`;
 
   const bucket = supabase.storage.from('stage-photos');
   const contentType = 'image/jpeg';
 
-  const { error: fullError } = await bucket.upload(fullPath, file, {
-    contentType: file.type || contentType,
-    upsert: false,
-  });
-  if (fullError) {
-    throw new Error(mapStorageUploadError(fullError.message));
-  }
-
-  const { error: thumbError } = await bucket.upload(thumbPath, thumbFile, {
+  const { error: uploadError } = await bucket.upload(path, cloudFile, {
     contentType,
     upsert: false,
   });
-  if (thumbError) {
-    await bucket.remove([fullPath]);
-    throw new Error(mapStorageUploadError(thumbError.message));
+  if (uploadError) {
+    throw new Error(mapStorageUploadError(uploadError.message));
   }
 
-  const { data: thumbPublic } = bucket.getPublicUrl(thumbPath);
-  const { data: fullPublic } = bucket.getPublicUrl(fullPath);
-  if (!thumbPublic.publicUrl || !fullPublic.publicUrl) {
+  const { data: publicUrl } = bucket.getPublicUrl(path);
+  if (!publicUrl.publicUrl) {
     throw new Error('Photo uploaded but the URL could not be created.');
   }
 
@@ -340,11 +330,10 @@ async function uploadStagePhotoToStorage(
     id: photoId,
     name: `${stage} photo`,
     type: contentType,
-    size: formatFileSize(thumbFile.size),
+    size: formatFileSize(cloudFile.size),
     uploadedBy,
     uploadedAt: new Date().toISOString(),
-    url: thumbPublic.publicUrl,
-    archiveUrl: fullPublic.publicUrl,
+    url: publicUrl.publicUrl,
   };
 }
 
@@ -407,7 +396,7 @@ export function stagePhotoDisplayUrl(doc: Document): string {
   return doc.url;
 }
 
-/** Full file for office PC sync (falls back to url for older records). */
+/** Office PC sync uses the same cloud thumbnail (no full-res in Supabase). */
 export function stagePhotoArchiveUrl(doc: Document): string {
-  return doc.archiveUrl ?? doc.url;
+  return doc.url;
 }

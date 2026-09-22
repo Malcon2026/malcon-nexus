@@ -103,9 +103,9 @@ export interface Document {
   size: string;
   uploadedBy: string;
   uploadedAt: string;
-  /** Small image for in-app viewing (low Supabase egress). */
+  /** Cloud thumbnail URL (in-app + PC sync). Full originals: office Drive / file share. */
   url: string;
-  /** Full-resolution cloud copy for office PC sync; purged with url. */
+  /** Legacy: second cloud file from brief dual-upload period; purge removes if present. */
   archiveUrl?: string;
 }
 
