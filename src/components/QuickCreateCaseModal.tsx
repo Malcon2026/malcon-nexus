@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, Calendar, CheckCircle2, ClipboardList, Stethoscope, Users } from 'lucide-react';
+import type { AssignableStage, StageWithAssistant } from '../lib/caseWorkflow';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { HospitalSearchSelect } from './HospitalSearchSelect';
@@ -17,7 +18,13 @@ import {
   QUICK_CASE_ASSIGN_STAGES,
   type CreateCaseDraft,
 } from '../lib/createCaseFromDraft';
-import { STAGE_DEPARTMENT_MAP } from '../lib/caseWorkflow';
+import {
+  ASSIGNABLE_WORKFLOW_STAGES,
+  STAGE_DEPARTMENT_MAP,
+  isFcfsStage,
+  stageSupportsAssistant,
+} from '../lib/caseWorkflow';
+import { StageExtraPersonFields } from './StageExtraPersonFields';
 import { formatDate } from '../utils/helpers';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
@@ -42,7 +49,8 @@ function freshDraft(): CreateCaseDraft {
 }
 
 export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { createCase, hospitals, employees, currentUser } = useStore();
+  const { createCase, hospitals, employees, currentUser, viewMode } = useStore();
+  const isAdmin = viewMode === 'admin';
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +65,11 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     isStoreManager(currentUser.role) || (currentUser.role as string) === 'case_manager';
 
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
+
+  const startIdx = ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage);
+  const activeStages = ASSIGNABLE_WORKFLOW_STAGES.slice(startIdx);
+  const skippedStages = ASSIGNABLE_WORKFLOW_STAGES.slice(0, startIdx);
+  const assignStages = isAdmin ? activeStages : QUICK_CASE_ASSIGN_STAGES;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -133,11 +146,11 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={resetAndClose}
-      title="New implant case"
       subtitle={`Step ${step + 1} of ${STEPS.length} · ${stepMeta.label}`}
       size="screen"
       dismissOnBackdrop={false}
       bodyClassName="flex flex-col min-h-0 bg-gradient-to-b from-gray-50/80 to-white"
+      title={isAdmin ? 'Create implant case' : 'New implant case'}
       footer={
         <div className="flex flex-col gap-3 w-full max-w-2xl mx-auto">
           {error && (
@@ -191,7 +204,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
     >
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-2xl mx-auto w-full px-4 sm:px-6 py-5 sm:py-8">
+        <div
+          className={`mx-auto w-full px-4 sm:px-6 py-5 sm:py-8 ${isAdmin && step === 2 ? 'max-w-3xl' : 'max-w-2xl'}`}
+        >
           {/* Step rail */}
           <nav className="mb-8" aria-label="Progress">
             <ol className="flex items-center gap-1 sm:gap-2">
@@ -294,6 +309,36 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <label className={labelClass}>Priority</label>
                 <PriorityQuickPick value={form.priority} onChange={(priority) => setForm({ ...form, priority })} />
               </div>
+              {isAdmin && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>Implant type (optional)</label>
+                    <input
+                      type="text"
+                      className={inputClass}
+                      placeholder="e.g. Knee implant"
+                      value={form.implantType}
+                      onChange={(e) => setForm({ ...form, implantType: e.target.value })}
+                      onBlur={(e) =>
+                        setForm({ ...form, implantType: normalizeTitleCaseWords(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Implant company (optional)</label>
+                    <input
+                      type="text"
+                      className={inputClass}
+                      placeholder="e.g. Zimmer Biomet"
+                      value={form.implantCompany}
+                      onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
+                      onBlur={(e) =>
+                        setForm({ ...form, implantCompany: normalizeTitleCaseWords(e.target.value) })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className={labelClass}>Notes for the team (optional)</label>
                 <textarea
@@ -312,28 +357,82 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
           {step === 2 && (
             <section className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
-                <p className="font-medium">Set Preparation starts here</p>
-                <p className="mt-1 text-amber-900/90">
-                  Assign who prepares the set (often you). Other stages can wait — assign them later from the case.
-                </p>
-              </div>
+              {isAdmin ? (
+                <>
+                  <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 space-y-3 shadow-sm">
+                    <div>
+                      <label className={labelClass}>Start case at stage</label>
+                      <select
+                        className={inputClass}
+                        value={form.startStage}
+                        onChange={(e) =>
+                          setForm({ ...form, startStage: e.target.value as AssignableStage })
+                        }
+                      >
+                        {ASSIGNABLE_WORKFLOW_STAGES.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {stage}
+                            {stage === SET_PREPARATION_STAGE ? ' (normal start)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Use when work already started outside the app — e.g. jump in at Delivery or Surgery.
+                      </p>
+                    </div>
+                    {skippedStages.length > 0 && (
+                      <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        Earlier stages marked skipped: {skippedStages.join(', ')}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-600">
+                      Starts at <span className="font-semibold text-gray-900">{form.startStage}</span>
+                      {activeStages.length > 1 ? (
+                        <> → {activeStages.slice(1).join(' → ')}</>
+                      ) : null}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-600 px-1">
+                    Assign people for upcoming stages (optional). FCFS stages are assigned when the stage opens.
+                  </p>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
+                  <p className="font-medium">Set Preparation starts here</p>
+                  <p className="mt-1 text-amber-900/90">
+                    Assign who prepares the set (often you). Other stages can wait — assign them later from the case.
+                  </p>
+                </div>
+              )}
 
-              {QUICK_CASE_ASSIGN_STAGES.map((stage) => {
+              {assignStages.map((stage) => {
                 const deptHint = STAGE_DEPARTMENT_MAP[stage];
                 const isPrep = stage === SET_PREPARATION_STAGE;
+                const isStart = stage === form.startStage;
+                const fcfs = isFcfsStage(stage);
                 return (
                   <div
                     key={stage}
                     className={`rounded-2xl border p-4 space-y-3 shadow-sm ${
-                      isPrep ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-muted)]/20' : 'border-gray-100 bg-white'
+                      isPrep && !isAdmin
+                        ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-muted)]/20'
+                        : isStart
+                          ? 'border-[var(--color-accent)]/25 bg-white'
+                          : 'border-gray-100 bg-white'
                     }`}
                   >
                     <div>
-                      <p className="text-base font-semibold text-gray-900">{stage}</p>
+                      <p className="text-base font-semibold text-gray-900">
+                        {stage}
+                        {isStart && (
+                          <span className="ml-2 text-[10px] font-semibold text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded px-1.5 py-0.5">
+                            Starts here
+                          </span>
+                        )}
+                      </p>
                       {deptHint ? <p className="text-xs text-gray-500 mt-0.5">{deptHint}</p> : null}
                     </div>
-                    {isPrep && allowPrepAssignToMe && (
+                    {isPrep && allowPrepAssignToMe && !fcfs && (
                       <Button
                         type="button"
                         variant={form.stageEmployeeIds[stage] === currentUser.id ? 'primary' : 'outline'}
@@ -348,22 +447,74 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         Assign to me ({currentUser.name.split(' ')[0]})
                       </Button>
                     )}
-                    <EmployeeSearchSelect
-                      employees={activeEmployees}
-                      value={form.stageEmployeeIds[stage] ?? ''}
-                      onChange={(value) =>
-                        setForm({
-                          ...form,
-                          stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
-                        })
-                      }
-                      suggestedDepartment={deptHint}
-                      allowSelf={stage === 'Surgery'}
-                      allowAssignToMe={isPrep && allowPrepAssignToMe}
-                      currentUser={currentUser}
-                      assignToMeLabel="Assign to me"
-                      placeholder={isPrep ? 'Or pick someone else…' : 'Assign later…'}
-                    />
+                    {fcfs ? (
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        Pool stage — assign when it opens on the board.
+                      </p>
+                    ) : (
+                      <>
+                        <EmployeeSearchSelect
+                          employees={activeEmployees}
+                          value={form.stageEmployeeIds[stage] ?? ''}
+                          onChange={(value) =>
+                            setForm({
+                              ...form,
+                              stageEmployeeIds: { ...form.stageEmployeeIds, [stage]: value },
+                              ...(value &&
+                              form.stageAssistantIds[stage as StageWithAssistant] === value
+                                ? {
+                                    stageAssistantIds: {
+                                      ...form.stageAssistantIds,
+                                      [stage as StageWithAssistant]: '',
+                                    },
+                                  }
+                                : {}),
+                            })
+                          }
+                          suggestedDepartment={deptHint}
+                          allowSelf={stage === 'Surgery'}
+                          allowAssignToMe={isPrep && allowPrepAssignToMe}
+                          currentUser={currentUser}
+                          assignToMeLabel="Assign to me"
+                          placeholder={isPrep ? 'Or pick someone else…' : 'Assign later…'}
+                        />
+                        {isAdmin && stageSupportsAssistant(stage) ? (
+                          <StageExtraPersonFields
+                            stage={stage as StageWithAssistant}
+                            employees={activeEmployees}
+                            primaryEmployeeId={form.stageEmployeeIds[stage]}
+                            extraEnabled={form.stageExtraPerson[stage as StageWithAssistant]}
+                            assistantId={form.stageAssistantIds[stage as StageWithAssistant]}
+                            onExtraEnabledChange={(enabled) =>
+                              setForm({
+                                ...form,
+                                stageExtraPerson: {
+                                  ...form.stageExtraPerson,
+                                  [stage as StageWithAssistant]: enabled,
+                                },
+                                ...(!enabled
+                                  ? {
+                                      stageAssistantIds: {
+                                        ...form.stageAssistantIds,
+                                        [stage as StageWithAssistant]: '',
+                                      },
+                                    }
+                                  : {}),
+                              })
+                            }
+                            onAssistantChange={(value) =>
+                              setForm({
+                                ...form,
+                                stageAssistantIds: {
+                                  ...form.stageAssistantIds,
+                                  [stage as StageWithAssistant]: value,
+                                },
+                              })
+                            }
+                          />
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -385,7 +536,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <div>
                   <p className="font-semibold text-emerald-950">Ready to create</p>
                   <p className="text-sm text-emerald-900/80 mt-0.5">
-                    Case opens at Set Preparation. You can edit assignments anytime from the case page.
+                    Case opens at {form.startStage}. You can edit assignments anytime from the case page.
                   </p>
                 </div>
               </div>
@@ -395,7 +546,14 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   ['Hospital', hospital?.name ?? '—'],
                   ['Doctor', form.doctorName || '—'],
                   ['Surgery date', form.surgeryDate ? formatDate(form.surgeryDate) : '—'],
+                  ['Starts at', form.startStage],
                   ['Procedure', form.implantRequired || '—'],
+                  ...(isAdmin && form.implantType.trim()
+                    ? [['Implant type', form.implantType] as const]
+                    : []),
+                  ...(isAdmin && form.implantCompany.trim()
+                    ? [['Company', form.implantCompany] as const]
+                    : []),
                   ['Priority', form.priority],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-4 px-4 py-3.5 sm:px-5">
