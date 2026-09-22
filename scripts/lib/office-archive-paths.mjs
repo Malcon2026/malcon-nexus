@@ -3,8 +3,8 @@
  *
  *   {PHOTOS_ROOT}/
  *     {YYYY}/
- *       {MM}/
- *         {YYYY-MM-DD}/
+ *       {Month name}/          e.g. September
+ *         {DDMMYYYY}/          e.g. 22092026
  *           Cases/
  *             {Employee Name}/
  *               {Case Number}/
@@ -17,20 +17,34 @@ import { join } from 'node:path';
 
 const IST = 'Asia/Kolkata';
 
-/** @returns {{ year: string, month: string, dateKey: string }} */
+/** @returns {{ year: string, month: string, dateFolder: string }} */
 export function istCalendarParts(iso) {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) {
-    return { year: 'unknown', month: 'unknown', dateKey: 'unknown-date' };
+    return { year: 'unknown', month: 'unknown', dateFolder: 'unknown-date' };
   }
-  const dateKey = new Intl.DateTimeFormat('en-CA', {
+
+  const named = new Intl.DateTimeFormat('en-GB', {
+    timeZone: IST,
+    year: 'numeric',
+    month: 'long',
+  }).formatToParts(d);
+  const numeric = new Intl.DateTimeFormat('en-GB', {
     timeZone: IST,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(d);
-  const [year, month] = dateKey.split('-');
-  return { year, month, dateKey };
+  }).formatToParts(d);
+
+  const pick = (parts, type) => parts.find((p) => p.type === type)?.value ?? '';
+
+  const year = pick(named, 'year');
+  const month = pick(named, 'month');
+  const day = pick(numeric, 'day');
+  const monthNum = pick(numeric, 'month');
+  const dateFolder = `${day}${monthNum}${year}`;
+
+  return { year, month, dateFolder };
 }
 
 export function sanitizeFolderName(name) {
@@ -70,12 +84,12 @@ export function istTimePart(iso) {
 
 /** @param {'Cases' | 'Attendance'} category */
 export function officeDayCategoryDir(photosRoot, iso, category) {
-  const { year, month, dateKey } = istCalendarParts(iso);
-  return join(photosRoot, year, month, dateKey, category);
+  const { year, month, dateFolder } = istCalendarParts(iso);
+  return join(photosRoot, year, month, dateFolder, category);
 }
 
 /** Human-readable path under PHOTOS_ROOT for logs. */
 export function officeRelativeDayPath(iso, category, ...rest) {
-  const { year, month, dateKey } = istCalendarParts(iso);
-  return [year, month, dateKey, category, ...rest].filter(Boolean).join('/');
+  const { year, month, dateFolder } = istCalendarParts(iso);
+  return [year, month, dateFolder, category, ...rest].filter(Boolean).join('/');
 }

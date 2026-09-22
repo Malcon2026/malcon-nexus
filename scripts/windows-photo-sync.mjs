@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sync stage photos from Supabase → office PC under PHOTOS_ROOT:
- *   {YYYY}/{MM}/{YYYY-MM-DD}/Cases/{Employee}/{CaseNumber}/*.jpg
+ *   {YYYY}/{MonthName}/{DDMMYYYY}/Cases/{Employee}/{CaseNumber}/*.jpg
  *
  * Run on your 24/7 office server:
  *   node scripts/windows-photo-sync.mjs
