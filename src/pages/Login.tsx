@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Eye, EyeOff, Lock, Mail, AlertCircle, Loader2,
@@ -8,6 +8,7 @@ import { authService } from '../lib/auth';
 import type { Employee } from '../types';
 import loginLogo from '../assets/login-logo.png';
 import { LoginQuoteAside, LoginQuoteMobile } from '../components/LoginQuoteAside';
+import { NumericKeypad, NumericReadout, OtpDigitBoxes } from '../components/NumericKeypad';
 import '../styles/login-light.css';
 
 interface LoginProps {
@@ -22,19 +23,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [otp, setOtp] = useState('');
   const [otpStep, setOtpStep] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
-  const otpInputRef = useRef<HTMLInputElement>(null);
+
+  const EMPLOYEE_ID_MAX = 6;
+  const OTP_LENGTH = 6;
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (otpStep) {
-      otpInputRef.current?.focus();
-    }
-  }, [otpStep]);
 
   const clearMessages = () => setError(null);
 
@@ -77,7 +74,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       return;
     }
 
-    if (!employeeCode.trim() || otp.length !== 6) {
+    if (!employeeCode.trim() || otp.length !== OTP_LENGTH) {
       setError('Enter the 6-digit code from Telegram.');
       return;
     }
@@ -228,25 +225,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <form onSubmit={handleEmployeeSubmit} className="space-y-5 w-full min-w-0">
               {!otpStep ? (
                 <>
-                  <div className="min-w-0">
-                    <label htmlFor="login-employee-code" className="nexus-login-label block mb-1.5">
-                      Employee ID
-                    </label>
-                    <div className="relative min-w-0">
-                      <Hash className="nexus-login-icon absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" />
-                      <input
-                        id="login-employee-code"
-                        type="text"
-                        inputMode="numeric"
-                        value={employeeCode}
-                        onChange={(e) => setEmployeeCode(e.target.value)}
-                        placeholder="e.g. 0165"
-                        autoComplete="username"
-                        required
-                        className="nexus-login-input w-full min-w-0 max-w-full pl-10 pr-4 py-2.5 transition-all"
-                      />
-                    </div>
+                  <div className="relative min-w-0">
+                    <NumericReadout
+                      id="login-employee-code"
+                      label="Employee ID"
+                      value={employeeCode}
+                      placeholder="e.g. 0165"
+                      maxLength={EMPLOYEE_ID_MAX}
+                      icon={<Hash className="h-4 w-4" />}
+                    />
                   </div>
+
+                  <NumericKeypad
+                    value={employeeCode}
+                    onChange={setEmployeeCode}
+                    maxLength={EMPLOYEE_ID_MAX}
+                    disabled={sendingOtp}
+                  />
 
                   {error && <LoginAlert>{error}</LoginAlert>}
 
@@ -270,30 +265,26 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 </>
               ) : (
                 <>
-                  <div className="min-w-0">
-                    <label htmlFor="login-otp" className="nexus-login-label block mb-1.5">
-                      Code
-                    </label>
-                    <input
-                      ref={otpInputRef}
-                      id="login-otp"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6-digit code"
-                      required
-                      className="nexus-login-input w-full min-w-0 max-w-full px-4 py-2.5 tracking-[0.2em] text-center font-medium transition-all"
-                    />
+                  <div className="min-w-0 space-y-3">
+                    <p className="nexus-login-label text-center mb-0">Code from Telegram</p>
+                    <OtpDigitBoxes value={otp} length={OTP_LENGTH} />
+                    <p className="text-xs text-center text-gray-500">
+                      Use the keypad below — no need to switch keyboard on your phone.
+                    </p>
                   </div>
+
+                  <NumericKeypad
+                    value={otp}
+                    onChange={setOtp}
+                    maxLength={OTP_LENGTH}
+                    disabled={loading}
+                  />
 
                   {error && <LoginAlert>{error}</LoginAlert>}
 
                   <button
                     type="submit"
-                    disabled={loading || otp.length !== 6}
+                    disabled={loading || otp.length !== OTP_LENGTH}
                     className="nexus-login-submit w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 group"
                   >
                     {loading ? (
