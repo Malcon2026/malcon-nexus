@@ -14,7 +14,7 @@ import { priorityColors, statusColors, stageColors, formatDate, formatCurrency }
 import { CaseDetail } from './CaseDetail';
 import { CaseCsvExportModal } from '../components/CaseCsvExportModal';
 import { EditCaseModal } from '../components/EditCaseModal';
-import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
+import { getTodaySurgeryDateKey, getTomorrowSurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import {
   isCaseAssignedToEmployee,
@@ -41,10 +41,43 @@ function daysBetween(earlierKey: string, laterKey: string): number {
   return Math.round((t2 - t1) / (24 * 60 * 60 * 1000));
 }
 
-function dayPageTitle(pageIndex: number, dateKey: string): string {
-  if (pageIndex === 0) return `Today (${formatDate(dateKey)})`;
-  if (pageIndex === 1) return `Yesterday (${formatDate(dateKey)})`;
+function dayPageTitle(dateKey: string, todayKey: string): string {
+  if (dateKey === todayKey) return `Today (${formatDate(dateKey)})`;
+  if (dateKey === getTomorrowSurgeryDateKey()) return `Tomorrow (${formatDate(dateKey)})`;
+  if (dateKey === addDaysToDateKey(todayKey, -1)) return `Yesterday (${formatDate(dateKey)})`;
   return formatDate(dateKey);
+}
+
+/** Calendar span for day tabs: future days, then today, then past (IST surgery dates). */
+function caseListCalendarSpan(filtered: ImplantCase[], todayKey: string) {
+  let startKey = todayKey;
+  let endKey = todayKey;
+  for (const c of filtered) {
+    const key = normalizeDateKey(c.surgeryDate);
+    if (!key) continue;
+    if (key < startKey) startKey = key;
+    if (key > endKey) endKey = key;
+  }
+  const futureCount = endKey > todayKey ? daysBetween(todayKey, endKey) : 0;
+  const pastCount = daysBetween(startKey, todayKey) + 1;
+  return { startKey, endKey, futureCount, pastCount, calendarDayCount: futureCount + pastCount, todayPageIndex: futureCount };
+}
+
+function caseListDateKeyForPage(page: number, todayKey: string, futureCount: number): string {
+  if (page < futureCount) {
+    return addDaysToDateKey(todayKey, futureCount - page);
+  }
+  return addDaysToDateKey(todayKey, -(page - futureCount));
+}
+
+function caseListPageForDateKey(dateKey: string, todayKey: string, futureCount: number): number {
+  const key = normalizeDateKey(dateKey);
+  if (!key) return futureCount;
+  if (key > todayKey) {
+    return futureCount - daysBetween(todayKey, key);
+  }
+  if (key === todayKey) return futureCount;
+  return futureCount + daysBetween(key, todayKey);
 }
 
 type SortDir = 'asc' | 'desc';
@@ -54,7 +87,17 @@ const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES;
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
 
 export const Cases: React.FC = () => {
-  const { cases, selectedCaseId, setSelectedCase, viewMode, currentUser, deleteCase, createCaseSignal } = useStore();
+  const {
+    cases,
+    selectedCaseId,
+    setSelectedCase,
+    viewMode,
+    currentUser,
+    deleteCase,
+    createCaseSignal,
+    caseListFocusSurgeryDate,
+    focusCaseListOnSurgeryDate,
+  } = useStore();
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('caseNumber');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -118,15 +161,11 @@ export const Cases: React.FC = () => {
     return result;
   }, [cases, search, sortKey, sortDir, filterPriority, filterStage, filterStatus]);
 
+  const calendar = useMemo(() => caseListCalendarSpan(filtered, todayKey), [filtered, todayKey]);
+
   const { paginated, totalPages, pageLabel, calendarDayCount, hasUndatedPage } = useMemo(() => {
     const undated = filtered.filter((c) => !normalizeDateKey(c.surgeryDate));
-    const oldestKey = filtered.reduce((min, c) => {
-      const key = normalizeDateKey(c.surgeryDate);
-      if (!key) return min;
-      return !min || key < min ? key : min;
-    }, '');
-
-    const dayCount = oldestKey ? daysBetween(oldestKey, todayKey) + 1 : 1;
+    const { futureCount, calendarDayCount: dayCount } = calendar;
     const undatedPage = undated.length > 0;
     const total = dayCount + (undatedPage ? 1 : 0);
 
@@ -140,22 +179,29 @@ export const Cases: React.FC = () => {
       };
     }
 
-    const dateKey = addDaysToDateKey(todayKey, -page);
+    const dateKey = caseListDateKeyForPage(page, todayKey, futureCount);
     const dayCases = filtered.filter((c) => matchesSurgeryDateKey(c.surgeryDate, dateKey));
 
     return {
       paginated: dayCases,
       totalPages: total,
-      pageLabel: dayPageTitle(page, dateKey),
+      pageLabel: dayPageTitle(dateKey, todayKey),
       calendarDayCount: dayCount,
       hasUndatedPage: undatedPage,
     };
-  }, [filtered, page, todayKey]);
+  }, [filtered, page, todayKey, calendar]);
 
   const pageButtonTitle = (pageIndex: number) => {
     if (hasUndatedPage && pageIndex === calendarDayCount) return 'No surgery date';
-    return dayPageTitle(pageIndex, addDaysToDateKey(todayKey, -pageIndex));
+    return dayPageTitle(caseListDateKeyForPage(pageIndex, todayKey, calendar.futureCount), todayKey);
   };
+
+  useEffect(() => {
+    if (!caseListFocusSurgeryDate) return;
+    const targetPage = caseListPageForDateKey(caseListFocusSurgeryDate, todayKey, calendar.futureCount);
+    setPage(Math.max(0, Math.min(targetPage, Math.max(0, totalPages - 1))));
+    focusCaseListOnSurgeryDate(null);
+  }, [caseListFocusSurgeryDate, todayKey, calendar.futureCount, totalPages, focusCaseListOnSurgeryDate]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, Math.max(0, totalPages - 1)));

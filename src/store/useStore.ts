@@ -136,6 +136,9 @@ interface AppState {
   /** Incremented to open Create Case from keyboard shortcuts. */
   createCaseSignal: number;
   requestCreateCase: () => void;
+  /** Cases list jumps to this surgery date tab after create (YYYY-MM-DD, IST). */
+  caseListFocusSurgeryDate: string | null;
+  focusCaseListOnSurgeryDate: (dateKey: string | null) => void;
 
   // Case Actions
   createCase: (
@@ -1159,6 +1162,7 @@ export const useStore = create<AppState>((set, get) => ({
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
   createCaseSignal: 0,
+  caseListFocusSurgeryDate: null,
 
   setCurrentUser: (user) => {
     const state = get();
@@ -1174,6 +1178,7 @@ export const useStore = create<AppState>((set, get) => ({
       activeTab: 'cases',
       mobileSidebarOpen: false,
     })),
+  focusCaseListOnSurgeryDate: (dateKey) => set({ caseListFocusSurgeryDate: dateKey }),
 
   // ========== CASE ACTIONS ==========
 
@@ -1376,11 +1381,15 @@ export const useStore = create<AppState>((set, get) => ({
     );
     persistNotification(notif);
 
+    const focusSurgeryDate = newCase.surgeryDate ? normalizeDateKey(newCase.surgeryDate) : null;
+
     set((s) => ({
       cases: [newCase, ...s.cases],
       employees: updatedEmployees,
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
+      caseListFocusSurgeryDate: focusSurgeryDate || s.caseListFocusSurgeryDate,
+      activeTab: 'cases',
     }));
 
     if (startEmp) {
