@@ -20,6 +20,9 @@ export const BILLING_ENABLED = false;
 /** When false, approved Billing closes the case (Bill Submission is skipped). */
 export const BILL_SUBMISSION_ENABLED = false;
 
+/** Admin “Force Advance” on case detail — off until re-enabled. */
+export const FORCE_ADVANCE_ENABLED = false;
+
 export function isPostRestockStageDisabled(stage: WorkflowStage | string): boolean {
   const name = normalizeWorkflowStageName(stage as WorkflowStage);
   if (name === 'Billing' && !BILLING_ENABLED) return true;
