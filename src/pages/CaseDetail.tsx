@@ -1182,10 +1182,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900">{doc.name}</p>
                         <p className="text-xs text-gray-400">{doc.stage} • {doc.size} • {doc.uploadedBy} • {formatDate(doc.uploadedAt)}</p>
+                        {(doc.type.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(doc.url)) && (
+                          <p className="text-[10px] text-gray-400 mt-0.5">Thumbnail preview — full file on office archive.</p>
+                        )}
                       </div>
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 transition-colors">
-                        <Download className="h-4 w-4" />
-                      </a>
                     </div>
                   </div>
                 ))}

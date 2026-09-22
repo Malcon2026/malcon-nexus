@@ -103,7 +103,10 @@ export interface Document {
   size: string;
   uploadedBy: string;
   uploadedAt: string;
+  /** Small image for in-app viewing (low Supabase egress). */
   url: string;
+  /** Full-resolution cloud copy for office PC sync; purged with url. */
+  archiveUrl?: string;
 }
 
 export interface ActivityLog {

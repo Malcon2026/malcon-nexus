@@ -75,6 +75,14 @@ function isImageDocument(doc) {
   return type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(name) || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(doc.url);
 }
 
+/** Prefer full-resolution cloud copy for local archive (thumb-only url is for app egress). */
+function archiveDownloadUrl(doc) {
+  if (doc.archiveUrl && !String(doc.archiveUrl).startsWith('data:')) {
+    return doc.archiveUrl;
+  }
+  return doc.url;
+}
+
 function guessExtension(doc) {
   const fromUrl = extname(new URL(doc.url).pathname).toLowerCase();
   if (['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'].includes(fromUrl)) {
@@ -216,7 +224,7 @@ for (const caseRow of cases ?? []) {
       mkdirSync(destDir, { recursive: true });
 
       try {
-        await downloadToFile(doc.url, destPath);
+        await downloadToFile(archiveDownloadUrl(doc), destPath);
         synced.add(doc.id);
         downloaded += 1;
         console.log(`✓ ${employeeName} / ${caseNumber} / ${fileName}`);

@@ -11,6 +11,8 @@ export const MAX_RAW_PHOTO_BYTES = 25 * 1024 * 1024;
 export const MAX_UPLOAD_PHOTO_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_EDGE = 1600;
 const TARGET_UPLOAD_BYTES = 550 * 1024;
+const THUMB_MAX_EDGE = 480;
+const TARGET_THUMB_BYTES = 120 * 1024;
 
 export { MAX_PHOTOS_PER_SUBMISSION };
 
@@ -300,30 +302,49 @@ async function uploadStagePhotoToStorage(
   await ensureUploadSession();
 
   const photoId = crypto.randomUUID();
-  const path = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}.jpg`;
+  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
+  const fullPath = `${basePath}-full.jpg`;
+  const thumbFile = await compressImageForUpload(file, {
+    maxEdge: THUMB_MAX_EDGE,
+    targetBytes: TARGET_THUMB_BYTES,
+  });
+  const thumbPath = `${basePath}-thumb.jpg`;
 
-  const { error } = await supabase.storage.from('stage-photos').upload(path, file, {
-    contentType: file.type || 'image/jpeg',
+  const bucket = supabase.storage.from('stage-photos');
+  const contentType = 'image/jpeg';
+
+  const { error: fullError } = await bucket.upload(fullPath, file, {
+    contentType: file.type || contentType,
     upsert: false,
   });
-
-  if (error) {
-    throw new Error(mapStorageUploadError(error.message));
+  if (fullError) {
+    throw new Error(mapStorageUploadError(fullError.message));
   }
 
-  const { data } = supabase.storage.from('stage-photos').getPublicUrl(path);
-  if (!data.publicUrl) {
+  const { error: thumbError } = await bucket.upload(thumbPath, thumbFile, {
+    contentType,
+    upsert: false,
+  });
+  if (thumbError) {
+    await bucket.remove([fullPath]);
+    throw new Error(mapStorageUploadError(thumbError.message));
+  }
+
+  const { data: thumbPublic } = bucket.getPublicUrl(thumbPath);
+  const { data: fullPublic } = bucket.getPublicUrl(fullPath);
+  if (!thumbPublic.publicUrl || !fullPublic.publicUrl) {
     throw new Error('Photo uploaded but the URL could not be created.');
   }
 
   return {
     id: photoId,
     name: `${stage} photo`,
-    type: file.type || 'image/jpeg',
-    size: formatFileSize(file.size),
+    type: contentType,
+    size: formatFileSize(thumbFile.size),
     uploadedBy,
     uploadedAt: new Date().toISOString(),
-    url: data.publicUrl,
+    url: thumbPublic.publicUrl,
+    archiveUrl: fullPublic.publicUrl,
   };
 }
 
@@ -379,4 +400,14 @@ export async function uploadStagePhotos(
 
 export function isImageDocument(doc: Document): boolean {
   return doc.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(doc.name);
+}
+
+/** In-app preview (thumbnail when available). */
+export function stagePhotoDisplayUrl(doc: Document): string {
+  return doc.url;
+}
+
+/** Full file for office PC sync (falls back to url for older records). */
+export function stagePhotoArchiveUrl(doc: Document): string {
+  return doc.archiveUrl ?? doc.url;
 }

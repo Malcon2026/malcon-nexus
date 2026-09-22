@@ -78,6 +78,16 @@ function storagePathFromUrl(url) {
   }
 }
 
+function storagePathsForDocument(doc) {
+  const paths = new Set();
+  for (const raw of [doc.url, doc.archiveUrl]) {
+    if (!raw || String(raw).startsWith('data:')) continue;
+    const path = storagePathFromUrl(raw);
+    if (path) paths.add(path);
+  }
+  return [...paths];
+}
+
 function isExpired(uploadedAt, cutoff) {
   const uploaded = new Date(uploadedAt);
   return Number.isFinite(uploaded.getTime()) && uploaded < cutoff;
@@ -163,10 +173,9 @@ for (const caseRow of cases ?? []) {
       }
 
       stageRemoved.push(doc);
-      pathsToDelete.push({
-        doc,
-        storagePath: storagePathFromUrl(doc.url),
-      });
+      for (const storagePath of storagePathsForDocument(doc)) {
+        pathsToDelete.push({ doc, storagePath });
+      }
       deleted += 1;
 
       if (deleted >= maxDeletions) {
