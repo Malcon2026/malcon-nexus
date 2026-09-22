@@ -11,6 +11,7 @@ import {
 } from './caseWorkflow';
 import type { Hospital } from '../types';
 import type { StageWithAssistant } from './caseWorkflow';
+import type { SurgeryDateMode } from '../components/SurgeryDateQuickPick';
 
 function emptyStageAssistantIds(): Record<StageWithAssistant, string> {
   return { Delivery: '', Surgery: '' };
@@ -26,6 +27,7 @@ export type CreateCaseDraft = {
   hospitalId: string;
   doctorName: string;
   surgeryDate: string;
+  surgeryDateMode: SurgeryDateMode;
   implantRequired: string;
   implantType: string;
   implantCompany: string;
@@ -45,6 +47,7 @@ export function emptyCreateCaseDraft(startStage: AssignableStage = 'Set Preparat
     hospitalId: '',
     doctorName: '',
     surgeryDate: '',
+    surgeryDateMode: 'today',
     implantRequired: '',
     implantType: '',
     implantCompany: '',

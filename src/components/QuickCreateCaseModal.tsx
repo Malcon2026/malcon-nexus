@@ -258,8 +258,10 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </label>
                 <SurgeryDateQuickPick
                   value={form.surgeryDate || getTodaySurgeryDateKey()}
-                  mode="today"
-                  onChange={(surgeryDate) => setForm({ ...form, surgeryDate })}
+                  mode={form.surgeryDateMode}
+                  onChange={(surgeryDate, surgeryDateMode) =>
+                    setForm({ ...form, surgeryDate, surgeryDateMode })
+                  }
                 />
               </div>
             </section>

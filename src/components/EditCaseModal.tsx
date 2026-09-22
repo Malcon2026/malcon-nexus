@@ -27,7 +27,12 @@ import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { usePhoneViewport } from '../hooks/usePhoneViewport';
 import { QUICK_CASE_ASSIGN_STAGES } from '../lib/createCaseFromDraft';
 import { PriorityQuickPick } from './PriorityQuickPick';
-import { SurgeryDateQuickPick } from './SurgeryDateQuickPick';
+import {
+  SurgeryDateQuickPick,
+  getTodaySurgeryDateKey,
+  getTomorrowSurgeryDateKey,
+  type SurgeryDateMode,
+} from './SurgeryDateQuickPick';
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -40,6 +45,13 @@ const emptyStageIds = (): Record<AssignableStage, string> =>
     AssignableStage,
     string
   >;
+
+function inferSurgeryDateMode(dateKey: string): SurgeryDateMode {
+  const key = dateKey || getTodaySurgeryDateKey();
+  if (key === getTodaySurgeryDateKey()) return 'today';
+  if (key === getTomorrowSurgeryDateKey()) return 'tomorrow';
+  return 'custom';
+}
 
 function stageAssignmentsFromCase(c: ImplantCase): Record<AssignableStage, string> {
   const result = emptyStageIds();
@@ -68,6 +80,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     hospitalId: c.hospital.id,
     doctorName: c.doctor.name,
     surgeryDate: c.surgeryDate,
+    surgeryDateMode: inferSurgeryDateMode(c.surgeryDate),
     implantRequired: c.implantRequired,
     implantType: c.implantType,
     implantCompany: c.implantCompany || '',
@@ -269,8 +282,10 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                 {storeManagerMobile ? (
                   <SurgeryDateQuickPick
                     value={form.surgeryDate}
-                    mode="today"
-                    onChange={(surgeryDate) => setForm({ ...form, surgeryDate })}
+                    mode={form.surgeryDateMode}
+                    onChange={(surgeryDate, surgeryDateMode) =>
+                      setForm({ ...form, surgeryDate, surgeryDateMode })
+                    }
                   />
                 ) : (
                   <input
