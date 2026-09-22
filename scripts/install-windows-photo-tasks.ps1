@@ -7,12 +7,17 @@ $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 if (-not (Test-Path (Join-Path $RepoRoot 'package.json'))) {
   $RepoRoot = (Get-Location).Path
 }
-$Npm = (Get-Command npm -ErrorAction SilentlyContinue)?.Source
-if (-not $Npm) {
+$npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+if (-not $npmCmd) {
   Write-Error 'npm not found on PATH. Install Node.js first.'
 }
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+if (-not $nodeCmd) {
+  Write-Error 'node not found on PATH. Install Node.js first.'
+}
 
-$NodeDir = Split-Path (Get-Command node).Source -Parent
+# Task Scheduler on Windows PowerShell 5.1 rejects [TimeSpan]::MaxValue for repetition.
+$RepeatForever = New-TimeSpan -Days 3650
 $TaskPrefix = 'MalconNexus'
 
 function Register-MalconTask {
@@ -24,8 +29,8 @@ function Register-MalconTask {
   $taskName = "$TaskPrefix-$Name"
   $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c cd /d `"$RepoRoot`" && npm run $Script" -WorkingDirectory $RepoRoot
   $trigger = switch ($Schedule) {
-    '5min' { New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue) }
-    '15min' { New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration ([TimeSpan]::MaxValue) }
+    '5min' { New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration $RepeatForever }
+    '15min' { New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration $RepeatForever }
     'daily' { New-ScheduledTaskTrigger -Daily -At '2:00AM' }
     default { throw "Unknown schedule: $Schedule" }
   }
