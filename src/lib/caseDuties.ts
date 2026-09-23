@@ -11,12 +11,33 @@ export type PostSurgeryDuties = Record<CaseDutyKind, CaseDutySlot>;
 
 export const CASE_DUTY_KINDS: CaseDutyKind[] = ['return', 'pickupReturn', 'cleaning', 'restock'];
 
+/** Display names for post-surgery team picks (not workflow stage assignees). */
 export const CASE_DUTY_LABELS: Record<CaseDutyKind, string> = {
   return: 'Return',
-  pickupReturn: 'Pick up return',
-  cleaning: 'Cleaning',
+  pickupReturn: 'Pick up',
+  cleaning: 'Cleaning & audit',
   restock: 'Restock',
 };
+
+export const CASE_DUTIES_NAV_LABEL = 'Return & cleaning';
+
+export const CASE_DUTIES_PAGE_TITLE = 'Return & cleaning team';
+
+export const CASE_DUTIES_PAGE_DESCRIPTION =
+  'Choose who handles return, cleaning, and restock. This is separate from the person assigned on the case workflow.';
+
+export const CASE_DUTIES_CREATE_SECTION_TITLE = 'Return & cleaning team (optional)';
+
+export const CASE_DUTIES_CREATE_SECTION_HINT =
+  'Names for kit return and cleaning only — not the same as workflow stage assignees above.';
+
+export function dutyPickerPlaceholder(kind: CaseDutyKind): string {
+  return `Select — ${CASE_DUTY_LABELS[kind]}`;
+}
+
+export function dutyModalTitle(kind: CaseDutyKind): string {
+  return `Who does ${CASE_DUTY_LABELS[kind]}?`;
+}
 
 /** Single sidebar route for all post-surgery duty assignment. */
 export const CASE_DUTIES_TAB_ID = 'case-duties-combined' as const;

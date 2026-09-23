@@ -34,7 +34,7 @@ import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { getISTDateKey } from '../../lib/attendance';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isPostponedCase } from '../../lib/caseWorkflow';
-import { CASE_DUTY_TAB_IDS, isCaseDutyTab } from '../../lib/caseDuties';
+import { CASE_DUTIES_NAV_LABEL, CASE_DUTY_TAB_IDS, isCaseDutyTab } from '../../lib/caseDuties';
 import { isFullAdmin } from '../../lib/roles';
 import loginLogo from '../../assets/login-logo.png';
 import { PoweredByAiBadge } from '../PoweredByAiBadge';
@@ -53,7 +53,7 @@ const CASES_TAB_IDS = ['cases', 'live-cases', 'case-history', 'postponed-cases',
 const casesGroupChildren: NavItem[] = [
   { id: 'cases', label: 'All Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
-  { id: 'case-duties-combined', label: 'Return, Clean & Restock', icon: <RotateCcw className="h-4 w-4" />, dutyBoardOnly: true },
+  { id: 'case-duties-combined', label: CASE_DUTIES_NAV_LABEL, icon: <RotateCcw className="h-4 w-4" />, dutyBoardOnly: true },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
 ];

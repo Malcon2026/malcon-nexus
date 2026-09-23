@@ -2433,11 +2433,11 @@ export const useStore = create<AppState>((set, get) => ({
     const log = {
       id: `log-${Date.now()}`,
       caseId,
-      action: `${label} assigned`,
+      action: `${label} · team selected`,
       performedBy: state.currentUser.name,
       performedByRole: state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const),
       timestamp: assignedAt,
-      details: `${employee.name} assigned for ${label}.`,
+      details: `${employee.name} for ${label} (return & cleaning team — not workflow assignee).`,
     };
     const updatedCase = await taskRepository.update(
       caseId,
@@ -2445,7 +2445,7 @@ export const useStore = create<AppState>((set, get) => ({
       c,
     );
     persistActivity(
-      createActivityEvent(`${label} assigned`, 'case', caseId, c.caseNumber, state.currentUser.name, state.currentUser.role === 'admin' ? 'admin' : 'employee', log.details),
+      createActivityEvent(`${label} · team selected`, 'case', caseId, c.caseNumber, state.currentUser.name, state.currentUser.role === 'admin' ? 'admin' : 'employee', log.details),
     );
     set((s) => ({
       cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),

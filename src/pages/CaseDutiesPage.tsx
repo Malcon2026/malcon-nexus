@@ -1,14 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Search,
-  User,
-  Building2,
-  Calendar,
-  Eye,
-  RotateCcw,
-  UserPlus,
-} from 'lucide-react';
+import { Search, ChevronRight, RotateCcw, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import { Card } from '../components/ui/Card';
@@ -20,6 +11,10 @@ import { formatDate, stageColors } from '../utils/helpers';
 import {
   CASE_DUTY_KINDS,
   CASE_DUTY_LABELS,
+  CASE_DUTIES_PAGE_DESCRIPTION,
+  CASE_DUTIES_PAGE_TITLE,
+  dutyModalTitle,
+  dutyPickerPlaceholder,
   type CaseDutyKind,
   casesForDutyBoard,
   getDutySlot,
@@ -35,7 +30,7 @@ export const CaseDutiesPage: React.FC = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const canAssign = viewMode === 'admin' || viewMode === 'store_manager';
+  const canPick = viewMode === 'admin' || viewMode === 'store_manager';
 
   const list = useMemo(() => {
     let rows = casesForDutyBoard(cases);
@@ -51,13 +46,14 @@ export const CaseDutiesPage: React.FC = () => {
     return rows.sort((a, b) => b.caseNumber.localeCompare(a.caseNumber));
   }, [cases, search]);
 
-  const openAssign = (c: ImplantCase, kind: CaseDutyKind) => {
+  const openPicker = (c: ImplantCase, kind: CaseDutyKind) => {
+    if (!canPick) return;
     setAssignCase(c);
     setAssignKind(kind);
     setEmployeeId(getDutySlot(c, kind).assignedEmployee?.id ?? '');
   };
 
-  const handleSaveAssign = async () => {
+  const handleSave = async () => {
     if (!assignCase || !employeeId) return;
     const emp = employees.find((e) => e.id === employeeId);
     if (!emp) return;
@@ -67,7 +63,7 @@ export const CaseDutiesPage: React.FC = () => {
       setAssignCase(null);
       setEmployeeId('');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Could not assign.');
+      alert(err instanceof Error ? err.message : 'Could not save.');
     } finally {
       setSubmitting(false);
     }
@@ -80,36 +76,21 @@ export const CaseDutiesPage: React.FC = () => {
     }
   }
 
-  const renderDutyRow = (c: ImplantCase, kind: CaseDutyKind, compact?: boolean) => {
-    const slot = getDutySlot(c, kind);
-    const name = slot.assignedEmployee?.name;
+  const desktopDutyCell = (c: ImplantCase, kind: CaseDutyKind) => {
+    const name = getDutySlot(c, kind).assignedEmployee?.name;
     return (
-      <div
-        key={kind}
-        className={
-          compact
-            ? 'flex items-center gap-2 py-2.5 border-b border-gray-50 last:border-0'
-            : 'flex flex-col gap-1'
-        }
-      >
-        <span className={`text-gray-600 shrink-0 ${compact ? 'text-xs w-[7.5rem]' : 'text-xs font-medium'}`}>
-          {CASE_DUTY_LABELS[kind]}
-        </span>
-        <span
-          className={`flex-1 truncate text-gray-900 ${compact ? 'text-sm font-medium' : 'font-medium max-w-[160px]'}`}
-        >
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-gray-900 truncate max-w-[140px]">
           {name ?? '—'}
         </span>
-        {canAssign && (
-          <Button
-            variant="outline"
-            size="sm"
-            className={`!min-h-8 shrink-0 ${compact ? 'text-xs px-2.5' : 'text-xs w-fit'}`}
-            icon={<UserPlus className="h-3.5 w-3.5" />}
-            onClick={() => openAssign(c, kind)}
+        {canPick && (
+          <button
+            type="button"
+            className="text-xs font-medium text-[var(--color-accent)] hover:underline text-left w-fit"
+            onClick={() => openPicker(c, kind)}
           >
-            {name ? 'Change' : 'Assign'}
-          </Button>
+            {name ? 'Change' : 'Select person'}
+          </button>
         )}
       </div>
     );
@@ -118,9 +99,14 @@ export const CaseDutiesPage: React.FC = () => {
   return (
     <NexusPage maxWidthClass="max-w-[1600px]">
       <NexusPageHeader
-        title="Return, Clean & Restock"
-        description={`${list.length} open ${list.length === 1 ? 'case' : 'cases'} · assign duties separate from workflow stages`}
+        title={CASE_DUTIES_PAGE_TITLE}
+        description={`${list.length} open ${list.length === 1 ? 'case' : 'cases'}`}
       />
+
+      <div className="mb-4 flex gap-2.5 rounded-xl border border-sky-100 bg-sky-50/90 px-3.5 py-3 text-sm text-sky-950">
+        <Info className="h-4 w-4 shrink-0 mt-0.5 text-sky-600" aria-hidden />
+        <p className="leading-snug">{CASE_DUTIES_PAGE_DESCRIPTION}</p>
+      </div>
 
       <Card className="mb-4">
         <div className="p-4">
@@ -128,7 +114,7 @@ export const CaseDutiesPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search cases, hospitals, doctors…"
+              placeholder="Search case or hospital…"
               className="nexus-field-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -137,70 +123,61 @@ export const CaseDutiesPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Mobile — same card pattern as Cases list */}
+      {/* Mobile — one card per case, tap a row to pick a person */}
       <div className="lg:hidden space-y-3 mb-4">
-        {list.map((c) => {
-          const sc = stageColors[c.currentStage];
-          return (
-            <motion.div
-              key={c.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
+        {list.map((c) => (
+          <div
+            key={c.id}
+            className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+          >
+            <button
+              type="button"
+              className="w-full text-left px-4 pt-4 pb-3 border-b border-gray-100 active:bg-gray-50/80"
+              onClick={() => setSelectedCase(c.id)}
             >
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCase(c.id)}
-                  className="text-sm font-semibold nexus-link text-left"
-                >
-                  {c.caseNumber}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCase(c.id)}
-                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"
-                  title="View case"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="space-y-2 text-sm mb-3">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                  <span className="text-gray-900 font-medium truncate">{c.hospital.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                  <span className="text-gray-700 truncate">{c.doctor.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                  <span className="text-gray-700">{formatDate(c.surgeryDate)}</span>
-                </div>
-              </div>
-              <div className="mb-3">
-                <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
-                  <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-                  {c.currentStage}
-                </Badge>
-              </div>
-              <div className="pt-3 border-t border-gray-100">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Duties</p>
-                {CASE_DUTY_KINDS.map((kind) => renderDutyRow(c, kind, true))}
-              </div>
-            </motion.div>
-          );
-        })}
+              <p className="text-base font-semibold text-[var(--color-accent)]">{c.caseNumber}</p>
+              <p className="text-sm text-gray-800 font-medium truncate mt-0.5">{c.hospital.name}</p>
+              <p className="text-xs text-gray-500 mt-1">{formatDate(c.surgeryDate)}</p>
+            </button>
+            <div className="px-2 pb-1">
+              {CASE_DUTY_KINDS.map((kind) => {
+                const name = getDutySlot(c, kind).assignedEmployee?.name;
+                const Row = canPick ? 'button' : 'div';
+                return (
+                  <Row
+                    key={kind}
+                    type={canPick ? 'button' : undefined}
+                    className={
+                      canPick
+                        ? 'w-full flex items-center gap-2 min-h-[48px] px-2 py-2 rounded-lg active:bg-gray-50 text-left'
+                        : 'flex items-center gap-2 min-h-[48px] px-2 py-2'
+                    }
+                    onClick={canPick ? () => openPicker(c, kind) : undefined}
+                  >
+                    <span className="text-sm text-gray-600 w-[7rem] shrink-0">{CASE_DUTY_LABELS[kind]}</span>
+                    <span
+                      className={`flex-1 text-sm truncate text-right ${
+                        name ? 'font-medium text-gray-900' : 'text-gray-400'
+                      }`}
+                    >
+                      {name ?? 'Select person'}
+                    </span>
+                    {canPick && <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />}
+                  </Row>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         {list.length === 0 && (
           <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-100">
             <RotateCcw className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-medium">No open cases match your search</p>
+            <p className="text-sm font-medium">No cases found</p>
           </div>
         )}
       </div>
 
-      {/* Desktop table */}
+      {/* Desktop */}
       <Card className="hidden lg:block overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -209,44 +186,50 @@ export const CaseDutiesPage: React.FC = () => {
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Case</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Surgery</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700">Hospital</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700">Workflow stage</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-700">Workflow</th>
                 {CASE_DUTY_KINDS.map((kind) => (
-                  <th key={kind} className="text-left px-4 py-3 font-semibold text-gray-700 min-w-[140px]">
+                  <th key={kind} className="text-left px-4 py-3 font-semibold text-gray-700 min-w-[130px]">
                     {CASE_DUTY_LABELS[kind]}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {list.map((c) => (
-                <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
-                  <td className="px-4 py-3.5">
-                    <button
-                      type="button"
-                      className="text-sm font-semibold nexus-link"
-                      onClick={() => setSelectedCase(c.id)}
-                    >
-                      {c.caseNumber}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3.5 text-gray-700">{formatDate(c.surgeryDate)}</td>
-                  <td className="px-4 py-3.5 text-gray-700">{c.hospital.name}</td>
-                  <td className="px-4 py-3.5">
-                    <Badge className="text-xs">{c.currentStage}</Badge>
-                  </td>
-                  {CASE_DUTY_KINDS.map((kind) => (
-                    <td key={kind} className="px-4 py-3.5">
-                      {renderDutyRow(c, kind)}
+              {list.map((c) => {
+                const sc = stageColors[c.currentStage];
+                return (
+                  <tr key={c.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <button
+                        type="button"
+                        className="text-sm font-semibold nexus-link"
+                        onClick={() => setSelectedCase(c.id)}
+                      >
+                        {c.caseNumber}
+                      </button>
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    <td className="px-4 py-3.5 text-gray-700">{formatDate(c.surgeryDate)}</td>
+                    <td className="px-4 py-3.5 text-gray-700">{c.hospital.name}</td>
+                    <td className="px-4 py-3.5">
+                      <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
+                        <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                        {c.currentStage}
+                      </Badge>
+                    </td>
+                    {CASE_DUTY_KINDS.map((kind) => (
+                      <td key={kind} className="px-4 py-3.5">
+                        {desktopDutyCell(c, kind)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {list.length === 0 && (
             <div className="text-center py-16 text-gray-400">
               <RotateCcw className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium">No open cases match your search</p>
+              <p className="text-sm font-medium">No cases found</p>
             </div>
           )}
         </div>
@@ -255,8 +238,12 @@ export const CaseDutiesPage: React.FC = () => {
       <Modal
         isOpen={!!assignCase}
         onClose={() => setAssignCase(null)}
-        title={`Assign ${CASE_DUTY_LABELS[assignKind]}`}
-        subtitle={assignCase ? `${assignCase.caseNumber} · ${assignCase.hospital.name}` : ''}
+        title={dutyModalTitle(assignKind)}
+        subtitle={
+          assignCase
+            ? `${assignCase.caseNumber} · ${assignCase.hospital.name} · not workflow assignee`
+            : ''
+        }
         size="md"
         footer={
           <div className="flex justify-end gap-2">
@@ -267,19 +254,23 @@ export const CaseDutiesPage: React.FC = () => {
               variant="primary"
               size="sm"
               disabled={!employeeId || submitting}
-              onClick={() => void handleSaveAssign()}
+              onClick={() => void handleSave()}
             >
-              {submitting ? 'Saving…' : 'Save'}
+              {submitting ? 'Saving…' : 'Save selection'}
             </Button>
           </div>
         }
       >
-        <div className="p-6">
+        <div className="p-6 space-y-3">
+          <p className="text-xs text-gray-600">
+            This name is stored for return & cleaning team only. It does not change who is assigned on the
+            workflow board.
+          </p>
           <EmployeeSearchSelect
             employees={employees}
             value={employeeId}
             onChange={setEmployeeId}
-            placeholder="Search employee…"
+            placeholder={dutyPickerPlaceholder(assignKind)}
           />
         </div>
       </Modal>
