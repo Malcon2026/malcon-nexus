@@ -75,7 +75,12 @@ import {
   withCancelCaseRemark,
 } from '../lib/cancelCase';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
-import { CASE_DUTY_LABELS, CASE_DUTY_KINDS, normalizePostSurgeryDuties } from '../lib/caseDuties';
+import {
+  CASE_DUTY_LABELS,
+  CASE_DUTY_KINDS,
+  normalizePostSurgeryDuties,
+  remapLegacyDutyTab,
+} from '../lib/caseDuties';
 import {
   validateCompOffWorkDate,
   validateLeaveApplication,
@@ -1117,10 +1122,6 @@ const STORE_MANAGER_TABS = [
   'cases',
   'live-cases',
   'case-duties-combined',
-  'case-duties-return',
-  'case-duties-pickup',
-  'case-duties-cleaning',
-  'case-duties-restock',
   'workflow',
   'settings',
 ];
@@ -1129,6 +1130,7 @@ const applyUserSession = (
   user: Employee,
   current: { activeTab: string },
 ): { currentUser: Employee; viewMode: 'admin' | 'employee' | 'petrol' | 'store_manager'; activeTab: string } => {
+  current = { activeTab: remapLegacyDutyTab(current.activeTab) };
   if (user.role === 'petrol') {
     const activeTab = PETROL_DESK_TABS.includes(current.activeTab)
       ? current.activeTab

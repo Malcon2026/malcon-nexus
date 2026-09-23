@@ -18,33 +18,28 @@ export const CASE_DUTY_LABELS: Record<CaseDutyKind, string> = {
   restock: 'Restock',
 };
 
-export const CASE_DUTY_TAB_IDS = [
-  'case-duties-combined',
+/** Single sidebar route for all post-surgery duty assignment. */
+export const CASE_DUTIES_TAB_ID = 'case-duties-combined' as const;
+
+export type CaseDutyTabId = typeof CASE_DUTIES_TAB_ID;
+
+const LEGACY_DUTY_TAB_IDS = [
   'case-duties-return',
   'case-duties-pickup',
   'case-duties-cleaning',
   'case-duties-restock',
 ] as const;
 
-export type CaseDutyTabId = (typeof CASE_DUTY_TAB_IDS)[number];
+export const CASE_DUTY_TAB_IDS = [CASE_DUTIES_TAB_ID] as const;
 
 export function isCaseDutyTab(tab: string): tab is CaseDutyTabId {
-  return (CASE_DUTY_TAB_IDS as readonly string[]).includes(tab);
+  return tab === CASE_DUTIES_TAB_ID || (LEGACY_DUTY_TAB_IDS as readonly string[]).includes(tab);
 }
 
-export function dutyKindForTab(tab: CaseDutyTabId): CaseDutyKind | 'all' {
-  switch (tab) {
-    case 'case-duties-return':
-      return 'return';
-    case 'case-duties-pickup':
-      return 'pickupReturn';
-    case 'case-duties-cleaning':
-      return 'cleaning';
-    case 'case-duties-restock':
-      return 'restock';
-    default:
-      return 'all';
-  }
+/** Saved tab ids from older builds → single combined duties route. */
+export function remapLegacyDutyTab(tab: string): string {
+  if (tab !== CASE_DUTIES_TAB_ID && isCaseDutyTab(tab)) return CASE_DUTIES_TAB_ID;
+  return tab;
 }
 
 export function emptyPostSurgeryDuties(): PostSurgeryDuties {

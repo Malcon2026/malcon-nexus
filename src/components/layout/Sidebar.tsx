@@ -27,8 +27,6 @@ import {
   UtensilsCrossed,
   CalendarClock,
   RotateCcw,
-  Sparkles,
-  Package,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -56,10 +54,6 @@ const casesGroupChildren: NavItem[] = [
   { id: 'cases', label: 'All Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
   { id: 'case-duties-combined', label: 'Return, Clean & Restock', icon: <RotateCcw className="h-4 w-4" />, dutyBoardOnly: true },
-  { id: 'case-duties-return', label: 'Return', icon: <RotateCcw className="h-4 w-4" />, dutyBoardOnly: true },
-  { id: 'case-duties-pickup', label: 'Pick up return', icon: <Package className="h-4 w-4" />, dutyBoardOnly: true },
-  { id: 'case-duties-cleaning', label: 'Cleaning', icon: <Sparkles className="h-4 w-4" />, dutyBoardOnly: true },
-  { id: 'case-duties-restock', label: 'Restock', icon: <Package className="h-4 w-4" />, dutyBoardOnly: true },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
 ];

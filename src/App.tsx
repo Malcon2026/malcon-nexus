@@ -219,7 +219,7 @@ function MainApp() {
     if (viewMode === 'employee' || viewMode === 'store_manager') {
       if (isCaseDutyTab(activeTab)) {
         return viewMode === 'store_manager' ? (
-          <CaseDutiesPage tabId={activeTab} />
+          <CaseDutiesPage />
         ) : (
           <EmployeeDashboard />
         );
@@ -235,7 +235,7 @@ function MainApp() {
     }
 
     if (isCaseDutyTab(activeTab)) {
-      return <CaseDutiesPage tabId={activeTab} />;
+      return <CaseDutiesPage />;
     }
 
     switch (activeTab) {
