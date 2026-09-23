@@ -15,8 +15,15 @@ async function invokeCaseAlerts(
       console.error(`[caseAlerts] ${fn} failed:`, error.message, data ?? '');
       return;
     }
-    if (data && typeof data === 'object' && 'error' in data && !('skipped' in data)) {
-      console.error(`[caseAlerts] ${fn} failed:`, JSON.stringify(data));
+    if (data && typeof data === 'object') {
+      if ('error' in data && !('skipped' in data)) {
+        console.error(`[caseAlerts] ${fn} failed:`, JSON.stringify(data));
+      } else if ('telegram' in data && data.telegram && typeof data.telegram === 'object') {
+        const tg = data.telegram as { skipped?: boolean; reason?: string; sent?: boolean };
+        if (tg.skipped) {
+          console.warn(`[caseAlerts] ${fn} telegram skipped:`, tg.reason ?? 'unknown');
+        }
+      }
     }
   } catch (err) {
     console.error(`[caseAlerts] ${fn} failed:`, err);

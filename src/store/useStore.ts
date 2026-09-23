@@ -21,8 +21,11 @@ import { hospitalRepository } from '../lib/database/repositories/hospitals';
 import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
-import { notifyCaseAssignment } from '../lib/email';
-import { notifyAssignmentAlerts, notifyPostponeAlerts } from '../lib/alertChannels';
+import {
+  notifyCaseAssignmentToEmployee,
+  notifyCaseAssignmentsToEmployees,
+  notifyPostponeAlerts,
+} from '../lib/alertChannels';
 import { acknowledgeCaseAlerts } from '../lib/caseAlerts';
 import { syncEmployeeLoginEmail, createEmployeeLogin, DEFAULT_EMPLOYEE_PASSWORD } from '../lib/auth-sync';
 import { uploadStagePhotos } from '../lib/stagePhotos';
@@ -1413,10 +1416,14 @@ export const useStore = create<AppState>((set, get) => ({
       activeTab: 'cases',
     }));
 
-    if (startEmp) {
-      void notifyCaseAssignment(caseId, startEmp.id);
-      notifyAssignmentAlerts(caseId, startEmp.id);
+    const assignmentNotifyIds: string[] = [];
+    for (const emp of Object.values(assignments)) {
+      if (emp?.id) assignmentNotifyIds.push(emp.id);
     }
+    for (const emp of Object.values(assistantAssignments)) {
+      if (emp?.id) assignmentNotifyIds.push(emp.id);
+    }
+    notifyCaseAssignmentsToEmployees(caseId, assignmentNotifyIds);
   },
 
   updateCase: async (id, updates) => {
@@ -1710,8 +1717,7 @@ export const useStore = create<AppState>((set, get) => ({
           casesActive: target.casesActive + 1,
         });
         updatedEmployees = updatedEmployees.map((e) => (e.id === nextEmp.id ? updated : e));
-        void notifyCaseAssignment(caseId, nextEmp.id);
-        notifyAssignmentAlerts(caseId, nextEmp.id);
+        notifyCaseAssignmentToEmployee(caseId, nextEmp.id);
       }
     }
 
@@ -2088,6 +2094,13 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
     }));
 
+    for (const [stage, val] of changedEntries) {
+      if (!val || val === SURGERY_SELF_ASSIGNMENT_VALUE) continue;
+      if (val !== stageValue(stage)) {
+        notifyCaseAssignmentToEmployee(caseId, val);
+      }
+    }
+
     if (advanceSurgerySelf) {
       return get().markSurgerySelfPerformed(
         caseId,
@@ -2223,8 +2236,7 @@ export const useStore = create<AppState>((set, get) => ({
       employees: updatedEmployees,
     }));
 
-    void notifyCaseAssignment(caseId, employee.id);
-    notifyAssignmentAlerts(caseId, employee.id);
+    notifyCaseAssignmentToEmployee(caseId, employee.id);
   },
 
   rejectStage: async (caseId, adminNotes) => {
@@ -2422,8 +2434,7 @@ export const useStore = create<AppState>((set, get) => ({
       caseTaskRequests: updatedTaskRequests,
     }));
 
-    void notifyCaseAssignment(caseId, employee.id);
-    notifyAssignmentAlerts(caseId, employee.id);
+    notifyCaseAssignmentToEmployee(caseId, employee.id);
   },
 
   confirmPostSurgeryTeam: async (caseId, employeeIds) => {
@@ -2483,8 +2494,7 @@ export const useStore = create<AppState>((set, get) => ({
           log.details,
         ),
       );
-      void notifyCaseAssignment(caseId, employee.id);
-      notifyAssignmentAlerts(caseId, employee.id);
+      notifyCaseAssignmentToEmployee(caseId, employee.id);
     }
 
     if (newLogs.length === 0) return;
@@ -3157,8 +3167,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     if (nextEmp) {
-      void notifyCaseAssignment(caseId, nextEmp.id);
-      notifyAssignmentAlerts(caseId, nextEmp.id);
+      notifyCaseAssignmentToEmployee(caseId, nextEmp.id);
     }
   },
 
