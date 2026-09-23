@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "db:health": "node scripts/db-health-check.mjs",
     "photos:sync": "node scripts/windows-photo-sync.mjs",
+    "photos:migrate": "node scripts/migrate-office-photos-layout.mjs",
+    "photos:migrate:execute": "node scripts/migrate-office-photos-layout.mjs --execute",
     "photos:purge": "node scripts/purge-old-photos.mjs",
     "attendance:whatsapp": "node scripts/daily-attendance-whatsapp.mjs",
     "attendance:whatsapp:install": "npm install --prefix scripts",
