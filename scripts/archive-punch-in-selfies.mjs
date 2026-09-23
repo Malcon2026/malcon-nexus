@@ -15,7 +15,7 @@
  *   PHOTOS_ROOT=D:\MalconNexus\Photos
  *     (legacy: SELFIE_ARCHIVE_ROOT — same tree if PHOTOS_ROOT unset)
  *
- * Saves under: {YYYY}/{MonthName}/{DDMMYYYY}/Attendance/
+ * Saves under: {YYYY}/{MonthName}/{DD-MM-YYYY}/Attendance/
  *
  * Optional:
  *   SELFIE_CLOUD_RETENTION_HOURS=24   (use 0 to purge cloud copies as soon as local file exists)
