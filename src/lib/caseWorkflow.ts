@@ -428,6 +428,15 @@ export function resolveNextStageAfterApproval(
   implantCase: ImplantCase,
   current: WorkflowStage,
 ): StageAdvanceResolution {
+  if (isPostponedCase(implantCase)) {
+    return {
+      next: null,
+      skipSelfSurgery: false,
+      skipPickupForUsedNoReturn: false,
+      completeParkedFromPickup: false,
+    };
+  }
+
   const skipBilling = Boolean(implantCase.cancelReason);
   const currentName = normalizeWorkflowStageName(current);
   let raw = getNextWorkflowStage(currentName, { skipBilling });
@@ -829,4 +838,21 @@ export function isPostponedCase(c: ImplantCase): boolean {
   if (c.status === 'Completed' || c.status === 'Cancelled') return false;
   if ((c.cancelReason ?? '').trim()) return false;
   return Boolean((c.postponeReason ?? '').trim());
+}
+
+/** Keep case header pinned while postponed (no auto-advance to later stages). */
+export function postponedCasePointer(
+  implantCase: ImplantCase,
+): {
+  currentStage: WorkflowStage;
+  currentDepartment: Department | null;
+  assignedEmployee: Employee | null;
+  status: ImplantCase['status'];
+} {
+  return {
+    currentStage: normalizeWorkflowStageName(implantCase.currentStage),
+    currentDepartment: implantCase.currentDepartment,
+    assignedEmployee: implantCase.assignedEmployee,
+    status: implantCase.status,
+  };
 }
