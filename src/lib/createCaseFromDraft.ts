@@ -9,6 +9,11 @@ import {
   type StageAssistantAssignments,
   type StageWithAssistant,
 } from './caseWorkflow';
+import {
+  buildPostSurgeryDutiesFromEmployeeIds,
+  CASE_DUTY_KINDS,
+  type CaseDutyKind,
+} from './caseDuties';
 import type { Hospital } from '../types';
 import type { StageWithAssistant } from './caseWorkflow';
 import type { SurgeryDateMode } from '../components/SurgeryDateQuickPick';
@@ -38,6 +43,7 @@ export type CreateCaseDraft = {
   stageEmployeeIds: Record<AssignableStage, string>;
   stageAssistantIds: ReturnType<typeof emptyStageAssistantIds>;
   stageExtraPerson: ReturnType<typeof emptyStageExtraFlags>;
+  dutyEmployeeIds: Record<CaseDutyKind, string>;
 };
 
 export function emptyCreateCaseDraft(startStage: AssignableStage = 'Set Preparation'): CreateCaseDraft {
@@ -58,6 +64,10 @@ export function emptyCreateCaseDraft(startStage: AssignableStage = 'Set Preparat
     stageEmployeeIds,
     stageAssistantIds: emptyStageAssistantIds(),
     stageExtraPerson: emptyStageExtraFlags(),
+    dutyEmployeeIds: Object.fromEntries(CASE_DUTY_KINDS.map((k) => [k, ''])) as Record<
+      CaseDutyKind,
+      string
+    >,
   };
 }
 
@@ -80,6 +90,7 @@ export function buildCreateCasePayload(
   stageAssignments: StageAssignments;
   stageAssistantAssignments: StageAssistantAssignments;
   surgerySelfPerformed: boolean;
+  postSurgeryDuties: ReturnType<typeof buildPostSurgeryDutiesFromEmployeeIds>;
 } {
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
   if (!hospital) throw new Error('Hospital not found. Pick the hospital again.');
@@ -162,5 +173,6 @@ export function buildCreateCasePayload(
     stageAssignments,
     stageAssistantAssignments,
     surgerySelfPerformed,
+    postSurgeryDuties: buildPostSurgeryDutiesFromEmployeeIds(form.dutyEmployeeIds, employees),
   };
 }

@@ -4,6 +4,8 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Cases } from './pages/Cases';
+import { CaseDutiesPage } from './pages/CaseDutiesPage';
+import { isCaseDutyTab } from './lib/caseDuties';
 import { LiveCases } from './pages/LiveCases';
 import { TvBoard } from './pages/TvBoard';
 import { WorkflowBoard } from './pages/WorkflowBoard';
@@ -215,6 +217,13 @@ function MainApp() {
     }
 
     if (viewMode === 'employee' || viewMode === 'store_manager') {
+      if (isCaseDutyTab(activeTab)) {
+        return viewMode === 'store_manager' ? (
+          <CaseDutiesPage tabId={activeTab} />
+        ) : (
+          <EmployeeDashboard />
+        );
+      }
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
         case 'cases':       return <Cases />;
@@ -223,6 +232,10 @@ function MainApp() {
         case 'settings':    return <Settings />;
         default:            return <EmployeeDashboard />;
       }
+    }
+
+    if (isCaseDutyTab(activeTab)) {
+      return <CaseDutiesPage tabId={activeTab} />;
     }
 
     switch (activeTab) {

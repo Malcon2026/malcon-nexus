@@ -1,3 +1,6 @@
+import type { PostSurgeryDuties } from '../lib/caseDuties';
+
+export type { PostSurgeryDuties, CaseDutyKind, CaseDutySlot } from '../lib/caseDuties';
 export type Priority = 'Critical' | 'High' | 'Medium' | 'Low';
 
 export type CaseStatus =
@@ -16,7 +19,6 @@ export type WorkflowStage =
   | 'Surgery'
   | 'Pickup from Hospital'
   | 'Cleaning & Audit'
-  | 'Return to Hospital'
   | 'Restock'
   | 'Billing'
   | 'Bill Submission'
@@ -174,6 +176,8 @@ export interface ImplantCase {
   postponeReason?: string;
   /** Surgery date before the latest postpone. */
   postponedFrom?: string;
+  /** Team assignments: return / pick-up / clean / restock (separate from main workflow stage). */
+  postSurgeryDuties?: PostSurgeryDuties;
 }
 
 export interface Notification {

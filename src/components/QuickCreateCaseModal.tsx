@@ -29,6 +29,7 @@ import { formatDate } from '../utils/helpers';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 import { normalizeSentenceText, normalizeTitleCaseWords } from '../lib/textFormat';
+import { CASE_DUTY_KINDS, CASE_DUTY_LABELS } from '../lib/caseDuties';
 
 const STEPS = [
   { key: 'place', label: 'Hospital', icon: Building2 },
@@ -518,6 +519,28 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   </div>
                 );
               })}
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-900">Return, cleaning & restock (optional)</p>
+                <p className="text-xs text-gray-600">
+                  Team duties — assign now or later from the sidebar under Cases.
+                </p>
+                {CASE_DUTY_KINDS.map((kind) => (
+                  <div key={kind}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{CASE_DUTY_LABELS[kind]}</label>
+                    <EmployeeSearchSelect
+                      employees={activeEmployees}
+                      value={form.dutyEmployeeIds[kind] ?? ''}
+                      onChange={(value) =>
+                        setForm({
+                          ...form,
+                          dutyEmployeeIds: { ...form.dutyEmployeeIds, [kind]: value },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
 
               <button
                 type="button"

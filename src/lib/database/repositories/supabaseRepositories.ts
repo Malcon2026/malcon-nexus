@@ -22,6 +22,7 @@ import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
 import { getEmployeeDepartments, normalizeDepartment } from '../../../constants/departments';
 import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployee } from '../../caseWorkflow';
+import { normalizePostSurgeryDuties } from '../../caseDuties';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -388,6 +389,7 @@ export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase 
     surgeryOutcomeDetail: (row.surgery_outcome_detail as string) ?? '',
     postponeReason: (row.postpone_reason as string) ?? '',
     postponedFrom: normalizeDateKey(row.postponed_from as string),
+    postSurgeryDuties: normalizePostSurgeryDuties(row.post_surgery_duties),
   };
 }
 
@@ -423,6 +425,7 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
     surgery_outcome_detail: c.surgeryOutcomeDetail ?? '',
     postpone_reason: c.postponeReason ?? '',
     postponed_from: c.postponedFrom || null,
+    post_surgery_duties: c.postSurgeryDuties ?? null,
   };
 }
 

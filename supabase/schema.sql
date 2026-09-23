@@ -130,12 +130,13 @@ CREATE TABLE IF NOT EXISTS cases (
     'Rejected','Changes Requested','Completed','Cancelled'
   )),
   current_stage       TEXT NOT NULL DEFAULT 'Set Preparation' CHECK (current_stage IN (
-    'Set Preparation','Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Return to Hospital','Restock','Billing','Bill Submission','Completed'
+    'Set Preparation','Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Restock','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
     'Stores','Delivery','Drivers','Scrub Person','Cleaning & Audit',
     'Accounts','Bill Submission','Office Staff','Admin'
   )),
+  post_surgery_duties JSONB NOT NULL DEFAULT '{}'::jsonb,
   assigned_employee_id UUID REFERENCES employees(id) ON DELETE SET NULL,
   assigned_employee_snapshot JSONB DEFAULT NULL,
   created_by          TEXT NOT NULL DEFAULT '',

@@ -75,6 +75,7 @@ import {
   withCancelCaseRemark,
 } from '../lib/cancelCase';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
+import { CASE_DUTY_LABELS, CASE_DUTY_KINDS, normalizePostSurgeryDuties } from '../lib/caseDuties';
 import {
   validateCompOffWorkDate,
   validateLeaveApplication,
@@ -88,7 +89,7 @@ import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Return to Hospital', 'Restock', 'Billing', 'Bill Submission', 'Completed',
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed',
 ];
 
 /** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
@@ -178,6 +179,7 @@ interface AppState {
     nextStage?: WorkflowStage,
     options?: { approvedRequestId?: string; keepCurrentStage?: boolean },
   ) => void;
+  assignCaseDuty: (caseId: string, duty: import('../lib/caseDuties').CaseDutyKind, employee: Employee) => Promise<void>;
   requestTask: (caseId: string) => Promise<{ error: string | null }>;
   approveTaskRequest: (requestId: string) => Promise<{ error: string | null }>;
   getPoolCasesAvailableForCurrentUser: () => ImplantCase[];
@@ -1110,7 +1112,18 @@ const adminUser = initialEmployees.find(e => e.role === 'admin') ?? placeholderA
 
 const ADMIN_ONLY_TABS = ['approvals', 'postponed-cases', 'task-requests', 'employees', 'attendance', 'attendance-approvals', 'hospitals', 'reports', 'case-history', 'activity', 'tv-board', 'expenses', 'petrol-dashboard', 'kms-dashboard', 'food-dashboard'];
 const PETROL_DESK_TABS = ['petrol-dashboard', 'settings'];
-const STORE_MANAGER_TABS = ['dashboard', 'cases', 'live-cases', 'workflow', 'settings'];
+const STORE_MANAGER_TABS = [
+  'dashboard',
+  'cases',
+  'live-cases',
+  'case-duties-combined',
+  'case-duties-return',
+  'case-duties-pickup',
+  'case-duties-cleaning',
+  'case-duties-restock',
+  'workflow',
+  'settings',
+];
 
 const applyUserSession = (
   user: Employee,
@@ -1337,6 +1350,7 @@ export const useStore = create<AppState>((set, get) => ({
       surgeryOutcomeDetail: '',
       postponeReason: '',
       postponedFrom: '',
+      postSurgeryDuties: caseData.postSurgeryDuties,
     };
 
     try {
@@ -2405,6 +2419,38 @@ export const useStore = create<AppState>((set, get) => ({
     notifyAssignmentAlerts(caseId, employee.id);
   },
 
+  assignCaseDuty: async (caseId, duty, employee) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) throw new Error('Case not found');
+    if (!employee?.id) throw new Error('Pick an employee.');
+    const assignedAt = new Date().toISOString();
+    const duties = { ...(c.postSurgeryDuties ?? normalizePostSurgeryDuties(null)) };
+    duties[duty] = { assignedEmployee: employee, assignedAt };
+    const label = CASE_DUTY_LABELS[duty];
+    const log = {
+      id: `log-${Date.now()}`,
+      caseId,
+      action: `${label} assigned`,
+      performedBy: state.currentUser.name,
+      performedByRole: state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const),
+      timestamp: assignedAt,
+      details: `${employee.name} assigned for ${label}.`,
+    };
+    const updatedCase = await taskRepository.update(
+      caseId,
+      { postSurgeryDuties: duties, activityLogs: [...c.activityLogs, log] },
+      c,
+    );
+    persistActivity(
+      createActivityEvent(`${label} assigned`, 'case', caseId, c.caseNumber, state.currentUser.name, state.currentUser.role === 'admin' ? 'admin' : 'employee', log.details),
+    );
+    set((s) => ({
+      cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      activityLog: [log, ...s.activityLog],
+    }));
+  },
+
   requestTask: async (caseId) => {
     if (!FCFS_POOL_ENABLED) {
       return { error: 'Open pool is disabled. Ask admin to assign you to this case.' };
@@ -2963,7 +3009,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: now,
       details: returnStage
-        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Return to Hospital → Restock. Reason: ${trimmed}`
+        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Reason: ${trimmed}`
         : `${logPhrase} Case closed. Reason: ${trimmed}`,
     };
 
