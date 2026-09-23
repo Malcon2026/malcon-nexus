@@ -11,6 +11,7 @@ import { Card, CardBody } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
+import { ReturnOutcomeBadge } from '../components/ReturnOutcomeBadge';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
 import { normalizeWorkflowStageName, resolveNextStageAfterApproval } from '../lib/caseWorkflow';
@@ -52,7 +53,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const currentStageName = normalizeWorkflowStageName(c.currentStage);
-  const { next: nextStage, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentStageName);
+  const { next: nextStage, skipSelfSurgery, skipPickupForUsedNoReturn } =
+    resolveNextStageAfterApproval(c, currentStageName);
   const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
   const nextStageRecord = nextStage ? c.stages.find((s) => s.stage === nextStage) : undefined;
@@ -90,7 +92,14 @@ const ActionModal: React.FC<ActionModalProps> = ({
       setSubmitting(true);
       try {
         if (selectedEmp && nextStage && !isFinalStage) {
-          await approveStageAndAssign(c.id, notes, selectedEmp, nextStage, skipSelfSurgery);
+          await approveStageAndAssign(
+            c.id,
+            notes,
+            selectedEmp,
+            nextStage,
+            skipSelfSurgery,
+            skipPickupForUsedNoReturn,
+          );
         } else {
           // approveStage auto-activates the next pre-assigned employee, or
           // closes the case when this was Bill Submission.
@@ -321,6 +330,11 @@ export const ApprovalQueue: React.FC = () => {
                         {currentStageRecord?.restockOutcome && (
                           <div className="mt-3">
                             <RestockOutcomeBadge outcome={currentStageRecord.restockOutcome} />
+                          </div>
+                        )}
+                        {currentStageRecord?.returnOutcome && (
+                          <div className="mt-3">
+                            <ReturnOutcomeBadge outcome={currentStageRecord.returnOutcome} />
                           </div>
                         )}
                         {currentStageRecord?.notes && (

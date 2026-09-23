@@ -1,4 +1,4 @@
-import type { Department, Employee, ImplantCase, StageRecord, WorkflowStage } from '../types';
+import type { Department, Employee, ImplantCase, ReturnOutcome, StageRecord, WorkflowStage } from '../types';
 import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
 
@@ -401,23 +401,67 @@ export function isSelfPerformedSurgery(implantCase: ImplantCase): boolean {
 export const SELF_SURGERY_AUTO_ADVANCE_NOTE =
   'Hospital performed surgery independently (Self) — auto-advanced to return.';
 
+export const PICKUP_USED_NO_RETURN_NOTE =
+  'Implants used at hospital — no return pickup; auto-advanced to cleaning.';
+
+export const PICKUP_PARKED_COMPLETE_NOTE =
+  'Set parked at hospital — case completed from return.';
+
+export function getPickupReturnOutcome(implantCase: ImplantCase): ReturnOutcome | null {
+  return findStageRecord(implantCase.stages, 'Pickup from Hospital')?.returnOutcome ?? null;
+}
+
+export type StageAdvanceResolution = {
+  next: WorkflowStage | null;
+  skipSelfSurgery: boolean;
+  skipPickupForUsedNoReturn: boolean;
+  completeParkedFromPickup: boolean;
+};
+
 /**
  * After approving `current`, where the case should land.
- * Self surgery skips the Surgery stop and goes straight to Pickup (return).
+ * Self surgery skips Surgery → Pickup. Return categories skip or complete at Pickup.
  */
 export function resolveNextStageAfterApproval(
   implantCase: ImplantCase,
   current: WorkflowStage,
-): { next: WorkflowStage | null; skipSelfSurgery: boolean } {
+): StageAdvanceResolution {
   const skipBilling = Boolean(implantCase.cancelReason);
-  const raw = getNextWorkflowStage(current, { skipBilling });
+  const currentName = normalizeWorkflowStageName(current);
+  let raw = getNextWorkflowStage(currentName, { skipBilling });
+  let skipSelfSurgery = false;
+  let skipPickupForUsedNoReturn = false;
+  let completeParkedFromPickup = false;
+
   if (raw === 'Surgery' && isSelfPerformedSurgery(implantCase)) {
+    raw = getNextWorkflowStage('Surgery', { skipBilling });
+    skipSelfSurgery = true;
+  }
+
+  const pickupOutcome = getPickupReturnOutcome(implantCase);
+
+  if (currentName === 'Pickup from Hospital' && pickupOutcome === 'parked') {
     return {
-      next: getNextWorkflowStage('Surgery', { skipBilling }),
-      skipSelfSurgery: true,
+      next: null,
+      skipSelfSurgery,
+      skipPickupForUsedNoReturn: false,
+      completeParkedFromPickup: true,
     };
   }
-  return { next: raw, skipSelfSurgery: false };
+
+  if (raw === 'Pickup from Hospital' && pickupOutcome === 'used_no_return') {
+    raw = getNextWorkflowStage('Pickup from Hospital', { skipBilling });
+    skipPickupForUsedNoReturn = true;
+  } else if (raw === 'Pickup from Hospital' && pickupOutcome === 'parked') {
+    return {
+      next: null,
+      skipSelfSurgery,
+      skipPickupForUsedNoReturn: false,
+      completeParkedFromPickup: true,
+    };
+  }
+
+  return { next: raw, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup };
 }
 
 /** Approve one stage; when skipping self surgery, also mark Surgery approved. */
@@ -448,6 +492,73 @@ export function applyApprovalWithSelfSurgerySkip(
         };
       }
       return s;
+    }),
+  );
+}
+
+/** Approve current stage; when skipping used/no return pickup, also mark Pickup approved. */
+export function applyApprovalWithPickupUsedNoReturnSkip(
+  stages: StageRecord[],
+  approvedStage: WorkflowStage,
+  opts: { approvedAt: string; adminNotes: string; skipPickup: boolean; returnOutcome?: ReturnOutcome },
+): StageRecord[] {
+  const approvedName = normalizeWorkflowStageName(approvedStage);
+  return normalizeCaseStages(
+    stages.map((s) => {
+      const name = normalizeWorkflowStageName(s.stage);
+      if (name === approvedName) {
+        return {
+          ...s,
+          status: 'Approved' as const,
+          approvedAt: opts.approvedAt,
+          adminNotes: opts.adminNotes,
+          ...(opts.returnOutcome && name === 'Pickup from Hospital'
+            ? { returnOutcome: opts.returnOutcome }
+            : {}),
+        };
+      }
+      if (opts.skipPickup && name === 'Pickup from Hospital') {
+        return {
+          ...s,
+          status: 'Approved' as const,
+          approvedAt: opts.approvedAt,
+          adminNotes: PICKUP_USED_NO_RETURN_NOTE,
+          returnOutcome: 'used_no_return' as const,
+        };
+      }
+      return s;
+    }),
+  );
+}
+
+/** Approve from `fromStage` onward and mark remaining workflow complete (Set Parked at return). */
+export function applyParkedCompleteFromStage(
+  stages: StageRecord[],
+  fromStage: WorkflowStage,
+  opts: { approvedAt: string; currentAdminNotes: string },
+): StageRecord[] {
+  const fromIdx = getStageIndex(fromStage);
+  if (fromIdx < 0) return normalizeCaseStages(stages);
+  const skipNote = `Skipped — Set Parked. ${PICKUP_PARKED_COMPLETE_NOTE}`;
+  return normalizeCaseStages(
+    stages.map((s, i) => {
+      if (i < fromIdx) return s;
+      const name = normalizeWorkflowStageName(s.stage);
+      if (i === fromIdx) {
+        return {
+          ...s,
+          status: 'Approved' as const,
+          approvedAt: opts.approvedAt,
+          adminNotes: opts.currentAdminNotes,
+          ...(name === 'Pickup from Hospital' ? { returnOutcome: 'parked' as const } : {}),
+        };
+      }
+      return {
+        ...s,
+        status: 'Approved' as const,
+        approvedAt: s.approvedAt ?? opts.approvedAt,
+        adminNotes: s.adminNotes?.trim() ? s.adminNotes : skipNote,
+      };
     }),
   );
 }

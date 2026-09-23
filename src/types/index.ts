@@ -25,6 +25,9 @@ export type WorkflowStage =
   | 'Completed';
 
 export type RestockOutcome = 'restocked' | 'order';
+
+/** Pickup (return) stage — implants used with no pickup, or set parked at hospital. */
+export type ReturnOutcome = 'used_no_return' | 'parked';
 export type SurgeryOutcome = 'cancelled' | 'parked';
 
 export type Department =
@@ -92,6 +95,8 @@ export interface StageRecord {
   documents: Document[];
   /** Restock stage only — kit refilled vs order placed when stock unavailable. */
   restockOutcome?: RestockOutcome;
+  /** Pickup from Hospital — used/no return or parked (auto-advance). */
+  returnOutcome?: ReturnOutcome;
   /** Surgery stage only — hospital performed the surgery independently; no Malcon staff involved. */
   selfPerformed?: boolean;
   /** Delivery / Surgery only — optional extra helper; primary assignee submits the stage. */

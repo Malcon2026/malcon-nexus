@@ -19,6 +19,8 @@ import type { Hospital } from '../types';
 import type { StageWithAssistant } from './caseWorkflow';
 import type { SurgeryDateMode } from '../components/SurgeryDateQuickPick';
 import { normalizeCaseTextFields } from './textFormat';
+import { isReturnDutySpecialValue, returnDutyIdToOutcome } from './returnPickup';
+import type { ReturnOutcome } from '../types';
 
 function emptyStageAssistantIds(): Record<StageWithAssistant, string> {
   return { Delivery: '', Surgery: '' };
@@ -95,6 +97,7 @@ export function buildCreateCasePayload(
   stageAssistantAssignments: StageAssistantAssignments;
   surgerySelfPerformed: boolean;
   postSurgeryDuties: ReturnType<typeof buildPostSurgeryDutiesFromEmployeeIds>;
+  pickupReturnOutcome?: ReturnOutcome;
   createdBy: string;
 } {
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
@@ -120,6 +123,7 @@ export function buildCreateCasePayload(
   };
 
   const surgerySelfPerformed = form.stageEmployeeIds.Surgery === SURGERY_SELF_ASSIGNMENT_VALUE;
+  const pickupReturnOutcome = returnDutyIdToOutcome(form.dutyEmployeeIds.return?.trim()) ?? undefined;
   const stageEmployeeIds = { ...form.stageEmployeeIds };
   if (
     currentUser &&
@@ -169,7 +173,7 @@ export function buildCreateCasePayload(
     if (!activeStages.includes(workflowStage)) continue;
     if (stageAssignments[workflowStage]) continue;
     const empId = form.dutyEmployeeIds[kind]?.trim();
-    if (!empId) continue;
+    if (!empId || isReturnDutySpecialValue(empId)) continue;
     const emp = employees.find((e) => e.id === empId);
     if (emp) stageAssignments[workflowStage] = emp;
   }
@@ -199,6 +203,7 @@ export function buildCreateCasePayload(
     stageAssistantAssignments,
     surgerySelfPerformed,
     postSurgeryDuties: buildPostSurgeryDutiesFromEmployeeIds(form.dutyEmployeeIds, employees),
+    pickupReturnOutcome,
     createdBy,
   };
 }

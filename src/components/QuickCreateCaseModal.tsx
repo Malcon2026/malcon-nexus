@@ -568,6 +568,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         })
                       }
                       placeholder={dutyPickerPlaceholder(kind)}
+                      allowReturnSpecial={kind === 'return'}
                     />
                   </div>
                 ))}

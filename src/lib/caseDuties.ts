@@ -1,5 +1,6 @@
 import type { Employee, ImplantCase, WorkflowStage } from '../types';
 import { findStageRecord, normalizeWorkflowStageName } from './caseWorkflow';
+import { isReturnDutySpecialValue } from './returnPickup';
 
 /** After-surgery stages: Return, Clean & audit, Restock (assigned at create or by store manager). */
 export type CaseDutyKind = 'return' | 'cleaning' | 'restock';
@@ -136,7 +137,7 @@ export function buildPostSurgeryDutiesFromEmployeeIds(
   const now = new Date().toISOString();
   for (const kind of CASE_DUTY_KINDS) {
     const id = ids[kind]?.trim();
-    if (!id) continue;
+    if (!id || isReturnDutySpecialValue(id)) continue;
     const emp = employees.find((e) => e.id === id);
     if (!emp) continue;
     duties[kind] = { assignedEmployee: emp, assignedAt: now };

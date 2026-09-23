@@ -15,6 +15,7 @@ import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { EditCaseModal } from '../components/EditCaseModal';
 import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
+import { ReturnOutcomeBadge } from '../components/ReturnOutcomeBadge';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import {
@@ -1183,6 +1184,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                         {stage.restockOutcome && (
                           <div className="mt-2">
                             <RestockOutcomeBadge outcome={stage.restockOutcome} />
+                          </div>
+                        )}
+                        {stage.returnOutcome && (
+                          <div className="mt-2">
+                            <ReturnOutcomeBadge outcome={stage.returnOutcome} />
                           </div>
                         )}
                         {stage.notes && (

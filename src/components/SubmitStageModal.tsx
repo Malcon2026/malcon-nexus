@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Package, ShoppingCart } from 'lucide-react';
+import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
 import { useStore } from '../store/useStore';
-import type { ImplantCase, RestockOutcome, WorkflowStage } from '../types';
+import type { ImplantCase, RestockOutcome, ReturnOutcome, WorkflowStage } from '../types';
+import { RETURN_OUTCOMES } from '../lib/returnPickup';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { formatUnknownError } from '../utils/errors';
 
@@ -51,11 +52,14 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
   const stage = normalizeWorkflowStage(c.currentStage);
   const isRestock = stage === 'Restock';
+  const isPickup = stage === 'Pickup from Hospital';
   const isStoreSetPrep =
     viewMode === 'store_manager' && stage === 'Set Preparation';
   const title = isRestock
     ? 'Restock'
-    : isStoreSetPrep
+    : isPickup
+      ? 'Return (pickup)'
+      : isStoreSetPrep
       ? 'Set preparation photos'
       : STAGE_ACTIONS[stage] || 'Submit Work';
   const submitLabel = isStoreSetPrep ? 'Complete set & go to Delivery' : 'Submit to Admin';
@@ -81,7 +85,10 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
     onClose();
   };
 
-  const handleSubmit = async (restockOutcome?: RestockOutcome) => {
+  const handleSubmit = async (
+    restockOutcome?: RestockOutcome,
+    returnOutcome?: ReturnOutcome,
+  ) => {
     if (photos.length === 0) {
       setError('Please add at least one photo before submitting.');
       return;
@@ -106,6 +113,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         photos.map((p) => p.file),
         (done, total) => setUploadProgress({ done, total }),
         restockOutcome,
+        returnOutcome,
       );
 
       if (result.error) {
@@ -135,8 +143,14 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={title}
-      subtitle={isRestock ? 'Add photo + notes, then tap Restocked or Order' : undefined}
-      size={isRestock ? 'lg' : 'md'}
+      subtitle={
+        isRestock
+          ? 'Add photo + notes, then tap Restocked or Order'
+          : isPickup
+            ? 'Add photo + notes, then choose return type or complete a normal pickup'
+            : undefined
+      }
+      size={isRestock || isPickup ? 'lg' : 'md'}
       footer={
         <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={submitting}>
@@ -161,6 +175,36 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
                 icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
               >
                 {busyLabel ?? 'Order'}
+              </Button>
+            </>
+          ) : isPickup ? (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => void handleSubmit(undefined, undefined)}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              >
+                {busyLabel ?? 'Pickup completed'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleSubmit(undefined, 'used_no_return')}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              >
+                {busyLabel ?? RETURN_OUTCOMES[0].title}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleSubmit(undefined, 'parked')}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ParkingCircle className="h-4 w-4" />}
+              >
+                {busyLabel ?? RETURN_OUTCOMES[1].title}
               </Button>
             </>
           ) : (
@@ -192,6 +236,41 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             <span className="font-medium text-gray-800">{stage}</span>
           </div>
         </div>
+
+        {isPickup && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {RETURN_OUTCOMES.map((opt) => (
+              <div
+                key={opt.id}
+                className={`rounded-xl border-2 px-4 py-3 ${
+                  opt.id === 'used_no_return'
+                    ? 'border-violet-200 bg-violet-50'
+                    : 'border-slate-200 bg-slate-50'
+                }`}
+              >
+                <div
+                  className={`flex items-center gap-2 font-semibold text-sm ${
+                    opt.id === 'used_no_return' ? 'text-violet-800' : 'text-slate-800'
+                  }`}
+                >
+                  {opt.id === 'used_no_return' ? (
+                    <Ban className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <ParkingCircle className="h-4 w-4 shrink-0" />
+                  )}
+                  {opt.title}
+                </div>
+                <p
+                  className={`text-xs mt-1 ${
+                    opt.id === 'used_no_return' ? 'text-violet-700/90' : 'text-slate-700/90'
+                  }`}
+                >
+                  {opt.hint}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {isRestock && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

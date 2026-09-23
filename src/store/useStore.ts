@@ -67,7 +67,8 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, isSelfPerformedSurgery, SELF_SURGERY_AUTO_ADVANCE_NOTE } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE } from '../lib/caseWorkflow';
+import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
 import { isSetPreparationStage } from '../lib/roles';
@@ -160,6 +161,8 @@ interface AppState {
       startStage?: WorkflowStage;
       /** Hospital will perform surgery independently — no scrub person needed. */
       surgerySelfPerformed?: boolean;
+      /** Return category at create — auto-advance when case reaches pickup. */
+      pickupReturnOutcome?: import('../types').ReturnOutcome;
     },
   ) => Promise<void>;
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
@@ -181,6 +184,7 @@ interface AppState {
     employee: Employee,
     nextStage: WorkflowStage,
     skipSelfSurgery?: boolean,
+    skipPickupForUsedNoReturn?: boolean,
   ) => void;
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
@@ -202,12 +206,14 @@ interface AppState {
   repairStuckAssignmentsForCurrentUser: () => Promise<void>;
   repairPendingStageSubmissions: () => Promise<void>;
   repairStuckSelfSurgeryCases: () => Promise<void>;
+  repairStuckPickupReturnOutcomes: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
     photos: File[],
     onUploadProgress?: (completed: number, total: number) => void,
     restockOutcome?: RestockOutcome,
+    returnOutcome?: import('../types').ReturnOutcome,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string) => void;
   cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
@@ -1012,6 +1018,8 @@ function buildAutoAdvanceFromSubmit(
     stageDocuments: ImplantCase['stages'][0]['documents'];
     atRestock: boolean;
     restockOutcome?: RestockOutcome;
+    atPickup: boolean;
+    returnOutcome?: import('../types').ReturnOutcome;
   },
 ): {
   stages: ImplantCase['stages'];
@@ -1023,8 +1031,9 @@ function buildAutoAdvanceFromSubmit(
   nextStage: WorkflowStage | null;
 } {
   const currentName = normalizeWorkflowStageName(c.currentStage);
-  const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
-  const advancingUnassigned = Boolean(next && next !== 'Completed');
+  const { next, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup } =
+    resolveNextStageAfterApproval(c, currentName);
+  const advancingUnassigned = Boolean(next && next !== 'Completed' && !completeParkedFromPickup);
   const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
   const nextAssignee =
     next && next !== 'Completed' && !isFcfsStage(next)
@@ -1044,6 +1053,7 @@ function buildAutoAdvanceFromSubmit(
             adminNotes: opts.autoNotes,
             documents: [...s.documents, ...opts.stageDocuments],
             ...(opts.atRestock && opts.restockOutcome ? { restockOutcome: opts.restockOutcome } : {}),
+            ...(opts.atPickup && opts.returnOutcome ? { returnOutcome: opts.returnOutcome } : {}),
           }
         : s,
     ),
@@ -1068,6 +1078,24 @@ function buildAutoAdvanceFromSubmit(
     });
   }
 
+  if (skipPickupForUsedNoReturn) {
+    updatedStages = applyApprovalWithPickupUsedNoReturnSkip(updatedStages, currentName, {
+      approvedAt: opts.now,
+      adminNotes: opts.autoNotes,
+      skipPickup: true,
+    });
+  }
+
+  if (completeParkedFromPickup) {
+    updatedStages = applyParkedCompleteFromStage(updatedStages, currentName, {
+      approvedAt: opts.now,
+      currentAdminNotes: `${PICKUP_PARKED_COMPLETE_NOTE} ${opts.notes}`.trim(),
+    });
+  }
+
+  const pickupSkipNote =
+    skipPickupForUsedNoReturn ? ' Return (used/no return) skipped.' : completeParkedFromPickup ? ' Set Parked.' : '';
+
   const advanceLog = {
     id: `log-${Date.now()}-adv`,
     caseId: c.id,
@@ -1078,12 +1106,16 @@ function buildAutoAdvanceFromSubmit(
     details: advancingToFcfs
       ? `Case entered open pool at ${next}. ${opts.autoNotes}`
       : advancingUnassigned
-        ? `${c.currentStage} submitted and advanced to ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${opts.autoNotes}`
-        : `${c.currentStage} submitted and approved. ${opts.autoNotes}`,
+        ? `${c.currentStage} submitted and advanced to ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''}${pickupSkipNote} ${opts.autoNotes}`
+        : completeParkedFromPickup
+          ? `${c.currentStage} submitted — case completed (Set Parked). ${opts.autoNotes}`
+          : `${c.currentStage} submitted and approved. ${opts.autoNotes}`,
   };
 
   let statusAfter: ImplantCase['status'] = 'Approved';
-  if (advancingUnassigned) {
+  if (completeParkedFromPickup) {
+    statusAfter = 'Approved';
+  } else if (advancingUnassigned) {
     if (advancingToFcfs || nextAssignee) statusAfter = 'Active';
     else if (fromSetPrep && next === 'Delivery') statusAfter = 'Active';
     else statusAfter = 'Draft';
@@ -1096,7 +1128,7 @@ function buildAutoAdvanceFromSubmit(
     currentDepartment: advancingUnassigned && next ? getDepartmentForStage(next) : c.currentDepartment,
     assignedEmployee: advancingUnassigned ? nextAssignee : c.assignedEmployee,
     advanceLog,
-    nextStage: next,
+    nextStage: completeParkedFromPickup ? null : next,
   };
 }
 
@@ -1300,7 +1332,13 @@ export const useStore = create<AppState>((set, get) => ({
         };
       }
       const isSelfSurgery = stage === 'Surgery' && Boolean(caseData.surgerySelfPerformed);
-      const emp = isFcfsStage(stage) || isSelfSurgery ? null : (assignments[stage as keyof typeof assignments] ?? null);
+      const pickupReturnOutcome = caseData.pickupReturnOutcome;
+      const isSpecialReturn =
+        stage === 'Pickup from Hospital' && Boolean(pickupReturnOutcome);
+      const emp =
+        isFcfsStage(stage) || isSelfSurgery || isSpecialReturn
+          ? null
+          : (assignments[stage as keyof typeof assignments] ?? null);
       const assistantEmp =
         stageSupportsAssistant(stage) && !isSelfSurgery
           ? (assistantAssignments[stage] ?? null)
@@ -1326,6 +1364,7 @@ export const useStore = create<AppState>((set, get) => ({
         adminNotes: isSkipped ? skippedNote : '',
         documents: [],
         ...(isSelfSurgery && !isSkipped ? { selfPerformed: true } : {}),
+        ...(isSpecialReturn && !isSkipped ? { returnOutcome: pickupReturnOutcome } : {}),
       };
     });
 
@@ -1466,12 +1505,68 @@ export const useStore = create<AppState>((set, get) => ({
     if (!c) return;
 
     const currentName = normalizeWorkflowStageName(c.currentStage);
-    const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
+    const { next, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup } =
+      resolveNextStageAfterApproval(c, currentName);
+
+    if (completeParkedFromPickup) {
+      const approvedAt = new Date().toISOString();
+      let updatedStages = applyApprovalWithSelfSurgerySkip(c.stages, currentName, {
+        approvedAt,
+        adminNotes,
+        skipSelfSurgery,
+      });
+      if (skipPickupForUsedNoReturn) {
+        updatedStages = applyApprovalWithPickupUsedNoReturnSkip(updatedStages, currentName, {
+          approvedAt,
+          adminNotes,
+          skipPickup: true,
+        });
+      }
+      updatedStages = applyParkedCompleteFromStage(updatedStages, currentName, {
+        approvedAt,
+        currentAdminNotes: adminNotes,
+      });
+      const parkedLog = {
+        id: `log-${Date.now()}`,
+        caseId,
+        action: 'Set Parked',
+        performedBy: state.currentUser.name,
+        performedByRole: 'admin' as const,
+        timestamp: approvedAt,
+        details: `${PICKUP_PARKED_COMPLETE_NOTE} ${adminNotes}`,
+      };
+      await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Approved',
+        approvedAt,
+        adminNotes,
+      });
+      const updatedCase = await taskRepository.update(
+        caseId,
+        {
+          stages: updatedStages,
+          activityLogs: [...c.activityLogs, parkedLog],
+        },
+        c,
+      );
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+      }));
+      await get().closeCase(caseId);
+      return;
+    }
+
     // Pre-assign only for non-FCFS stages; FCFS stages open as an Active pool.
     if (next && next !== 'Completed' && !isFcfsStage(next)) {
       const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
       if (nextEmp) {
-        await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next, skipSelfSurgery);
+        await get().approveStageAndAssign(
+          caseId,
+          adminNotes,
+          nextEmp,
+          next,
+          skipSelfSurgery,
+          skipPickupForUsedNoReturn,
+        );
         return;
       }
     }
@@ -1484,6 +1579,13 @@ export const useStore = create<AppState>((set, get) => ({
       adminNotes,
       skipSelfSurgery,
     });
+    if (skipPickupForUsedNoReturn) {
+      updatedStages = applyApprovalWithPickupUsedNoReturnSkip(updatedStages, currentName, {
+        approvedAt,
+        adminNotes,
+        skipPickup: true,
+      });
+    }
     if (advancingToFcfs && next) {
       updatedStages = normalizeCaseStages(
         updatedStages.map((s) => {
@@ -1510,7 +1612,7 @@ export const useStore = create<AppState>((set, get) => ({
       details: advancingToFcfs
         ? `Case entered open pool at ${next}. Staff can request; admin assigns. ${adminNotes}`
         : advancingUnassigned
-          ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${adminNotes}`
+          ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''}${skipPickupForUsedNoReturn ? ' Return skipped (used/no return).' : ''} ${adminNotes}`
           : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
     };
 
@@ -2126,7 +2228,14 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  approveStageAndAssign: async (caseId, adminNotes, employee, nextStage, skipSelfSurgery = false) => {
+  approveStageAndAssign: async (
+    caseId,
+    adminNotes,
+    employee,
+    nextStage,
+    skipSelfSurgery = false,
+    skipPickupForUsedNoReturn = false,
+  ) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
@@ -2164,6 +2273,13 @@ export const useStore = create<AppState>((set, get) => ({
         skipSelfSurgery: true,
       });
     }
+    if (skipPickupForUsedNoReturn) {
+      updatedStages = applyApprovalWithPickupUsedNoReturnSkip(updatedStages, currentName, {
+        approvedAt,
+        adminNotes,
+        skipPickup: true,
+      });
+    }
 
     const approveLog = {
       id: `log-${Date.now()}`,
@@ -2172,7 +2288,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: approvedAt,
-      details: `Admin approved ${c.currentStage} stage.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${adminNotes}`,
+      details: `Admin approved ${c.currentStage} stage.${skipSelfSurgery ? ' Self surgery skipped.' : ''}${skipPickupForUsedNoReturn ? ' Return skipped (used/no return).' : ''} ${adminNotes}`,
     };
     const assignLog = {
       id: `log-${Date.now() + 1}`,
@@ -2470,14 +2586,54 @@ export const useStore = create<AppState>((set, get) => ({
     const newLogs: typeof c.activityLogs = [];
     const performerRole = state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const);
 
+    let returnOutcomeSet: import('../types').ReturnOutcome | null = null;
+
     for (const kind of CASE_DUTY_KINDS) {
       const empId = employeeIds[kind]?.trim();
       if (!empId) continue;
-      const employee = state.employees.find((e) => e.id === empId);
-      if (!employee) throw new Error(`Could not find employee for ${CASE_DUTY_LABELS[kind]}.`);
 
       const workflowStage = CASE_DUTY_WORKFLOW_STAGE[kind];
       const label = CASE_DUTY_LABELS[kind];
+
+      if (kind === 'return' && isReturnDutySpecialValue(empId)) {
+        const outcome = returnDutyIdToOutcome(empId);
+        if (!outcome) continue;
+        const pickupRec = findStageRecord(stages, 'Pickup from Hospital');
+        if (pickupRec?.returnOutcome === outcome && !pickupRec.assignedEmployee) continue;
+
+        returnOutcomeSet = outcome;
+        duties.return = { assignedEmployee: null, assignedAt: null };
+        stages = stages.map((s) =>
+          normalizeWorkflowStageName(s.stage) === workflowStage
+            ? {
+                ...s,
+                returnOutcome: outcome,
+                assignedEmployee: null,
+                assignedAt: null,
+                status: s.status === 'Assigned' ? ('Pending' as const) : s.status,
+              }
+            : s,
+        );
+
+        const log = {
+          id: `log-${Date.now()}-${kind}`,
+          caseId,
+          action: `${label}: ${returnOutcomeLabel(outcome)}`,
+          performedBy: state.currentUser.name,
+          performedByRole: performerRole,
+          timestamp: assignedAt,
+          details: `Return set to ${returnOutcomeLabel(outcome)} — will auto-advance when the case reaches pickup.`,
+        };
+        newLogs.push(log);
+        persistActivity(
+          createActivityEvent(log.action, 'case', caseId, c.caseNumber, state.currentUser.name, performerRole, log.details),
+        );
+        continue;
+      }
+
+      const employee = state.employees.find((e) => e.id === empId);
+      if (!employee) throw new Error(`Could not find employee for ${CASE_DUTY_LABELS[kind]}.`);
+
       const prev = duties[kind]?.assignedEmployee?.id;
       if (prev === employee.id) continue;
 
@@ -2491,6 +2647,7 @@ export const useStore = create<AppState>((set, get) => ({
               assignedAt,
               status:
                 s.status === 'Pending' || s.status === 'Assigned' ? ('Assigned' as const) : s.status,
+              ...(kind === 'return' ? { returnOutcome: undefined } : {}),
             }
           : s,
       );
@@ -2535,6 +2692,22 @@ export const useStore = create<AppState>((set, get) => ({
       cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
       activityLog: [...newLogs.reverse(), ...s.activityLog],
     }));
+
+    const after = get().cases.find((x) => x.id === caseId);
+    if (
+      returnOutcomeSet &&
+      after &&
+      normalizeWorkflowStageName(after.currentStage) === 'Pickup from Hospital' &&
+      after.status !== 'Waiting For Approval'
+    ) {
+      const pickupRec = findStageRecord(after.stages, 'Pickup from Hospital');
+      if (pickupRec?.status !== 'Approved') {
+        await get().approveStage(
+          caseId,
+          `${returnOutcomeLabel(returnOutcomeSet)} — auto-advanced from return assignment.`,
+        );
+      }
+    }
   },
 
   requestTask: async (caseId) => {
@@ -2744,7 +2917,29 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome) => {
+  repairStuckPickupReturnOutcomes: async () => {
+    const state = get();
+    if (!canManageAllCases(state.currentUser.role)) return;
+
+    for (const c of state.cases) {
+      if (normalizeWorkflowStageName(c.currentStage) !== 'Pickup from Hospital') continue;
+      const pickupRec = findStageRecord(c.stages, 'Pickup from Hospital');
+      if (!pickupRec?.returnOutcome) continue;
+      if (pickupRec.status === 'Approved') continue;
+      if (c.status === 'Waiting For Approval') continue;
+
+      try {
+        await get().approveStage(
+          c.id,
+          `${returnOutcomeLabel(pickupRec.returnOutcome)} — auto-advanced from return category.`,
+        );
+      } catch (err) {
+        console.error('[repairStuckPickupReturnOutcomes]', c.caseNumber, err);
+      }
+    }
+  },
+
+  submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome, returnOutcome) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return { error: 'Case not found' };
@@ -2776,7 +2971,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     const uploadedBy = c.assignedEmployee?.name || state.currentUser.name;
     const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
+    const returnLabel = returnOutcome ? returnOutcomeLabel(returnOutcome) : '';
     const atRestock = normalizeWorkflowStage(c.currentStage) === 'Restock';
+    const atPickup = normalizeWorkflowStage(c.currentStage) === 'Pickup from Hospital';
 
     try {
       const stageDocuments = await uploadStagePhotos(
@@ -2790,7 +2987,11 @@ export const useStore = create<AppState>((set, get) => ({
       const stageIdx = WORKFLOW_STAGES.indexOf(c.currentStage);
       const now = new Date().toISOString();
       const photoLabel = stageDocuments.length === 1 ? 'photo' : `${stageDocuments.length} photos`;
-      const outcomeDetail = restockLabel ? ` Outcome: ${restockLabel}.` : '';
+      const outcomeDetail = restockLabel
+        ? ` Outcome: ${restockLabel}.`
+        : returnLabel
+          ? ` Return: ${returnLabel}.`
+          : '';
       const submitLog = {
         id: `log-${Date.now()}`,
         caseId,
@@ -2804,10 +3005,20 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (AUTO_APPROVE_STAGE_SUBMISSIONS) {
         const currentName = normalizeWorkflowStageName(c.currentStage);
-        const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
+        const cForAdvance: ImplantCase =
+          returnOutcome && atPickup
+            ? {
+                ...c,
+                stages: c.stages.map((s, i) =>
+                  i === stageIdx ? { ...s, returnOutcome } : s,
+                ),
+              }
+            : c;
+        const { next, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup } =
+          resolveNextStageAfterApproval(cForAdvance, currentName);
         const nextEmp =
-          next && next !== 'Completed' && !isFcfsStage(next)
-            ? findStageRecord(c.stages, next)?.assignedEmployee
+          next && next !== 'Completed' && !isFcfsStage(next) && !completeParkedFromPickup
+            ? findStageRecord(cForAdvance.stages, next)?.assignedEmployee
             : null;
 
         // Pre-assigned next stage (non-FCFS): keep two-step assign path.
@@ -2820,6 +3031,7 @@ export const useStore = create<AppState>((set, get) => ({
                   submittedAt: now,
                   notes,
                   ...(atRestock && restockOutcome ? { restockOutcome } : {}),
+                  ...(atPickup && returnOutcome ? { returnOutcome } : {}),
                   documents: [...s.documents, ...stageDocuments],
                 }
               : s,
@@ -2836,9 +3048,16 @@ export const useStore = create<AppState>((set, get) => ({
           set((s) => ({
             cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
           }));
-          await get().approveStageAndAssign(caseId, autoNotes, nextEmp, next, skipSelfSurgery);
+          await get().approveStageAndAssign(
+            caseId,
+            autoNotes,
+            nextEmp,
+            next,
+            skipSelfSurgery,
+            skipPickupForUsedNoReturn,
+          );
         } else {
-          const advanced = buildAutoAdvanceFromSubmit(c, stageIdx, {
+          const advanced = buildAutoAdvanceFromSubmit(cForAdvance, stageIdx, {
             now,
             notes,
             autoNotes,
@@ -2846,6 +3065,8 @@ export const useStore = create<AppState>((set, get) => ({
             stageDocuments,
             atRestock,
             restockOutcome,
+            atPickup,
+            returnOutcome,
           });
           const updatedCase = await taskRepository.update(
             caseId,
@@ -2867,7 +3088,9 @@ export const useStore = create<AppState>((set, get) => ({
             c.caseNumber,
             uploadedBy,
             'employee',
-            `${c.currentStage} submitted with ${photoLabel} — auto-advanced.`,
+            completeParkedFromPickup
+              ? `${c.currentStage} submitted — case completed (Set Parked).`
+              : `${c.currentStage} submitted with ${photoLabel} — auto-advanced.`,
           );
           void persistActivity(activity);
 
@@ -2876,7 +3099,7 @@ export const useStore = create<AppState>((set, get) => ({
             activityLog: [activity, ...s.activityLog],
           }));
 
-          if (advanced.nextStage === 'Completed') {
+          if (advanced.nextStage === 'Completed' || completeParkedFromPickup) {
             await get().closeCase(caseId);
           }
         }
@@ -2885,7 +3108,9 @@ export const useStore = create<AppState>((set, get) => ({
         const successNotif = createNotification(
           'Stage Submitted',
           advancedCase
-            ? `Case ${advancedCase.caseNumber} advanced to ${advancedCase.currentStage}.`
+            ? completeParkedFromPickup
+              ? `Case ${advancedCase.caseNumber} completed (Set Parked).`
+              : `Case ${advancedCase.caseNumber} advanced to ${advancedCase.currentStage}.`
             : `Case ${c.caseNumber} ${c.currentStage} submitted successfully.`,
           'success',
           caseId,
@@ -2903,6 +3128,7 @@ export const useStore = create<AppState>((set, get) => ({
               submittedAt: now,
               notes,
               ...(atRestock && restockOutcome ? { restockOutcome } : {}),
+              ...(atPickup && returnOutcome ? { returnOutcome } : {}),
               documents: [...s.documents, ...stageDocuments],
             }
           : s,

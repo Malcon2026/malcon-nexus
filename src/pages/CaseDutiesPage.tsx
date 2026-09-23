@@ -19,6 +19,8 @@ import {
   casesForDutyBoard,
 } from '../lib/caseDuties';
 import type { ImplantCase } from '../types';
+import { findStageRecord } from '../lib/caseWorkflow';
+import { returnOutcomeToDutyId } from '../lib/returnPickup';
 import { CaseDetail } from './CaseDetail';
 
 function emptyDraftIds(): Record<CaseDutyKind, string> {
@@ -54,7 +56,13 @@ export const CaseDutiesPage: React.FC = () => {
     setPickCase(c);
     setDraftIds(
       Object.fromEntries(
-        CASE_DUTY_KINDS.map((k) => [k, getDutyEmployee(c, k)?.id ?? '']),
+        CASE_DUTY_KINDS.map((k) => {
+          if (k === 'return') {
+            const outcome = findStageRecord(c.stages, 'Pickup from Hospital')?.returnOutcome;
+            if (outcome) return [k, returnOutcomeToDutyId(outcome)];
+          }
+          return [k, getDutyEmployee(c, k)?.id ?? ''];
+        }),
       ) as Record<CaseDutyKind, string>,
     );
   };
@@ -235,6 +243,7 @@ export const CaseDutiesPage: React.FC = () => {
                 value={draftIds[kind]}
                 onChange={(value) => setDraftIds((d) => ({ ...d, [kind]: value }))}
                 placeholder={dutyPickerPlaceholder(kind)}
+                allowReturnSpecial={kind === 'return'}
               />
             </div>
           ))}

@@ -6,6 +6,11 @@ import type { Employee } from '../types';
 import { departmentColors } from '../utils/helpers';
 import { employeeCoversDepartment, getEmployeeDepartments } from '../constants/departments';
 import { SURGERY_SELF_ASSIGNMENT_VALUE } from '../lib/caseWorkflow';
+import {
+  RETURN_OUTCOMES,
+  RETURN_PARKED_VALUE,
+  RETURN_USED_NO_RETURN_VALUE,
+} from '../lib/returnPickup';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 
 interface EmployeeSearchSelectProps {
@@ -17,6 +22,8 @@ interface EmployeeSearchSelectProps {
   suggestedDepartment?: string | null;
   allowSelf?: boolean;
   selfLabel?: string;
+  /** Return duty — Used/no return or Parked (auto-advance). */
+  allowReturnSpecial?: boolean;
   /** Pick the signed-in user as assignee (Set Preparation / store lead). */
   allowAssignToMe?: boolean;
   assignToMeLabel?: string;
@@ -56,6 +63,7 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
   suggestedDepartment,
   allowSelf = false,
   selfLabel = 'Self — Hospital performs surgery',
+  allowReturnSpecial = false,
   allowAssignToMe = false,
   assignToMeLabel = 'Assign to me',
   currentUser = null,
@@ -81,15 +89,28 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
     [sortedEmployees, query],
   );
 
-  const selectedEmployee = value && value !== SURGERY_SELF_ASSIGNMENT_VALUE
-    ? activeEmployees.find((e) => e.id === value) ?? null
-    : null;
+  const isSpecialValue =
+    value === SURGERY_SELF_ASSIGNMENT_VALUE ||
+    value === RETURN_USED_NO_RETURN_VALUE ||
+    value === RETURN_PARKED_VALUE;
 
-  const displayLabel = value === SURGERY_SELF_ASSIGNMENT_VALUE
-    ? selfLabel
-    : selectedEmployee
-      ? `${selectedEmployee.name} — ${getEmployeeDepartments(selectedEmployee).join(', ')}`
-      : placeholder;
+  const selectedEmployee =
+    value && !isSpecialValue ? activeEmployees.find((e) => e.id === value) ?? null : null;
+
+  const returnSpecialLabel = RETURN_OUTCOMES.find(
+    (o) =>
+      (o.id === 'used_no_return' && value === RETURN_USED_NO_RETURN_VALUE) ||
+      (o.id === 'parked' && value === RETURN_PARKED_VALUE),
+  )?.title;
+
+  const displayLabel =
+    value === SURGERY_SELF_ASSIGNMENT_VALUE
+      ? selfLabel
+      : returnSpecialLabel
+        ? returnSpecialLabel
+        : selectedEmployee
+          ? `${selectedEmployee.name} — ${getEmployeeDepartments(selectedEmployee).join(', ')}`
+          : placeholder;
 
   useEffect(() => {
     if (!open) return;
@@ -127,7 +148,13 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         className={`${fieldClass} ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-gray-300 cursor-pointer'} ${
-          value === SURGERY_SELF_ASSIGNMENT_VALUE ? 'border-amber-200 bg-amber-50/50' : ''
+          value === SURGERY_SELF_ASSIGNMENT_VALUE
+            ? 'border-amber-200 bg-amber-50/50'
+            : value === RETURN_USED_NO_RETURN_VALUE
+              ? 'border-violet-200 bg-violet-50/50'
+              : value === RETURN_PARKED_VALUE
+                ? 'border-slate-200 bg-slate-50/50'
+                : ''
         }`}
       >
         {value === SURGERY_SELF_ASSIGNMENT_VALUE ? (
@@ -137,7 +164,7 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
         ) : null}
         <span
           className={`flex-1 min-w-0 truncate ${
-            selectedEmployee || value === SURGERY_SELF_ASSIGNMENT_VALUE ? 'text-gray-900' : 'text-gray-400'
+            selectedEmployee || isSpecialValue ? 'text-gray-900' : 'text-gray-400'
           }`}
         >
           {displayLabel}
@@ -248,6 +275,35 @@ export const EmployeeSearchSelect: React.FC<EmployeeSearchSelectProps> = ({
               </button>
               );
             })()}
+
+            {allowReturnSpecial &&
+              RETURN_OUTCOMES.map((opt) => {
+                const optValue =
+                  opt.id === 'used_no_return'
+                    ? RETURN_USED_NO_RETURN_VALUE
+                    : RETURN_PARKED_VALUE;
+                const q = query.trim().toLowerCase();
+                const show =
+                  !q || opt.title.toLowerCase().includes(q) || opt.hint.toLowerCase().includes(q);
+                if (!show) return null;
+                return (
+                  <button
+                    key={optValue}
+                    type="button"
+                    onClick={() => pick(optValue)}
+                    className={`w-full flex flex-col items-start gap-0.5 px-3 py-2 rounded-lg text-left transition-colors ${
+                      value === optValue
+                        ? opt.id === 'used_no_return'
+                          ? 'bg-violet-50 text-violet-900'
+                          : 'bg-slate-50 text-slate-900'
+                        : 'hover:bg-gray-50 text-gray-800'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{opt.title}</span>
+                    <span className="text-[11px] text-gray-500">{opt.hint}</span>
+                  </button>
+                );
+              })}
 
             {filteredEmployees.map((emp) => (
               <button

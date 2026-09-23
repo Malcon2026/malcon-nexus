@@ -127,6 +127,7 @@ function MainApp() {
         if (role === 'admin') {
           await useStore.getState().repairPendingStageSubmissions();
           await useStore.getState().repairStuckSelfSurgeryCases();
+          await useStore.getState().repairStuckPickupReturnOutcomes();
           reloadFromDatabase();
         }
         persistBootstrapCache(employee.id, role);
