@@ -428,15 +428,6 @@ export function resolveNextStageAfterApproval(
   implantCase: ImplantCase,
   current: WorkflowStage,
 ): StageAdvanceResolution {
-  if (isPostponedCase(implantCase)) {
-    return {
-      next: null,
-      skipSelfSurgery: false,
-      skipPickupForUsedNoReturn: false,
-      completeParkedFromPickup: false,
-    };
-  }
-
   const skipBilling = Boolean(implantCase.cancelReason);
   const currentName = normalizeWorkflowStageName(current);
   let raw = getNextWorkflowStage(currentName, { skipBilling });
@@ -753,7 +744,6 @@ export function getEmployeeSubmitStage(
   employee: Pick<Employee, 'id' | 'email'>,
 ): WorkflowStage | null {
   if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return null;
-  if (isPostponedCase(implantCase)) return null;
   if (isFcfsPoolCase(implantCase)) return null;
 
   for (const stage of VISIBLE_WORKFLOW_STAGES) {
@@ -834,35 +824,14 @@ export function canEmployeeSubmitCase(
   return getEmployeeSubmitStage(implantCase, employee) !== null;
 }
 
-/** Postponed cases are frozen at Surgery — no workflow moves until postpone is cleared. */
-export const POSTPONE_HOLD_STAGE: WorkflowStage = 'Surgery';
-
-/** Live case with a recorded postpone (surgery moved; kit stays at Surgery). */
+/** Live case with surgery postponed (date moved; kit waits until surgery is done). */
 export function isPostponedCase(c: ImplantCase): boolean {
   if (c.status === 'Completed' || c.status === 'Cancelled') return false;
   if ((c.cancelReason ?? '').trim()) return false;
   return Boolean((c.postponeReason ?? '').trim());
 }
 
-/** Case header while postponed — always Surgery; stage records are not auto-changed. */
-export function postponedCasePointer(
-  implantCase: ImplantCase,
-): {
-  currentStage: WorkflowStage;
-  currentDepartment: Department | null;
-  assignedEmployee: Employee | null;
-  status: ImplantCase['status'];
-} {
-  const surgeryRec = findStageRecord(implantCase.stages, POSTPONE_HOLD_STAGE);
-  const assignee = surgeryRec?.assignedEmployee ?? null;
-  let status = implantCase.status;
-  if (status !== 'Waiting For Approval' && status !== 'Changes Requested' && status !== 'Rejected') {
-    status = assignee ? 'Active' : implantCase.status;
-  }
-  return {
-    currentStage: POSTPONE_HOLD_STAGE,
-    currentDepartment: STAGE_DEPARTMENT_MAP[POSTPONE_HOLD_STAGE],
-    assignedEmployee: assignee,
-    status,
-  };
+/** Clear postpone flag once Surgery is completed so workflow can continue normally. */
+export function shouldClearPostponeAfterStage(stage: WorkflowStage): boolean {
+  return normalizeWorkflowStageName(stage) === 'Surgery';
 }

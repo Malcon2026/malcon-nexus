@@ -541,8 +541,9 @@ const PostponeCaseModal: React.FC<{
         <div className="mb-4 p-3 bg-sky-50 border border-sky-100 rounded-lg flex items-start gap-2">
           <CalendarClock className="h-4 w-4 text-sky-600 shrink-0 mt-0.5" />
           <p className="text-xs text-sky-700">
-            Use this when surgery is delayed, not cancelled. The case stays live at{' '}
-            <strong>{currentStage}</strong>.
+            Use this when surgery is delayed, not cancelled. The case will{' '}
+            <strong>stay postponed at Surgery</strong> — assign the scrub person as usual; when surgery is
+            completed the case moves to the next person.
             If implants will not be used at all, use Cancel Case instead.
           </p>
         </div>
@@ -870,11 +871,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         <div className="mb-6 p-3 rounded-xl bg-sky-50 border border-sky-200 flex items-start gap-2">
           <CalendarClock className="h-4 w-4 text-sky-700 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-sky-900">Surgery postponed</p>
+            <p className="text-sm font-semibold text-sky-900">Stay postponed</p>
             <p className="text-xs text-sky-800 mt-0.5">
-              New date: {formatDate(c.surgeryDate)}
+              New surgery date: {formatDate(c.surgeryDate)}
               {c.postponedFrom ? ` (was ${formatDate(c.postponedFrom)})` : ''}.
-              Kit stays at Surgery. Reason: {c.postponeReason}
+              Kit at Surgery — assign scrub and complete surgery as usual; then the case jumps to the next person.
+              Reason: {c.postponeReason}
             </p>
           </div>
         </div>

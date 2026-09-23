@@ -177,7 +177,7 @@ export interface ImplantCase {
   surgeryOutcome?: SurgeryOutcome | '';
   /** Cancel reason text when surgeryOutcome is cancelled; optional notes when parked. */
   surgeryOutcomeDetail?: string;
-  /** Set when surgery is postponed to a later date. Case stays live at Surgery until cleared. */
+  /** Set when surgery is postponed. Case stays at Surgery until surgery is completed. */
   postponeReason?: string;
   /** Surgery date before the latest postpone. */
   postponedFrom?: string;

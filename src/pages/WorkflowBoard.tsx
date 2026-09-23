@@ -157,7 +157,7 @@ export const WorkflowBoard: React.FC = () => {
                         {/* Status indicator */}
                         {c.postponeReason && !c.cancelReason && (
                           <div className="flex items-center gap-1 mt-2 px-2 py-1 bg-sky-50 border border-sky-100 rounded-lg">
-                            <span className="text-[10px] text-sky-700 font-medium">Postponed</span>
+                            <span className="text-[10px] text-sky-700 font-medium">Stay postponed</span>
                           </div>
                         )}
 
