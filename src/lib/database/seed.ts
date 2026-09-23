@@ -7,8 +7,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  'Billing',
-  'Bill Submission',
   'Completed',
 ];
 

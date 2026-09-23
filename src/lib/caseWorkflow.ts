@@ -2,6 +2,7 @@ import type { Department, Employee, ImplantCase, ReturnOutcome, StageRecord, Wor
 import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
 
+/** Active pipeline — Restock is the last operational stage; case closes after Restock. */
 export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Set Preparation',
   'Delivery',
@@ -9,31 +10,36 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  'Billing',
-  'Bill Submission',
   'Completed',
 ];
 
-/** When false, approved Restock closes the case (Billing is skipped). */
-export const BILLING_ENABLED = false;
+/** Removed from workflow; kept for legacy DB rows and type compatibility. */
+export const REMOVED_BILLING_STAGES = ['Billing', 'Bill Submission'] as const;
 
-/** When false, approved Billing closes the case (Bill Submission is skipped). */
+export const BILLING_ENABLED = false;
 export const BILL_SUBMISSION_ENABLED = false;
 
 /** Admin “Force Advance” on case detail — off until re-enabled. */
 export const FORCE_ADVANCE_ENABLED = false;
 
-export function isPostRestockStageDisabled(stage: WorkflowStage | string): boolean {
-  const name = normalizeWorkflowStageName(stage as WorkflowStage);
-  if (name === 'Billing' && !BILLING_ENABLED) return true;
-  if (name === 'Bill Submission' && !BILL_SUBMISSION_ENABLED) return true;
-  return false;
+export function isLegacyBillingStage(stage: WorkflowStage | string): boolean {
+  const raw = (stage ?? '').trim();
+  return (
+    raw === 'Billing' ||
+    raw === 'Bill Submission' ||
+    raw === 'Collection'
+  );
 }
 
-/** Map legacy Billing / Bill Submission rows onto the last active workflow column. */
+/** @deprecated Billing stages removed — always treated as disabled. */
+export function isPostRestockStageDisabled(stage: WorkflowStage | string): boolean {
+  return isLegacyBillingStage(stage);
+}
+
+/** Map legacy billing columns onto Restock for boards/filters. */
 export function mapCaseToVisibleStage(current: WorkflowStage | string): WorkflowStage {
   const name = normalizeWorkflowStageName(current);
-  if (isPostRestockStageDisabled(name)) return 'Restock';
+  if (isLegacyBillingStage(name)) return 'Restock';
   return name;
 }
 
@@ -50,8 +56,6 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  ...(BILLING_ENABLED ? (['Billing'] as const) : []),
-  ...(BILL_SUBMISSION_ENABLED ? (['Bill Submission'] as const) : []),
 ];
 
 export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
@@ -221,7 +225,8 @@ const STAGE_STATUS_RANK: Record<string, number> = {
 export function normalizeWorkflowStageName(stage: string | null | undefined): WorkflowStage {
   if (!stage) return 'Set Preparation';
   if (stage === 'Kit Preparation') return 'Set Preparation';
-  if (stage === 'Collection') return 'Bill Submission';
+  if (stage === 'Collection' || stage === 'Bill Submission') return 'Bill Submission';
+  if (stage === 'Billing') return 'Billing';
   if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
     return 'Cleaning & Audit';
   }
@@ -326,7 +331,6 @@ const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Pickup from Hospital',
   'Cleaning & Audit',
   'Restock',
-  ...(BILLING_ENABLED ? (['Billing'] as const) : []),
 ]);
 
 function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
@@ -352,28 +356,26 @@ export function isWorkflowStageEnabled(stage: WorkflowStage | string): boolean {
   return !isPostRestockStageDisabled(stage);
 }
 
-const DISABLED_STAGE_SKIP_NOTES: Partial<Record<WorkflowStage, string>> = {
-  Billing: 'Skipped — Billing disabled.',
-  'Bill Submission': 'Skipped — Bill Submission disabled.',
-};
-
-/** Mark disabled stages approved when a case closes without visiting them. */
+/** Mark Completed stage approved when closing a case. */
 export function skipDisabledWorkflowStages(stages: StageRecord[]): StageRecord[] {
   const now = new Date().toISOString();
   return normalizeCaseStages(
     stages.map((s) => {
       const name = normalizeWorkflowStageName(s.stage);
-      const skipNote = DISABLED_STAGE_SKIP_NOTES[name];
-      if (!skipNote || !isPostRestockStageDisabled(name)) return s;
+      if (name !== 'Completed') return s;
       if (s.status === 'Approved') return s;
       return {
         ...s,
         status: 'Approved' as const,
         approvedAt: s.approvedAt ?? now,
-        adminNotes: s.adminNotes || skipNote,
+        adminNotes: s.adminNotes || 'Case completed after Restock.',
       };
     }),
   );
+}
+
+export function isRestockStageComplete(stages: StageRecord[] | null | undefined): boolean {
+  return findStageRecord(stages, 'Restock')?.status === 'Approved';
 }
 
 /** Next stage in the workflow. Cancelled cases skip Billing and Bill Submission. */
@@ -797,11 +799,19 @@ export function computeOpenCasePointer(
   }
 
   const restockRec = findStageRecord(implantCase.stages, 'Restock');
+  if (restockRec?.status === 'Approved') {
+    return {
+      currentStage: 'Completed',
+      currentDepartment: null,
+      assignedEmployee: null,
+      status: 'Approved',
+    };
+  }
   return {
     currentStage: 'Restock',
     currentDepartment: STAGE_DEPARTMENT_MAP['Restock'],
     assignedEmployee: restockRec?.assignedEmployee ?? null,
-    status: restockRec?.status === 'Approved' ? 'Approved' : 'Active',
+    status: 'Active',
   };
 }
 

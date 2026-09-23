@@ -68,7 +68,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
@@ -99,10 +99,6 @@ import {
 } from '../lib/leave';
 import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
-
-const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed',
-];
 
 /** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
 const DEFAULT_INCENTIVE_RATE_PER_KM = 3;
@@ -208,6 +204,7 @@ interface AppState {
   repairPendingStageSubmissions: () => Promise<void>;
   repairStuckSelfSurgeryCases: () => Promise<void>;
   repairStuckPickupReturnOutcomes: () => Promise<void>;
+  repairLegacyBillingCases: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -216,7 +213,7 @@ interface AppState {
     restockOutcome?: RestockOutcome,
     returnOutcome?: import('../types').ReturnOutcome,
   ) => Promise<{ error: string | null }>;
-  closeCase: (caseId: string) => void;
+  closeCase: (caseId: string, options?: { allowFieldClose?: boolean }) => void;
   cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
   postponeCase: (caseId: string, newSurgeryDate: string, reason: string) => Promise<void>;
   deleteCase: (id: string) => void;
@@ -2904,6 +2901,22 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  repairLegacyBillingCases: async () => {
+    const state = get();
+    if (!canManageAllCases(state.currentUser.role)) return;
+
+    for (const c of state.cases) {
+      if (c.status === 'Completed' || c.status === 'Cancelled') continue;
+      if (!isRestockStageComplete(c.stages)) continue;
+
+      try {
+        await get().closeCase(c.id);
+      } catch (err) {
+        console.error('[repairLegacyBillingCases]', c.caseNumber, err);
+      }
+    }
+  },
+
   repairStuckPickupReturnOutcomes: async () => {
     const state = get();
     if (!canManageAllCases(state.currentUser.role)) return;
@@ -3069,9 +3082,13 @@ export const useStore = create<AppState>((set, get) => ({
           activityLog: [activity, ...s.activityLog],
         }));
 
-        const restockDone = findStageRecord(advanced.stages, 'Restock')?.status === 'Approved';
-        if (advanced.nextStage === 'Completed' || completeParkedFromPickup || restockDone) {
-          await get().closeCase(caseId);
+        if (
+          submitStageName === 'Restock' ||
+          advanced.nextStage === 'Completed' ||
+          completeParkedFromPickup ||
+          isRestockStageComplete(advanced.stages)
+        ) {
+          await get().closeCase(caseId, { allowFieldClose: true });
         }
 
         const advancedCase = get().cases.find((x) => x.id === caseId);
@@ -3186,23 +3203,29 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  closeCase: async (caseId) => {
+  closeCase: async (caseId, options) => {
     const state = get();
-    if (isStoreManager(state.currentUser.role)) return;
+    if (isStoreManager(state.currentUser.role) && !options?.allowFieldClose) return;
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
+    if (c.status === 'Completed' || c.status === 'Cancelled') return;
 
     const cancelled = Boolean(c.cancelReason);
+    const fieldClose = Boolean(options?.allowFieldClose);
+    const performerRole =
+      state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const);
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
       action: cancelled ? 'Case Cancelled' : 'Case Closed',
       performedBy: state.currentUser.name,
-      performedByRole: 'admin' as const,
+      performedByRole: performerRole,
       timestamp: new Date().toISOString(),
       details: cancelled
         ? `Unused implants returned and restocked. Case closed as Cancelled. Reason: ${c.cancelReason}`
-        : 'Admin closed the case. All stages complete.',
+        : fieldClose
+          ? 'Case completed after Restock.'
+          : 'Admin closed the case. All stages complete.',
     };
 
     const updatedCase = await taskRepository.update(caseId, {
@@ -3233,7 +3256,7 @@ export const useStore = create<AppState>((set, get) => ({
       caseId,
       c.caseNumber,
       state.currentUser.name,
-      'admin',
+      performerRole,
       cancelled
         ? `Case ${c.caseNumber} cancelled — unused implants returned.`
         : `Case ${c.caseNumber} completed and closed.`,
@@ -3278,13 +3301,11 @@ export const useStore = create<AppState>((set, get) => ({
     const cancelNote = `Cancelled. ${trimmed}`;
     const returnStage = returnStageAfterCancel(c.currentStage);
     const currentName = normalizeWorkflowStageName(c.currentStage);
-    const billing = new Set<WorkflowStage>(['Billing', 'Bill Submission']);
-
     const updatedStages = normalizeCaseStages(
       c.stages.map((s) => {
         const name = normalizeWorkflowStageName(s.stage);
         if (name === 'Completed') return s;
-        if (billing.has(name)) {
+        if (isLegacyBillingStage(name)) {
           return { ...s, status: 'Approved' as const, approvedAt: now, adminNotes: skipNote };
         }
         if (!returnStage && s.status !== 'Approved') {

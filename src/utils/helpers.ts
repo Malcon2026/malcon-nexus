@@ -137,7 +137,7 @@ export const timeAgo = (dateStr: string) => {
 
 export const getStageIndex = (stage: WorkflowStage): number => {
   const stages: WorkflowStage[] = [
-    'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
+    'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Completed'
   ];
   return stages.indexOf(normalizeWorkflowStage(stage));
 };
