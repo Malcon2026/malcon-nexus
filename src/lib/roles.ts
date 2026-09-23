@@ -77,16 +77,9 @@ export function canStoreManagerSubmitSetPreparation(
   user: Pick<Employee, 'id' | 'email' | 'role'>,
 ): boolean {
   if (user.role !== 'store_manager') return false;
-  if (!isSetPreparationStage(implantCase.currentStage)) return false;
-  if (
-    implantCase.status === 'Waiting For Approval' ||
-    implantCase.status === 'Completed' ||
-    implantCase.status === 'Cancelled'
-  ) {
-    return false;
-  }
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return false;
   const prep = findStageRecord(implantCase.stages, 'Set Preparation');
-  if (prep?.status === 'Submitted' || prep?.status === 'Approved') return false;
+  if (!prep || prep.status === 'Submitted' || prep.status === 'Approved') return false;
 
   if (isCaseAssignedToEmployee(implantCase, user)) return true;
   if (prep?.assignedEmployee && isCaseAssignedToEmployee({ ...implantCase, assignedEmployee: prep.assignedEmployee }, user)) {

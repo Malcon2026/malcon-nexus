@@ -728,25 +728,90 @@ export function needsAssignmentReactivation(
   return currentStageRecord.status === 'Assigned';
 }
 
+const EMPLOYEE_SUBMITTABLE_STAGE_STATUSES: StageRecord['status'][] = [
+  'Pending',
+  'Assigned',
+  'In Progress',
+  'Changes Requested',
+  'Rejected',
+];
+
+/** Primary stage this employee can submit (parallel workflow — not gated on case currentStage). */
+export function getEmployeeSubmitStage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): WorkflowStage | null {
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return null;
+  if (isFcfsPoolCase(implantCase)) return null;
+
+  for (const stage of VISIBLE_WORKFLOW_STAGES) {
+    if (stage === 'Completed') continue;
+    if (!isWorkflowStageEnabled(stage)) continue;
+    const rec = findStageRecord(implantCase.stages, stage);
+    if (!rec) continue;
+    if (!employeeMatches(rec.assignedEmployee, employee)) continue;
+    if (rec.status === 'Submitted') continue;
+    if (rec.status === 'Approved') {
+      if (
+        needsAssignmentReactivation(implantCase, employee) &&
+        normalizeWorkflowStageName(implantCase.currentStage) === stage
+      ) {
+        return stage;
+      }
+      continue;
+    }
+    if ((EMPLOYEE_SUBMITTABLE_STAGE_STATUSES as readonly string[]).includes(rec.status)) {
+      return stage;
+    }
+  }
+  return null;
+}
+
+/** Case header fields from the earliest workflow stage that is not yet approved. */
+export function computeOpenCasePointer(
+  implantCase: Pick<ImplantCase, 'stages' | 'cancelReason'>,
+): {
+  currentStage: WorkflowStage;
+  currentDepartment: Department | null;
+  assignedEmployee: Employee | null;
+  status: ImplantCase['status'];
+} {
+  for (const stage of WORKFLOW_STAGES) {
+    if (stage === 'Completed') continue;
+    if (isPostRestockStageDisabled(stage)) continue;
+    const rec = findStageRecord(implantCase.stages, stage);
+    if (!rec) continue;
+    if (rec.status === 'Approved') continue;
+
+    let status: ImplantCase['status'] = rec.assignedEmployee ? 'Active' : 'Draft';
+    if (rec.status === 'Submitted') status = 'Waiting For Approval';
+    if (rec.status === 'Changes Requested') status = 'Changes Requested';
+    if (rec.status === 'Rejected') status = 'Rejected';
+
+    return {
+      currentStage: stage,
+      currentDepartment: STAGE_DEPARTMENT_MAP[stage],
+      assignedEmployee: rec.assignedEmployee,
+      status,
+    };
+  }
+
+  const restockRec = findStageRecord(implantCase.stages, 'Restock');
+  return {
+    currentStage: 'Restock',
+    currentDepartment: STAGE_DEPARTMENT_MAP['Restock'],
+    assignedEmployee: restockRec?.assignedEmployee ?? null,
+    status: restockRec?.status === 'Approved' ? 'Approved' : 'Active',
+  };
+}
+
 export function canEmployeeSubmitCase(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email' | 'department'>,
 ): boolean {
-  if (!isWorkflowStageEnabled(implantCase.currentStage)) return false;
-  if (implantCase.currentStage === 'Completed') return false;
-  if (implantCase.status === 'Waiting For Approval') return false;
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return false;
   if (isFcfsPoolCase(implantCase)) return false;
-  if (!isEmployeeAssigneeOnCurrentStage(implantCase, employee)) return false;
-
-  const stageIdx = getStageIndex(implantCase.currentStage);
-  const currentStageRecord = stageIdx >= 0 ? implantCase.stages[stageIdx] : undefined;
-  if (currentStageRecord?.status === 'Submitted') return false;
-
-  if (currentStageRecord?.status === 'Approved') {
-    return needsAssignmentReactivation(implantCase, employee);
-  }
-
-  return true;
+  return getEmployeeSubmitStage(implantCase, employee) !== null;
 }
 
 /** Live case with a recorded postpone (surgery moved; kit stays at current stage). */

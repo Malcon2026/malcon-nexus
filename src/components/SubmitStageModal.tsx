@@ -7,6 +7,8 @@ import { useStore } from '../store/useStore';
 import type { ImplantCase, RestockOutcome, ReturnOutcome, WorkflowStage } from '../types';
 import { RETURN_OUTCOMES } from '../lib/returnPickup';
 import { normalizeWorkflowStage } from '../utils/helpers';
+import { getEmployeeSubmitStage } from '../lib/caseWorkflow';
+import { canStoreManagerSubmitSetPreparation } from '../lib/roles';
 import { formatUnknownError } from '../utils/errors';
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
@@ -50,7 +52,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
     }
   }, [isOpen, c.id]);
 
-  const stage = normalizeWorkflowStage(c.currentStage);
+  const stage =
+    getEmployeeSubmitStage(c, currentUser) ??
+    (canStoreManagerSubmitSetPreparation(c, currentUser)
+      ? 'Set Preparation'
+      : normalizeWorkflowStage(c.currentStage));
   const isRestock = stage === 'Restock';
   const isPickup = stage === 'Pickup from Hospital';
   const isStoreSetPrep =

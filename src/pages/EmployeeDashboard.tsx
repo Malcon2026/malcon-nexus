@@ -13,6 +13,7 @@ import type { ImplantCase } from '../types';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/helpers';
 import {
   canEmployeeSubmitCase,
+  getEmployeeSubmitStage,
   isCaseVisibleToEmployee,
   isCaseAssistantOnCurrentStage,
   isCaseAssignedToEmployee,
@@ -422,6 +423,7 @@ const EmployeeCasesPanel: React.FC<{
             const pc = getPriorityStyle(c.priority);
             const isSubmitted = c.status === 'Waiting For Approval';
             const canSubmit = canEmployeeSubmitCase(c, currentUser);
+            const mySubmitStage = getEmployeeSubmitStage(c, currentUser);
             const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
             return (
@@ -441,6 +443,11 @@ const EmployeeCasesPanel: React.FC<{
                             <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                             {c.currentStage}
                           </Badge>
+                          {canSubmit && mySubmitStage && mySubmitStage !== c.currentStage && (
+                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs">
+                              Your part: {mySubmitStage}
+                            </Badge>
+                          )}
                           <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
                           {isSubmitted && (
                             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
