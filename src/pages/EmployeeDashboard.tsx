@@ -123,7 +123,7 @@ const HomeNavTiles: React.FC<{
       title: 'Cases',
       titleTe: 'Cases',
       hint: isStoreManager(employee.role)
-        ? 'Prepare sets · upload Set Prep photos'
+        ? `${activeCases + waitingCases} assigned · sets, return, delivery, etc.`
         : waitingCases > 0
           ? `${waitingCases} waiting`
           : `${activeCases} active`,

@@ -64,7 +64,7 @@ export function usesEmployeeSignIn(role: Employee['role']): boolean {
   return role === 'employee' || role === 'store_manager';
 }
 
-/** Stage submit + photos: admin any stage; store manager Set Preparation only. */
+/** Stage submit + photos: admin any stage; store manager may bypass assignee check at Set Preparation only. */
 export function canBypassAssigneeForSubmit(role: Employee['role'], currentStage: string): boolean {
   if (role === 'admin') return true;
   if (role === 'store_manager') return isSetPreparationStage(currentStage);

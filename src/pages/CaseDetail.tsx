@@ -777,14 +777,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           {viewMode === 'employee' && myPendingRequest && inFcfsPool && (
             <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">Request pending</Badge>
           )}
-          {viewMode === 'employee' && canEmployeeSubmit && (
-            <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
-              {STAGE_ACTIONS[c.currentStage]}
-            </Button>
-          )}
           {canStoreManagerSetSubmit && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
               Upload set photos
+            </Button>
+          )}
+          {(viewMode === 'employee' || viewMode === 'store_manager') &&
+            canEmployeeSubmit &&
+            !canStoreManagerSetSubmit && (
+            <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
+              {STAGE_ACTIONS[c.currentStage]}
             </Button>
           )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>

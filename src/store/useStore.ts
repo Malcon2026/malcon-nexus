@@ -67,7 +67,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage } from '../lib/caseWorkflow';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
 import { isSetPreparationStage } from '../lib/roles';
@@ -2721,22 +2721,14 @@ export const useStore = create<AppState>((set, get) => ({
     if (normalizeWorkflowStage(c.currentStage) === 'Restock' && !restockOutcome) {
       return { error: 'Please choose Restocked or Order.' };
     }
-    if (
-      isStoreManager(state.currentUser.role) &&
-      normalizeWorkflowStage(c.currentStage) !== 'Set Preparation'
-    ) {
-      return {
-        error: 'Store managers prepare sets and upload photos at Set Preparation only.',
-      };
-    }
     if (!canBypassAssigneeForSubmit(state.currentUser.role, c.currentStage)) {
-      const assignedId = c.assignedEmployee?.id;
-      if (!assignedId) {
-        return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
-      }
-      if (assignedId !== state.currentUser.id) {
+      const stageAssignee = getCurrentStageAssignee(c);
+      if (!isEmployeeAssigneeOnCurrentStage(c, state.currentUser)) {
+        if (!stageAssignee?.id) {
+          return { error: 'This case has no assignee. Ask admin to assign you before submitting.' };
+        }
         return {
-          error: `This case is assigned to ${c.assignedEmployee?.name ?? 'someone else'}, not you. Ask admin to reassign.`,
+          error: `This case is assigned to ${stageAssignee.name ?? 'someone else'}, not you. Ask admin to reassign.`,
         };
       }
     }

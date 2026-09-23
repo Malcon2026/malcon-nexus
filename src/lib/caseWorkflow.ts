@@ -437,6 +437,61 @@ export function isCaseAssignedToEmployee(
   return employeeMatches(implantCase.assignedEmployee, employee);
 }
 
+/** Post-surgery duty slot for a workflow stage (Return / Clean / Restock). */
+function postSurgeryDutyAssignee(
+  implantCase: ImplantCase,
+  stage: WorkflowStage,
+): Employee | null | undefined {
+  const d = implantCase.postSurgeryDuties;
+  if (!d) return undefined;
+  if (stage === 'Pickup from Hospital') return d.return?.assignedEmployee ?? null;
+  if (stage === 'Cleaning & Audit') return d.cleaning?.assignedEmployee ?? null;
+  if (stage === 'Restock') return d.restock?.assignedEmployee ?? null;
+  return undefined;
+}
+
+/** Who should act on the case at its current workflow stage. */
+export function getCurrentStageAssignee(implantCase: ImplantCase): Employee | null {
+  const rec = findStageRecord(implantCase.stages, implantCase.currentStage);
+  if (rec?.assignedEmployee) return rec.assignedEmployee;
+  const fromDuty = postSurgeryDutyAssignee(implantCase, implantCase.currentStage);
+  if (fromDuty) return fromDuty;
+  return implantCase.assignedEmployee;
+}
+
+/** True when this person is the primary assignee for work at the current stage. */
+export function isEmployeeAssigneeOnCurrentStage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  if (employeeMatches(getCurrentStageAssignee(implantCase), employee)) return true;
+  return isCaseAssignedToEmployee(implantCase, employee);
+}
+
+function isAssignedOnPostSurgeryDuties(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  const d = implantCase.postSurgeryDuties;
+  if (!d) return false;
+  return (
+    employeeMatches(d.return?.assignedEmployee, employee) ||
+    employeeMatches(d.cleaning?.assignedEmployee, employee) ||
+    employeeMatches(d.restock?.assignedEmployee, employee)
+  );
+}
+
+function isAssignedOnAnyWorkflowStage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  return implantCase.stages.some(
+    (s) =>
+      employeeMatches(s.assignedEmployee, employee) ||
+      employeeMatches(s.assistantEmployee, employee),
+  );
+}
+
 /** Extra person on the current stage (Delivery / Surgery) — can view, cannot submit. */
 export function isCaseAssistantOnCurrentStage(
   implantCase: ImplantCase,
@@ -450,7 +505,11 @@ export function isCaseVisibleToEmployee(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email'>,
 ): boolean {
-  return isCaseAssignedToEmployee(implantCase, employee) || isCaseAssistantOnCurrentStage(implantCase, employee);
+  if (isCaseAssistantOnCurrentStage(implantCase, employee)) return true;
+  if (isEmployeeAssigneeOnCurrentStage(implantCase, employee)) return true;
+  if (isAssignedOnPostSurgeryDuties(implantCase, employee)) return true;
+  if (isAssignedOnAnyWorkflowStage(implantCase, employee)) return true;
+  return false;
 }
 
 export function formatAssigneeDisplay(
@@ -507,7 +566,7 @@ export function canEmployeeSubmitCase(
   if (implantCase.currentStage === 'Completed') return false;
   if (implantCase.status === 'Waiting For Approval') return false;
   if (isFcfsPoolCase(implantCase)) return false;
-  if (!isCaseAssignedToEmployee(implantCase, employee)) return false;
+  if (!isEmployeeAssigneeOnCurrentStage(implantCase, employee)) return false;
 
   const stageIdx = getStageIndex(implantCase.currentStage);
   const currentStageRecord = stageIdx >= 0 ? implantCase.stages[stageIdx] : undefined;
