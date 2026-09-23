@@ -393,6 +393,65 @@ export function getNextWorkflowStage(
   return next;
 }
 
+/** Surgery marked Self at create/edit — hospital performs without Malcon scrub. */
+export function isSelfPerformedSurgery(implantCase: ImplantCase): boolean {
+  return Boolean(findStageRecord(implantCase.stages, 'Surgery')?.selfPerformed);
+}
+
+export const SELF_SURGERY_AUTO_ADVANCE_NOTE =
+  'Hospital performed surgery independently (Self) — auto-advanced to return.';
+
+/**
+ * After approving `current`, where the case should land.
+ * Self surgery skips the Surgery stop and goes straight to Pickup (return).
+ */
+export function resolveNextStageAfterApproval(
+  implantCase: ImplantCase,
+  current: WorkflowStage,
+): { next: WorkflowStage | null; skipSelfSurgery: boolean } {
+  const skipBilling = Boolean(implantCase.cancelReason);
+  const raw = getNextWorkflowStage(current, { skipBilling });
+  if (raw === 'Surgery' && isSelfPerformedSurgery(implantCase)) {
+    return {
+      next: getNextWorkflowStage('Surgery', { skipBilling }),
+      skipSelfSurgery: true,
+    };
+  }
+  return { next: raw, skipSelfSurgery: false };
+}
+
+/** Approve one stage; when skipping self surgery, also mark Surgery approved. */
+export function applyApprovalWithSelfSurgerySkip(
+  stages: StageRecord[],
+  approvedStage: WorkflowStage,
+  opts: { approvedAt: string; adminNotes: string; skipSelfSurgery: boolean },
+): StageRecord[] {
+  const approvedName = normalizeWorkflowStageName(approvedStage);
+  return normalizeCaseStages(
+    stages.map((s) => {
+      const name = normalizeWorkflowStageName(s.stage);
+      if (name === approvedName) {
+        return {
+          ...s,
+          status: 'Approved' as const,
+          approvedAt: opts.approvedAt,
+          adminNotes: opts.adminNotes,
+        };
+      }
+      if (opts.skipSelfSurgery && name === 'Surgery') {
+        return {
+          ...s,
+          status: 'Approved' as const,
+          approvedAt: opts.approvedAt,
+          adminNotes: SELF_SURGERY_AUTO_ADVANCE_NOTE,
+          selfPerformed: true,
+        };
+      }
+      return s;
+    }),
+  );
+}
+
 /** Standard case remark when surgery is cancelled and no implants were used. */
 export const UNUSED_IMPLANTS_REMARK = 'Implants unused';
 

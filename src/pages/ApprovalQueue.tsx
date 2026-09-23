@@ -13,13 +13,14 @@ import { StagePhotoGallery } from '../components/StagePhotoGallery';
 import { RestockOutcomeBadge } from '../components/RestockOutcomeBadge';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { useStore } from '../store/useStore';
-import { getNextWorkflowStage } from '../lib/caseWorkflow';
+import { normalizeWorkflowStageName, resolveNextStageAfterApproval } from '../lib/caseWorkflow';
 import type { ImplantCase, Employee, WorkflowStage } from '../types';
 import { priorityColors, stageColors, departmentColors, timeAgo } from '../utils/helpers';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 
 const getNextStage = (c: ImplantCase): WorkflowStage | null => {
-  return getNextWorkflowStage(c.currentStage, { skipBilling: Boolean(c.cancelReason) });
+  const current = normalizeWorkflowStageName(c.currentStage);
+  return resolveNextStageAfterApproval(c, current).next;
 };
 
 const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
@@ -50,7 +51,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
   const [step, setStep] = useState<'action' | 'assign'>('action');
   const [submitting, setSubmitting] = useState(false);
 
-  const nextStage = getNextStage(c);
+  const currentStageName = normalizeWorkflowStageName(c.currentStage);
+  const { next: nextStage, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentStageName);
   const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
   const nextStageRecord = nextStage ? c.stages.find((s) => s.stage === nextStage) : undefined;
@@ -88,7 +90,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
       setSubmitting(true);
       try {
         if (selectedEmp && nextStage && !isFinalStage) {
-          await approveStageAndAssign(c.id, notes, selectedEmp, nextStage);
+          await approveStageAndAssign(c.id, notes, selectedEmp, nextStage, skipSelfSurgery);
         } else {
           // approveStage auto-activates the next pre-assigned employee, or
           // closes the case when this was Bill Submission.

@@ -67,7 +67,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, isSelfPerformedSurgery, SELF_SURGERY_AUTO_ADVANCE_NOTE } from '../lib/caseWorkflow';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
 import { isSetPreparationStage } from '../lib/roles';
@@ -180,6 +180,7 @@ interface AppState {
     adminNotes: string,
     employee: Employee,
     nextStage: WorkflowStage,
+    skipSelfSurgery?: boolean,
   ) => void;
   rejectStage: (caseId: string, adminNotes: string) => void;
   requestChanges: (caseId: string, adminNotes: string) => void;
@@ -200,6 +201,7 @@ interface AppState {
   reactivateAssignedCase: (caseId: string) => Promise<void>;
   repairStuckAssignmentsForCurrentUser: () => Promise<void>;
   repairPendingStageSubmissions: () => Promise<void>;
+  repairStuckSelfSurgeryCases: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -1020,7 +1022,8 @@ function buildAutoAdvanceFromSubmit(
   advanceLog: ImplantCase['activityLogs'][0];
   nextStage: WorkflowStage | null;
 } {
-  const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
+  const currentName = normalizeWorkflowStageName(c.currentStage);
+  const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
   const advancingUnassigned = Boolean(next && next !== 'Completed');
   const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
   const nextAssignee =
@@ -1057,6 +1060,14 @@ function buildAutoAdvanceFromSubmit(
     );
   }
 
+  if (skipSelfSurgery) {
+    updatedStages = applyApprovalWithSelfSurgerySkip(updatedStages, currentName, {
+      approvedAt: opts.now,
+      adminNotes: opts.autoNotes,
+      skipSelfSurgery: true,
+    });
+  }
+
   const advanceLog = {
     id: `log-${Date.now()}-adv`,
     caseId: c.id,
@@ -1067,7 +1078,7 @@ function buildAutoAdvanceFromSubmit(
     details: advancingToFcfs
       ? `Case entered open pool at ${next}. ${opts.autoNotes}`
       : advancingUnassigned
-        ? `${c.currentStage} submitted and advanced to ${next}. ${opts.autoNotes}`
+        ? `${c.currentStage} submitted and advanced to ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${opts.autoNotes}`
         : `${c.currentStage} submitted and approved. ${opts.autoNotes}`,
   };
 
@@ -1454,37 +1465,41 @@ export const useStore = create<AppState>((set, get) => ({
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
 
-    const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
     // Pre-assign only for non-FCFS stages; FCFS stages open as an Active pool.
     if (next && next !== 'Completed' && !isFcfsStage(next)) {
       const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
       if (nextEmp) {
-        await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next);
+        await get().approveStageAndAssign(caseId, adminNotes, nextEmp, next, skipSelfSurgery);
         return;
       }
     }
 
-    const currentName = normalizeWorkflowStageName(c.currentStage);
     const approvedAt = new Date().toISOString();
     const advancingUnassigned = Boolean(next && next !== 'Completed');
     const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
-    const updatedStages = normalizeCaseStages(
-      c.stages.map((s) => {
-        const name = normalizeWorkflowStageName(s.stage);
-        if (name === currentName) {
-          return { ...s, status: 'Approved' as const, approvedAt, adminNotes };
-        }
-        if (advancingToFcfs && next && name === normalizeWorkflowStageName(next)) {
-          return {
-            ...s,
-            assignedEmployee: null,
-            assignedAt: null,
-            status: 'Pending' as const,
-          };
-        }
-        return s;
-      }),
-    );
+    let updatedStages = applyApprovalWithSelfSurgerySkip(c.stages, currentName, {
+      approvedAt,
+      adminNotes,
+      skipSelfSurgery,
+    });
+    if (advancingToFcfs && next) {
+      updatedStages = normalizeCaseStages(
+        updatedStages.map((s) => {
+          const name = normalizeWorkflowStageName(s.stage);
+          if (name === normalizeWorkflowStageName(next)) {
+            return {
+              ...s,
+              assignedEmployee: null,
+              assignedAt: null,
+              status: 'Pending' as const,
+            };
+          }
+          return s;
+        }),
+      );
+    }
     const newLog = {
       id: `log-${Date.now()}`,
       caseId,
@@ -1495,7 +1510,7 @@ export const useStore = create<AppState>((set, get) => ({
       details: advancingToFcfs
         ? `Case entered open pool at ${next}. Staff can request; admin assigns. ${adminNotes}`
         : advancingUnassigned
-          ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}. ${adminNotes}`
+          ? `Admin moved ${c.currentStage} forward with no assignee. Next: ${next}.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${adminNotes}`
           : `Admin approved ${c.currentStage} stage. ${adminNotes}`,
     };
 
@@ -2111,7 +2126,7 @@ export const useStore = create<AppState>((set, get) => ({
     return { error: null };
   },
 
-  approveStageAndAssign: async (caseId, adminNotes, employee, nextStage) => {
+  approveStageAndAssign: async (caseId, adminNotes, employee, nextStage, skipSelfSurgery = false) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
@@ -2124,7 +2139,7 @@ export const useStore = create<AppState>((set, get) => ({
     const approvedAt = new Date().toISOString();
     const assignedAt = approvedAt;
 
-    const updatedStages = normalizeCaseStages(
+    let updatedStages = normalizeCaseStages(
       c.stages.map((s) => {
         const name = normalizeWorkflowStageName(s.stage);
         if (name === currentName) {
@@ -2142,6 +2157,13 @@ export const useStore = create<AppState>((set, get) => ({
         return s;
       }),
     );
+    if (skipSelfSurgery) {
+      updatedStages = applyApprovalWithSelfSurgerySkip(updatedStages, currentName, {
+        approvedAt,
+        adminNotes,
+        skipSelfSurgery: true,
+      });
+    }
 
     const approveLog = {
       id: `log-${Date.now()}`,
@@ -2150,7 +2172,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: approvedAt,
-      details: `Admin approved ${c.currentStage} stage. ${adminNotes}`,
+      details: `Admin approved ${c.currentStage} stage.${skipSelfSurgery ? ' Self surgery skipped.' : ''} ${adminNotes}`,
     };
     const assignLog = {
       id: `log-${Date.now() + 1}`,
@@ -2703,6 +2725,25 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  repairStuckSelfSurgeryCases: async () => {
+    const state = get();
+    if (!canManageAllCases(state.currentUser.role)) return;
+
+    for (const c of state.cases) {
+      if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') continue;
+      if (!isSelfPerformedSurgery(c)) continue;
+      const surgeryRec = findStageRecord(c.stages, 'Surgery');
+      if (surgeryRec?.status === 'Approved') continue;
+      if (c.status === 'Waiting For Approval') continue;
+
+      try {
+        await get().approveStage(c.id, SELF_SURGERY_AUTO_ADVANCE_NOTE);
+      } catch (err) {
+        console.error('[repairStuckSelfSurgeryCases]', c.caseNumber, err);
+      }
+    }
+  },
+
   submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
@@ -2762,7 +2803,8 @@ export const useStore = create<AppState>((set, get) => ({
       const autoNotes = `Auto-advanced after submit by ${uploadedBy}.`;
 
       if (AUTO_APPROVE_STAGE_SUBMISSIONS) {
-        const next = getNextStage(c.currentStage, Boolean(c.cancelReason));
+        const currentName = normalizeWorkflowStageName(c.currentStage);
+        const { next, skipSelfSurgery } = resolveNextStageAfterApproval(c, currentName);
         const nextEmp =
           next && next !== 'Completed' && !isFcfsStage(next)
             ? findStageRecord(c.stages, next)?.assignedEmployee
@@ -2794,7 +2836,7 @@ export const useStore = create<AppState>((set, get) => ({
           set((s) => ({
             cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
           }));
-          await get().approveStageAndAssign(caseId, autoNotes, nextEmp, next);
+          await get().approveStageAndAssign(caseId, autoNotes, nextEmp, next, skipSelfSurgery);
         } else {
           const advanced = buildAutoAdvanceFromSubmit(c, stageIdx, {
             now,
