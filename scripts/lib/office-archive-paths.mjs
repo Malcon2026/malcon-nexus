@@ -2,7 +2,8 @@
  * Office PC folder layout (IST calendar dates):
  *
  *   Cases (by surgery date):
- *     {PHOTOS_ROOT}/{YYYY}/{Month}/{DD-MM-YYYY}/{Case number}/Stage pics/*.jpg
+ *     {PHOTOS_ROOT}/{YYYY}/{Month}/{DD-MM-YYYY}/{IMP 279}/{Set Preparation}/*.jpg
+ *     … same case …/{Delivery}/, {Surgery}/, etc.
  *
  *   Attendance (by punch date):
  *     {PHOTOS_ROOT}/{YYYY}/{Month}/{DD-MM-YYYY}/Attendance/*.jpg
@@ -11,7 +12,6 @@
 import { join } from 'node:path';
 
 const IST = 'Asia/Kolkata';
-export const CASE_STAGE_PICS_FOLDER = 'Stage pics';
 
 function partsFromYmd(year, monthNum, day) {
   const dateFolder = `${day}-${monthNum}-${year}`;
@@ -73,9 +73,20 @@ export function sanitizeFolderName(name) {
   );
 }
 
-/** Case folder e.g. IMP-2026-279 → IMP 2026 279 */
+/** Case folder e.g. IMP-2026-001 → IMP 001 */
 export function caseFolderName(caseNumber) {
-  return sanitizeFolderName(String(caseNumber || 'Unknown case').replace(/-/g, ' '));
+  const raw = String(caseNumber || '').trim();
+  const m = raw.match(/^IMP-(\d{4})-(\d+)$/i);
+  if (m) {
+    const seq = m[2].padStart(3, '0');
+    return sanitizeFolderName(`IMP ${seq}`);
+  }
+  return sanitizeFolderName(raw.replace(/-/g, ' '));
+}
+
+/** Workflow stage folder e.g. Set Preparation, Delivery, Surgery */
+export function stageFolderName(stageLabel) {
+  return sanitizeFolderName(stageLabel || 'Unknown stage');
 }
 
 export function sanitizeFilePart(value) {
@@ -108,12 +119,12 @@ export function officeDayDirFromDateKey(photosRoot, dateKey) {
   return join(photosRoot, year, month, dateFolder);
 }
 
-/** {Year}/{Month}/{Date}/{Case}/Stage pics */
-export function officeCaseStagePicsDir(photosRoot, surgeryDateKey, caseNumber) {
+/** {Year}/{Month}/{Date}/{Case}/{Stage}/ */
+export function officeCaseStagePhotoDir(photosRoot, surgeryDateKey, caseNumber, stageLabel) {
   return join(
     officeDayDirFromDateKey(photosRoot, surgeryDateKey),
     caseFolderName(caseNumber),
-    CASE_STAGE_PICS_FOLDER,
+    stageFolderName(stageLabel),
   );
 }
 
@@ -124,9 +135,16 @@ export function officeAttendanceDir(photosRoot, iso) {
 }
 
 /** Log path under PHOTOS_ROOT for case photos. */
-export function officeCasePhotoRelativePath(surgeryDateKey, caseNumber, fileName) {
+export function officeCasePhotoRelativePath(surgeryDateKey, caseNumber, stageLabel, fileName) {
   const { year, month, dateFolder } = istCalendarPartsFromDateKey(surgeryDateKey);
-  return [year, month, dateFolder, caseFolderName(caseNumber), CASE_STAGE_PICS_FOLDER, fileName]
+  return [
+    year,
+    month,
+    dateFolder,
+    caseFolderName(caseNumber),
+    stageFolderName(stageLabel),
+    fileName,
+  ]
     .filter(Boolean)
     .join('/');
 }

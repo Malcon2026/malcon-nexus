@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sync stage photos from Supabase → office PC under PHOTOS_ROOT:
- *   {YYYY}/{Month}/{DD-MM-YYYY}/{Case number}/Stage pics/*.jpg
+ *   {YYYY}/{Month}/{DD-MM-YYYY}/{IMP 001}/{Set Preparation|Delivery|Surgery|…}/*.jpg
  *   (DD-MM-YYYY = case surgery date in IST)
  *
  * Run on your 24/7 office server:
@@ -33,7 +33,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
 import {
-  officeCaseStagePicsDir,
+  officeCaseStagePhotoDir,
   officeCasePhotoRelativePath,
   istDateKeyFromIso,
   sanitizeFilePart,
@@ -190,7 +190,7 @@ for (const caseRow of cases ?? []) {
   const caseNumber = sanitizeFilePart(caseRow.case_number || caseRow.id);
 
   for (const stageRecord of stages) {
-    const stageName = sanitizeFilePart(stageRecord?.stage || 'stage');
+    const stageLabel = stageRecord?.stage || 'Unknown stage';
     const documents = Array.isArray(stageRecord?.documents) ? stageRecord.documents : [];
 
     for (const doc of documents) {
@@ -209,15 +209,16 @@ for (const caseRow of cases ?? []) {
       const timestamp = sanitizeFilePart(
         (doc.uploadedAt || new Date().toISOString()).replace(/[:.]/g, '-'),
       );
-      const fileName = `${stageName}-${timestamp}-${String(doc.id).slice(0, 8)}${ext}`;
+      const fileName = `${timestamp}-${String(doc.id).slice(0, 8)}${ext}`;
       const surgeryRaw = caseRow.surgery_date ? String(caseRow.surgery_date).slice(0, 10) : '';
       const surgeryDayKey =
         /^\d{4}-\d{2}-\d{2}$/.test(surgeryRaw)
           ? surgeryRaw
           : istDateKeyFromIso(doc.uploadedAt || new Date().toISOString());
-      const destDir = officeCaseStagePicsDir(photosRoot, surgeryDayKey, caseRow.case_number || caseNumber);
+      const caseRef = caseRow.case_number || caseNumber;
+      const destDir = officeCaseStagePhotoDir(photosRoot, surgeryDayKey, caseRef, stageLabel);
       const destPath = join(destDir, fileName);
-      const logPath = officeCasePhotoRelativePath(surgeryDayKey, caseRow.case_number || caseNumber, fileName);
+      const logPath = officeCasePhotoRelativePath(surgeryDayKey, caseRef, stageLabel, fileName);
 
       mkdirSync(destDir, { recursive: true });
 
