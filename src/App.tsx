@@ -129,6 +129,7 @@ function MainApp() {
           await useStore.getState().repairStuckSelfSurgeryCases();
           await useStore.getState().repairStuckPickupReturnOutcomes();
           await useStore.getState().repairLegacyBillingCases();
+          await useStore.getState().repairPostponedCasesStayAtSurgery();
           reloadFromDatabase();
         }
         persistBootstrapCache(employee.id, role);

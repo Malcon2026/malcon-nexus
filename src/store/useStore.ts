@@ -205,6 +205,7 @@ interface AppState {
   repairStuckSelfSurgeryCases: () => Promise<void>;
   repairStuckPickupReturnOutcomes: () => Promise<void>;
   repairLegacyBillingCases: () => Promise<void>;
+  repairPostponedCasesStayAtSurgery: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -1493,6 +1494,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (isStoreManager(state.currentUser.role)) return;
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
+    if (isPostponedCase(c)) return;
 
     const currentName = normalizeWorkflowStageName(c.currentStage);
     const { next, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup } =
@@ -1695,6 +1697,9 @@ export const useStore = create<AppState>((set, get) => ({
     }
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) throw new Error('Case not found');
+    if (isPostponedCase(c)) {
+      throw new Error('This case is postponed. The kit stays at Surgery until admin clears the postpone.');
+    }
 
     const currentName = normalizeWorkflowStageName(c.currentStage);
     const targetName = normalizeWorkflowStageName(targetStage);
@@ -2239,10 +2244,7 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
-    if (isPostponedCase(c)) {
-      await get().approveStage(caseId, adminNotes);
-      return;
-    }
+    if (isPostponedCase(c)) return;
     if (!employee?.id) {
       throw new Error('Cannot assign next stage: employee is missing an id.');
     }
@@ -2583,6 +2585,9 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) throw new Error('Case not found');
+    if (isPostponedCase(c)) {
+      throw new Error('This case is postponed. Clear the postpone or wait for the new surgery date before changing duties.');
+    }
 
     const assignedAt = new Date().toISOString();
     const duties = { ...(c.postSurgeryDuties ?? normalizePostSurgeryDuties(null)) };
@@ -2840,6 +2845,7 @@ export const useStore = create<AppState>((set, get) => ({
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c || !needsAssignmentReactivation(c, state.currentUser)) return;
+    if (isPostponedCase(c)) return;
 
     const employee = {
       ...(c.assignedEmployee ?? state.currentUser),
@@ -2941,6 +2947,39 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  repairPostponedCasesStayAtSurgery: async () => {
+    const state = get();
+    if (!canManageAllCases(state.currentUser.role)) return;
+
+    for (const c of state.cases) {
+      if (!isPostponedCase(c)) continue;
+      const ptr = postponedCasePointer(c);
+      const atSurgery =
+        normalizeWorkflowStageName(c.currentStage) === ptr.currentStage &&
+        c.currentDepartment === ptr.currentDepartment &&
+        (c.assignedEmployee?.id ?? null) === (ptr.assignedEmployee?.id ?? null);
+      if (atSurgery) continue;
+
+      try {
+        const updatedCase = await taskRepository.update(
+          c.id,
+          {
+            currentStage: ptr.currentStage,
+            currentDepartment: ptr.currentDepartment,
+            assignedEmployee: ptr.assignedEmployee,
+            status: ptr.status,
+          },
+          c,
+        );
+        set((s) => ({
+          cases: s.cases.map((x) => (x.id === c.id ? updatedCase : x)),
+        }));
+      } catch (err) {
+        console.error('[repairPostponedCasesStayAtSurgery]', c.caseNumber, err);
+      }
+    }
+  },
+
   repairStuckPickupReturnOutcomes: async () => {
     const state = get();
     if (!canManageAllCases(state.currentUser.role)) return;
@@ -2970,6 +3009,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (!c) return { error: 'Case not found' };
     if (c.status === 'Completed' || c.status === 'Cancelled') {
       return { error: 'This case is closed.' };
+    }
+    if (isPostponedCase(c)) {
+      return { error: 'This case is postponed. The kit stays at Surgery until admin clears the postpone.' };
     }
 
     let submitStageName: WorkflowStage | null = getEmployeeSubmitStage(c, state.currentUser);
@@ -3488,6 +3530,8 @@ export const useStore = create<AppState>((set, get) => ({
       : [existingRemarks, postponeLine].filter(Boolean).join('\n');
     const postponedFrom = c.postponedFrom || previousDate || '';
 
+    const ptr = postponedCasePointer({ ...c, postponeReason: trimmed });
+
     const postponeLog = {
       id: `log-${Date.now()}`,
       caseId,
@@ -3495,7 +3539,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedBy: state.currentUser.name,
       performedByRole: 'admin' as const,
       timestamp: now,
-      details: `Surgery postponed from ${previousDate || 'unscheduled'} to ${nextDate}. Kit stays at ${c.currentStage}. Reason: ${trimmed}`,
+      details: `Surgery postponed from ${previousDate || 'unscheduled'} to ${nextDate}. Kit stays at Surgery. Reason: ${trimmed}`,
     };
 
     const updatedCase = await taskRepository.update(caseId, {
@@ -3504,6 +3548,10 @@ export const useStore = create<AppState>((set, get) => ({
       postponeReason: trimmed,
       postponedFrom,
       remarks,
+      currentStage: ptr.currentStage,
+      currentDepartment: ptr.currentDepartment,
+      assignedEmployee: ptr.assignedEmployee,
+      status: ptr.status,
       activityLogs: [...c.activityLogs, postponeLog],
     });
 
@@ -3520,7 +3568,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const notif = createNotification(
       'Case Postponed',
-      `${c.caseNumber} postponed to ${nextDate}. Kit stays at ${c.currentStage}.`,
+      `${c.caseNumber} postponed to ${nextDate}. Kit stays at Surgery.`,
       'warning',
       caseId,
     );
@@ -3536,8 +3584,9 @@ export const useStore = create<AppState>((set, get) => ({
       notifications: [notif, ...s.notifications],
     }));
 
-    if (c.assignedEmployee?.id) {
-      notifyPostponeAlerts(caseId, c.assignedEmployee.id);
+    const notifyEmpId = ptr.assignedEmployee?.id ?? c.assignedEmployee?.id;
+    if (notifyEmpId) {
+      notifyPostponeAlerts(caseId, notifyEmpId);
     }
   },
 

@@ -874,7 +874,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
             <p className="text-xs text-sky-800 mt-0.5">
               New date: {formatDate(c.surgeryDate)}
               {c.postponedFrom ? ` (was ${formatDate(c.postponedFrom)})` : ''}.
-              Kit stays at {c.currentStage}. Reason: {c.postponeReason}
+              Kit stays at Surgery. Reason: {c.postponeReason}
             </p>
           </div>
         </div>
