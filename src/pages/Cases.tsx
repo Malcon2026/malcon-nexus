@@ -20,6 +20,7 @@ import {
   isCaseAssignedToEmployee,
   isCaseVisibleToEmployee,
   VISIBLE_WORKFLOW_STAGES,
+  normalizeWorkflowStageName,
 } from '../lib/caseWorkflow';
 import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
 import { QuickCreateCaseModal } from '../components/QuickCreateCaseModal';
@@ -109,8 +110,10 @@ export const Cases: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [editCaseId, setEditCaseId] = useState<string | null>(null);
+  const [listMode, setListMode] = useState<'byDate' | 'returnToHospital'>('byDate');
   const lastCreateSignal = useRef(0);
   const todayKey = getTodaySurgeryDateKey();
+  const showReturnToHospitalTab = viewMode === 'admin' || viewMode === 'store_manager';
 
   useEffect(() => {
     if (createCaseSignal > lastCreateSignal.current) {
@@ -163,7 +166,28 @@ export const Cases: React.FC = () => {
 
   const calendar = useMemo(() => caseListCalendarSpan(filtered, todayKey), [filtered, todayKey]);
 
+  const returnToHospitalCases = useMemo(
+    () =>
+      filtered.filter(
+        (c) =>
+          normalizeWorkflowStageName(c.currentStage) === 'Return to Hospital' &&
+          c.status !== 'Completed' &&
+          c.status !== 'Cancelled',
+      ),
+    [filtered],
+  );
+
   const { paginated, totalPages, pageLabel, calendarDayCount, hasUndatedPage } = useMemo(() => {
+    if (listMode === 'returnToHospital') {
+      return {
+        paginated: returnToHospitalCases,
+        totalPages: 1,
+        pageLabel: 'Return to Hospital',
+        calendarDayCount: calendar.calendarDayCount,
+        hasUndatedPage: false,
+      };
+    }
+
     const undated = filtered.filter((c) => !normalizeDateKey(c.surgeryDate));
     const { futureCount, calendarDayCount: dayCount } = calendar;
     const undatedPage = undated.length > 0;
@@ -189,7 +213,7 @@ export const Cases: React.FC = () => {
       calendarDayCount: dayCount,
       hasUndatedPage: undatedPage,
     };
-  }, [filtered, page, todayKey, calendar]);
+  }, [filtered, page, todayKey, calendar, listMode, returnToHospitalCases]);
 
   const pageButtonTitle = (pageIndex: number) => {
     if (hasUndatedPage && pageIndex === calendarDayCount) return 'No surgery date';
@@ -250,6 +274,41 @@ export const Cases: React.FC = () => {
           ) : undefined
         }
       />
+
+      {showReturnToHospitalTab && (
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setListMode('byDate');
+              setPage(0);
+            }}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+              listMode === 'byDate'
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            By surgery date
+          </button>
+          <button
+            type="button"
+            onClick={() => setListMode('returnToHospital')}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+              listMode === 'returnToHospital'
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Return to Hospital
+            {returnToHospitalCases.length > 0 ? (
+              <span className="ml-1.5 inline-flex min-w-[1.25rem] justify-center rounded-full bg-black/10 px-1.5 text-xs">
+                {returnToHospitalCases.length}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      )}
 
       {/* Filters Bar */}
       <Card className="mb-4">

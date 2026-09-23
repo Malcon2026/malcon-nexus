@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS cases (
     'Rejected','Changes Requested','Completed','Cancelled'
   )),
   current_stage       TEXT NOT NULL DEFAULT 'Set Preparation' CHECK (current_stage IN (
-    'Set Preparation','Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Restock','Billing','Bill Submission','Completed'
+    'Set Preparation','Kit Preparation','Delivery','Surgery','Pickup from Hospital','Cleaning & Audit','Return to Hospital','Restock','Billing','Bill Submission','Completed'
   )),
   current_department  TEXT CHECK (current_department IN (
     'Stores','Delivery','Drivers','Scrub Person','Cleaning & Audit',

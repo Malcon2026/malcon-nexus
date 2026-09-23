@@ -28,6 +28,7 @@ const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
   'Cleaning & Audit': 'Cleaning & Audit',
+  'Return to Hospital': 'Delivery',
   'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',

@@ -40,6 +40,7 @@ const WORKFLOW_STAGES = [
   'Surgery',
   'Pickup from Hospital',
   'Cleaning & Audit',
+  'Return to Hospital',
   'Restock',
   'Billing',
   'Bill Submission',

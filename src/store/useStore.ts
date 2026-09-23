@@ -88,7 +88,7 @@ import type { GeoPosition } from '../lib/attendance';
 import type { EmployeeCsvRow } from '../utils/employeeCsvImport';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed',
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Return to Hospital', 'Restock', 'Billing', 'Bill Submission', 'Completed',
 ];
 
 /** Falls back to this if the `incentive_rate_per_km` app setting hasn't loaded/been set yet. */
@@ -176,7 +176,7 @@ interface AppState {
     caseId: string,
     employee: Employee,
     nextStage?: WorkflowStage,
-    options?: { approvedRequestId?: string },
+    options?: { approvedRequestId?: string; keepCurrentStage?: boolean },
   ) => void;
   requestTask: (caseId: string) => Promise<{ error: string | null }>;
   approveTaskRequest: (requestId: string) => Promise<{ error: string | null }>;
@@ -2325,24 +2325,29 @@ export const useStore = create<AppState>((set, get) => ({
       details: `${employee.name} assigned to ${targetStage} stage.`,
     };
 
+    const preassignOnly = Boolean(options?.keepCurrentStage);
     const updatedCase = await taskRepository.update(caseId, {
-      currentStage: targetStage,
-      currentDepartment: normalizeDepartment(employee.department) ?? employee.department,
-      assignedEmployee: employee,
+      currentStage: preassignOnly ? c.currentStage : targetStage,
+      currentDepartment: preassignOnly
+        ? c.currentDepartment
+        : normalizeDepartment(employee.department) ?? employee.department,
+      assignedEmployee: preassignOnly ? c.assignedEmployee : employee,
       status: 'Active',
       stages: updatedStages,
       activityLogs: [...c.activityLogs, newLog],
     }, c);
 
-    // Update employee active count
+    // Update employee active count (skip when pre-assigning a future stage)
     let updatedEmployees = state.employees;
-    const employeeList = Database.getAll<Employee>('employees');
-    const target = employeeList.find(e => e.id === employee.id);
-    if (target) {
-      const updated = await employeeRepository.update(employee.id, {
-        casesActive: target.casesActive + 1,
-      });
-      updatedEmployees = state.employees.map(e => (e.id === employee.id ? updated : e));
+    if (!preassignOnly) {
+      const employeeList = Database.getAll<Employee>('employees');
+      const target = employeeList.find(e => e.id === employee.id);
+      if (target) {
+        const updated = await employeeRepository.update(employee.id, {
+          casesActive: target.casesActive + 1,
+        });
+        updatedEmployees = state.employees.map(e => (e.id === employee.id ? updated : e));
+      }
     }
 
     let updatedTaskRequests = state.caseTaskRequests;
@@ -2958,7 +2963,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: 'admin' as const,
       timestamp: now,
       details: returnStage
-        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Reason: ${trimmed}`
+        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Return to Hospital → Restock. Reason: ${trimmed}`
         : `${logPhrase} Case closed. Reason: ${trimmed}`,
     };
 

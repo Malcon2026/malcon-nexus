@@ -16,6 +16,7 @@ export type WorkflowStage =
   | 'Surgery'
   | 'Pickup from Hospital'
   | 'Cleaning & Audit'
+  | 'Return to Hospital'
   | 'Restock'
   | 'Billing'
   | 'Bill Submission'

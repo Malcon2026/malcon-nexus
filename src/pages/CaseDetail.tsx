@@ -30,7 +30,7 @@ import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendi
 import { canStoreManagerSubmitSetPreparation, isFullAdmin, isSetPreparationStage } from '../lib/roles';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Return to Hospital', 'Restock', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
@@ -39,6 +39,7 @@ const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Pickup Completed',
   'Cleaning & Audit': 'Cleaning & Audit Completed',
+  'Return to Hospital': 'Return to Hospital Completed',
   'Restock': 'Restock Completed',
   'Billing': 'Invoice Generated',
   'Bill Submission': 'Bill Submission Completed',
@@ -248,6 +249,7 @@ const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
   'Cleaning & Audit': 'Cleaning & Audit',
+  'Return to Hospital': 'Delivery',
   'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
@@ -259,9 +261,11 @@ interface AssignModalProps {
   onClose: () => void;
   caseId: string;
   nextStage: WorkflowStage;
+  /** Assign a future stage without moving the case off the current stage. */
+  keepCurrentStage?: boolean;
 }
 
-const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage }) => {
+const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, nextStage, keepCurrentStage }) => {
   const { assignEmployee, markSurgerySelfPerformed, employees, currentUser } = useStore();
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
   const [selfChosen, setSelfChosen] = useState(false);
@@ -298,7 +302,7 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
     if (!selectedEmp) return;
     setSubmitting(true);
     try {
-      await assignEmployee(caseId, selectedEmp, nextStage);
+      await assignEmployee(caseId, selectedEmp, nextStage, { keepCurrentStage });
       resetLocal();
       onClose();
     } catch (err) {
@@ -312,8 +316,12 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, caseId, next
     <Modal
       isOpen={isOpen}
       onClose={() => { onClose(); resetLocal(); }}
-      title="Assign Workflow Stage"
-      subtitle={`Assign ${nextStage} to any employee`}
+      title={keepCurrentStage ? `Assign for ${nextStage}` : 'Assign Workflow Stage'}
+      subtitle={
+        keepCurrentStage
+          ? `Pick who will handle ${nextStage} after this stage is completed. The case stays at its current stage.`
+          : `Assign ${nextStage} to any employee`
+      }
       size="md"
       footer={
         <div className="flex items-center justify-end gap-3">
@@ -431,7 +439,7 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
             {selected?.hint ?? (
               <>
                 Use when the case will not complete normally. If the kit already left Stores
-                (currently <strong>{currentStage}</strong>), it returns via Pickup → Cleaning & Audit → Restock.
+                (currently <strong>{currentStage}</strong>), it returns via Pickup → Cleaning & Audit → Return to Hospital → Restock.
               </>
             )}
           </p>
@@ -575,6 +583,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
+  const [assignKeepCurrentStage, setAssignKeepCurrentStage] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -648,9 +657,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       {assignStage && (
         <AssignModal
           isOpen={true}
-          onClose={() => setAssignStage(null)}
+          onClose={() => {
+            setAssignStage(null);
+            setAssignKeepCurrentStage(false);
+          }}
           caseId={c.id}
           nextStage={assignStage}
+          keepCurrentStage={assignKeepCurrentStage}
         />
       )}
       {showSubmit && (
@@ -757,6 +770,20 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               Reassign set prep
             </Button>
           )}
+          {(isFullAdminUser || isStoreManagerUser) &&
+            normalizeWorkflowStageName(c.currentStage) === 'Return to Hospital' && (
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<User className="h-4 w-4" />}
+                onClick={() => {
+                  setAssignKeepCurrentStage(true);
+                  setAssignStage('Restock');
+                }}
+              >
+                Assign for Restock
+              </Button>
+            )}
           {viewMode === 'employee' && canRequest && (
             <Button
               variant="primary"
@@ -807,6 +834,24 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         </div>
       </div>
 
+      {normalizeWorkflowStageName(c.currentStage) === 'Return to Hospital' &&
+        (isFullAdminUser || isStoreManagerUser) && (
+          <div className="mb-6 p-4 rounded-xl bg-orange-50 border border-orange-200">
+            <p className="text-sm font-semibold text-orange-900">Return to Hospital</p>
+            <p className="text-xs text-orange-800 mt-1">
+              Delivery returns the kit to the hospital. Assign who will <strong>Restock</strong> before the return is completed.
+            </p>
+            {findStageRecord(c.stages, 'Restock')?.assignedEmployee ? (
+              <p className="text-xs text-orange-900 mt-2">
+                Restock assignee:{' '}
+                <strong>{findStageRecord(c.stages, 'Restock')!.assignedEmployee!.name}</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-orange-700 mt-2">No one assigned for Restock yet — use Assign for Restock above.</p>
+            )}
+          </div>
+        )}
+
       {inFcfsPool && (
         <div className="mb-6 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
@@ -855,7 +900,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <div>
             <p className="text-sm font-semibold text-amber-900">Case cancelled — kit returning</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              Kit comes back through Pickup → Cleaning & Audit → Restock.
+              Kit comes back through Pickup → Cleaning & Audit → Return to Hospital → Restock.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
             </p>
           </div>
