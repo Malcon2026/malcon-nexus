@@ -78,16 +78,27 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const skippedStages = ASSIGNABLE_WORKFLOW_STAGES.slice(0, startIdx);
   const assignStages = isAdmin ? activeStages : QUICK_CASE_ASSIGN_STAGES;
 
+  const punchInCandidates = useMemo(
+    () =>
+      employees
+        .filter((e) => e.status === 'Active')
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [employees],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     const draft = freshDraft();
     if (allowPrepAssignToMe) {
       draft.stageEmployeeIds[SET_PREPARATION_STAGE] = currentUser.id;
     }
+    if (isAdmin) {
+      draft.punchedInByEmployeeId = currentUser.id;
+    }
     setForm(draft);
     setStep(0);
     setError(null);
-  }, [isOpen, allowPrepAssignToMe, currentUser.id]);
+  }, [isOpen, allowPrepAssignToMe, currentUser.id, isAdmin]);
 
   const resetAndClose = () => {
     setStep(0);
@@ -101,6 +112,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (!form.hospitalId) return 'Choose a hospital.';
       if (!form.doctorName.trim()) return 'Enter the doctor name.';
       if (!form.surgeryDate) return 'Pick a surgery date.';
+      if (isAdmin && !form.punchedInByEmployeeId.trim()) return 'Select who punched in this case.';
     }
     if (index === 1) {
       if (!form.implantRequired.trim()) return 'Enter the surgery / procedure name.';
@@ -290,6 +302,20 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   }
                 />
               </div>
+              {isAdmin && (
+                <div>
+                  <label className={labelClass}>Case punched in by</label>
+                  <p className="text-xs text-gray-600 mb-2">
+                    Who entered this case at the office — can be different from your login.
+                  </p>
+                  <EmployeeSearchSelect
+                    employees={punchInCandidates}
+                    value={form.punchedInByEmployeeId}
+                    onChange={(punchedInByEmployeeId) => setForm({ ...form, punchedInByEmployeeId })}
+                    placeholder="Select staff member…"
+                  />
+                </div>
+              )}
             </section>
           )}
 
@@ -574,6 +600,15 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   ['Hospital', hospital?.name ?? '—'],
                   ['Doctor', form.doctorName || '—'],
                   ['Surgery date', form.surgeryDate ? formatDate(form.surgeryDate) : '—'],
+                  ...(isAdmin
+                    ? ([
+                        [
+                          'Punched in by',
+                          punchInCandidates.find((e) => e.id === form.punchedInByEmployeeId)?.name ??
+                            '—',
+                        ],
+                      ] as const)
+                    : []),
                   ['Starts at', form.startStage],
                   ['Procedure', form.implantRequired || '—'],
                   ...(isAdmin && form.implantType.trim()

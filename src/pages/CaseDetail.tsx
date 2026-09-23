@@ -932,7 +932,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       { label: 'Implant Company', value: c.implantCompany || '—' },
                       { label: 'Priority', value: c.priority },
                       { label: 'Due Date', value: formatDate(c.dueDate) },
-                      { label: 'Created By', value: c.createdBy },
+                      { label: 'Punched in by', value: c.createdBy },
                       { label: 'Created At', value: formatDate(c.createdAt) },
                       ...(c.cancelReason ? [{ label: 'Cancel Reason', value: c.cancelReason }] : []),
                       ...(c.postponeReason ? [

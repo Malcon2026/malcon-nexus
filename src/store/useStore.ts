@@ -1332,7 +1332,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentStage: startStage,
       currentDepartment: startDept,
       assignedEmployee: startEmp,
-      createdBy: state.currentUser.name,
+      createdBy: caseData.createdBy?.trim() || state.currentUser.name,
       createdAt: now,
       updatedAt: now,
       dueDate: caseData.dueDate || caseData.surgeryDate || '',

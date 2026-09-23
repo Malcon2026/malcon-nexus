@@ -45,6 +45,8 @@ export type CreateCaseDraft = {
   stageAssistantIds: ReturnType<typeof emptyStageAssistantIds>;
   stageExtraPerson: ReturnType<typeof emptyStageExtraFlags>;
   dutyEmployeeIds: Record<CaseDutyKind, string>;
+  /** Full admin only — who punched the case in (stored as case createdBy). */
+  punchedInByEmployeeId: string;
 };
 
 export function emptyCreateCaseDraft(startStage: AssignableStage = 'Set Preparation'): CreateCaseDraft {
@@ -69,6 +71,7 @@ export function emptyCreateCaseDraft(startStage: AssignableStage = 'Set Preparat
       CaseDutyKind,
       string
     >,
+    punchedInByEmployeeId: '',
   };
 }
 
@@ -92,6 +95,7 @@ export function buildCreateCasePayload(
   stageAssistantAssignments: StageAssistantAssignments;
   surgerySelfPerformed: boolean;
   postSurgeryDuties: ReturnType<typeof buildPostSurgeryDutiesFromEmployeeIds>;
+  createdBy: string;
 } {
   const hospital = hospitals.find((h) => h.id === form.hospitalId);
   if (!hospital) throw new Error('Hospital not found. Pick the hospital again.');
@@ -170,6 +174,16 @@ export function buildCreateCasePayload(
     if (emp) stageAssignments[workflowStage] = emp;
   }
 
+  let createdBy = currentUser?.name?.trim() || 'Admin';
+  const punchId = form.punchedInByEmployeeId?.trim();
+  if (punchId) {
+    const punchEmp =
+      employees.find((e) => e.id === punchId) ??
+      (currentUser && punchId === currentUser.id ? currentUser : undefined);
+    if (!punchEmp) throw new Error('Could not find who punched in this case. Please reselect.');
+    createdBy = punchEmp.name;
+  }
+
   return {
     hospital,
     doctor,
@@ -185,5 +199,6 @@ export function buildCreateCasePayload(
     stageAssistantAssignments,
     surgerySelfPerformed,
     postSurgeryDuties: buildPostSurgeryDutiesFromEmployeeIds(form.dutyEmployeeIds, employees),
+    createdBy,
   };
 }
