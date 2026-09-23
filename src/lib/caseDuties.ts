@@ -1,6 +1,8 @@
-import type { Employee, ImplantCase } from '../types';
+import type { Employee, ImplantCase, WorkflowStage } from '../types';
+import { findStageRecord, normalizeWorkflowStageName } from './caseWorkflow';
 
-export type CaseDutyKind = 'return' | 'pickupReturn' | 'cleaning' | 'restock';
+/** After-surgery stages: Return, Clean & audit, Restock (assigned at create or by store manager). */
+export type CaseDutyKind = 'return' | 'cleaning' | 'restock';
 
 export interface CaseDutySlot {
   assignedEmployee: Employee | null;
@@ -9,37 +11,38 @@ export interface CaseDutySlot {
 
 export type PostSurgeryDuties = Record<CaseDutyKind, CaseDutySlot>;
 
-export const CASE_DUTY_KINDS: CaseDutyKind[] = ['return', 'pickupReturn', 'cleaning', 'restock'];
+export const CASE_DUTY_KINDS: CaseDutyKind[] = ['return', 'cleaning', 'restock'];
 
-/** Display names for post-surgery team picks (not workflow stage assignees). */
 export const CASE_DUTY_LABELS: Record<CaseDutyKind, string> = {
   return: 'Return',
-  pickupReturn: 'Pick up',
-  cleaning: 'Cleaning & audit',
+  cleaning: 'Clean & audit',
   restock: 'Restock',
 };
 
-export const CASE_DUTIES_NAV_LABEL = 'Return & cleaning';
+/** Workflow stage each duty updates on the case (Return → pickup from hospital). */
+export const CASE_DUTY_WORKFLOW_STAGE: Record<CaseDutyKind, WorkflowStage> = {
+  return: 'Pickup from Hospital',
+  cleaning: 'Cleaning & Audit',
+  restock: 'Restock',
+};
 
-export const CASE_DUTIES_PAGE_TITLE = 'Return & cleaning team';
+export const CASE_DUTIES_NAV_LABEL = 'Return, clean & restock';
+
+export const CASE_DUTIES_PAGE_TITLE = 'Return, clean & restock';
 
 export const CASE_DUTIES_PAGE_DESCRIPTION =
-  'Choose who handles return, cleaning, and restock. This is separate from the person assigned on the case workflow.';
+  'Pick who will do Return, Clean & audit, and Restock on each case. Kit prep through Surgery are chosen when the case is created.';
 
-export const CASE_DUTIES_CREATE_SECTION_TITLE = 'Return & cleaning team (optional)';
+export const CASE_DUTIES_CREATE_SECTION_TITLE = 'Return, clean & restock (optional)';
 
 export const CASE_DUTIES_CREATE_SECTION_HINT =
-  'Names for kit return and cleaning only — not the same as workflow stage assignees above.';
+  'You can leave these blank — a store manager can assign them later from this screen in the sidebar.';
 
 export function dutyPickerPlaceholder(kind: CaseDutyKind): string {
   return `Select — ${CASE_DUTY_LABELS[kind]}`;
 }
 
-export function dutyModalTitle(kind: CaseDutyKind): string {
-  return `Who does ${CASE_DUTY_LABELS[kind]}?`;
-}
-
-/** Single sidebar route for all post-surgery duty assignment. */
+/** Single sidebar route for post-surgery assignment. */
 export const CASE_DUTIES_TAB_ID = 'case-duties-combined' as const;
 
 export type CaseDutyTabId = typeof CASE_DUTIES_TAB_ID;
@@ -57,7 +60,6 @@ export function isCaseDutyTab(tab: string): tab is CaseDutyTabId {
   return tab === CASE_DUTIES_TAB_ID || (LEGACY_DUTY_TAB_IDS as readonly string[]).includes(tab);
 }
 
-/** Saved tab ids from older builds → single combined duties route. */
 export function remapLegacyDutyTab(tab: string): string {
   if (tab !== CASE_DUTIES_TAB_ID && isCaseDutyTab(tab)) return CASE_DUTIES_TAB_ID;
   return tab;
@@ -67,7 +69,6 @@ export function emptyPostSurgeryDuties(): PostSurgeryDuties {
   const slot = (): CaseDutySlot => ({ assignedEmployee: null, assignedAt: null });
   return {
     return: slot(),
-    pickupReturn: slot(),
     cleaning: slot(),
     restock: slot(),
   };
@@ -86,11 +87,37 @@ export function normalizePostSurgeryDuties(raw: unknown): PostSurgeryDuties {
       assignedAt: (e.assignedAt as string | null) ?? null,
     };
   }
+  // Legacy four-slot model: pickupReturn → return if return empty
+  const legacyPickup = o.pickupReturn;
+  if (!base.return.assignedEmployee && legacyPickup && typeof legacyPickup === 'object') {
+    const e = legacyPickup as Record<string, unknown>;
+    base.return = {
+      assignedEmployee: (e.assignedEmployee as Employee | null) ?? null,
+      assignedAt: (e.assignedAt as string | null) ?? null,
+    };
+  }
   return base;
 }
 
+export function getDutyWorkflowStage(kind: CaseDutyKind): WorkflowStage {
+  return CASE_DUTY_WORKFLOW_STAGE[kind];
+}
+
+/** Person assigned for this duty — from workflow stage, then saved duty snapshot. */
+export function getDutyEmployee(c: ImplantCase, kind: CaseDutyKind): Employee | null {
+  const stage = CASE_DUTY_WORKFLOW_STAGE[kind];
+  const fromStage = findStageRecord(c.stages, stage)?.assignedEmployee;
+  if (fromStage) return fromStage;
+  return c.postSurgeryDuties?.[kind]?.assignedEmployee ?? null;
+}
+
 export function getDutySlot(c: ImplantCase, kind: CaseDutyKind): CaseDutySlot {
-  return c.postSurgeryDuties?.[kind] ?? { assignedEmployee: null, assignedAt: null };
+  const emp = getDutyEmployee(c, kind);
+  const fromJson = c.postSurgeryDuties?.[kind];
+  return {
+    assignedEmployee: emp,
+    assignedAt: fromJson?.assignedAt ?? (emp ? findStageRecord(c.stages, CASE_DUTY_WORKFLOW_STAGE[kind])?.assignedAt ?? null : null),
+  };
 }
 
 export function isOpenCaseForDutyBoard(c: ImplantCase): boolean {
@@ -115,4 +142,15 @@ export function buildPostSurgeryDutiesFromEmployeeIds(
     duties[kind] = { assignedEmployee: emp, assignedAt: now };
   }
   return duties;
+}
+
+export function postSurgerySummaryLine(c: ImplantCase): string {
+  return CASE_DUTY_KINDS.map((k) => {
+    const name = getDutyEmployee(c, k)?.name?.split(' ')[0] ?? '—';
+    return `${CASE_DUTY_LABELS[k]}: ${name}`;
+  }).join(' · ');
+}
+
+export function stageMatchesDuty(stageName: string, kind: CaseDutyKind): boolean {
+  return normalizeWorkflowStageName(stageName as WorkflowStage) === CASE_DUTY_WORKFLOW_STAGE[kind];
 }

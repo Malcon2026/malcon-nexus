@@ -12,6 +12,7 @@ import {
 import {
   buildPostSurgeryDutiesFromEmployeeIds,
   CASE_DUTY_KINDS,
+  CASE_DUTY_WORKFLOW_STAGE,
   type CaseDutyKind,
 } from './caseDuties';
 import type { Hospital } from '../types';
@@ -157,6 +158,16 @@ export function buildCreateCasePayload(
       throw new Error(`Extra person for ${stage} must be different from the primary assignee.`);
     }
     stageAssistantAssignments[stage] = assistant;
+  }
+
+  for (const kind of CASE_DUTY_KINDS) {
+    const workflowStage = CASE_DUTY_WORKFLOW_STAGE[kind];
+    if (!activeStages.includes(workflowStage)) continue;
+    if (stageAssignments[workflowStage]) continue;
+    const empId = form.dutyEmployeeIds[kind]?.trim();
+    if (!empId) continue;
+    const emp = employees.find((e) => e.id === empId);
+    if (emp) stageAssignments[workflowStage] = emp;
   }
 
   return {

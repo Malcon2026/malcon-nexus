@@ -28,6 +28,7 @@ import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formSty
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 import { canStoreManagerSubmitSetPreparation, isFullAdmin, isSetPreparationStage } from '../lib/roles';
+import { CASE_DUTY_KINDS, CASE_DUTY_LABELS, getDutyEmployee } from '../lib/caseDuties';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
   'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
@@ -1015,6 +1016,43 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                       </div>
                     </div>
                   )}
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <h3 className="text-sm font-semibold text-gray-900">Return, clean & restock</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 font-normal">
+                    Assigned after kit prep through surgery — often by store manager
+                  </p>
+                </CardHeader>
+                <CardBody>
+                  <div className="space-y-3">
+                    {CASE_DUTY_KINDS.map((kind) => {
+                      const emp = getDutyEmployee(c, kind);
+                      return (
+                        <div
+                          key={kind}
+                          className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0"
+                        >
+                          <div className="w-28 shrink-0 text-xs font-medium text-gray-500">
+                            {CASE_DUTY_LABELS[kind]}
+                          </div>
+                          {emp ? (
+                            <>
+                              <Avatar name={emp.name} size="sm" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{emp.name}</p>
+                                <p className="text-xs text-gray-500">{emp.department}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-400 italic">Not assigned yet</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </CardBody>
               </Card>
 

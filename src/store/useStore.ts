@@ -78,8 +78,10 @@ import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTas
 import {
   CASE_DUTY_LABELS,
   CASE_DUTY_KINDS,
+  CASE_DUTY_WORKFLOW_STAGE,
   normalizePostSurgeryDuties,
   remapLegacyDutyTab,
+  type CaseDutyKind,
 } from '../lib/caseDuties';
 import {
   validateCompOffWorkDate,
@@ -184,7 +186,10 @@ interface AppState {
     nextStage?: WorkflowStage,
     options?: { approvedRequestId?: string; keepCurrentStage?: boolean },
   ) => void;
-  assignCaseDuty: (caseId: string, duty: import('../lib/caseDuties').CaseDutyKind, employee: Employee) => Promise<void>;
+  confirmPostSurgeryTeam: (
+    caseId: string,
+    employeeIds: Record<CaseDutyKind, string>,
+  ) => Promise<void>;
   requestTask: (caseId: string) => Promise<{ error: string | null }>;
   approveTaskRequest: (requestId: string) => Promise<{ error: string | null }>;
   getPoolCasesAvailableForCurrentUser: () => ImplantCase[];
@@ -2421,35 +2426,82 @@ export const useStore = create<AppState>((set, get) => ({
     notifyAssignmentAlerts(caseId, employee.id);
   },
 
-  assignCaseDuty: async (caseId, duty, employee) => {
+  confirmPostSurgeryTeam: async (caseId, employeeIds) => {
     const state = get();
     const c = state.cases.find((x) => x.id === caseId);
     if (!c) throw new Error('Case not found');
-    if (!employee?.id) throw new Error('Pick an employee.');
+
     const assignedAt = new Date().toISOString();
     const duties = { ...(c.postSurgeryDuties ?? normalizePostSurgeryDuties(null)) };
-    duties[duty] = { assignedEmployee: employee, assignedAt };
-    const label = CASE_DUTY_LABELS[duty];
-    const log = {
-      id: `log-${Date.now()}`,
-      caseId,
-      action: `${label} · team selected`,
-      performedBy: state.currentUser.name,
-      performedByRole: state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const),
-      timestamp: assignedAt,
-      details: `${employee.name} for ${label} (return & cleaning team — not workflow assignee).`,
-    };
+    let stages = [...c.stages];
+    const newLogs: typeof c.activityLogs = [];
+    const performerRole = state.currentUser.role === 'admin' ? ('admin' as const) : ('employee' as const);
+
+    for (const kind of CASE_DUTY_KINDS) {
+      const empId = employeeIds[kind]?.trim();
+      if (!empId) continue;
+      const employee = state.employees.find((e) => e.id === empId);
+      if (!employee) throw new Error(`Could not find employee for ${CASE_DUTY_LABELS[kind]}.`);
+
+      const workflowStage = CASE_DUTY_WORKFLOW_STAGE[kind];
+      const label = CASE_DUTY_LABELS[kind];
+      const prev = duties[kind]?.assignedEmployee?.id;
+      if (prev === employee.id) continue;
+
+      duties[kind] = { assignedEmployee: employee, assignedAt };
+      stages = stages.map((s) =>
+        normalizeWorkflowStageName(s.stage) === workflowStage
+          ? {
+              ...s,
+              stage: workflowStage,
+              assignedEmployee: employee,
+              assignedAt,
+              status:
+                s.status === 'Pending' || s.status === 'Assigned' ? ('Assigned' as const) : s.status,
+            }
+          : s,
+      );
+
+      const log = {
+        id: `log-${Date.now()}-${kind}`,
+        caseId,
+        action: `${label} assigned`,
+        performedBy: state.currentUser.name,
+        performedByRole: performerRole,
+        timestamp: assignedAt,
+        details: `${employee.name} assigned for ${label} on this case.`,
+      };
+      newLogs.push(log);
+      persistActivity(
+        createActivityEvent(
+          `${label} assigned`,
+          'case',
+          caseId,
+          c.caseNumber,
+          state.currentUser.name,
+          performerRole,
+          log.details,
+        ),
+      );
+      void notifyCaseAssignment(caseId, employee.id);
+      notifyAssignmentAlerts(caseId, employee.id);
+    }
+
+    if (newLogs.length === 0) return;
+
     const updatedCase = await taskRepository.update(
       caseId,
-      { postSurgeryDuties: duties, activityLogs: [...c.activityLogs, log] },
+      {
+        stages: normalizeCaseStages(stages),
+        postSurgeryDuties: duties,
+        activityLogs: [...c.activityLogs, ...newLogs],
+      },
       c,
     );
-    persistActivity(
-      createActivityEvent(`${label} · team selected`, 'case', caseId, c.caseNumber, state.currentUser.name, state.currentUser.role === 'admin' ? 'admin' : 'employee', log.details),
-    );
+
     set((s) => ({
       cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
-      activityLog: [log, ...s.activityLog],
+      activityLog: [...newLogs.reverse(), ...s.activityLog],
     }));
   },
 
