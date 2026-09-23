@@ -39,7 +39,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
 import {
-  officeDayCategoryDir,
+  officeAttendanceDir,
   officeRelativeDayPath,
   sanitizeFilePart,
   istTimePart,
@@ -126,7 +126,7 @@ function buildLocalPath(archiveRoot, item) {
   const idShort = String(item.id).replace(/-/g, '').slice(0, 8);
   const ext = guessExtension(item.selfieUrl);
   const fileName = `${name}_${time}_${idShort}${ext}`;
-  const destDir = officeDayCategoryDir(archiveRoot, item.at, 'Attendance');
+  const destDir = officeAttendanceDir(archiveRoot, item.at);
   const relPath = officeRelativeDayPath(item.at, 'Attendance', fileName);
   return { destDir, destPath: join(destDir, fileName), relPath, fileName };
 }

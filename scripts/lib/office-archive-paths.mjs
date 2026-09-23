@@ -1,21 +1,17 @@
 /**
  * Office PC folder layout (IST calendar dates):
  *
- *   {PHOTOS_ROOT}/
- *     {YYYY}/
- *       {Month name}/          e.g. September
- *         {DD-MM-YYYY}/        e.g. 22-09-2026 — surgery day for Cases, punch day for Attendance
- *           Cases/
- *             {Employee Name}/
- *               {Case Number}/
- *                 *.jpg
- *           Attendance/
- *             {employee}_{HHmmss}_{id}.jpg
+ *   Cases (by surgery date):
+ *     {PHOTOS_ROOT}/{YYYY}/{Month}/{DD-MM-YYYY}/{Case number}/Stage pics/*.jpg
+ *
+ *   Attendance (by punch date):
+ *     {PHOTOS_ROOT}/{YYYY}/{Month}/{DD-MM-YYYY}/Attendance/*.jpg
  */
 
 import { join } from 'node:path';
 
 const IST = 'Asia/Kolkata';
+export const CASE_STAGE_PICS_FOLDER = 'Stage pics';
 
 function partsFromYmd(year, monthNum, day) {
   const dateFolder = `${day}-${monthNum}-${year}`;
@@ -69,12 +65,17 @@ export function istDateKeyFromIso(iso) {
 
 export function sanitizeFolderName(name) {
   return (
-    String(name || 'Unknown Employee')
+    String(name || 'Unknown')
       .replace(/[<>:"/\\|?*]/g, '-')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 80) || 'Unknown Employee'
+      .slice(0, 80) || 'Unknown'
   );
+}
+
+/** Case folder e.g. IMP-2026-279 → IMP 2026 279 */
+export function caseFolderName(caseNumber) {
+  return sanitizeFolderName(String(caseNumber || 'Unknown case').replace(/-/g, ' '));
 }
 
 export function sanitizeFilePart(value) {
@@ -102,26 +103,36 @@ export function istTimePart(iso) {
   return `${get('hour')}${get('minute')}${get('second')}`;
 }
 
-/** @param {'Cases' | 'Attendance'} category — day from ISO timestamp (punch time). */
-export function officeDayCategoryDir(photosRoot, iso, category) {
-  const { year, month, dateFolder } = istCalendarParts(iso);
-  return join(photosRoot, year, month, dateFolder, category);
-}
-
-/** @param {'Cases' | 'Attendance'} category — day from `YYYY-MM-DD` (case surgery date). */
-export function officeDayCategoryDirFromDateKey(photosRoot, dateKey, category) {
+export function officeDayDirFromDateKey(photosRoot, dateKey) {
   const { year, month, dateFolder } = istCalendarPartsFromDateKey(dateKey);
-  return join(photosRoot, year, month, dateFolder, category);
+  return join(photosRoot, year, month, dateFolder);
 }
 
-/** Human-readable path under PHOTOS_ROOT for logs (ISO day). */
+/** {Year}/{Month}/{Date}/{Case}/Stage pics */
+export function officeCaseStagePicsDir(photosRoot, surgeryDateKey, caseNumber) {
+  return join(
+    officeDayDirFromDateKey(photosRoot, surgeryDateKey),
+    caseFolderName(caseNumber),
+    CASE_STAGE_PICS_FOLDER,
+  );
+}
+
+/** Punch-in selfies for that calendar day. */
+export function officeAttendanceDir(photosRoot, iso) {
+  const { year, month, dateFolder } = istCalendarParts(iso);
+  return join(photosRoot, year, month, dateFolder, 'Attendance');
+}
+
+/** Log path under PHOTOS_ROOT for case photos. */
+export function officeCasePhotoRelativePath(surgeryDateKey, caseNumber, fileName) {
+  const { year, month, dateFolder } = istCalendarPartsFromDateKey(surgeryDateKey);
+  return [year, month, dateFolder, caseFolderName(caseNumber), CASE_STAGE_PICS_FOLDER, fileName]
+    .filter(Boolean)
+    .join('/');
+}
+
+/** Log path for attendance. */
 export function officeRelativeDayPath(iso, category, ...rest) {
   const { year, month, dateFolder } = istCalendarParts(iso);
-  return [year, month, dateFolder, category, ...rest].filter(Boolean).join('/');
-}
-
-/** Human-readable path for case photos (surgery date key). */
-export function officeRelativeDayPathFromDateKey(dateKey, category, ...rest) {
-  const { year, month, dateFolder } = istCalendarPartsFromDateKey(dateKey);
   return [year, month, dateFolder, category, ...rest].filter(Boolean).join('/');
 }

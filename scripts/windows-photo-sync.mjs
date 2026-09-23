@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Sync stage photos from Supabase → office PC under PHOTOS_ROOT:
- *   {YYYY}/{MonthName}/{DD-MM-YYYY}/Cases/{Employee}/{CaseNumber}/*.jpg
- *   (DD-MM-YYYY = case surgery date in IST, not upload date)
+ *   {YYYY}/{Month}/{DD-MM-YYYY}/{Case number}/Stage pics/*.jpg
+ *   (DD-MM-YYYY = case surgery date in IST)
  *
  * Run on your 24/7 office server:
  *   node scripts/windows-photo-sync.mjs
@@ -33,10 +33,9 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { createClient } from '@supabase/supabase-js';
 import {
-  officeDayCategoryDirFromDateKey,
-  officeRelativeDayPathFromDateKey,
+  officeCaseStagePicsDir,
+  officeCasePhotoRelativePath,
   istDateKeyFromIso,
-  sanitizeFolderName,
   sanitizeFilePart,
 } from './lib/office-archive-paths.mjs';
 
@@ -99,15 +98,6 @@ function guessExtension(doc) {
   if (mime.includes('heic')) return '.heic';
   if (mime.includes('heif')) return '.heif';
   return '.jpg';
-}
-
-function resolveEmployeeName(caseRow, stageRecord, doc) {
-  return (
-    stageRecord?.assignedEmployee?.name ||
-    caseRow.assigned_employee_snapshot?.name ||
-    doc.uploadedBy ||
-    'Unknown Employee'
-  );
 }
 
 async function downloadToFile(url, destPath) {
@@ -215,9 +205,6 @@ for (const caseRow of cases ?? []) {
         break;
       }
 
-      const employeeName = sanitizeFolderName(
-        resolveEmployeeName(caseRow, stageRecord, doc),
-      );
       const ext = guessExtension(doc);
       const timestamp = sanitizeFilePart(
         (doc.uploadedAt || new Date().toISOString()).replace(/[:.]/g, '-'),
@@ -228,19 +215,9 @@ for (const caseRow of cases ?? []) {
         /^\d{4}-\d{2}-\d{2}$/.test(surgeryRaw)
           ? surgeryRaw
           : istDateKeyFromIso(doc.uploadedAt || new Date().toISOString());
-      const destDir = join(
-        officeDayCategoryDirFromDateKey(photosRoot, surgeryDayKey, 'Cases'),
-        employeeName,
-        caseNumber,
-      );
+      const destDir = officeCaseStagePicsDir(photosRoot, surgeryDayKey, caseRow.case_number || caseNumber);
       const destPath = join(destDir, fileName);
-      const logPath = officeRelativeDayPathFromDateKey(
-        surgeryDayKey,
-        'Cases',
-        employeeName,
-        caseNumber,
-        fileName,
-      );
+      const logPath = officeCasePhotoRelativePath(surgeryDayKey, caseRow.case_number || caseNumber, fileName);
 
       mkdirSync(destDir, { recursive: true });
 

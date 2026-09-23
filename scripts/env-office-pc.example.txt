@@ -1,25 +1,21 @@
 # Copy to D:\malcon-nexus\.env (office server PC). Fill Supabase keys from dashboard.
 #
-# One photos folder on the server (map as \\SERVER\MalconNexusPhotos):
-#
 #   D:\MalconNexus\Photos\
 #     2026\
 #       September\
-#         22-09-2026\
-#           Cases\
-#             Vinay Jakati\
-#               IMP-2026-279\
-#                 Set-Preparation-....jpg
+#         23-09-2026\
+#           IMP 2026 279\
+#             Stage pics\
+#               Set-Preparation-....jpg
 #           Attendance\
 #             Rajesh_093015_a1b2c3d4.jpg
 #
-# Dates use India (IST). Case photos file by upload date; attendance by punch date.
+# Dates use India (IST). Case folders use surgery date; attendance uses punch date.
 
 VITE_SUPABASE_URL=https://YOUR_NEW_PROJECT_REF.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_secret_here
 
 PHOTOS_ROOT=D:\MalconNexus\Photos
-# Optional legacy (only if PHOTOS_ROOT unset): SELFIE_ARCHIVE_ROOT=D:\MalconNexus\PunchInSelfies
 ATTENDANCE_WHATSAPP_SESSION_PATH=D:\MalconNexus\WhatsAppSession
 ATTENDANCE_REPORTS_DIR=D:\MalconNexus\AttendanceReports
 
@@ -28,7 +24,6 @@ ATTENDANCE_WHATSAPP_GROUP_ID=918754596677-1567322249@g.us
 ATTENDANCE_WHATSAPP_BOSS_PHONE=918754596677
 ATTENDANCE_REPORT_FILTER=in
 
-# Steady-state: full copies on PC, cloud cleared quickly (app uses thumbs only)
 SELFIE_CLOUD_RETENTION_HOURS=24
 PHOTOS_CLEANUP_RETENTION_DAYS=1
 SELFIE_ARCHIVE_MAX_DELETIONS_PER_RUN=200
