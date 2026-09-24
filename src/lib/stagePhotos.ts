@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
 import { formatUnknownError } from '../utils/errors';
-import type { Document, WorkflowStage } from '../types';
+import type { Document, Employee, WorkflowStage } from '../types';
+import { canViewCaseStagePhotos } from './superAdmin';
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 const MAX_PHOTOS_PER_SUBMISSION = 10;
@@ -404,6 +405,35 @@ export function isImageDocument(doc: Document): boolean {
 }
 
 /** In-app preview (thumbnail when available). */
+/** Object path inside the stage-photos bucket (from public or signed URL). */
+export function stagePhotoObjectPath(url: string): string | null {
+  if (!url) return null;
+  for (const marker of ['/object/public/stage-photos/', '/object/sign/stage-photos/']) {
+    const i = url.indexOf(marker);
+    if (i >= 0) {
+      return decodeURIComponent(url.slice(i + marker.length).split('?')[0] ?? '');
+    }
+  }
+  return null;
+}
+
+/** Super-admin-only view URL (signed when bucket is private). */
+export async function stagePhotoViewUrlForViewer(
+  doc: Document,
+  viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
+): Promise<string | null> {
+  if (!canViewCaseStagePhotos(viewer)) return null;
+  if (!doc.url) return null;
+  if (!USE_SUPABASE || doc.url.startsWith('data:')) return doc.url;
+
+  const path = stagePhotoObjectPath(doc.url);
+  if (!path) return doc.url;
+
+  const { data, error } = await supabase.storage.from('stage-photos').createSignedUrl(path, 60 * 60);
+  if (!error && data?.signedUrl) return data.signedUrl;
+  return doc.url;
+}
+
 export function stagePhotoDisplayUrl(doc: Document): string {
   return doc.url;
 }

@@ -29,6 +29,7 @@ import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formSty
 import { cn } from '../utils/cn';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendingTaskRequest } from '../lib/caseTaskRequests';
 import { canStoreManagerSubmitSetPreparation, isFullAdmin, isSetPreparationStage } from '../lib/roles';
+import { canViewCaseStagePhotos } from '../lib/superAdmin';
 import { CASE_DUTY_KINDS, CASE_DUTY_LABELS, getDutyEmployee } from '../lib/caseDuties';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -635,10 +636,13 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     void reactivateAssignedCase(c.id);
   }, [c.id, c.status, c.currentStage, viewMode, currentUser, reactivateAssignedCase, c.assignedEmployee?.id]);
 
+  const canViewPhotos = canViewCaseStagePhotos(currentUser);
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <Clipboard className="h-3.5 w-3.5" /> },
     { id: 'stages', label: 'Stage Progress', icon: <ChevronRight className="h-3.5 w-3.5" /> },
-    { id: 'docs', label: 'Documents', icon: <FileText className="h-3.5 w-3.5" /> },
+    ...(canViewPhotos
+      ? [{ id: 'docs' as const, label: 'Documents', icon: <FileText className="h-3.5 w-3.5" /> }]
+      : []),
     { id: 'activity', label: 'Activity', icon: <Clock className="h-3.5 w-3.5" /> },
     { id: 'comments', label: 'Comments', icon: <MessageSquare className="h-3.5 w-3.5" /> },
   ];
@@ -1222,7 +1226,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
                           </div>
                         )}
                         {stage.documents.length > 0 && (
-                          <StagePhotoGallery documents={stage.documents} title="Stage Photo" compact />
+                          <StagePhotoGallery
+                            documents={stage.documents}
+                            title="Stage Photo"
+                            compact
+                            viewer={currentUser}
+                          />
                         )}
                       </div>
                     </div>

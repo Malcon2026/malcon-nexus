@@ -194,7 +194,7 @@ const ActionModal: React.FC<ActionModalProps> = ({
 };
 
 export const ApprovalQueue: React.FC = () => {
-  const { cases, setSelectedCase, setActiveTab, reloadFromDatabase } = useStore();
+  const { cases, setSelectedCase, setActiveTab, reloadFromDatabase, currentUser } = useStore();
   const [actionModal, setActionModal] = useState<{ type: 'approve' | 'reject' | 'changes'; caseId: string } | null>(null);
 
   useEffect(() => {
@@ -351,6 +351,7 @@ export const ApprovalQueue: React.FC = () => {
                             documents={currentStageRecord.documents}
                             title="Employee Submission Photo"
                             compact
+                            viewer={currentUser}
                           />
                         )}
                       </div>

@@ -28,6 +28,8 @@ export function isFullAdmin(role: Employee['role']): boolean {
   return role === 'admin';
 }
 
+export { isSuperAdmin, canViewCaseStagePhotos, getSuperAdminEmailAllowlist } from './superAdmin';
+
 /** View team register and mark attendance (not full admin). */
 export function canManageTeamAttendance(role: Employee['role']): boolean {
   return role === 'admin' || role === 'store_manager';
