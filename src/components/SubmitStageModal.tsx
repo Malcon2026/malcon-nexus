@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle, CircleCheck } from 'lucide-react';
+import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle, CircleCheck, CalendarClock } from 'lucide-react';
+import { normalizeDateKey } from '../lib/attendance';
 import { RESTOCK_OUTCOMES, type RestockOutcomeTone } from '../lib/restock';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
@@ -53,7 +54,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   onClose,
   implantCase: initialCase,
 }) => {
-  const { submitStage, currentUser, cases, viewMode } = useStore();
+  const { submitStage, postponeCase, cancelCase, currentUser, cases, viewMode } = useStore();
   const c = cases.find((x) => x.id === initialCase.id) ?? initialCase;
 
   const [notes, setNotes] = useState('');
@@ -61,6 +62,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [postponeDate, setPostponeDate] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -68,6 +70,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       setPhotos([]);
       setUploadProgress(null);
       setError(null);
+      setPostponeDate('');
     }
   }, [isOpen, c.id]);
 
@@ -78,6 +81,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       : normalizeWorkflowStage(c.currentStage));
   const isRestock = stage === 'Restock';
   const isPickup = stage === 'Pickup from Hospital';
+  const isSurgery = stage === 'Surgery';
   const isStoreSetPrep =
     viewMode === 'store_manager' && stage === 'Set Preparation';
   const title = isRestock
@@ -89,12 +93,21 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       : STAGE_ACTIONS[stage] || 'Submit Work';
   const submitLabel = isStoreSetPrep ? 'Complete set & go to Delivery' : 'Submit to Admin';
   const formReady = notes.trim().length > 0 && photos.length > 0 && !submitting;
+  const surgeryPostponeReady =
+    isSurgery &&
+    photos.length > 0 &&
+    Boolean(normalizeDateKey(postponeDate)) &&
+    normalizeDateKey(postponeDate) !== normalizeDateKey(c.surgeryDate) &&
+    !submitting;
+  const surgeryCancelReady = isSurgery && photos.length > 0 && !submitting;
 
   const notesPlaceholder = isRestock
     ? 'Restocked: what was refilled. No restock: why nothing needed. Ordered: items, supplier, ETA…'
     : isStoreSetPrep
       ? 'Brief note — kit complete, any missing items, special handling…'
-      : 'Describe what was completed, any issues found, items used, observations...';
+      : isSurgery
+        ? 'Surgery completed — implants used, patient details, any issues…'
+        : 'Describe what was completed, any issues found, items used, observations...';
 
   const resetForm = () => {
     photos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
@@ -102,12 +115,74 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
     setPhotos([]);
     setUploadProgress(null);
     setError(null);
+    setPostponeDate('');
   };
 
   const handleClose = () => {
     if (submitting) return;
     resetForm();
     onClose();
+  };
+
+  const handleSurgeryPostpone = async () => {
+    const nextDate = normalizeDateKey(postponeDate);
+    if (photos.length === 0) {
+      setError('Please add at least one photo before postponing.');
+      return;
+    }
+    if (!nextDate) {
+      setError('Pick the new surgery date.');
+      return;
+    }
+    if (nextDate === normalizeDateKey(c.surgeryDate)) {
+      setError('Pick a different surgery date.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setUploadProgress({ done: 0, total: photos.length });
+
+    try {
+      await postponeCase(c.id, nextDate, '', {
+        fieldSurgery: true,
+        photos: photos.map((p) => p.file),
+        onUploadProgress: (done, total) => setUploadProgress({ done, total }),
+      });
+      resetForm();
+      onClose();
+    } catch (err) {
+      setError(formatUnknownError(err, 'Failed to postpone. Please try again.'));
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const handleSurgeryCancelUnused = async () => {
+    if (photos.length === 0) {
+      setError('Please add at least one photo before submitting.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setUploadProgress({ done: 0, total: photos.length });
+
+    try {
+      await cancelCase(c.id, 'implants_not_used', undefined, {
+        fieldSurgery: true,
+        photos: photos.map((p) => p.file),
+        onUploadProgress: (done, total) => setUploadProgress({ done, total }),
+      });
+      resetForm();
+      onClose();
+    } catch (err) {
+      setError(formatUnknownError(err, 'Failed to cancel case. Please try again.'));
+    } finally {
+      setSubmitting(false);
+      setUploadProgress(null);
+    }
   };
 
   const handleSubmit = async (
@@ -173,9 +248,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           ? 'Add photo + notes, then choose how restock was handled'
           : isPickup
             ? 'Add photo + notes, then choose return type or complete a normal pickup'
-            : undefined
+            : isSurgery
+              ? 'Complete surgery, adjust the date, or cancel if implants were not used'
+              : undefined
       }
-      size={isRestock || isPickup ? 'lg' : 'md'}
+      size={isRestock || isPickup || isSurgery ? 'lg' : 'md'}
       footer={
         <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={submitting}>
@@ -232,6 +309,41 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
                 {busyLabel ?? RETURN_OUTCOMES[1].title}
               </Button>
             </>
+          ) : isSurgery ? (
+            <div className="flex flex-col gap-2 w-full sm:min-w-[280px]">
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full"
+                onClick={() => void handleSubmit()}
+                disabled={!formReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              >
+                {busyLabel ?? 'Mark surgery completed'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => void handleSurgeryPostpone()}
+                disabled={!surgeryPostponeReady}
+                icon={
+                  submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />
+                }
+              >
+                {busyLabel ?? 'Adjust surgery date (postponed)'}
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
+                className="w-full py-3 text-sm font-semibold"
+                onClick={() => void handleSurgeryCancelUnused()}
+                disabled={!surgeryCancelReady}
+                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              >
+                {busyLabel ?? 'Surgery not performed — implant not used'}
+              </Button>
+            </div>
           ) : (
             <Button
               variant="primary"
@@ -297,6 +409,41 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           </div>
         )}
 
+        {isSurgery && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-3 sm:col-span-1">
+              <div className="flex items-center gap-2 font-semibold text-sm text-sky-900">
+                <CalendarClock className="h-4 w-4 shrink-0" />
+                Adjust date (postponed)
+              </div>
+              <p className="text-xs mt-1 text-sky-800/90">
+                Surgery delayed — kit stays at hospital. Add photos and pick the new date below.
+              </p>
+              <label className="block text-xs font-medium text-sky-900 mt-3 mb-1">New surgery date *</label>
+              <input
+                type="date"
+                className="nexus-field-input nexus-field-input--plain w-full text-sm"
+                value={postponeDate}
+                min={c.surgeryDate || undefined}
+                disabled={submitting}
+                onChange={(e) => {
+                  setPostponeDate(e.target.value);
+                  setError(null);
+                }}
+              />
+            </div>
+            <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="flex items-center gap-2 font-semibold text-sm text-amber-900">
+                <Ban className="h-4 w-4 shrink-0" />
+                Surgery cancelled — implant not used
+              </div>
+              <p className="text-xs mt-1 text-amber-800/90">
+                No surgery today. Add photos and use the red button below — kit returns for pickup. No notes needed.
+              </p>
+            </div>
+          </div>
+        )}
+
         {isRestock && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {RESTOCK_OUTCOMES.map((opt) => (
@@ -325,17 +472,35 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           disabled={submitting}
         />
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1.5">Completion Notes *</label>
-          <textarea
-            className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
-            rows={4}
-            placeholder={notesPlaceholder}
-            value={notes}
-            disabled={submitting}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
+        {!isSurgery && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Completion Notes *</label>
+            <textarea
+              className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
+              rows={4}
+              placeholder={notesPlaceholder}
+              value={notes}
+              disabled={submitting}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        )}
+
+        {isSurgery && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Completion notes <span className="text-gray-400 font-normal">(only if surgery completed)</span>
+            </label>
+            <textarea
+              className="nexus-field-input nexus-field-input--plain w-full min-h-[72px] py-2 text-sm resize-y"
+              rows={3}
+              placeholder={notesPlaceholder}
+              value={notes}
+              disabled={submitting}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+        )}
 
         {error && (
           <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
@@ -349,6 +514,10 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         ) : isStoreSetPrep ? (
           <p className="text-xs text-gray-500">
             Add at least one photo of the prepared set. The case moves to <strong>Delivery</strong> when you submit.
+          </p>
+        ) : isSurgery ? (
+          <p className="text-xs text-gray-500">
+            Photos are required for every option. Postpone and cancel do not need written notes.
           </p>
         ) : (
           <p className="text-xs text-gray-400">

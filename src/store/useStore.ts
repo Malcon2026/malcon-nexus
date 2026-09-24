@@ -215,8 +215,26 @@ interface AppState {
     returnOutcome?: import('../types').ReturnOutcome,
   ) => Promise<{ error: string | null }>;
   closeCase: (caseId: string, options?: { allowFieldClose?: boolean }) => void;
-  cancelCase: (caseId: string, reasonType: CancelCaseReasonType, details?: string) => Promise<void>;
-  postponeCase: (caseId: string, newSurgeryDate: string, reason: string) => Promise<void>;
+  cancelCase: (
+    caseId: string,
+    reasonType: CancelCaseReasonType,
+    details?: string,
+    options?: {
+      fieldSurgery?: boolean;
+      photos?: File[];
+      onUploadProgress?: (completed: number, total: number) => void;
+    },
+  ) => Promise<void>;
+  postponeCase: (
+    caseId: string,
+    newSurgeryDate: string,
+    reason: string,
+    options?: {
+      fieldSurgery?: boolean;
+      photos?: File[];
+      onUploadProgress?: (completed: number, total: number) => void;
+    },
+  ) => Promise<void>;
   deleteCase: (id: string) => void;
 
   // Employee Actions
@@ -369,6 +387,41 @@ interface AppState {
 }
 
 // --- Helpers ---
+
+const SURGERY_FIELD_POSTPONE_REASON = 'Surgery postponed — date adjusted (photos from hospital).';
+
+function canActOnSurgeryFromField(
+  implantCase: ImplantCase,
+  user: Pick<Employee, 'id' | 'email' | 'role'>,
+): boolean {
+  if (user.role === 'admin') return true;
+  return getEmployeeSubmitStage(implantCase, user) === 'Surgery';
+}
+
+async function mergeSurgeryFieldPhotos(
+  caseId: string,
+  implantCase: ImplantCase,
+  photos: File[],
+  uploadedBy: string,
+  onUploadProgress?: (completed: number, total: number) => void,
+) {
+  const stageDocuments = await uploadStagePhotos(
+    caseId,
+    'Surgery',
+    photos,
+    uploadedBy,
+    onUploadProgress,
+  );
+  const normalizedStages = normalizeCaseStages(implantCase.stages);
+  const stageIdx = indexOfStageInCase(normalizedStages, 'Surgery');
+  const stages =
+    stageIdx >= 0
+      ? normalizedStages.map((s, i) =>
+          i === stageIdx ? { ...s, documents: [...s.documents, ...stageDocuments] } : s,
+        )
+      : normalizedStages;
+  return { stageDocuments, stages };
+}
 
 const getNextStage = (current: WorkflowStage, skipBilling = false): WorkflowStage | null => {
   return getNextWorkflowStage(current, { skipBilling });
@@ -3379,7 +3432,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  cancelCase: async (caseId, reasonType, details) => {
+  cancelCase: async (caseId, reasonType, details, options) => {
     const trimmedDetails = (details ?? '').trim();
     if (reasonType === 'other' && !trimmedDetails) {
       throw new Error('Please enter details for Other.');
@@ -3388,10 +3441,41 @@ export const useStore = create<AppState>((set, get) => ({
     const logPhrase = cancelCaseLogPhrase(reasonType);
 
     const state = get();
-    const c = state.cases.find((x) => x.id === caseId);
+    let c = state.cases.find((x) => x.id === caseId);
     if (!c) return;
     if (c.status === 'Completed' || c.status === 'Cancelled') {
       throw new Error('This case is already closed.');
+    }
+
+    const fieldSurgery = Boolean(options?.fieldSurgery);
+    if (fieldSurgery) {
+      if (reasonType !== 'implants_not_used') {
+        throw new Error('Invalid cancel reason for surgery field submit.');
+      }
+      if (!canActOnSurgeryFromField(c, state.currentUser)) {
+        throw new Error('Only the assigned scrub (or admin) can cancel from Surgery.');
+      }
+      if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') {
+        throw new Error('This action is only available at the Surgery stage.');
+      }
+      if (!options?.photos?.length) {
+        throw new Error('At least one photo is required.');
+      }
+    }
+
+    const performerRole: 'admin' | 'employee' = fieldSurgery ? 'employee' : 'admin';
+    const surgeryRec = findStageRecord(c.stages, 'Surgery');
+    const uploadedBy = surgeryRec?.assignedEmployee?.name || state.currentUser.name;
+
+    if (options?.photos?.length) {
+      const merged = await mergeSurgeryFieldPhotos(
+        caseId,
+        c,
+        options.photos,
+        uploadedBy,
+        options.onUploadProgress,
+      );
+      c = { ...c, stages: merged.stages };
     }
 
     const now = new Date().toISOString();
@@ -3423,8 +3507,8 @@ export const useStore = create<AppState>((set, get) => ({
       id: `log-${Date.now()}`,
       caseId,
       action: 'Case Cancelled',
-      performedBy: state.currentUser.name,
-      performedByRole: 'admin' as const,
+      performedBy: uploadedBy,
+      performedByRole: performerRole,
       timestamp: now,
       details: returnStage
         ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Reason: ${trimmed}`
@@ -3499,8 +3583,8 @@ export const useStore = create<AppState>((set, get) => ({
       'case',
       caseId,
       c.caseNumber,
-      state.currentUser.name,
-      'admin',
+      uploadedBy,
+      performerRole,
       `Case ${c.caseNumber} cancelled (${trimmed}). Kit returning via ${returnStage}.`,
     );
     persistActivity(activity);
@@ -3525,18 +3609,32 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  postponeCase: async (caseId, newSurgeryDate, reason) => {
-    const trimmed = reason.trim();
+  postponeCase: async (caseId, newSurgeryDate, reason, options) => {
+    const fieldSurgery = Boolean(options?.fieldSurgery);
+    const trimmed = (reason.trim() || (fieldSurgery ? SURGERY_FIELD_POSTPONE_REASON : '')).trim();
     const nextDate = normalizeDateKey(newSurgeryDate.trim());
     if (!trimmed) throw new Error('Please enter a reason for postponing.');
     if (!nextDate) throw new Error('Please pick the new surgery date.');
 
     const state = get();
-    if (isStoreManager(state.currentUser.role)) {
+    const c0 = state.cases.find((x) => x.id === caseId);
+    if (!c0) return;
+
+    if (fieldSurgery) {
+      if (!canActOnSurgeryFromField(c0, state.currentUser)) {
+        throw new Error('Only the assigned scrub (or admin) can postpone from Surgery.');
+      }
+      if (normalizeWorkflowStageName(c0.currentStage) !== 'Surgery') {
+        throw new Error('This action is only available at the Surgery stage.');
+      }
+      if (!options?.photos?.length) {
+        throw new Error('At least one photo is required.');
+      }
+    } else if (isStoreManager(state.currentUser.role)) {
       throw new Error('Only full admins can postpone cases.');
     }
-    const c = state.cases.find((x) => x.id === caseId);
-    if (!c) return;
+
+    let c = c0;
     if (c.status === 'Completed' || c.status === 'Cancelled') {
       throw new Error('This case is already closed.');
     }
@@ -3557,6 +3655,20 @@ export const useStore = create<AppState>((set, get) => ({
     const postponedFrom = c.postponedFrom || previousDate || '';
 
     const surgeryRec = findStageRecord(c.stages, 'Surgery');
+    const uploadedBy = surgeryRec?.assignedEmployee?.name || state.currentUser.name;
+    const performerRole: 'admin' | 'employee' = fieldSurgery ? 'employee' : 'admin';
+
+    if (options?.photos?.length) {
+      const merged = await mergeSurgeryFieldPhotos(
+        caseId,
+        c,
+        options.photos,
+        uploadedBy,
+        options.onUploadProgress,
+      );
+      c = { ...c, stages: merged.stages };
+    }
+
     const holdAtSurgery =
       surgeryRec && surgeryRec.status !== 'Approved'
         ? {
@@ -3578,8 +3690,8 @@ export const useStore = create<AppState>((set, get) => ({
       id: `log-${Date.now()}`,
       caseId,
       action: 'Case Postponed',
-      performedBy: state.currentUser.name,
-      performedByRole: 'admin' as const,
+      performedBy: uploadedBy,
+      performedByRole: performerRole,
       timestamp: now,
       details: `Surgery postponed from ${previousDate || 'unscheduled'} to ${nextDate}. Stay postponed at Surgery — assign scrub when ready. Reason: ${trimmed}`,
     };
@@ -3590,6 +3702,7 @@ export const useStore = create<AppState>((set, get) => ({
       postponeReason: trimmed,
       postponedFrom,
       remarks,
+      stages: c.stages,
       ...holdAtSurgery,
       activityLogs: [...c.activityLogs, postponeLog],
     });
@@ -3599,8 +3712,8 @@ export const useStore = create<AppState>((set, get) => ({
       'case',
       caseId,
       c.caseNumber,
-      state.currentUser.name,
-      'admin',
+      uploadedBy,
+      performerRole,
       `Case ${c.caseNumber} postponed to ${nextDate}.`,
     );
     persistActivity(activity);
