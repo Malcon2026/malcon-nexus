@@ -22,7 +22,7 @@ import {
   priorityColors, statusColors, stageColors, departmentColors,
   formatDate, formatDateTime, timeAgo, formatCurrency
 } from '../utils/helpers';
-import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, FORCE_ADVANCE_ENABLED, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName } from '../lib/caseWorkflow';
+import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, FORCE_ADVANCE_ENABLED, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName, getEmployeeSubmitStage, getStageSubmitWaitMessage } from '../lib/caseWorkflow';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
@@ -617,6 +617,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     c.status !== 'Waiting For Approval';
   const canEmployeeSubmit =
     (viewMode === 'employee' || viewMode === 'store_manager') && canEmployeeSubmitCase(c, currentUser);
+  const employeeSubmitStage = getEmployeeSubmitStage(c, currentUser);
+  const stageSubmitWaitMessage =
+    (viewMode === 'employee' || viewMode === 'store_manager')
+      ? getStageSubmitWaitMessage(c, currentUser)
+      : null;
   const canEmployeeEdit =
     (viewMode === 'employee' || viewMode === 'store_manager') && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
@@ -786,9 +791,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           )}
           {(viewMode === 'employee' || viewMode === 'store_manager') &&
             canEmployeeSubmit &&
-            !canStoreManagerSetSubmit && (
+            !canStoreManagerSetSubmit &&
+            employeeSubmitStage && (
             <Button variant="primary" size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setShowSubmit(true)}>
-              {STAGE_ACTIONS[c.currentStage]}
+              {STAGE_ACTIONS[employeeSubmitStage] ?? 'Submit'}
             </Button>
           )}
           <Button variant="outline" size="sm" icon={<Download className="h-4 w-4" />}>Export</Button>
@@ -863,6 +869,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
               Kit comes back through Pickup → Cleaning & Audit → Restock.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
             </p>
+          </div>
+        </div>
+      )}
+
+      {stageSubmitWaitMessage && (viewMode === 'employee' || viewMode === 'store_manager') && (
+        <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2">
+          <Clock className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Not ready to submit yet</p>
+            <p className="text-xs text-slate-700 mt-0.5">{stageSubmitWaitMessage}</p>
           </div>
         </div>
       )}

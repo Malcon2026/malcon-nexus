@@ -97,11 +97,10 @@ export function stageSupportsAssistant(stage: WorkflowStage | string): stage is 
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
 
 /**
- * When true, each assignee can submit their stage even if earlier stages are not done yet
- * (e.g. cleaning before surgery). Requires DB policy in fix-cases-parallel-workflow-rls.sql —
- * the case header (assigned_employee_id) only tracks one person at a time.
+ * When false (default), assignees can view cases but must wait until all earlier stages are
+ * approved before submit. When true, parallel submit needs fix-cases-parallel-workflow-rls.sql.
  */
-export const PARALLEL_STAGE_SUBMIT_ENABLED = true;
+export const PARALLEL_STAGE_SUBMIT_ENABLED = false;
 
 /** Set false to use direct assignment only (no open pool / task requests). */
 export const FCFS_POOL_ENABLED = false;
@@ -772,19 +771,61 @@ const EMPLOYEE_SUBMITTABLE_STAGE_STATUSES: StageRecord['status'][] = [
   'Rejected',
 ];
 
-function priorStagesAllApproved(
+/** First earlier stage that is not approved yet (blocks sequential submit). */
+export function firstIncompletePriorStage(
   implantCase: ImplantCase,
   stage: WorkflowStage,
-): boolean {
+): WorkflowStage | null {
   const targetIdx = getStageIndex(stage);
-  if (targetIdx <= 0) return true;
+  if (targetIdx <= 0) return null;
   for (const prior of WORKFLOW_STAGES.slice(0, targetIdx)) {
     if (prior === 'Completed') continue;
     if (isPostRestockStageDisabled(prior)) continue;
     const rec = findStageRecord(implantCase.stages, prior);
-    if (rec && rec.status !== 'Approved') return false;
+    if (rec && rec.status !== 'Approved') return prior;
   }
-  return true;
+  return null;
+}
+
+function priorStagesAllApproved(
+  implantCase: ImplantCase,
+  stage: WorkflowStage,
+): boolean {
+  return firstIncompletePriorStage(implantCase, stage) === null;
+}
+
+/** Earliest stage this employee owns that still needs submit (view-only until prior stages done). */
+export function getEmployeeOwnedOpenStage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): WorkflowStage | null {
+  for (const stage of VISIBLE_WORKFLOW_STAGES) {
+    if (stage === 'Completed') continue;
+    if (!isWorkflowStageEnabled(stage)) continue;
+    const rec = findStageRecord(implantCase.stages, stage);
+    if (!rec) continue;
+    if (!isEmployeeAssigneeOnWorkflowStage(implantCase, stage, employee)) continue;
+    if (rec.status === 'Submitted' || rec.status === 'Approved') continue;
+    if ((EMPLOYEE_SUBMITTABLE_STAGE_STATUSES as readonly string[]).includes(rec.status)) {
+      return stage;
+    }
+  }
+  return null;
+}
+
+/** Shown when the case is visible but an earlier stage must finish before submit. */
+export function getStageSubmitWaitMessage(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): string | null {
+  if (PARALLEL_STAGE_SUBMIT_ENABLED) return null;
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return null;
+  const owned = getEmployeeOwnedOpenStage(implantCase, employee);
+  if (!owned) return null;
+  if (getEmployeeSubmitStage(implantCase, employee) === owned) return null;
+  const blocker = firstIncompletePriorStage(implantCase, owned);
+  if (!blocker) return null;
+  return `You can submit ${owned} after ${blocker} is completed.`;
 }
 
 /** Primary stage this employee can submit (parallel workflow — not gated on case currentStage). */

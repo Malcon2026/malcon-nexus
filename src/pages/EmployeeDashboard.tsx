@@ -14,6 +14,7 @@ import { formatDate, timeAgo, getStageStyle, getPriorityStyle } from '../utils/h
 import {
   canEmployeeSubmitCase,
   getEmployeeSubmitStage,
+  getStageSubmitWaitMessage,
   isCaseVisibleToEmployee,
   isCaseAssistantOnCurrentStage,
   isCaseAssignedToEmployee,
@@ -424,6 +425,7 @@ const EmployeeCasesPanel: React.FC<{
             const isSubmitted = c.status === 'Waiting For Approval';
             const canSubmit = canEmployeeSubmitCase(c, currentUser);
             const mySubmitStage = getEmployeeSubmitStage(c, currentUser);
+            const submitWaitMessage = getStageSubmitWaitMessage(c, currentUser);
             const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
             return (
@@ -443,9 +445,14 @@ const EmployeeCasesPanel: React.FC<{
                             <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
                             {c.currentStage}
                           </Badge>
-                          {canSubmit && mySubmitStage && mySubmitStage !== c.currentStage && (
+                          {submitWaitMessage && (
+                            <Badge className="bg-slate-50 text-slate-700 border-slate-200 text-xs max-w-[220px] whitespace-normal text-left">
+                              Waiting on prior stage
+                            </Badge>
+                          )}
+                          {canSubmit && mySubmitStage && (
                             <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs">
-                              Your part: {mySubmitStage}
+                              Ready: {mySubmitStage}
                             </Badge>
                           )}
                           <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
@@ -468,6 +475,12 @@ const EmployeeCasesPanel: React.FC<{
                           <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
                             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                             {c.remarks}
+                          </div>
+                        )}
+                        {submitWaitMessage && (
+                          <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                            {submitWaitMessage}
                           </div>
                         )}
                       </div>
