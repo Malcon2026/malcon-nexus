@@ -593,14 +593,29 @@ export const sbCaseRepo = {
     const merged = { ...base, ...updates, updatedAt: new Date().toISOString() };
     const row = caseToRow(merged);
 
-    const { error: rpcError } = await supabase.rpc('save_case_for_session', { p_case: row });
+    const trySave = async () => supabase.rpc('save_case_for_session', { p_case: row });
+
+    let { error: rpcError } = await trySave();
     if (!rpcError) return merged;
 
-    const rpcMessage = formatUnknownError(rpcError);
+    let rpcMessage = formatUnknownError(rpcError);
+    const assigneeBlocked =
+      rpcMessage.toLowerCase().includes('assigned to') && rpcMessage.toLowerCase().includes('not you');
+
+    if (assigneeBlocked) {
+      const { error: syncErr } = await supabase.rpc('sync_case_header_from_stages', { p_case_id: id });
+      if (!syncErr) {
+        ({ error: rpcError } = await trySave());
+        if (!rpcError) return merged;
+        rpcMessage = formatUnknownError(rpcError);
+      }
+    }
+
     const rpcMissing =
       rpcError.code === 'PGRST202' ||
       rpcMessage.toLowerCase().includes('save_case_for_session') ||
-      rpcMessage.toLowerCase().includes('could not find the function');
+      rpcMessage.toLowerCase().includes('could not find the function') ||
+      rpcMessage.toLowerCase().includes('sync_case_header_from_stages');
     if (!rpcMissing) {
       throw new Error(rpcMessage);
     }

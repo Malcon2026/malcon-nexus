@@ -3078,6 +3078,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (c.status === 'Completed' || c.status === 'Cancelled') {
       return { error: 'This case is closed.' };
     }
+    if (isRestockStageComplete(c.stages) && c.status !== 'Waiting For Approval') {
+      if (state.currentUser.role === 'admin') {
+        void get().closeCase(caseId, { allowFieldClose: true });
+      }
+      return {
+        error:
+          'Restock is already done on this case. Refresh the page — it should show Completed. If not, ask admin to open the app once.',
+      };
+    }
     let submitStageName: WorkflowStage | null = getEmployeeSubmitStage(c, state.currentUser);
     if (!submitStageName && canStoreManagerSubmitSetPreparation(c, state.currentUser)) {
       submitStageName = 'Set Preparation';
@@ -3344,7 +3353,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
       if (message.toLowerCase().includes('assigned to') && message.toLowerCase().includes('not you')) {
         return {
-          error: `${message} Parallel stages need fix-cases-parallel-workflow-rls.sql in Supabase. Ask admin to open the app once to sync the case header, then retry once.`,
+          error: `${message} Run sync-case-header-from-stages.sql (and fix-cases-parallel-workflow-rls.sql) in Supabase SQL Editor, then refresh and retry once — do not re-upload photos unless submit still fails.`,
         };
       }
       if (message.toLowerCase().includes('not assigned') || message.toLowerCase().includes('not you')) {
