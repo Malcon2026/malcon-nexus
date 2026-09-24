@@ -609,6 +609,9 @@ export const sbCaseRepo = {
         if (!rpcError) return merged;
         rpcMessage = formatUnknownError(rpcError);
       }
+      // Header drift: RPC may still use old rules — try direct row update (parallel RLS allows stage assignees).
+      const { error: directAfterSync } = await supabase.from('cases').update(row as never).eq('id', id);
+      if (!directAfterSync) return merged;
     }
 
     const rpcMissing =
@@ -616,7 +619,7 @@ export const sbCaseRepo = {
       rpcMessage.toLowerCase().includes('save_case_for_session') ||
       rpcMessage.toLowerCase().includes('could not find the function') ||
       rpcMessage.toLowerCase().includes('sync_case_header_from_stages');
-    if (!rpcMissing) {
+    if (!rpcMissing && !assigneeBlocked) {
       throw new Error(rpcMessage);
     }
 

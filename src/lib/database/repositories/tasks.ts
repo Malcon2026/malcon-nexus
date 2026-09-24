@@ -20,6 +20,12 @@ export const taskRepository = {
     return list.find(c => c.id === id) || null;
   },
 
+  /** Always hits Supabase — use before submit/save to avoid stale session cache. */
+  async getFreshById(id: string): Promise<ImplantCase | null> {
+    if (USE_SUPABASE) return sbCaseRepo.getById(id);
+    return this.getById(id);
+  },
+
   async create(item: ImplantCase): Promise<ImplantCase> {
     if (USE_SUPABASE) {
       await sbCaseRepo.create(item);

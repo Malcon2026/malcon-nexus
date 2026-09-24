@@ -43,7 +43,7 @@ interface BootstrapCachePayload {
   data: Record<string, unknown[]>;
 }
 
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v11';
+const CACHE_PREFIX = 'malcon-nexus-bootstrap-v12';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;

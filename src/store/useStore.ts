@@ -68,7 +68,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, getStageSubmitWaitMessage, indexOfStageInCase, WORKFLOW_STAGES } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, isEmployeeAssigneeOnWorkflowStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, getStageSubmitWaitMessage, indexOfStageInCase, WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
@@ -3073,10 +3073,17 @@ export const useStore = create<AppState>((set, get) => ({
 
   submitStage: async (caseId, notes, photos, onUploadProgress, restockOutcome, returnOutcome) => {
     const state = get();
-    const c = state.cases.find((x) => x.id === caseId);
+    const fresh = await taskRepository.getFreshById(caseId);
+    const cached = state.cases.find((x) => x.id === caseId);
+    const c = fresh ?? cached;
     if (!c) return { error: 'Case not found' };
+    if (fresh && cached && fresh.updatedAt !== cached.updatedAt) {
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? fresh : x)),
+      }));
+    }
     if (c.status === 'Completed' || c.status === 'Cancelled') {
-      return { error: 'This case is closed.' };
+      return { error: 'This case is already closed. Refresh the page (close the tab and open the app again if it still shows active).' };
     }
     if (isRestockStageComplete(c.stages) && c.status !== 'Waiting For Approval') {
       if (state.currentUser.role === 'admin') {
@@ -3084,7 +3091,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
       return {
         error:
-          'Restock is already done on this case. Refresh the page — it should show Completed. If not, ask admin to open the app once.',
+          'Restock is already done on this case. Close the app tab and sign in again — the case should show Completed.',
       };
     }
     let submitStageName: WorkflowStage | null = getEmployeeSubmitStage(c, state.currentUser);
@@ -3119,8 +3126,9 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'Please choose Restocked, No restock needed, or Restock ordered.' };
     }
     if (!canBypassAssigneeForSubmit(state.currentUser.role, submitStageName)) {
+      const onStage = isEmployeeAssigneeOnWorkflowStage(c, submitStageName, state.currentUser);
       const allowed = getEmployeeSubmitStage(c, state.currentUser);
-      if (allowed !== submitStageName) {
+      if (!onStage && allowed !== submitStageName) {
         const assignee = stageRecord?.assignedEmployee;
         if (!assignee?.id) {
           return { error: 'This stage has no assignee. Ask admin to assign you before submitting.' };
@@ -3128,6 +3136,10 @@ export const useStore = create<AppState>((set, get) => ({
         return {
           error: `This stage is assigned to ${assignee.name ?? 'someone else'}, not you. Ask admin to reassign.`,
         };
+      }
+      if (onStage && allowed !== submitStageName) {
+        const waitMsg = getStageSubmitWaitMessage(c, state.currentUser);
+        if (waitMsg) return { error: waitMsg };
       }
     }
 
@@ -3199,14 +3211,18 @@ export const useStore = create<AppState>((set, get) => ({
           returnOutcome,
           submittedStage: submitStageName,
         });
+        const headerFromStages = computeOpenCasePointer({
+          stages: advanced.stages,
+          cancelReason: c.cancelReason,
+        });
         const updatedCase = await taskRepository.update(
           caseId,
           {
             stages: advanced.stages,
             status: advanced.status,
-            currentStage: advanced.currentStage,
-            currentDepartment: advanced.currentDepartment,
-            assignedEmployee: advanced.assignedEmployee,
+            currentStage: advanced.currentStage ?? headerFromStages.currentStage,
+            currentDepartment: advanced.currentDepartment ?? headerFromStages.currentDepartment,
+            assignedEmployee: advanced.assignedEmployee ?? headerFromStages.assignedEmployee,
             activityLogs: [...c.activityLogs, submitLog, advanced.advanceLog],
             ...(advanced.clearPostpone ? { postponeReason: '' } : {}),
           },
@@ -3352,8 +3368,10 @@ export const useStore = create<AppState>((set, get) => ({
         };
       }
       if (message.toLowerCase().includes('assigned to') && message.toLowerCase().includes('not you')) {
+        void get().reloadFromDatabase();
         return {
-          error: `${message} Run sync-case-header-from-stages.sql (and fix-cases-parallel-workflow-rls.sql) in Supabase SQL Editor, then refresh and retry once — do not re-upload photos unless submit still fails.`,
+          error:
+            'Save blocked by a stale case assignment in the database. Close this tab, open the app again, and retry once. Do not re-upload photos unless submit still fails.',
         };
       }
       if (message.toLowerCase().includes('not assigned') || message.toLowerCase().includes('not you')) {
