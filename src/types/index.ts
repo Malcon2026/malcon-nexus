@@ -24,7 +24,7 @@ export type WorkflowStage =
   | 'Bill Submission'
   | 'Completed';
 
-export type RestockOutcome = 'restocked' | 'order';
+export type RestockOutcome = 'restocked' | 'no_restock' | 'order';
 
 /** Pickup (return) stage — implants used with no pickup, or set parked at hospital. */
 export type ReturnOutcome = 'used_no_return' | 'parked';

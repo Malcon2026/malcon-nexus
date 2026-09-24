@@ -610,7 +610,7 @@ export function isCaseAssignedToEmployee(
 }
 
 /** Post-surgery duty slot for a workflow stage (Return / Clean / Restock). */
-function postSurgeryDutyAssignee(
+export function postSurgeryDutyAssignee(
   implantCase: ImplantCase,
   stage: WorkflowStage,
 ): Employee | null | undefined {
@@ -620,6 +620,33 @@ function postSurgeryDutyAssignee(
   if (stage === 'Cleaning & Audit') return d.cleaning?.assignedEmployee ?? null;
   if (stage === 'Restock') return d.restock?.assignedEmployee ?? null;
   return undefined;
+}
+
+/** Stage row assignee, or duty snapshot when return/clean/restock was set only on duties. */
+export function effectiveStageAssignee(
+  implantCase: ImplantCase,
+  stage: WorkflowStage,
+  rec?: StageRecord,
+): Employee | null {
+  const row = rec ?? findStageRecord(implantCase.stages, stage);
+  if (row?.assignedEmployee) return row.assignedEmployee;
+  const fromDuty = postSurgeryDutyAssignee(implantCase, stage);
+  if (fromDuty !== undefined) return fromDuty;
+  return row?.assignedEmployee ?? null;
+}
+
+export function isEmployeeAssigneeOnWorkflowStage(
+  implantCase: ImplantCase,
+  stage: WorkflowStage,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  return employeeMatches(effectiveStageAssignee(implantCase, stage), employee);
+}
+
+export function indexOfStageInCase(stages: StageRecord[], stage: WorkflowStage): number {
+  const target = normalizeWorkflowStageName(stage);
+  const idx = (stages ?? []).findIndex((s) => normalizeWorkflowStageName(s.stage) === target);
+  return idx >= 0 ? idx : getStageIndex(stage);
 }
 
 /** Who should act on the case at its current workflow stage. */
@@ -751,7 +778,7 @@ export function getEmployeeSubmitStage(
     if (!isWorkflowStageEnabled(stage)) continue;
     const rec = findStageRecord(implantCase.stages, stage);
     if (!rec) continue;
-    if (!employeeMatches(rec.assignedEmployee, employee)) continue;
+    if (!isEmployeeAssigneeOnWorkflowStage(implantCase, stage, employee)) continue;
     if (rec.status === 'Submitted') continue;
     if (rec.status === 'Approved') {
       if (

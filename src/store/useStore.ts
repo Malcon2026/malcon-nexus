@@ -68,7 +68,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
-import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, WORKFLOW_STAGES } from '../lib/caseWorkflow';
+import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applyParkedCompleteFromStage, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, indexOfStageInCase, WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
 import { normalizeCaseTextFields } from '../lib/textFormat';
@@ -205,6 +205,7 @@ interface AppState {
   repairStuckSelfSurgeryCases: () => Promise<void>;
   repairStuckPickupReturnOutcomes: () => Promise<void>;
   repairLegacyBillingCases: () => Promise<void>;
+  repairCaseHeaderPointers: () => Promise<void>;
   submitStage: (
     caseId: string,
     notes: string,
@@ -1035,8 +1036,9 @@ function buildAutoAdvanceFromSubmit(
     resolveNextStageAfterApproval(c, submittedName);
   const advancingToFcfs = Boolean(next && next !== 'Completed' && isFcfsStage(next));
 
+  const baseStages = normalizeCaseStages(c.stages);
   let updatedStages = normalizeCaseStages(
-    c.stages.map((s, i) =>
+    baseStages.map((s, i) =>
       i === stageIdx
         ? {
             ...s,
@@ -1047,7 +1049,11 @@ function buildAutoAdvanceFromSubmit(
             adminNotes: opts.autoNotes,
             documents: [...s.documents, ...opts.stageDocuments],
             ...(opts.atRestock && opts.restockOutcome ? { restockOutcome: opts.restockOutcome } : {}),
-            ...(opts.atPickup && opts.returnOutcome ? { returnOutcome: opts.returnOutcome } : {}),
+            ...(opts.atPickup
+              ? opts.returnOutcome
+                ? { returnOutcome: opts.returnOutcome }
+                : { returnOutcome: undefined }
+              : {}),
           }
         : s,
     ),
@@ -2938,7 +2944,9 @@ export const useStore = create<AppState>((set, get) => ({
       if (normalizeWorkflowStageName(c.currentStage) !== 'Pickup from Hospital') continue;
       const pickupRec = findStageRecord(c.stages, 'Pickup from Hospital');
       if (!pickupRec?.returnOutcome) continue;
+      if (pickupRec.assignedEmployee?.id) continue;
       if (pickupRec.status === 'Approved') continue;
+      if (pickupRec.status === 'Submitted') continue;
       if (c.status === 'Waiting For Approval') continue;
 
       try {
@@ -2948,6 +2956,39 @@ export const useStore = create<AppState>((set, get) => ({
         );
       } catch (err) {
         console.error('[repairStuckPickupReturnOutcomes]', c.caseNumber, err);
+      }
+    }
+  },
+
+  repairCaseHeaderPointers: async () => {
+    const state = get();
+    if (!canManageAllCases(state.currentUser.role)) return;
+
+    for (const c of state.cases) {
+      if (c.status === 'Completed' || c.status === 'Cancelled') continue;
+      const pointer = computeOpenCasePointer(c);
+      const sameStage = normalizeWorkflowStageName(c.currentStage) === pointer.currentStage;
+      const sameAssignee =
+        (c.assignedEmployee?.id ?? null) === (pointer.assignedEmployee?.id ?? null);
+      const sameStatus = c.status === pointer.status;
+      if (sameStage && sameAssignee && sameStatus) continue;
+
+      try {
+        const updatedCase = await taskRepository.update(
+          c.id,
+          {
+            currentStage: pointer.currentStage,
+            currentDepartment: pointer.currentDepartment,
+            assignedEmployee: pointer.assignedEmployee,
+            status: pointer.status,
+          },
+          c,
+        );
+        set((s) => ({
+          cases: s.cases.map((x) => (x.id === c.id ? updatedCase : x)),
+        }));
+      } catch (err) {
+        console.error('[repairCaseHeaderPointers]', c.caseNumber, err);
       }
     }
   },
@@ -2970,9 +3011,9 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'You have no stage ready to submit on this case.' };
     }
 
-    const stageIdxCheck = WORKFLOW_STAGES.indexOf(submitStageName);
-    const stageRecord =
-      stageIdxCheck >= 0 ? c.stages[stageIdxCheck] : findStageRecord(c.stages, submitStageName);
+    const normalizedStages = normalizeCaseStages(c.stages);
+    const stageIdxCheck = indexOfStageInCase(normalizedStages, submitStageName);
+    const stageRecord = findStageRecord(normalizedStages, submitStageName);
     if (stageRecord?.status === 'Submitted') {
       return { error: 'This stage is already submitted and waiting for approval.' };
     }
@@ -2986,7 +3027,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'At least one photo is required.' };
     }
     if (submitStageName === 'Restock' && !restockOutcome) {
-      return { error: 'Please choose Restocked or Order.' };
+      return { error: 'Please choose Restocked, No restock needed, or Restock ordered.' };
     }
     if (!canBypassAssigneeForSubmit(state.currentUser.role, submitStageName)) {
       const allowed = getEmployeeSubmitStage(c, state.currentUser);
@@ -3017,7 +3058,7 @@ export const useStore = create<AppState>((set, get) => ({
         onUploadProgress,
       );
 
-      const stageIdx = WORKFLOW_STAGES.indexOf(submitStageName);
+      const stageIdx = indexOfStageInCase(normalizedStages, submitStageName);
       const now = new Date().toISOString();
       const photoLabel = stageDocuments.length === 1 ? 'photo' : `${stageDocuments.length} photos`;
       const outcomeDetail = restockLabel
@@ -3037,12 +3078,18 @@ export const useStore = create<AppState>((set, get) => ({
       const autoNotes = `Auto-advanced after submit by ${uploadedBy}.`;
 
       if (AUTO_APPROVE_STAGE_SUBMISSIONS) {
+        const stageIdx = indexOfStageInCase(normalizedStages, submitStageName);
         const cForAdvance: ImplantCase =
-          returnOutcome && atPickup
+          atPickup
             ? {
                 ...c,
-                stages: c.stages.map((s, i) =>
-                  i === stageIdx ? { ...s, returnOutcome } : s,
+                stages: normalizedStages.map((s, i) =>
+                  i === stageIdx
+                    ? {
+                        ...s,
+                        ...(returnOutcome ? { returnOutcome } : { returnOutcome: undefined }),
+                      }
+                    : s,
                 ),
               }
             : c;
@@ -3120,18 +3167,24 @@ export const useStore = create<AppState>((set, get) => ({
         return { error: null };
       }
 
-      const updatedStages = c.stages.map((s, i) =>
-        i === stageIdx
-          ? {
-              ...s,
-              status: 'Submitted' as const,
-              submittedAt: now,
-              notes,
-              ...(atRestock && restockOutcome ? { restockOutcome } : {}),
-              ...(atPickup && returnOutcome ? { returnOutcome } : {}),
-              documents: [...s.documents, ...stageDocuments],
-            }
-          : s,
+      const updatedStages = normalizeCaseStages(
+        normalizedStages.map((s, i) =>
+          i === stageIdx
+            ? {
+                ...s,
+                status: 'Submitted' as const,
+                submittedAt: now,
+                notes,
+                ...(atRestock && restockOutcome ? { restockOutcome } : {}),
+                ...(atPickup
+                  ? returnOutcome
+                    ? { returnOutcome }
+                    : { returnOutcome: undefined }
+                  : {}),
+                documents: [...s.documents, ...stageDocuments],
+              }
+            : s,
+        ),
       );
 
       const pointer = computeOpenCasePointer({ stages: updatedStages, cancelReason: c.cancelReason });

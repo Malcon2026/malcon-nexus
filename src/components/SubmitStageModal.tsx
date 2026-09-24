@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle } from 'lucide-react';
+import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle, CircleCheck } from 'lucide-react';
+import { RESTOCK_OUTCOMES, type RestockOutcomeTone } from '../lib/restock';
 import { Button } from './ui/Button';
 import { Modal } from './ui/Modal';
 import { StagePhotoCapture, type CapturedPhoto } from './StagePhotoCapture';
@@ -10,6 +11,24 @@ import { normalizeWorkflowStage } from '../utils/helpers';
 import { getEmployeeSubmitStage } from '../lib/caseWorkflow';
 import { canStoreManagerSubmitSetPreparation } from '../lib/roles';
 import { formatUnknownError } from '../utils/errors';
+
+const RESTOCK_TONE_CARD: Record<RestockOutcomeTone, string> = {
+  lime: 'border-lime-200 bg-lime-50 text-lime-800',
+  sky: 'border-sky-200 bg-sky-50 text-sky-800',
+  amber: 'border-amber-200 bg-amber-50 text-amber-800',
+};
+
+const RESTOCK_TONE_HINT: Record<RestockOutcomeTone, string> = {
+  lime: 'text-lime-700/90',
+  sky: 'text-sky-700/90',
+  amber: 'text-amber-700/90',
+};
+
+function RestockOutcomeIconLarge({ id }: { id: (typeof RESTOCK_OUTCOMES)[number]['id'] }) {
+  if (id === 'restocked') return <Package className="h-4 w-4 shrink-0" />;
+  if (id === 'no_restock') return <CircleCheck className="h-4 w-4 shrink-0" />;
+  return <ShoppingCart className="h-4 w-4 shrink-0" />;
+}
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Set Preparation': 'Submit to Admin',
@@ -72,7 +91,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   const formReady = notes.trim().length > 0 && photos.length > 0 && !submitting;
 
   const notesPlaceholder = isRestock
-    ? 'Restocked: what was refilled. Order: what was ordered, supplier, follow-up…'
+    ? 'Restocked: what was refilled. No restock: why nothing needed. Ordered: items, supplier, ETA…'
     : isStoreSetPrep
       ? 'Brief note — kit complete, any missing items, special handling…'
       : 'Describe what was completed, any issues found, items used, observations...';
@@ -104,7 +123,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       return;
     }
     if (isRestock && !restockOutcome) {
-      setError('Tap Restocked or Order to submit.');
+      setError('Choose Restocked, No restock needed, or Restock ordered.');
       return;
     }
 
@@ -151,7 +170,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       title={title}
       subtitle={
         isRestock
-          ? 'Add photo + notes, then tap Restocked or Order'
+          ? 'Add photo + notes, then choose how restock was handled'
           : isPickup
             ? 'Add photo + notes, then choose return type or complete a normal pickup'
             : undefined
@@ -163,26 +182,26 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             Cancel
           </Button>
           {isRestock ? (
-            <>
-              <Button
-                variant="success"
-                size="sm"
-                onClick={() => void handleSubmit('restocked')}
-                disabled={!formReady}
-                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-              >
-                {busyLabel ?? 'Restocked'}
-              </Button>
-              <Button
-                variant="warning"
-                size="sm"
-                onClick={() => void handleSubmit('order')}
-                disabled={!formReady}
-                icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-              >
-                {busyLabel ?? 'Order'}
-              </Button>
-            </>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:justify-end w-full sm:w-auto">
+              {RESTOCK_OUTCOMES.map((opt) => (
+                <Button
+                  key={opt.id}
+                  variant={opt.id === 'restocked' ? 'success' : opt.id === 'order' ? 'warning' : 'outline'}
+                  size="sm"
+                  onClick={() => void handleSubmit(opt.id)}
+                  disabled={!formReady}
+                  icon={
+                    submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RestockOutcomeIconLarge id={opt.id} />
+                    )
+                  }
+                >
+                  {busyLabel ?? opt.title}
+                </Button>
+              ))}
+            </div>
           ) : isPickup ? (
             <>
               <Button
@@ -279,21 +298,19 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
         )}
 
         {isRestock && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-xl border-2 border-lime-200 bg-lime-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-lime-800 font-semibold text-sm">
-                <Package className="h-4 w-4 shrink-0" />
-                Restocked
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {RESTOCK_OUTCOMES.map((opt) => (
+              <div
+                key={opt.id}
+                className={`rounded-xl border-2 px-4 py-3 ${RESTOCK_TONE_CARD[opt.tone]}`}
+              >
+                <div className="flex items-center gap-2 font-semibold text-sm">
+                  <RestockOutcomeIconLarge id={opt.id} />
+                  {opt.title}
+                </div>
+                <p className={`text-xs mt-1 ${RESTOCK_TONE_HINT[opt.tone]}`}>{opt.hint}</p>
               </div>
-              <p className="text-xs text-lime-700/90 mt-1">Empty slots refilled from stock</p>
-            </div>
-            <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3">
-              <div className="flex items-center gap-2 text-amber-800 font-semibold text-sm">
-                <ShoppingCart className="h-4 w-4 shrink-0" />
-                Order
-              </div>
-              <p className="text-xs text-amber-700/90 mt-1">Stock not available — order placed</p>
-            </div>
+            ))}
           </div>
         )}
 
@@ -326,7 +343,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
         {isRestock ? (
           <p className="text-xs text-gray-500">
-            After photo + notes, use the <strong>Restocked</strong> or <strong>Order</strong> button below.
+            After photo + notes, tap <strong>Restocked</strong>, <strong>No restock needed</strong>, or{' '}
+            <strong>Restock ordered</strong> below.
           </p>
         ) : isStoreSetPrep ? (
           <p className="text-xs text-gray-500">
