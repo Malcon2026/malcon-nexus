@@ -96,6 +96,13 @@ export function stageSupportsAssistant(stage: WorkflowStage | string): stage is 
 /** When true, employee stage submit auto-advances the case (no admin Approval Queue). */
 export const AUTO_APPROVE_STAGE_SUBMISSIONS = true;
 
+/**
+ * When true, each assignee can submit their stage even if earlier stages are not done yet
+ * (e.g. cleaning before surgery). Requires DB policy in fix-cases-parallel-workflow-rls.sql —
+ * the case header (assigned_employee_id) only tracks one person at a time.
+ */
+export const PARALLEL_STAGE_SUBMIT_ENABLED = true;
+
 /** Set false to use direct assignment only (no open pool / task requests). */
 export const FCFS_POOL_ENABLED = false;
 
@@ -765,6 +772,21 @@ const EMPLOYEE_SUBMITTABLE_STAGE_STATUSES: StageRecord['status'][] = [
   'Rejected',
 ];
 
+function priorStagesAllApproved(
+  implantCase: ImplantCase,
+  stage: WorkflowStage,
+): boolean {
+  const targetIdx = getStageIndex(stage);
+  if (targetIdx <= 0) return true;
+  for (const prior of WORKFLOW_STAGES.slice(0, targetIdx)) {
+    if (prior === 'Completed') continue;
+    if (isPostRestockStageDisabled(prior)) continue;
+    const rec = findStageRecord(implantCase.stages, prior);
+    if (rec && rec.status !== 'Approved') return false;
+  }
+  return true;
+}
+
 /** Primary stage this employee can submit (parallel workflow — not gated on case currentStage). */
 export function getEmployeeSubmitStage(
   implantCase: ImplantCase,
@@ -776,6 +798,7 @@ export function getEmployeeSubmitStage(
   for (const stage of VISIBLE_WORKFLOW_STAGES) {
     if (stage === 'Completed') continue;
     if (!isWorkflowStageEnabled(stage)) continue;
+    if (!PARALLEL_STAGE_SUBMIT_ENABLED && !priorStagesAllApproved(implantCase, stage)) continue;
     const rec = findStageRecord(implantCase.stages, stage);
     if (!rec) continue;
     if (!isEmployeeAssigneeOnWorkflowStage(implantCase, stage, employee)) continue;

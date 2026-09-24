@@ -2904,10 +2904,35 @@ export const useStore = create<AppState>((set, get) => ({
 
     for (const c of state.cases) {
       if (isPostponedCase(c)) continue;
-      if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') continue;
       if (!isSelfPerformedSurgery(c)) continue;
       const surgeryRec = findStageRecord(c.stages, 'Surgery');
-      if (surgeryRec?.status === 'Approved') continue;
+      if (surgeryRec?.status === 'Approved') {
+        const pointer = computeOpenCasePointer(c);
+        const drift =
+          normalizeWorkflowStageName(c.currentStage) !== pointer.currentStage ||
+          (c.assignedEmployee?.id ?? null) !== (pointer.assignedEmployee?.id ?? null);
+        if (drift) {
+          try {
+            const updatedCase = await taskRepository.update(
+              c.id,
+              {
+                currentStage: pointer.currentStage,
+                currentDepartment: pointer.currentDepartment,
+                assignedEmployee: pointer.assignedEmployee,
+                status: pointer.status,
+              },
+              c,
+            );
+            set((s) => ({
+              cases: s.cases.map((x) => (x.id === c.id ? updatedCase : x)),
+            }));
+          } catch (err) {
+            console.error('[repairStuckSelfSurgeryCases header]', c.caseNumber, err);
+          }
+        }
+        continue;
+      }
+      if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') continue;
       if (c.status === 'Waiting For Approval') continue;
 
       try {
@@ -3259,7 +3284,12 @@ export const useStore = create<AppState>((set, get) => ({
       if (message.toLowerCase().includes('row-level security')) {
         return {
           error:
-            'Submit blocked by database permissions. Ask admin to run fix-cases-employee-submit-rpc.sql in Supabase, then retry.',
+            'Submit blocked by database permissions. Ask admin to run fix-cases-parallel-workflow-rls.sql in Supabase, then retry (do not upload again unless submit still fails).',
+        };
+      }
+      if (message.toLowerCase().includes('assigned to') && message.toLowerCase().includes('not you')) {
+        return {
+          error: `${message} Parallel stages need fix-cases-parallel-workflow-rls.sql in Supabase. Ask admin to open the app once to sync the case header, then retry once.`,
         };
       }
       if (message.toLowerCase().includes('not assigned') || message.toLowerCase().includes('not you')) {
