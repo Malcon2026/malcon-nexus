@@ -122,7 +122,11 @@ export const EmployeePickerSheet: React.FC<EmployeePickerSheetProps> = ({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="search"
-            autoFocus
+            inputMode="search"
+            autoFocus={
+              typeof window === 'undefined' ||
+              !window.matchMedia('(hover: none) and (pointer: coarse)').matches
+            }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or team"
