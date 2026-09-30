@@ -11,7 +11,7 @@ import {
   type CreateCaseDraft,
 } from '../lib/createCaseFromDraft';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
-import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
+import { isCaseOpsView, isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 import type { CaseDutyKind } from '../lib/caseDuties';
 import { HospitalStep } from './case-create/HospitalStep';
 import { SurgeryStep, type SurgeryField } from './case-create/SurgeryStep';
@@ -49,7 +49,8 @@ function freshDraft(): CreateCaseDraft {
  */
 export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const { createCase, hospitals, employees, currentUser, viewMode, cases, doctors, setSelectedCase } = useStore();
-  const isAdmin = viewMode === 'admin';
+  const isFullAdmin = viewMode === 'admin';
+  const isCaseOps = isCaseOpsView(viewMode);
 
   const [step, setStep] = useState(0);
   const [maxStep, setMaxStep] = useState(0);
@@ -84,11 +85,11 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (allowPrepAssignToMe) {
       draft.stageEmployeeIds[SET_PREPARATION_STAGE] = currentUser.id;
     }
-    if (isAdmin) {
+    if (isFullAdmin) {
       draft.punchedInByEmployeeId = currentUser.id;
     }
     return draft;
-  }, [allowPrepAssignToMe, currentUser.id, isAdmin]);
+  }, [allowPrepAssignToMe, currentUser.id, isFullAdmin]);
 
   const resetAll = useCallback(() => {
     setForm(initDraft());
@@ -165,7 +166,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (!form.surgeryDate) checks.push({ step: 1, field: 'date', message: 'Choose the surgery date to continue.' });
     if (!form.doctorName.trim()) checks.push({ step: 1, field: 'doctor', message: 'Select or add the doctor to continue.' });
     if (!form.implantRequired.trim()) checks.push({ step: 1, field: 'procedure', message: 'Enter the procedure to continue.' });
-    if (isAdmin && !form.punchedInByEmployeeId.trim()) {
+    if (isFullAdmin && !form.punchedInByEmployeeId.trim()) {
       checks.push({ step: 2, field: 'punch', message: 'Choose who punched in this case.' });
     }
     return checks.find((c) => c.step <= upTo) ?? null;
@@ -284,7 +285,8 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     employees: activeEmployees,
     punchInCandidates,
     currentUser,
-    isAdmin,
+    showImplantDetails: isCaseOps,
+    isFullAdmin,
   };
 
   const footer = created ? null : (
@@ -329,7 +331,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
       <Modal
         isOpen={isOpen}
         onClose={requestClose}
-        title={created ? 'Case created' : isAdmin ? 'New implant case' : 'New case'}
+        title={created ? 'Case created' : isCaseOps ? 'New implant case' : 'New case'}
         subtitle={created ? undefined : `${step + 1} of ${CASE_CREATE_STEPS.length} · ${meta.label}`}
         size="screen"
         dismissOnBackdrop={false}
@@ -413,7 +415,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       hospital={hospital}
                       cases={cases}
                       doctors={doctors}
-                      isAdmin={isAdmin}
+                      showImplantDetails={isCaseOps}
                       error={surgeryError}
                       openDoctorSignal={doctorSignal}
                       procedureRef={procedureRef}
@@ -427,7 +429,8 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       employees={activeEmployees}
                       punchInCandidates={punchInCandidates}
                       currentUser={currentUser}
-                      isAdmin={isAdmin}
+                      isFullAdmin={isFullAdmin}
+                      allowAssistants={isCaseOps}
                       allowPrepAssignToMe={allowPrepAssignToMe}
                       punchError={errorFor('punch')}
                     />

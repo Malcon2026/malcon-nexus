@@ -14,7 +14,9 @@ interface CaseSummaryProps {
   employees: Employee[];
   punchInCandidates: Employee[];
   currentUser: Employee;
-  isAdmin: boolean;
+  showImplantDetails?: boolean;
+  /** Punched in by / start stage — full admin only. */
+  isFullAdmin?: boolean;
   /** When set, each section gets an Edit button that jumps to that step. */
   onEdit?: (step: number) => void;
 }
@@ -66,7 +68,8 @@ export const CaseSummary: React.FC<CaseSummaryProps> = ({
   employees,
   punchInCandidates,
   currentUser,
-  isAdmin,
+  showImplantDetails = false,
+  isFullAdmin = false,
   onEdit,
 }) => {
   const activeStages = ASSIGNABLE_WORKFLOW_STAGES.slice(ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage));
@@ -112,14 +115,14 @@ export const CaseSummary: React.FC<CaseSummaryProps> = ({
         <Row label="Doctor" value={form.doctorName.trim() || '—'} muted={!form.doctorName.trim()} />
         <Row label="Procedure" value={form.implantRequired.trim() || '—'} muted={!form.implantRequired.trim()} />
         {form.priority !== 'Medium' ? <Row label="Priority" value={form.priority} /> : null}
-        {isAdmin && form.implantType.trim() ? <Row label="Implant type" value={form.implantType.trim()} /> : null}
-        {isAdmin && form.implantCompany.trim() ? <Row label="Company" value={form.implantCompany.trim()} /> : null}
+        {showImplantDetails && form.implantType.trim() ? <Row label="Implant type" value={form.implantType.trim()} /> : null}
+        {showImplantDetails && form.implantCompany.trim() ? <Row label="Company" value={form.implantCompany.trim()} /> : null}
       </Block>
       <Block title="Team" step={2} onEdit={onEdit}>
         {teamRows.map((r) => (
           <Row key={r.label} label={r.label} value={r.value ?? 'Assign later'} muted={!r.value} />
         ))}
-        {isAdmin ? (
+        {isFullAdmin ? (
           <>
             <Row label="Starts at" value={form.startStage} />
             <Row

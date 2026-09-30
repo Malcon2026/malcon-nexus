@@ -26,7 +26,8 @@ interface SurgeryStepProps {
   hospital: Hospital | undefined;
   cases: ImplantCase[];
   doctors: Doctor[];
-  isAdmin: boolean;
+  /** Implant type & company — admin and store manager. */
+  showImplantDetails?: boolean;
   error: { field: SurgeryField; message: string } | null;
   /** Increment to open the doctor sheet (used by validation). */
   openDoctorSignal: number;
@@ -160,7 +161,7 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
   hospital,
   cases,
   doctors,
-  isAdmin,
+  showImplantDetails = false,
   error,
   openDoctorSignal,
   procedureRef,
@@ -328,8 +329,7 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
         ) : null}
       </section>
 
-      {/* Implant details — admin only, same as before */}
-      {isAdmin ? (
+      {showImplantDetails ? (
         <section className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="cc-implant-type" className={fieldLabel}>

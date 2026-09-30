@@ -74,7 +74,8 @@ interface TeamStepProps {
   employees: Employee[];
   punchInCandidates?: Employee[];
   currentUser: Employee;
-  isAdmin: boolean;
+  /** Full admin: punched in by, start stage, admin options. */
+  isFullAdmin?: boolean;
   allowPrepAssignToMe: boolean;
   /** Validation message for "Punched in by". */
   punchError?: string | null;
@@ -283,7 +284,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
   employees,
   punchInCandidates = [],
   currentUser,
-  isAdmin,
+  isFullAdmin = false,
   mode = 'create',
   allowAssistants,
   allowReturnSpecial = true,
@@ -383,17 +384,18 @@ export const TeamStep: React.FC<TeamStepProps> = ({
   }, [target, employees, punchInCandidates, form, actions, allowReturnSpecial]);
 
   const isCreate = mode === 'create';
-  const assistantsOn = allowAssistants ?? isAdmin;
+  const assistantsOn = allowAssistants ?? isFullAdmin;
+  const showLimitedAssignHint = isCreate && !isFullAdmin && !assistantsOn;
 
   return (
     <div className="space-y-4">
-      {isCreate && !isAdmin ? (
+      {showLimitedAssignHint ? (
         <p className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
           Only assign what you know now — anything left blank can be assigned later from the case.
         </p>
       ) : null}
 
-      {isCreate && isAdmin ? (
+      {isCreate && isFullAdmin ? (
         <TeamRow
           label="Punched in by"
           question="Who is entering this case?"
@@ -418,7 +420,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
             view={view(value)}
             badge={
               badges?.[stage] ??
-              (isCreate && isAdmin && stage === form.startStage && stage !== SET_PREPARATION_STAGE ? 'Starts here' : undefined)
+              (isCreate && isFullAdmin && stage === form.startStage && stage !== SET_PREPARATION_STAGE ? 'Starts here' : undefined)
             }
             emphasised={isPrep && allowPrepAssignToMe}
             note={fcfs ? 'Pool stage — assigned when it opens on the board.' : undefined}
@@ -460,7 +462,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
         </Disclosure>
       ) : null}
 
-      {isCreate && isAdmin ? (
+      {isCreate && isFullAdmin ? (
         <Disclosure
           id="cc-admin-options"
           title="Admin options"
