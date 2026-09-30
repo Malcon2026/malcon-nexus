@@ -5,6 +5,9 @@
  * Usage:
  *   node scripts/close-legacy-open-cases.mjs [--dry-run]
  *   node scripts/close-legacy-open-cases.mjs --before=2026-09-22 [--dry-run]
+ *   node scripts/close-legacy-open-cases.mjs --through=2026-09-29 [--dry-run]
+ *     (surgery_date <= through; skips postponed by default)
+ *   node scripts/close-legacy-open-cases.mjs --through=2026-09-29 --include-postponed
  *
  * Requires VITE_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env
  */
@@ -18,7 +21,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
 const beforeArg = process.argv.find((a) => a.startsWith('--before='));
+const throughArg = process.argv.find((a) => a.startsWith('--through='));
 const surgeryBefore = beforeArg ? beforeArg.slice('--before='.length) : null;
+const surgeryThrough = throughArg ? throughArg.slice('--through='.length) : null;
+const excludePostponed = !process.argv.includes('--include-postponed');
 
 function loadEnv() {
   for (const name of ['.env.local', '.env']) {
@@ -46,8 +52,14 @@ if (!url || !key) {
 
 const sb = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 
-const CLOSE_NOTE =
-  'Bulk closed — legacy open cases cleared after Supabase migration (admin script).';
+const CLOSE_NOTE = surgeryThrough
+  ? `Bulk closed — surgery on or before ${surgeryThrough} marked complete (admin script).`
+  : 'Bulk closed — legacy open cases cleared after Supabase migration (admin script).';
+
+function isPostponedRow(row) {
+  const reason = (row.postpone_reason ?? '').trim();
+  return Boolean(reason);
+}
 
 const SKIP_NOTES = {
   Billing: 'Skipped — Billing disabled.',
@@ -105,35 +117,73 @@ async function adjustEmployeeStats(employeeId, deltaActive, deltaCompleted) {
     .eq('id', employeeId);
 }
 
-let query = sb
-  .from('cases')
-  .select('id, case_number, status, current_stage, surgery_date, assigned_employee_id, stages, activity_logs')
-  .neq('status', 'Completed')
-  .neq('status', 'Cancelled');
+async function fetchOpenCases() {
+  const pageSize = 1000;
+  let from = 0;
+  const all = [];
+  for (;;) {
+    let query = sb
+      .from('cases')
+      .select(
+        'id, case_number, status, current_stage, surgery_date, postpone_reason, assigned_employee_id, stages, activity_logs',
+      )
+      .neq('status', 'Completed')
+      .neq('status', 'Cancelled')
+      .range(from, from + pageSize - 1);
 
-if (surgeryBefore) {
-  query = query.lt('surgery_date', surgeryBefore);
+    if (surgeryBefore) {
+      query = query.lt('surgery_date', surgeryBefore);
+    } else if (surgeryThrough) {
+      query = query.lte('surgery_date', surgeryThrough);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data?.length) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
 }
 
-const { data: cases, error } = await query;
-
-if (error) {
+let cases;
+try {
+  cases = await fetchOpenCases();
+} catch (error) {
   console.error('Query failed:', error.message);
   process.exit(1);
 }
 
+if (excludePostponed) {
+  const skipped = cases.filter(isPostponedRow);
+  if (skipped.length) {
+    console.log(`Skipping ${skipped.length} postponed case(s):`);
+    for (const c of skipped) {
+      console.log(`  (postponed) ${c.case_number}  surgery=${c.surgery_date ?? '—'}`);
+    }
+    console.log('');
+  }
+  cases = cases.filter((c) => !isPostponedRow(c));
+}
+
 if (!cases?.length) {
-  console.log(
-    surgeryBefore
-      ? `No open cases with surgery_date before ${surgeryBefore}.`
-      : 'No open cases to close.',
-  );
+  const range = surgeryThrough
+    ? `surgery on or before ${surgeryThrough}${excludePostponed ? ', excluding postponed' : ''}`
+    : surgeryBefore
+      ? `surgery before ${surgeryBefore}`
+      : 'matching filters';
+  console.log(`No open cases (${range}).`);
   process.exit(0);
 }
 
 console.log(
   `${dryRun ? '[DRY RUN] Would close' : 'Closing'} ${cases.length} case(s)${
-    surgeryBefore ? ` (surgery before ${surgeryBefore})` : ''
+    surgeryThrough
+      ? ` (surgery ≤ ${surgeryThrough}${excludePostponed ? ', not postponed' : ''})`
+      : surgeryBefore
+        ? ` (surgery before ${surgeryBefore})`
+        : ''
   }:\n`,
 );
 for (const c of cases) {
