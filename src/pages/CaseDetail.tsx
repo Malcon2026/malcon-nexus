@@ -1009,7 +1009,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <Badge className={`${stc} text-xs`}>{c.status}</Badge>
           {c.priority !== 'Medium' ? <Badge className={`${pc} text-xs`}>{c.priority}</Badge> : null}
         </div>
-        <p className="mt-1.5 text-sm text-gray-600">
+        <p className="mt-1.5 text-sm font-semibold text-gray-900">
           {c.implantRequired} — Dr {c.doctor.name} · {formatDate(c.surgeryDate)}
         </p>
         {c.createdBy ? (
