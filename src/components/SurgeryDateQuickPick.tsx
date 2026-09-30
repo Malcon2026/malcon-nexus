@@ -25,12 +25,17 @@ interface SurgeryDateQuickPickProps {
   value: string;
   mode: SurgeryDateMode;
   onChange: (value: string, mode: SurgeryDateMode) => void;
+  /** `lg` = bigger touch targets (case entry). Default keeps existing look. */
+  size?: 'sm' | 'lg';
+  customLabel?: string;
 }
 
 export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
   value,
   mode,
   onChange,
+  size = 'sm',
+  customLabel = 'Custom',
 }) => {
   const todayKey = getTodaySurgeryDateKey();
   const tomorrowKey = getTomorrowSurgeryDateKey();
@@ -41,7 +46,8 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
 
   const btnClass = (active: boolean) =>
     cn(
-      'flex-1 px-3 py-2 text-xs font-semibold rounded-lg border transition-colors',
+      'flex-1 px-3 font-semibold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
+      size === 'lg' ? 'min-h-[48px] text-sm rounded-xl' : 'py-2 text-xs rounded-lg',
       active
         ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
         : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
@@ -50,14 +56,14 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <button type="button" className={btnClass(mode === 'today')} onClick={pickToday}>
+        <button type="button" aria-pressed={mode === 'today'} className={btnClass(mode === 'today')} onClick={pickToday}>
           Today
         </button>
-        <button type="button" className={btnClass(mode === 'tomorrow')} onClick={pickTomorrow}>
+        <button type="button" aria-pressed={mode === 'tomorrow'} className={btnClass(mode === 'tomorrow')} onClick={pickTomorrow}>
           Tomorrow
         </button>
-        <button type="button" className={btnClass(mode === 'custom')} onClick={pickCustom}>
-          Custom
+        <button type="button" aria-pressed={mode === 'custom'} className={btnClass(mode === 'custom')} onClick={pickCustom}>
+          {customLabel}
         </button>
       </div>
 
