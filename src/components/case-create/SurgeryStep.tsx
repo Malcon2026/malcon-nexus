@@ -14,9 +14,15 @@ import { allDoctors, commonProcedures, recentDoctorNames } from './caseCreateHel
 
 export type SurgeryField = 'doctor' | 'procedure' | 'date';
 
+/** The slice of the draft the surgery UI needs (Add Case and Edit Case both provide it). */
+export type SurgeryFormFields = Pick<
+  CreateCaseDraft,
+  'hospitalId' | 'doctorName' | 'surgeryDate' | 'surgeryDateMode' | 'implantRequired' | 'implantType' | 'implantCompany' | 'priority'
+>;
+
 interface SurgeryStepProps {
-  form: CreateCaseDraft;
-  patch: (partial: Partial<CreateCaseDraft>) => void;
+  form: SurgeryFormFields;
+  patch: (partial: Partial<SurgeryFormFields>) => void;
   hospital: Hospital | undefined;
   cases: ImplantCase[];
   doctors: Doctor[];
@@ -34,7 +40,7 @@ const fieldLabel = 'block text-sm font-semibold text-gray-900 mb-2';
 
 /* ------------------------------ Doctor sheet ------------------------------ */
 
-const DoctorSheet: React.FC<{
+export const DoctorSheet: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   options: { name: string; count: number }[];

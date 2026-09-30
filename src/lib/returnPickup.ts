@@ -10,13 +10,13 @@ export const RETURN_PARKED_VALUE = '__return_parked__';
 export const RETURN_OUTCOMES: { id: ReturnOutcome; title: string; hint: string }[] = [
   {
     id: 'used_no_return',
-    title: 'Used / no return',
-    hint: 'Implants used at hospital — skip pickup and assign cleaning',
+    title: 'No return / Not required',
+    hint: 'Implants used or no pickup needed — skip checking and go to Restock',
   },
   {
     id: 'parked',
     title: 'Parked',
-    hint: 'Set parked at hospital — complete case (no clean/restock)',
+    hint: 'Set left parked at hospital — skip checking and go to Restock',
   },
 ];
 
@@ -36,7 +36,7 @@ export function returnOutcomeToDutyId(outcome: ReturnOutcome): string {
 }
 
 export function returnOutcomeLabel(outcome: ReturnOutcome | null | undefined): string {
-  if (outcome === 'used_no_return') return 'Used / no return';
+  if (outcome === 'used_no_return') return 'No return / Not required';
   if (outcome === 'parked') return 'Parked';
   return '';
 }

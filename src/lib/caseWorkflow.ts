@@ -416,10 +416,17 @@ export const SELF_SURGERY_AUTO_ADVANCE_NOTE =
   'Hospital performed surgery independently (Self) — auto-advanced to return.';
 
 export const PICKUP_USED_NO_RETURN_NOTE =
-  'Implants used at hospital — no return pickup; auto-advanced to cleaning.';
+  'No return required — pickup skipped; case advanced to Restock (checking skipped).';
 
+export const PICKUP_PARKED_AT_HOSPITAL_NOTE =
+  'Set parked at hospital — checking skipped; case advanced to Restock.';
+
+/** Admin force-complete (Set Parked) — still used by force-advance parked close. */
 export const PICKUP_PARKED_COMPLETE_NOTE =
   'Set parked at hospital — case completed from return.';
+
+export const CHECKING_SKIP_FOR_RETURN_NOTE =
+  'Checking & Audit skipped — return marked no return / not required or parked.';
 
 export function getPickupReturnOutcome(implantCase: ImplantCase): ReturnOutcome | null {
   return findStageRecord(implantCase.stages, 'Pickup from Hospital')?.returnOutcome ?? null;
@@ -428,13 +435,20 @@ export function getPickupReturnOutcome(implantCase: ImplantCase): ReturnOutcome 
 export type StageAdvanceResolution = {
   next: WorkflowStage | null;
   skipSelfSurgery: boolean;
+  /** Also applies when return is parked and pickup stage is skipped from an earlier approval. */
   skipPickupForUsedNoReturn: boolean;
+  skipCheckingForReturnOutcome: boolean;
+  /** Legacy field — always false (parked/no-return now routes to Restock, not instant complete). */
   completeParkedFromPickup: boolean;
 };
 
+function isReturnOutcomeSpecial(outcome: ReturnOutcome | null | undefined): outcome is ReturnOutcome {
+  return outcome === 'used_no_return' || outcome === 'parked';
+}
+
 /**
  * After approving `current`, where the case should land.
- * Self surgery skips Surgery → Pickup. Return categories skip or complete at Pickup.
+ * Self surgery skips Surgery → Pickup. Return specials skip Checking → Restock.
  */
 export function resolveNextStageAfterApproval(
   implantCase: ImplantCase,
@@ -445,7 +459,7 @@ export function resolveNextStageAfterApproval(
   let raw = getNextWorkflowStage(currentName, { skipBilling });
   let skipSelfSurgery = false;
   let skipPickupForUsedNoReturn = false;
-  let completeParkedFromPickup = false;
+  let skipCheckingForReturnOutcome = false;
 
   if (raw === 'Surgery' && isSelfPerformedSurgery(implantCase)) {
     raw = getNextWorkflowStage('Surgery', { skipBilling });
@@ -454,28 +468,30 @@ export function resolveNextStageAfterApproval(
 
   const pickupOutcome = getPickupReturnOutcome(implantCase);
 
-  if (currentName === 'Pickup from Hospital' && pickupOutcome === 'parked') {
-    return {
-      next: null,
-      skipSelfSurgery,
-      skipPickupForUsedNoReturn: false,
-      completeParkedFromPickup: true,
-    };
+  if (isReturnOutcomeSpecial(pickupOutcome)) {
+    if (currentName === 'Pickup from Hospital') {
+      return {
+        next: 'Restock',
+        skipSelfSurgery,
+        skipPickupForUsedNoReturn: false,
+        skipCheckingForReturnOutcome: true,
+        completeParkedFromPickup: false,
+      };
+    }
+    if (raw === 'Pickup from Hospital') {
+      raw = 'Restock';
+      skipPickupForUsedNoReturn = true;
+      skipCheckingForReturnOutcome = true;
+    }
   }
 
-  if (raw === 'Pickup from Hospital' && pickupOutcome === 'used_no_return') {
-    raw = getNextWorkflowStage('Pickup from Hospital', { skipBilling });
-    skipPickupForUsedNoReturn = true;
-  } else if (raw === 'Pickup from Hospital' && pickupOutcome === 'parked') {
-    return {
-      next: null,
-      skipSelfSurgery,
-      skipPickupForUsedNoReturn: false,
-      completeParkedFromPickup: true,
-    };
-  }
-
-  return { next: raw, skipSelfSurgery, skipPickupForUsedNoReturn, completeParkedFromPickup };
+  return {
+    next: raw,
+    skipSelfSurgery,
+    skipPickupForUsedNoReturn,
+    skipCheckingForReturnOutcome,
+    completeParkedFromPickup: false,
+  };
 }
 
 /** Approve one stage; when skipping self surgery, also mark Surgery approved. */
@@ -532,15 +548,36 @@ export function applyApprovalWithPickupUsedNoReturnSkip(
         };
       }
       if (opts.skipPickup && name === 'Pickup from Hospital') {
+        const outcome = opts.returnOutcome ?? 'used_no_return';
         return {
           ...s,
           status: 'Approved' as const,
           approvedAt: opts.approvedAt,
-          adminNotes: PICKUP_USED_NO_RETURN_NOTE,
-          returnOutcome: 'used_no_return' as const,
+          adminNotes:
+            outcome === 'parked' ? PICKUP_PARKED_AT_HOSPITAL_NOTE : PICKUP_USED_NO_RETURN_NOTE,
+          returnOutcome: outcome,
         };
       }
       return s;
+    }),
+  );
+}
+
+/** Mark Checking & Audit approved when return is no-return or parked (case goes to Restock). */
+export function applySkipCheckingForReturnOutcome(
+  stages: StageRecord[],
+  opts: { approvedAt: string },
+): StageRecord[] {
+  return normalizeCaseStages(
+    stages.map((s) => {
+      if (normalizeWorkflowStageName(s.stage) !== 'Checking & Audit') return s;
+      if (s.status === 'Approved') return s;
+      return {
+        ...s,
+        status: 'Approved' as const,
+        approvedAt: opts.approvedAt,
+        adminNotes: CHECKING_SKIP_FOR_RETURN_NOTE,
+      };
     }),
   );
 }

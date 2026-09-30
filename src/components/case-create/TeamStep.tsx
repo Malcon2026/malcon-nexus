@@ -12,6 +12,12 @@ import {
 } from 'lucide-react';
 import type { Employee } from '../../types';
 import type { CreateCaseDraft } from '../../lib/createCaseFromDraft';
+
+/** The slice of the draft the team UI needs (Add Case and Edit Case both provide it). */
+export type TeamFormFields = Pick<
+  CreateCaseDraft,
+  'startStage' | 'stageEmployeeIds' | 'stageAssistantIds' | 'stageExtraPerson' | 'dutyEmployeeIds' | 'punchedInByEmployeeId'
+>;
 import type { AssignableStage, StageWithAssistant } from '../../lib/caseWorkflow';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
@@ -55,15 +61,23 @@ export interface TeamActions {
 }
 
 interface TeamStepProps {
-  form: CreateCaseDraft;
+  form: TeamFormFields;
   actions: TeamActions;
+  /** `edit` hides Add-Case-only controls (punched in by, start stage). */
+  mode?: 'create' | 'edit';
+  /** Defaults to admin-only. */
+  allowAssistants?: boolean;
+  /** Return can be set to Used / no return or Parked (Add Case only). */
+  allowReturnSpecial?: boolean;
+  /** Small tag per stage, e.g. Current / Done. */
+  badges?: Partial<Record<string, string>>;
   employees: Employee[];
-  punchInCandidates: Employee[];
+  punchInCandidates?: Employee[];
   currentUser: Employee;
   isAdmin: boolean;
   allowPrepAssignToMe: boolean;
   /** Validation message for "Punched in by". */
-  punchError: string | null;
+  punchError?: string | null;
 }
 
 type PickerTarget =
@@ -81,7 +95,7 @@ interface TeamRowProps {
   label: string;
   question: string;
   view: AssigneeView;
-  startsHere?: boolean;
+  badge?: string;
   note?: string;
   error?: string | null;
   onChoose: () => void;
@@ -105,7 +119,7 @@ const TeamRow: React.FC<TeamRowProps> = ({
   label,
   question,
   view,
-  startsHere,
+  badge,
   note,
   error,
   onChoose,
@@ -130,9 +144,16 @@ const TeamRow: React.FC<TeamRowProps> = ({
     >
       <div className="flex items-center gap-2">
         <p className="text-base font-semibold text-gray-900">{label}</p>
-        {startsHere ? (
-          <span className="rounded border border-[var(--color-accent)]/20 bg-[var(--color-accent-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
-            Starts here
+        {badge ? (
+          <span
+            className={cn(
+              'rounded border px-1.5 py-0.5 text-[10px] font-semibold',
+              badge === 'Done'
+                ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
+                : 'border-[var(--color-accent)]/20 bg-[var(--color-accent-muted)] text-[var(--color-accent)]',
+            )}
+          >
+            {badge}
           </span>
         ) : null}
       </div>
@@ -260,9 +281,13 @@ export const TeamStep: React.FC<TeamStepProps> = ({
   form,
   actions,
   employees,
-  punchInCandidates,
+  punchInCandidates = [],
   currentUser,
   isAdmin,
+  mode = 'create',
+  allowAssistants,
+  allowReturnSpecial = true,
+  badges,
   allowPrepAssignToMe,
   punchError,
 }) => {
@@ -333,7 +358,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
           value: form.dutyEmployeeIds[duty] ?? '',
           onSelect: (v: string) => actions.setDuty(duty, v),
           allowHospitalSelf: false,
-          allowReturnSpecial: duty === 'return',
+          allowReturnSpecial: allowReturnSpecial && duty === 'return',
           suggestedDepartment: STAGE_DEPARTMENT_MAP[CASE_DUTY_WORKFLOW_STAGE[duty]],
           excludeId: undefined,
           clearLabel: 'Assign later',
@@ -355,17 +380,20 @@ export const TeamStep: React.FC<TeamStepProps> = ({
           allowClear: false,
         };
     }
-  }, [target, employees, punchInCandidates, form, actions]);
+  }, [target, employees, punchInCandidates, form, actions, allowReturnSpecial]);
+
+  const isCreate = mode === 'create';
+  const assistantsOn = allowAssistants ?? isAdmin;
 
   return (
     <div className="space-y-4">
-      {!isAdmin ? (
+      {isCreate && !isAdmin ? (
         <p className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
           Only assign what you know now — anything left blank can be assigned later from the case.
         </p>
       ) : null}
 
-      {isAdmin ? (
+      {isCreate && isAdmin ? (
         <TeamRow
           label="Punched in by"
           question="Who is entering this case?"
@@ -380,7 +408,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
         const isPrep = stage === SET_PREPARATION_STAGE;
         const fcfs = isFcfsStage(stage);
         const value = form.stageEmployeeIds[stage] ?? '';
-        const supportsAssistant = isAdmin && stageSupportsAssistant(stage);
+        const supportsAssistant = assistantsOn && stageSupportsAssistant(stage);
         const assistantStage = stage as StageWithAssistant;
         return (
           <TeamRow
@@ -388,7 +416,10 @@ export const TeamStep: React.FC<TeamStepProps> = ({
             label={copy.label}
             question={copy.question}
             view={view(value)}
-            startsHere={isAdmin && stage === form.startStage && stage !== SET_PREPARATION_STAGE}
+            badge={
+              badges?.[stage] ??
+              (isCreate && isAdmin && stage === form.startStage && stage !== SET_PREPARATION_STAGE ? 'Starts here' : undefined)
+            }
             emphasised={isPrep && allowPrepAssignToMe}
             note={fcfs ? 'Pool stage — assigned when it opens on the board.' : undefined}
             onChoose={() => openPicker({ kind: 'stage', stage })}
@@ -429,7 +460,7 @@ export const TeamStep: React.FC<TeamStepProps> = ({
         </Disclosure>
       ) : null}
 
-      {isAdmin ? (
+      {isCreate && isAdmin ? (
         <Disclosure
           id="cc-admin-options"
           title="Admin options"

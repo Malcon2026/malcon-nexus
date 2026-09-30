@@ -53,8 +53,9 @@ const ActionModal: React.FC<ActionModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const currentStageName = normalizeWorkflowStageName(c.currentStage);
-  const { next: nextStage, skipSelfSurgery, skipPickupForUsedNoReturn } =
+  const { next: nextStage, skipSelfSurgery, skipPickupForUsedNoReturn, skipCheckingForReturnOutcome } =
     resolveNextStageAfterApproval(c, currentStageName);
+  const returnOutcomeForSkip = c.stages.find((s) => s.stage === 'Pickup from Hospital')?.returnOutcome;
   const isFinalStage = nextStage === 'Completed';
   const nextDept = nextStage ? STAGE_TO_DEPT[nextStage] : null;
   const nextStageRecord = nextStage ? c.stages.find((s) => s.stage === nextStage) : undefined;
@@ -99,6 +100,8 @@ const ActionModal: React.FC<ActionModalProps> = ({
             nextStage,
             skipSelfSurgery,
             skipPickupForUsedNoReturn,
+            skipCheckingForReturnOutcome,
+            returnOutcomeForSkip,
           );
         } else {
           // approveStage auto-activates the next pre-assigned employee, or

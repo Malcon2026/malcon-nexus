@@ -1,49 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, Calendar, CheckCircle2, ClipboardList, Stethoscope, Users } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Building2, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
-import { EmployeeSearchSelect } from './EmployeeSearchSelect';
-import { HospitalSearchSelect } from './HospitalSearchSelect';
-import { PriorityQuickPick } from './PriorityQuickPick';
-import {
-  SurgeryDateQuickPick,
-  getTodaySurgeryDateKey,
-  getTomorrowSurgeryDateKey,
-  type SurgeryDateMode,
-} from './SurgeryDateQuickPick';
 import { useStore } from '../store/useStore';
 import type { ImplantCase } from '../types';
 import {
   ASSIGNABLE_WORKFLOW_STAGES,
-  STAGE_DEPARTMENT_MAP,
   SURGERY_SELF_ASSIGNMENT_VALUE,
   findStageRecord,
   isCaseAssignedToEmployee,
-  isFcfsStage,
   stageSupportsAssistant,
   type AssignableStage,
   type StageWithAssistant,
 } from '../lib/caseWorkflow';
-import {
-  StageExtraPersonFields,
-  stageAssistantsFromCase,
-  stageExtraFlagsFromCase,
-} from './StageExtraPersonFields';
+import { stageAssistantsFromCase, stageExtraFlagsFromCase } from './StageExtraPersonFields';
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
-import { isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
+import { isStoreManager } from '../lib/roles';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
-import { normalizeSentenceText, normalizeTitleCaseWords } from '../lib/textFormat';
-import { formatDate } from '../utils/helpers';
+import { normalizeSentenceText } from '../lib/textFormat';
+import { getTodaySurgeryDateKey, getTomorrowSurgeryDateKey, type SurgeryDateMode } from './SurgeryDateQuickPick';
 import {
-  CASE_DUTIES_CREATE_SECTION_HINT,
-  CASE_DUTIES_CREATE_SECTION_TITLE,
   CASE_DUTY_KINDS,
-  CASE_DUTY_LABELS,
   CASE_DUTY_WORKFLOW_STAGE,
-  dutyPickerPlaceholder,
   getDutyEmployee,
+  type CaseDutyKind,
 } from '../lib/caseDuties';
 import { QUICK_CASE_ASSIGN_STAGES } from '../lib/createCaseFromDraft';
+import { formatHospitalLabel } from './HospitalSearchSelect';
+import { cn } from '../utils/cn';
+import { SurgeryStep } from './case-create/SurgeryStep';
+import { TeamStep, type TeamActions, type TeamFormFields } from './case-create/TeamStep';
+import { HospitalPickerSheet } from './case-create/HospitalPickerSheet';
+import { PickerSheet } from './case-create/PickerSheet';
+import { hospitalSubtitle } from './case-create/caseCreateHelpers';
 
 interface EditCaseModalProps {
   isOpen: boolean;
@@ -51,14 +40,8 @@ interface EditCaseModalProps {
   case: ImplantCase;
 }
 
-const STEPS = [
-  { key: 'place', label: 'Hospital', icon: Building2 },
-  { key: 'surgery', label: 'Surgery', icon: Stethoscope },
-  { key: 'team', label: 'Team', icon: Users },
-  { key: 'review', label: 'Review', icon: CheckCircle2 },
-] as const;
-
 const PRE_SURGERY_STAGES = QUICK_CASE_ASSIGN_STAGES;
+const PAYMENT_STATUSES = ['Pending', 'Partial', 'Collected'] as const;
 
 const emptyStageIds = (): Record<AssignableStage, string> =>
   Object.fromEntries(ASSIGNABLE_WORKFLOW_STAGES.map((s) => [s, ''])) as Record<
@@ -84,22 +67,15 @@ function stageAssignmentsFromCase(c: ImplantCase): Record<AssignableStage, strin
     }
   }
   for (const kind of CASE_DUTY_KINDS) {
-    const stage = CASE_DUTY_WORKFLOW_STAGE[kind];
+    const stage = CASE_DUTY_WORKFLOW_STAGE[kind] as AssignableStage;
     const emp = getDutyEmployee(c, kind);
     if (emp?.id) result[stage] = emp.id;
   }
   return result;
 }
 
-export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, case: c }) => {
-  const { updateCase, updateCaseStageAssignments, hospitals, employees, viewMode, currentUser } =
-    useStore();
-  const isFullAdmin = viewMode === 'admin';
-  const isAdmin = viewMode === 'admin' || viewMode === 'store_manager';
-  const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
-
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState({
+function formFromCase(c: ImplantCase) {
+  return {
     hospitalId: c.hospital.id,
     doctorName: c.doctor.name,
     surgeryDate: c.surgeryDate,
@@ -111,99 +87,135 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     remarks: c.remarks || '',
     invoiceAmount: c.invoiceAmount != null ? String(c.invoiceAmount) : '',
     collectedAmount: c.collectedAmount != null ? String(c.collectedAmount) : '',
-    paymentStatus: c.paymentStatus || 'Pending',
-  });
+    paymentStatus: (c.paymentStatus || 'Pending') as (typeof PAYMENT_STATUSES)[number],
+  };
+}
+
+const sectionTitle = 'text-base font-semibold text-gray-900 mb-4';
+const fieldLabel = 'block text-sm font-semibold text-gray-900 mb-2';
+
+/**
+ * Edit case — one simple screen (Surgery + Team), using the same pickers as Add Case.
+ * Saving still goes through `updateCase` and `updateCaseStageAssignments`, unchanged.
+ */
+export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, case: c }) => {
+  const { updateCase, updateCaseStageAssignments, hospitals, employees, viewMode, currentUser, cases, doctors } =
+    useStore();
+  const isFullAdmin = viewMode === 'admin';
+  const isAdmin = viewMode === 'admin' || viewMode === 'store_manager';
+  const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
+
+  const [form, setForm] = useState(() => formFromCase(c));
   const [stageEmployeeIds, setStageEmployeeIds] = useState(() => stageAssignmentsFromCase(c));
   const [stageAssistantIds, setStageAssistantIds] = useState(() => stageAssistantsFromCase(c.stages));
   const [stageExtraPerson, setStageExtraPerson] = useState(() => stageExtraFlagsFromCase(c.stages));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hospitalOpen, setHospitalOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const procedureRef = useRef<HTMLInputElement>(null);
+  const snapshotRef = useRef('');
 
   const activeEmployees = useMemo(
     () => listEmployeesForCaseAssignment(employees, { alwaysInclude: currentUser }),
     [employees, currentUser],
   );
 
-  const allowPrepAssignToMe =
-    isStoreManager(currentUser.role) || (currentUser.role as string) === 'case_manager';
-
   const initialStageIds = useMemo(() => stageAssignmentsFromCase(c), [c.id, c.updatedAt]);
   const initialAssistantIds = useMemo(() => stageAssistantsFromCase(c.stages), [c.id, c.updatedAt]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setStep(0);
+    const nextForm = formFromCase(c);
+    const nextStages = stageAssignmentsFromCase(c);
+    const nextAssistants = stageAssistantsFromCase(c.stages);
+    const nextExtra = stageExtraFlagsFromCase(c.stages);
     setError(null);
-    setForm({
-      hospitalId: c.hospital.id,
-      doctorName: c.doctor.name,
-      surgeryDate: c.surgeryDate,
-      surgeryDateMode: inferSurgeryDateMode(c.surgeryDate),
-      implantRequired: c.implantRequired,
-      implantType: c.implantType,
-      implantCompany: c.implantCompany || '',
-      priority: c.priority,
-      remarks: c.remarks || '',
-      invoiceAmount: c.invoiceAmount != null ? String(c.invoiceAmount) : '',
-      collectedAmount: c.collectedAmount != null ? String(c.collectedAmount) : '',
-      paymentStatus: c.paymentStatus || 'Pending',
-    });
-    setStageEmployeeIds(stageAssignmentsFromCase(c));
-    setStageAssistantIds(stageAssistantsFromCase(c.stages));
-    setStageExtraPerson(stageExtraFlagsFromCase(c.stages));
+    setLeaveOpen(false);
+    setForm(nextForm);
+    setStageEmployeeIds(nextStages);
+    setStageAssistantIds(nextAssistants);
+    setStageExtraPerson(nextExtra);
+    snapshotRef.current = JSON.stringify([nextForm, nextStages, nextAssistants, nextExtra]);
   }, [isOpen, c.id, c.updatedAt]);
 
-  const hospital = hospitals.find((h) => h.id === form.hospitalId);
+  const isDirty =
+    JSON.stringify([form, stageEmployeeIds, stageAssistantIds, stageExtraPerson]) !== snapshotRef.current;
 
-  const validateStep = (index: number): string | null => {
-    if (index === 0) {
-      if (!form.hospitalId) return 'Choose a hospital.';
-      if (!form.doctorName.trim()) return 'Enter the doctor name.';
-      if (!form.surgeryDate) return 'Pick a surgery date.';
-    }
-    if (index === 1) {
-      if (!form.implantRequired.trim()) return 'Enter the surgery / procedure name.';
-    }
+  const requestClose = () => {
+    if (submitting) return;
+    if (isDirty) setLeaveOpen(true);
+    else onClose();
+  };
+
+  const hospital = hospitals.find((h) => h.id === form.hospitalId);
+  const allowPrepAssignToMe =
+    isStoreManager(currentUser.role) || (currentUser.role as string) === 'case_manager';
+
+  // People already on the case stay visible even if they are no longer in the active list.
+  const teamPool = useMemo(() => {
+    const ids = new Set([...Object.values(stageEmployeeIds), ...Object.values(stageAssistantIds)].filter(Boolean));
+    const have = new Set(activeEmployees.map((e) => e.id));
+    return [...activeEmployees, ...employees.filter((e) => ids.has(e.id) && !have.has(e.id))];
+  }, [activeEmployees, employees, stageEmployeeIds, stageAssistantIds]);
+
+  const teamForm: TeamFormFields = {
+    startStage: 'Set Preparation',
+    stageEmployeeIds,
+    stageAssistantIds,
+    stageExtraPerson,
+    dutyEmployeeIds: Object.fromEntries(
+      CASE_DUTY_KINDS.map((k) => [k, stageEmployeeIds[CASE_DUTY_WORKFLOW_STAGE[k] as AssignableStage] ?? '']),
+    ) as Record<CaseDutyKind, string>,
+    punchedInByEmployeeId: '',
+  };
+
+  const teamActions: TeamActions = {
+    setStageEmployee: (stage, value) => {
+      setStageEmployeeIds((prev) => ({ ...prev, [stage]: value }));
+      if (stageSupportsAssistant(stage)) {
+        const key = stage as StageWithAssistant;
+        if (value && stageAssistantIds[key] === value) {
+          setStageAssistantIds((prev) => ({ ...prev, [key]: '' }));
+          setStageExtraPerson((prev) => ({ ...prev, [key]: false }));
+        }
+      }
+    },
+    setAssistant: (stage, employeeId) => {
+      setStageAssistantIds((prev) => ({ ...prev, [stage]: employeeId }));
+      setStageExtraPerson((prev) => ({ ...prev, [stage]: Boolean(employeeId) }));
+    },
+    setDuty: (kind, value) =>
+      setStageEmployeeIds((prev) => ({ ...prev, [CASE_DUTY_WORKFLOW_STAGE[kind]]: value })),
+    setStartStage: () => {},
+    setPunchedInBy: () => {},
+  };
+
+  const stageBadges = Object.fromEntries(
+    PRE_SURGERY_STAGES.map((stage) => {
+      const isCurrent = stage === c.currentStage;
+      const isDone = findStageRecord(c.stages, stage)?.status === 'Approved';
+      return [stage, isCurrent ? 'Current' : isDone ? 'Done' : undefined];
+    }),
+  );
+
+  const validate = (): { message: string; focusProcedure?: boolean } | null => {
+    if (!form.hospitalId) return { message: 'Select a hospital to save.' };
+    if (!form.surgeryDate) return { message: 'Choose the surgery date to save.' };
+    if (!form.doctorName.trim()) return { message: 'Select or add the doctor to save.' };
+    if (!form.implantRequired.trim()) return { message: 'Enter the procedure to save.', focusProcedure: true };
     return null;
   };
 
-  const goNext = () => {
-    const msg = validateStep(step);
-    if (msg) {
-      setError(msg);
-      return;
-    }
-    setError(null);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  };
-
-  const goBack = () => {
-    setError(null);
-    setStep((s) => Math.max(s - 1, 0));
-  };
-
-  const setDutyEmployee = (kind: (typeof CASE_DUTY_KINDS)[number], employeeId: string) => {
-    const stage = CASE_DUTY_WORKFLOW_STAGE[kind];
-    setStageEmployeeIds((prev) => ({ ...prev, [stage]: employeeId }));
-  };
-
-  const dutyEmployeeId = (kind: (typeof CASE_DUTY_KINDS)[number]) =>
-    stageEmployeeIds[CASE_DUTY_WORKFLOW_STAGE[kind]] ?? '';
-
   const handleSave = async () => {
-    for (let i = 0; i <= 1; i++) {
-      const msg = validateStep(i);
-      if (msg) {
-        setError(msg);
-        setStep(i);
-        return;
-      }
-    }
-
-    if (!form.hospitalId || !form.doctorName || !form.surgeryDate || !form.implantRequired) {
-      setError('Please complete required fields.');
+    const problem = validate();
+    if (problem) {
+      setError(problem.message);
+      if (problem.focusProcedure) window.setTimeout(() => procedureRef.current?.focus(), 50);
       return;
     }
+
     const hospitalRow = hospitals.find((h) => h.id === form.hospitalId);
     if (!hospitalRow) return;
 
@@ -229,8 +241,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
       if (!wantsExtra && !initialAssistantIds[stage]) continue;
       if (assistantId !== initialAssistantIds[stage]) {
         if (wantsExtra && !assistantId) {
-          setError(`Please pick an extra person for ${stage}, or uncheck Extra person required.`);
-          setStep(2);
+          setError(`Please pick an assistant for ${stage}, or remove the assistant.`);
           return;
         }
         assistantDraft[stage] = assistantId;
@@ -242,8 +253,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
       const primaryId = stageEmployeeIds[stage];
       const assistantId = stageAssistantIds[stage];
       if (primaryId && assistantId && primaryId === assistantId) {
-        setError(`Extra person for ${stage} must be different from the primary assignee.`);
-        setStep(2);
+        setError(`The ${stage} assistant must be a different person from the main assignee.`);
         return;
       }
     }
@@ -304,7 +314,6 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
   };
 
   const inputClass = `${NEXUS_FORM_CONTROL} text-base min-h-[48px]`;
-  const labelClass = 'block text-sm font-semibold text-gray-800 mb-2';
 
   if (!isAdmin && !isOwnCase) return null;
 
@@ -343,387 +352,250 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     );
   }
 
-  const stepMeta = STEPS[step];
+  const hospitalSub = hospital ? hospitalSubtitle(hospital) : '';
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      subtitle={`Step ${step + 1} of ${STEPS.length} · ${stepMeta.label} · ${c.caseNumber}`}
-      size="screen"
-      dismissOnBackdrop={false}
-      bodyClassName="flex flex-col min-h-0 bg-gradient-to-b from-gray-50/80 to-white"
-      title="Edit implant case"
-      footer={
-        <div className="flex flex-col gap-3 w-full max-w-2xl mx-auto">
-          {error && (
-            <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
-          )}
-          <div className="flex gap-3">
-            {step > 0 ? (
-              <Button type="button" variant="outline" className="flex-1 min-h-[52px] text-base" onClick={goBack} disabled={submitting}>
-                Back
-              </Button>
-            ) : (
-              <Button type="button" variant="outline" className="flex-1 min-h-[52px] text-base" onClick={onClose} disabled={submitting}>
-                Cancel
-              </Button>
-            )}
-            {step < STEPS.length - 1 ? (
-              <Button type="button" variant="primary" className="flex-1 min-h-[52px] text-base font-semibold" onClick={goNext} disabled={submitting}>
-                Continue
-              </Button>
-            ) : (
-              <Button type="button" variant="primary" className="flex-1 min-h-[52px] text-base font-semibold" onClick={() => void handleSave()} disabled={submitting}>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={requestClose}
+        title="Edit case"
+        subtitle={`${c.caseNumber} · currently at ${c.currentStage}`}
+        size="screen"
+        dismissOnBackdrop={false}
+        bodyClassName="flex flex-col min-h-0 bg-gradient-to-b from-gray-50/80 to-white"
+        footer={
+          <div className="mx-auto w-full max-w-2xl lg:max-w-5xl">
+            <div className="flex flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
+              {error ? (
+                <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {error}
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                variant="primary"
+                loading={submitting}
+                disabled={submitting}
+                className="min-h-[56px] w-full justify-center text-base font-semibold"
+                onClick={() => void handleSave()}
+              >
                 {submitting ? 'Saving…' : 'Save changes'}
               </Button>
-            )}
+            </div>
+          </div>
+        }
+      >
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-5 sm:py-8 lg:max-w-5xl">
+            <div className="space-y-10 lg:grid lg:grid-cols-2 lg:gap-12 lg:space-y-0">
+              {/* Surgery */}
+              <section aria-labelledby="ec-surgery" className="space-y-7">
+                <h2 id="ec-surgery" className={sectionTitle + ' !mb-0'}>
+                  Surgery
+                </h2>
+
+                <div>
+                  <span className={fieldLabel}>Hospital</span>
+                  <button
+                    type="button"
+                    onClick={() => setHospitalOpen(true)}
+                    aria-haspopup="dialog"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-accent)] bg-white px-4 min-h-[60px] py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent)] text-white">
+                      <Building2 className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-gray-900">
+                        {hospital ? formatHospitalLabel(hospital) : 'Select hospital'}
+                      </span>
+                      {hospitalSub ? <span className="block truncate text-xs text-gray-500">{hospitalSub}</span> : null}
+                    </span>
+                    <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+                  </button>
+                </div>
+
+                <SurgeryStep
+                  form={form}
+                  patch={(partial) => setForm((f) => ({ ...f, ...partial }))}
+                  hospital={hospital}
+                  cases={cases}
+                  doctors={doctors}
+                  isAdmin={isFullAdmin}
+                  error={null}
+                  openDoctorSignal={0}
+                  procedureRef={procedureRef}
+                  onSubmitFromKeyboard={() => {}}
+                />
+
+                {c.remarks?.trim() ? (
+                  <div>
+                    <label htmlFor="ec-notes" className={fieldLabel}>
+                      Notes
+                    </label>
+                    <textarea
+                      id="ec-notes"
+                      className={`${inputClass} resize-none min-h-[88px] py-3`}
+                      rows={3}
+                      value={form.remarks}
+                      onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                      onBlur={(e) => setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })}
+                    />
+                  </div>
+                ) : null}
+              </section>
+
+              {/* Team */}
+              <section aria-labelledby="ec-team" className="space-y-4">
+                <h2 id="ec-team" className={sectionTitle + ' !mb-0'}>
+                  Team
+                </h2>
+                <p className="text-sm text-gray-500">People who are newly assigned are notified automatically.</p>
+                <TeamStep
+                  mode="edit"
+                  form={teamForm}
+                  actions={teamActions}
+                  employees={teamPool}
+                  currentUser={currentUser}
+                  isAdmin={isFullAdmin}
+                  allowAssistants={isFullAdmin}
+                  allowReturnSpecial={false}
+                  allowPrepAssignToMe={allowPrepAssignToMe}
+                  badges={stageBadges}
+                />
+              </section>
+            </div>
+
+            {/* Billing — full admin only */}
+            {isFullAdmin ? (
+              <section className="mt-10 rounded-2xl border border-gray-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setBillingOpen((v) => !v)}
+                  aria-expanded={billingOpen}
+                  aria-controls="ec-billing"
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 min-h-[56px] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                >
+                  <span className="text-sm font-semibold text-gray-900">
+                    Billing <span className="font-normal text-gray-500">— optional</span>
+                  </span>
+                  <ChevronDown
+                    className={cn('h-5 w-5 text-gray-400 transition-transform', billingOpen && 'rotate-180')}
+                    aria-hidden
+                  />
+                </button>
+                {billingOpen ? (
+                  <div id="ec-billing" className="space-y-4 border-t border-gray-100 p-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="ec-invoice" className={fieldLabel}>
+                          Invoice
+                        </label>
+                        <input
+                          id="ec-invoice"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          className={inputClass}
+                          value={form.invoiceAmount}
+                          onChange={(e) => setForm({ ...form, invoiceAmount: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="ec-collected" className={fieldLabel}>
+                          Collected
+                        </label>
+                        <input
+                          id="ec-collected"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          className={inputClass}
+                          value={form.collectedAmount}
+                          onChange={(e) => setForm({ ...form, collectedAmount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <span className={fieldLabel}>Payment status</span>
+                      <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Payment status">
+                        {PAYMENT_STATUSES.map((status) => {
+                          const active = form.paymentStatus === status;
+                          return (
+                            <button
+                              key={status}
+                              type="button"
+                              role="radio"
+                              aria-checked={active}
+                              onClick={() => setForm({ ...form, paymentStatus: status })}
+                              className={cn(
+                                'flex min-h-[48px] items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition-colors',
+                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
+                                active
+                                  ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)] text-gray-900'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
+                              )}
+                            >
+                              {active ? <Check className="h-4 w-4 text-[var(--color-accent)]" aria-hidden /> : null}
+                              {status}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
           </div>
         </div>
-      }
-    >
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className={`mx-auto w-full px-4 sm:px-6 py-5 sm:py-8 ${step === 2 ? 'max-w-3xl' : 'max-w-2xl'}`}>
-          <nav className="mb-8" aria-label="Progress">
-            <ol className="flex items-center gap-1 sm:gap-2">
-              {STEPS.map((s, i) => {
-                const Icon = s.icon;
-                const done = i < step;
-                const current = i === step;
-                return (
-                  <li key={s.key} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-                    <div
-                      className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border-2 transition-colors ${
-                        done
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-                          : current
-                            ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)] text-[var(--color-accent)]'
-                            : 'border-gray-200 bg-white text-gray-400'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" aria-hidden />
-                    </div>
-                    <span className={`text-[10px] sm:text-xs font-medium truncate w-full text-center ${current ? 'text-gray-900' : 'text-gray-400'}`}>
-                      {s.label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
+      </Modal>
 
-          {step === 0 && (
-            <section className="space-y-5 animate-in fade-in duration-200">
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-blue-900">
-                Update hospital, doctor, or surgery date. Current stage on the case stays the same.
-              </div>
-              <div>
-                <label className={labelClass}>Hospital</label>
-                <HospitalSearchSelect
-                  hospitals={hospitals}
-                  value={form.hospitalId}
-                  onChange={(hospitalId) => setForm({ ...form, hospitalId, doctorName: '' })}
-                  placeholder="Search hospital name or city…"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Doctor</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Surgeon name"
-                  value={form.doctorName}
-                  onChange={(e) => setForm({ ...form, doctorName: e.target.value })}
-                  onBlur={(e) => setForm({ ...form, doctorName: normalizeTitleCaseWords(e.target.value) })}
-                  disabled={!form.hospitalId}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>
-                  <span className="inline-flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    Surgery date
-                  </span>
-                </label>
-                <SurgeryDateQuickPick
-                  value={form.surgeryDate || getTodaySurgeryDateKey()}
-                  mode={form.surgeryDateMode}
-                  onChange={(surgeryDate, surgeryDateMode) => setForm({ ...form, surgeryDate, surgeryDateMode })}
-                />
-              </div>
-            </section>
-          )}
+      <HospitalPickerSheet
+        isOpen={hospitalOpen}
+        onClose={() => setHospitalOpen(false)}
+        hospitals={hospitals}
+        cases={cases}
+        value={form.hospitalId}
+        onSelect={(hospitalId) => setForm((f) => ({ ...f, hospitalId }))}
+      />
 
-          {step === 1 && (
-            <section className="space-y-5 animate-in fade-in duration-200">
-              <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
-                Procedure and priority — what the team sees on boards and lists.
-              </div>
-              <div>
-                <label className={labelClass}>Surgery / procedure</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  value={form.implantRequired}
-                  onChange={(e) => setForm({ ...form, implantRequired: e.target.value })}
-                  onBlur={(e) => setForm({ ...form, implantRequired: normalizeTitleCaseWords(e.target.value) })}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Priority</label>
-                <PriorityQuickPick value={form.priority} onChange={(priority) => setForm({ ...form, priority })} />
-              </div>
-              {isFullAdmin && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>Implant type (optional)</label>
-                    <input
-                      type="text"
-                      className={inputClass}
-                      value={form.implantType}
-                      onChange={(e) => setForm({ ...form, implantType: e.target.value })}
-                      onBlur={(e) => setForm({ ...form, implantType: normalizeTitleCaseWords(e.target.value) })}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Implant company (optional)</label>
-                    <input
-                      type="text"
-                      className={inputClass}
-                      value={form.implantCompany}
-                      onChange={(e) => setForm({ ...form, implantCompany: e.target.value })}
-                      onBlur={(e) => setForm({ ...form, implantCompany: normalizeTitleCaseWords(e.target.value) })}
-                    />
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className={labelClass}>Notes for the team (optional)</label>
-                <textarea
-                  className={`${inputClass} resize-none min-h-[100px] py-3`}
-                  rows={3}
-                  value={form.remarks}
-                  onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-                  onBlur={(e) => setForm({ ...form, remarks: normalizeSentenceText(e.target.value) })}
-                />
-              </div>
-              {isFullAdmin && (
-                <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-4 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900">Billing (optional)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Invoice</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className={inputClass}
-                        value={form.invoiceAmount}
-                        onChange={(e) => setForm({ ...form, invoiceAmount: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Collected</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className={inputClass}
-                        value={form.collectedAmount}
-                        onChange={(e) => setForm({ ...form, collectedAmount: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                      <select
-                        className={inputClass}
-                        value={form.paymentStatus}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            paymentStatus: e.target.value as 'Pending' | 'Partial' | 'Collected',
-                          })
-                        }
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Partial">Partial</option>
-                        <option value="Collected">Collected</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
-          {step === 2 && (
-            <section className="space-y-4 animate-in fade-in duration-200">
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-950">
-                <p className="font-medium">Kit prep → Delivery → Surgery</p>
-                <p className="mt-1 text-amber-900/90">Change assignees here. Telegram alerts go to anyone newly assigned.</p>
-              </div>
-
-              {PRE_SURGERY_STAGES.map((stage) => {
-                const deptHint = STAGE_DEPARTMENT_MAP[stage];
-                const isPrep = stage === SET_PREPARATION_STAGE;
-                const isCurrent = stage === c.currentStage;
-                const stageRecord = findStageRecord(c.stages, stage);
-                const isDone = stageRecord?.status === 'Approved';
-                const fcfs = isFcfsStage(stage);
-
-                return (
-                  <div
-                    key={stage}
-                    className={`rounded-2xl border p-4 space-y-3 shadow-sm ${
-                      isCurrent ? 'border-[var(--color-accent)]/30 bg-[var(--color-accent-muted)]/15' : 'border-gray-100 bg-white'
-                    }`}
-                  >
-                    <div>
-                      <p className="text-base font-semibold text-gray-900">
-                        {stage}
-                        {isCurrent && (
-                          <span className="ml-2 text-[10px] font-semibold text-[var(--color-accent)] bg-[var(--color-accent-muted)] border border-[var(--color-accent)]/20 rounded px-1.5 py-0.5">
-                            Current
-                          </span>
-                        )}
-                        {isDone && !isCurrent && (
-                          <span className="ml-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5">
-                            Done
-                          </span>
-                        )}
-                      </p>
-                      {deptHint ? <p className="text-xs text-gray-500 mt-0.5">{deptHint}</p> : null}
-                    </div>
-                    {isPrep && allowPrepAssignToMe && !fcfs && (
-                      <Button
-                        type="button"
-                        variant={stageEmployeeIds[stage] === currentUser.id ? 'primary' : 'outline'}
-                        className="w-full min-h-[44px] justify-center"
-                        onClick={() => setStageEmployeeIds({ ...stageEmployeeIds, [stage]: currentUser.id })}
-                      >
-                        Assign to me ({currentUser.name.split(' ')[0]})
-                      </Button>
-                    )}
-                    {fcfs ? (
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        Pool stage — assign when it opens on the board.
-                      </p>
-                    ) : (
-                      <>
-                        <EmployeeSearchSelect
-                          employees={activeEmployees}
-                          value={stageEmployeeIds[stage]}
-                          onChange={(value) => {
-                            setStageEmployeeIds({ ...stageEmployeeIds, [stage]: value });
-                            if (stageSupportsAssistant(stage) && stageAssistantIds[stage as StageWithAssistant] === value) {
-                              setStageAssistantIds({ ...stageAssistantIds, [stage as StageWithAssistant]: '' });
-                            }
-                          }}
-                          suggestedDepartment={deptHint}
-                          allowSelf={stage === 'Surgery'}
-                          allowAssignToMe={isPrep && allowPrepAssignToMe}
-                          currentUser={currentUser}
-                          assignToMeLabel="Assign to me"
-                          placeholder="Unassigned"
-                        />
-                        {isFullAdmin && stageSupportsAssistant(stage) ? (
-                          <StageExtraPersonFields
-                            stage={stage as StageWithAssistant}
-                            employees={activeEmployees}
-                            primaryEmployeeId={stageEmployeeIds[stage]}
-                            extraEnabled={stageExtraPerson[stage as StageWithAssistant]}
-                            assistantId={stageAssistantIds[stage as StageWithAssistant]}
-                            onExtraEnabledChange={(enabled) => {
-                              setStageExtraPerson({ ...stageExtraPerson, [stage as StageWithAssistant]: enabled });
-                              if (!enabled) setStageAssistantIds({ ...stageAssistantIds, [stage as StageWithAssistant]: '' });
-                            }}
-                            onAssistantChange={(value) =>
-                              setStageAssistantIds({ ...stageAssistantIds, [stage as StageWithAssistant]: value })
-                            }
-                          />
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-
-              <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 space-y-3">
-                <p className="text-sm font-semibold text-gray-900">{CASE_DUTIES_CREATE_SECTION_TITLE}</p>
-                <p className="text-xs text-gray-700 leading-relaxed">{CASE_DUTIES_CREATE_SECTION_HINT}</p>
-                {CASE_DUTY_KINDS.map((kind) => (
-                  <div key={kind}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">{CASE_DUTY_LABELS[kind]}</label>
-                    <EmployeeSearchSelect
-                      employees={activeEmployees}
-                      value={dutyEmployeeId(kind)}
-                      onChange={(value) => setDutyEmployee(kind, value)}
-                      placeholder={dutyPickerPlaceholder(kind)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {step === 3 && (
-            <section className="space-y-5 animate-in fade-in duration-200">
-              <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-4">
-                <ClipboardList className="h-5 w-5 text-emerald-700 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-emerald-950">Review changes</p>
-                  <p className="text-sm text-emerald-900/80 mt-0.5">Current workflow stage: {c.currentStage}</p>
-                </div>
-              </div>
-
-              <dl className="rounded-2xl border border-gray-100 bg-white divide-y divide-gray-100 shadow-sm overflow-hidden">
-                {[
-                  ['Hospital', hospital?.name ?? '—'],
-                  ['Doctor', form.doctorName || '—'],
-                  ['Surgery date', form.surgeryDate ? formatDate(form.surgeryDate) : '—'],
-                  ['Procedure', form.implantRequired || '—'],
-                  ['Priority', form.priority],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between gap-4 px-4 py-3.5 sm:px-5">
-                    <dt className="text-sm text-gray-500 shrink-0">{label}</dt>
-                    <dd className="text-sm font-semibold text-gray-900 text-right">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Team</p>
-                {PRE_SURGERY_STAGES.map((stage) => {
-                  const id = stageEmployeeIds[stage];
-                  const name =
-                    id === SURGERY_SELF_ASSIGNMENT_VALUE
-                      ? 'Self (hospital)'
-                      : id
-                        ? employees.find((e) => e.id === id)?.name ?? '—'
-                        : 'Unassigned';
-                  return (
-                    <div key={stage} className="flex justify-between text-sm gap-3">
-                      <span className="text-gray-600">{stage}</span>
-                      <span className="font-medium text-gray-900 text-right">{name}</span>
-                    </div>
-                  );
-                })}
-                {CASE_DUTY_KINDS.map((kind) => {
-                  const id = dutyEmployeeId(kind);
-                  const name = id ? employees.find((e) => e.id === id)?.name ?? '—' : 'Unassigned';
-                  return (
-                    <div key={kind} className="flex justify-between text-sm gap-3">
-                      <span className="text-gray-600">{CASE_DUTY_LABELS[kind]}</span>
-                      <span className="font-medium text-gray-900 text-right">{name}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-        </div>
-      </div>
-    </Modal>
+      <PickerSheet
+        isOpen={leaveOpen}
+        onClose={() => setLeaveOpen(false)}
+        title="Discard changes?"
+        subtitle="Your edits to this case will not be saved."
+        size="sm"
+        hideClose
+        footer={
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              className="min-h-[52px] w-full justify-center text-base font-semibold"
+              onClick={() => setLeaveOpen(false)}
+            >
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[52px] w-full justify-center text-base text-red-700"
+              onClick={() => {
+                setLeaveOpen(false);
+                onClose();
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        }
+      >
+        <div className="h-1" />
+      </PickerSheet>
+    </>
   );
 };
