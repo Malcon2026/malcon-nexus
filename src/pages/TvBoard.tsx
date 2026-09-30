@@ -23,7 +23,7 @@ const STAGE_COLOR: Record<WorkflowStage, string> = {
   'Delivery': '#e11d48',
   'Surgery': '#2563eb',
   'Pickup from Hospital': '#db2777',
-  'Cleaning & Audit': '#0891b2',
+  'Checking & Audit': '#0891b2',
   'Restock': '#65a30d',
   'Billing': '#059669',
   'Bill Submission': '#ea580c',

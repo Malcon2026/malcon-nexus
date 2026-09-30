@@ -33,7 +33,7 @@ import { canViewCaseStagePhotos } from '../lib/superAdmin';
 import { CASE_DUTY_KINDS, CASE_DUTY_LABELS, getDutyEmployee } from '../lib/caseDuties';
 
 const WORKFLOW_STAGES: WorkflowStage[] = [
-  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
+  'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Checking & Audit', 'Restock', 'Billing', 'Bill Submission', 'Completed'
 ];
 
 const STAGE_ACTIONS: Record<WorkflowStage, string> = {
@@ -41,7 +41,7 @@ const STAGE_ACTIONS: Record<WorkflowStage, string> = {
   'Delivery': 'Delivery Completed',
   'Surgery': 'Mark Surgery Completed',
   'Pickup from Hospital': 'Pickup Completed',
-  'Cleaning & Audit': 'Cleaning & Audit Completed',
+  'Checking & Audit': 'Checking & Audit Completed',
   'Restock': 'Restock Completed',
   'Billing': 'Invoice Generated',
   'Bill Submission': 'Bill Submission Completed',
@@ -250,7 +250,7 @@ const STAGE_TO_DEPT: Record<WorkflowStage, string> = {
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
-  'Cleaning & Audit': 'Cleaning & Audit',
+  'Checking & Audit': 'Checking & Audit',
   'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
@@ -434,7 +434,7 @@ const CancelCaseModal: React.FC<{ isOpen: boolean; onClose: () => void; caseId: 
             {selected?.hint ?? (
               <>
                 Use when the case will not complete normally. If the kit already left Stores
-                (currently <strong>{currentStage}</strong>), it returns via Pickup → Cleaning & Audit → Restock.
+                (currently <strong>{currentStage}</strong>), it returns via Pickup → Checking & Audit → Restock.
               </>
             )}
           </p>
@@ -870,7 +870,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
           <div>
             <p className="text-sm font-semibold text-amber-900">Case cancelled — kit returning</p>
             <p className="text-xs text-amber-800 mt-0.5">
-              Kit comes back through Pickup → Cleaning & Audit → Restock.
+              Kit comes back through Pickup → Checking & Audit → Restock.
               {c.cancelReason ? ` Reason: ${c.cancelReason}` : ''}
             </p>
           </div>

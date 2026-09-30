@@ -16,23 +16,23 @@ export const CASE_DUTY_KINDS: CaseDutyKind[] = ['return', 'cleaning', 'restock']
 
 export const CASE_DUTY_LABELS: Record<CaseDutyKind, string> = {
   return: 'Return',
-  cleaning: 'Clean & audit',
+  cleaning: 'Checking & audit',
   restock: 'Restock',
 };
 
 /** Workflow stage each duty updates on the case (Return → pickup from hospital). */
 export const CASE_DUTY_WORKFLOW_STAGE: Record<CaseDutyKind, WorkflowStage> = {
   return: 'Pickup from Hospital',
-  cleaning: 'Cleaning & Audit',
+  cleaning: 'Checking & Audit',
   restock: 'Restock',
 };
 
-export const CASE_DUTIES_NAV_LABEL = 'Return, clean & restock';
+export const CASE_DUTIES_NAV_LABEL = 'Return, checking & restock';
 
-export const CASE_DUTIES_PAGE_TITLE = 'Return, clean & restock';
+export const CASE_DUTIES_PAGE_TITLE = 'Return, checking & restock';
 
 export const CASE_DUTIES_PAGE_DESCRIPTION =
-  'Pick who will do Return, Clean & audit, and Restock on each case. Kit prep through Surgery are chosen when the case is created.';
+  'Pick who will do Return, Checking & audit, and Restock on each case. Kit prep through Surgery are chosen when the case is created.';
 
 export const CASE_DUTIES_CREATE_SECTION_TITLE = 'Return, clean & restock (optional)';
 

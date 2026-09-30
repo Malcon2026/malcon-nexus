@@ -4,6 +4,7 @@ export type { RestockOutcome };
 
 export type RestockOutcomeTone = 'lime' | 'sky' | 'amber';
 
+/** Full set including legacy `no_restock` for badges and old case rows. */
 export const RESTOCK_OUTCOMES: {
   id: RestockOutcome;
   title: string;
@@ -19,11 +20,16 @@ export const RESTOCK_OUTCOMES: {
   },
   {
     id: 'order',
-    title: 'Restock ordered',
-    hint: 'Stock not on hand — order placed (note supplier / follow-up in notes)',
+    title: 'Stock ordered',
+    hint: 'Stock not on hand — order placed',
     tone: 'amber',
   },
 ];
+
+/** Restock submit modal — two choices only. */
+export const RESTOCK_SUBMIT_OPTIONS = RESTOCK_OUTCOMES.filter(
+  (o) => o.id === 'restocked' || o.id === 'order',
+);
 
 export function restockOutcomeLabel(outcome: RestockOutcome | null | undefined): string {
   const row = RESTOCK_OUTCOMES.find((o) => o.id === outcome);

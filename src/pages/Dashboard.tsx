@@ -101,7 +101,7 @@ export const Dashboard: React.FC = () => {
 
   const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
   const surgeryCases = cases.filter((c) => c.currentStage === 'Surgery');
-  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Cleaning & Audit');
+  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Checking & Audit');
   const restockPending = cases.filter(
     (c) => mapCaseToVisibleStage(c.currentStage) === 'Restock' && c.status !== 'Completed' && c.status !== 'Cancelled',
   );
@@ -220,7 +220,7 @@ export const Dashboard: React.FC = () => {
             </button>
             <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
               <p className="dash-stat-cell__value">{cleaningQueue.length}</p>
-              <p className="dash-stat-cell__label">Cleaning</p>
+              <p className="dash-stat-cell__label">Checking</p>
             </button>
             <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
               <p className="dash-stat-cell__value">{restockPending.length}</p>

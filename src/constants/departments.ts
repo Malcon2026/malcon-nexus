@@ -1,15 +1,18 @@
 import type { Department, Employee } from '../types';
 import { NEXUS_FORM_CONTROL } from './formStyles';
 
-/** Canonical department after merging Cleaning Department + Stores Audit. */
-export const CLEANING_AUDIT_DEPARTMENT: Department = 'Cleaning & Audit';
+/** Canonical department (formerly Cleaning & Audit). */
+export const CHECKING_AUDIT_DEPARTMENT: Department = 'Checking & Audit';
+
+/** @deprecated Use CHECKING_AUDIT_DEPARTMENT */
+export const CLEANING_AUDIT_DEPARTMENT = CHECKING_AUDIT_DEPARTMENT;
 
 export const DEPARTMENTS: Department[] = [
   'Stores',
   'Delivery',
   'Drivers',
   'Scrub Person',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Accounts',
   'Bill Submission',
   'Office Staff',
@@ -22,7 +25,7 @@ export const ASSIGNABLE_DEPARTMENTS: Department[] = DEPARTMENTS.filter((d) => d 
 
 export const departmentSelectClass = NEXUS_FORM_CONTROL;
 
-/** Map legacy Cleaning / Stores Audit labels onto the merged department. */
+/** Map legacy cleaning / audit labels onto Checking & Audit. */
 export function normalizeDepartment(value: string | null | undefined): Department | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -30,10 +33,13 @@ export function normalizeDepartment(value: string | null | undefined): Departmen
     trimmed === 'Cleaning Department' ||
     trimmed === 'Stores Audit' ||
     trimmed === 'Cleaning & Audit' ||
+    trimmed === 'Checking & Audit' ||
+    trimmed === 'Checking and Audit' ||
     trimmed === 'Cleaning' ||
-    trimmed === 'Audit'
+    trimmed === 'Audit' ||
+    trimmed === 'Checking'
   ) {
-    return CLEANING_AUDIT_DEPARTMENT;
+    return CHECKING_AUDIT_DEPARTMENT;
   }
   if (trimmed === 'Billing' || trimmed === 'Billing Department') {
     return 'Accounts';

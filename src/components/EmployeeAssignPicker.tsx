@@ -13,7 +13,7 @@ export const ASSIGN_DEPARTMENTS: Department[] = [
   'Delivery',
   'Drivers',
   'Scrub Person',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Accounts',
   'Bill Submission',
   'Office Staff',

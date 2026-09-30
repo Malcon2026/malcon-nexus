@@ -433,7 +433,7 @@ const getDepartmentForStage = (stage: WorkflowStage): Department | null => {
     'Delivery': 'Delivery',
     'Surgery': 'Scrub Person',
     'Pickup from Hospital': 'Delivery',
-    'Cleaning & Audit': 'Cleaning & Audit',
+    'Checking & Audit': 'Checking & Audit',
     'Restock': 'Stores',
     'Billing': 'Accounts',
     'Bill Submission': 'Bill Submission',
@@ -3119,11 +3119,12 @@ export const useStore = create<AppState>((set, get) => ({
     ) {
       return { error: 'This stage is already completed.' };
     }
-    if (photos.length === 0) {
+    const atRestockSubmit = submitStageName === 'Restock';
+    if (photos.length === 0 && !atRestockSubmit) {
       return { error: 'At least one photo is required.' };
     }
-    if (submitStageName === 'Restock' && !restockOutcome) {
-      return { error: 'Please choose Restocked, No restock needed, or Restock ordered.' };
+    if (atRestockSubmit && !restockOutcome) {
+      return { error: 'Choose Restocked or Stock ordered, then confirm.' };
     }
     if (!canBypassAssigneeForSubmit(state.currentUser.role, submitStageName)) {
       const onStage = isEmployeeAssigneeOnWorkflowStage(c, submitStageName, state.currentUser);
@@ -3147,21 +3148,30 @@ export const useStore = create<AppState>((set, get) => ({
     const uploadedBy = stageAssignee?.name || state.currentUser.name;
     const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
     const returnLabel = returnOutcome ? returnOutcomeLabel(returnOutcome) : '';
-    const atRestock = submitStageName === 'Restock';
+    const atRestock = atRestockSubmit;
     const atPickup = submitStageName === 'Pickup from Hospital';
 
+    const trimmedNotes = (notes ?? '').trim();
+    const effectiveNotes =
+      atRestock && !trimmedNotes && restockLabel ? restockLabel : trimmedNotes;
+    if (!atRestock && !effectiveNotes) {
+      return { error: 'Please add completion notes.' };
+    }
+
     try {
-      const stageDocuments = await uploadStagePhotos(
-        caseId,
-        submitStageName,
-        photos,
-        uploadedBy,
-        onUploadProgress,
-      );
+      const stageDocuments =
+        photos.length > 0
+          ? await uploadStagePhotos(caseId, submitStageName, photos, uploadedBy, onUploadProgress)
+          : [];
 
       const stageIdx = indexOfStageInCase(normalizedStages, submitStageName);
       const now = new Date().toISOString();
-      const photoLabel = stageDocuments.length === 1 ? 'photo' : `${stageDocuments.length} photos`;
+      const photoLabel =
+        stageDocuments.length === 0
+          ? 'no photos'
+          : stageDocuments.length === 1
+            ? 'photo'
+            : `${stageDocuments.length} photos`;
       const outcomeDetail = restockLabel
         ? ` Outcome: ${restockLabel}.`
         : returnLabel
@@ -3174,7 +3184,7 @@ export const useStore = create<AppState>((set, get) => ({
         performedBy: uploadedBy,
         performedByRole: 'employee' as const,
         timestamp: now,
-        details: `Stage ${submitStageName} submitted with ${photoLabel}.${outcomeDetail} Notes: ${notes}`,
+        details: `Stage ${submitStageName} submitted with ${photoLabel}.${outcomeDetail} Notes: ${effectiveNotes}`,
       };
       const autoNotes = `Auto-advanced after submit by ${uploadedBy}.`;
 
@@ -3201,7 +3211,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         const advanced = buildAutoAdvanceFromSubmit(cForAdvance, stageIdx, {
           now,
-          notes,
+          notes: effectiveNotes,
           autoNotes,
           uploadedBy,
           stageDocuments,
@@ -3279,7 +3289,7 @@ export const useStore = create<AppState>((set, get) => ({
                 ...s,
                 status: 'Submitted' as const,
                 submittedAt: now,
-                notes,
+                notes: effectiveNotes,
                 ...(atRestock && restockOutcome ? { restockOutcome } : {}),
                 ...(atPickup
                   ? returnOutcome
@@ -3331,7 +3341,7 @@ export const useStore = create<AppState>((set, get) => ({
         submittedBy: uploadedBy,
         submittedAt: new Date().toISOString(),
         status: 'Pending',
-        notes,
+        notes: effectiveNotes,
       };
 
       await approvalRepository.create(newApproval).catch((err) => {
@@ -3538,7 +3548,7 @@ export const useStore = create<AppState>((set, get) => ({
       performedByRole: performerRole,
       timestamp: now,
       details: returnStage
-        ? `${logPhrase} Kit will return via ${returnStage} → Cleaning & Audit → Restock. Reason: ${trimmed}`
+        ? `${logPhrase} Kit will return via ${returnStage} → Checking & Audit → Restock. Reason: ${trimmed}`
         : `${logPhrase} Case closed. Reason: ${trimmed}`,
     };
 
@@ -6132,7 +6142,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   getDepartmentPerformance: () => {
     const cases = get().cases;
-    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Cleaning & Audit', 'Accounts', 'Bill Submission', 'Office Staff'];
+    const departments: Department[] = ['Stores', 'Delivery', 'Drivers', 'Scrub Person', 'Checking & Audit', 'Accounts', 'Bill Submission', 'Office Staff'];
 
     return departments.map(dept => {
       let casesHandled = 0;
@@ -6184,7 +6194,7 @@ export const useStore = create<AppState>((set, get) => ({
       'Delivery': '#f43f5e',
       'Surgery': '#8b5cf6',
       'Pickup from Hospital': '#ec4899',
-      'Cleaning & Audit': '#06b6d4',
+      'Checking & Audit': '#06b6d4',
       'Restock': '#84cc16',
       'Billing': '#10b981',
       'Bill Submission': '#f97316',

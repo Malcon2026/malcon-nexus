@@ -30,7 +30,7 @@ export const stageColors: Record<WorkflowStage, { bg: string; text: string; bord
   'Delivery': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', dot: 'bg-rose-500' },
   'Surgery': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
   'Pickup from Hospital': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200', dot: 'bg-pink-500' },
-  'Cleaning & Audit': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
+  'Checking & Audit': { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', dot: 'bg-cyan-500' },
   'Restock': { bg: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200', dot: 'bg-lime-500' },
   'Billing': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
   'Bill Submission': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
@@ -58,8 +58,14 @@ export function getPriorityStyle(priority: string | null | undefined) {
 export function normalizeWorkflowStage(stage: string | null | undefined): WorkflowStage {
   if (stage === 'Collection') return 'Bill Submission';
   if (stage === 'Kit Preparation') return 'Set Preparation';
-  if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
-    return 'Cleaning & Audit';
+  if (
+    stage === 'Cleaning' ||
+    stage === 'Audit' ||
+    stage === 'Cleaning & Audit' ||
+    stage === 'Checking & Audit' ||
+    stage === 'Checking and Audit'
+  ) {
+    return 'Checking & Audit';
   }
   if (stage && stage in stageColors) return stage as WorkflowStage;
   return 'Set Preparation';
@@ -70,7 +76,7 @@ export const departmentColors: Record<Department, string> = {
   Delivery: 'bg-rose-100 text-rose-800',
   Drivers: 'bg-teal-100 text-teal-800',
   'Scrub Person': 'bg-blue-100 text-blue-800',
-  'Cleaning & Audit': 'bg-cyan-100 text-cyan-800',
+  'Checking & Audit': 'bg-cyan-100 text-cyan-800',
   Accounts: 'bg-emerald-100 text-emerald-800',
   'Bill Submission': 'bg-orange-100 text-orange-800',
   'Office Staff': 'bg-slate-100 text-slate-800',
@@ -137,7 +143,7 @@ export const timeAgo = (dateStr: string) => {
 
 export const getStageIndex = (stage: WorkflowStage): number => {
   const stages: WorkflowStage[] = [
-    'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Cleaning & Audit', 'Restock', 'Completed'
+    'Set Preparation', 'Delivery', 'Surgery', 'Pickup from Hospital', 'Checking & Audit', 'Restock', 'Completed'
   ];
   return stages.indexOf(normalizeWorkflowStage(stage));
 };

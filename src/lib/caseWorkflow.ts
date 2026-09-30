@@ -1,5 +1,5 @@
 import type { Department, Employee, ImplantCase, ReturnOutcome, StageRecord, WorkflowStage } from '../types';
-import { CLEANING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
+import { CHECKING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
 
 /** Active pipeline — Restock is the last operational stage; case closes after Restock. */
@@ -8,7 +8,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Restock',
   'Completed',
 ];
@@ -54,7 +54,7 @@ export const ASSIGNABLE_WORKFLOW_STAGES: Exclude<WorkflowStage, 'Completed'>[] =
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Restock',
 ];
 
@@ -63,7 +63,7 @@ export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
-  'Cleaning & Audit': CLEANING_AUDIT_DEPARTMENT,
+  'Checking & Audit': CHECKING_AUDIT_DEPARTMENT,
   'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
@@ -233,8 +233,14 @@ export function normalizeWorkflowStageName(stage: string | null | undefined): Wo
   if (stage === 'Kit Preparation') return 'Set Preparation';
   if (stage === 'Collection' || stage === 'Bill Submission') return 'Bill Submission';
   if (stage === 'Billing') return 'Billing';
-  if (stage === 'Cleaning' || stage === 'Audit' || stage === 'Cleaning & Audit') {
-    return 'Cleaning & Audit';
+  if (
+    stage === 'Cleaning' ||
+    stage === 'Audit' ||
+    stage === 'Cleaning & Audit' ||
+    stage === 'Checking & Audit' ||
+    stage === 'Checking and Audit'
+  ) {
+    return 'Checking & Audit';
   }
   if ((WORKFLOW_STAGES as string[]).includes(stage)) {
     return stage as WorkflowStage;
@@ -276,7 +282,7 @@ function preferStageRecord(a: StageRecord, b: StageRecord): StageRecord {
   };
 }
 
-/** Collapse legacy Cleaning + Audit stage rows into one Cleaning & Audit record. */
+/** Collapse legacy Cleaning + Audit stage rows into one Checking & Audit record. */
 export function normalizeCaseStages(stages: StageRecord[] | null | undefined): StageRecord[] {
   const byStage = new Map<WorkflowStage, StageRecord>();
 
@@ -335,7 +341,7 @@ const TV_BOARD_STAGES = new Set<WorkflowStage>([
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Restock',
 ]);
 
@@ -623,7 +629,7 @@ export function postSurgeryDutyAssignee(
   const d = implantCase.postSurgeryDuties;
   if (!d) return undefined;
   if (stage === 'Pickup from Hospital') return d.return?.assignedEmployee ?? null;
-  if (stage === 'Cleaning & Audit') return d.cleaning?.assignedEmployee ?? null;
+  if (stage === 'Checking & Audit') return d.cleaning?.assignedEmployee ?? null;
   if (stage === 'Restock') return d.restock?.assignedEmployee ?? null;
   return undefined;
 }

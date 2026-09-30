@@ -28,7 +28,7 @@ const STAGE_TILE_LABELS: Record<WorkflowStage, string> = {
   'Delivery': 'Delivery',
   'Surgery': 'Surgery',
   'Pickup from Hospital': 'Pickup',
-  'Cleaning & Audit': 'Cleaning',
+  'Checking & Audit': 'Checking',
   'Restock': 'Restock',
   'Billing': 'Billing',
   'Bill Submission': 'Bill Submit',

@@ -132,7 +132,7 @@ export function buildAdminDashboardMetrics(
   const activeCases = cases.filter((c) => c.status === 'Active' || c.status === 'Waiting For Approval');
   const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
   const surgeryCases = cases.filter((c) => c.currentStage === 'Surgery');
-  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Cleaning & Audit');
+  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Checking & Audit');
   const restockPending = cases.filter(
     (c) => mapCaseToVisibleStage(c.currentStage) === 'Restock' && c.status !== 'Completed' && c.status !== 'Cancelled',
   );

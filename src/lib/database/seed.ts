@@ -5,7 +5,7 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   'Delivery',
   'Surgery',
   'Pickup from Hospital',
-  'Cleaning & Audit',
+  'Checking & Audit',
   'Restock',
   'Completed',
 ];
@@ -15,7 +15,7 @@ export const STAGE_DEPARTMENT_MAP: Record<WorkflowStage, Department | null> = {
   'Delivery': 'Delivery',
   'Surgery': 'Scrub Person',
   'Pickup from Hospital': 'Delivery',
-  'Cleaning & Audit': 'Cleaning & Audit',
+  'Checking & Audit': 'Checking & Audit',
   'Restock': 'Stores',
   'Billing': 'Accounts',
   'Bill Submission': 'Bill Submission',
