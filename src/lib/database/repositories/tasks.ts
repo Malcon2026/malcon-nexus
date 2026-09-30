@@ -5,10 +5,10 @@ import { nextCaseNumberFromCases } from '../../../utils/helpers';
 import type { ImplantCase } from '../../../types';
 
 export const taskRepository = {
-  async getNextCaseNumber(): Promise<string> {
-    if (USE_SUPABASE) return sbCaseRepo.getNextCaseNumber();
+  async getNextCaseNumber(surgeryDate?: string): Promise<string> {
+    if (USE_SUPABASE) return sbCaseRepo.getNextCaseNumber(surgeryDate);
     const list = await this.getAll();
-    return nextCaseNumberFromCases(list);
+    return nextCaseNumberFromCases(list, surgeryDate);
   },
 
   async getAll(): Promise<ImplantCase[]> {

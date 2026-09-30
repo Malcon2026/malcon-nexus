@@ -23,6 +23,7 @@ import { normalizeDateKey } from '../../attendance';
 import { getEmployeeDepartments, normalizeDepartment } from '../../../constants/departments';
 import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployee } from '../../caseWorkflow';
 import { normalizePostSurgeryDuties } from '../../caseDuties';
+import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from '../../caseNumber';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -430,20 +431,15 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
 }
 
 export const sbCaseRepo = {
-  async getNextCaseNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `IMP-${year}-`;
+  async getNextCaseNumber(surgeryDate?: string): Promise<string> {
+    const prefix = caseNumberPrefixForDate(surgeryDate ?? new Date());
     const { data, error } = await supabase
       .from('cases')
       .select('case_number')
       .like('case_number', `${prefix}%`);
     if (error) throw error;
-    let max = 0;
-    for (const row of data ?? []) {
-      const num = parseInt(String(row.case_number).slice(prefix.length), 10);
-      if (!isNaN(num)) max = Math.max(max, num);
-    }
-    return `${prefix}${String(max + 1).padStart(3, '0')}`;
+    const rows = (data ?? []).map((row) => ({ caseNumber: String(row.case_number) }));
+    return nextCaseNumberWithPrefix(rows, prefix);
   },
 
   async getAll(): Promise<ImplantCase[]> {

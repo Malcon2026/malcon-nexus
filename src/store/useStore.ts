@@ -1358,7 +1358,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     const now = new Date().toISOString();
-    const caseNumber = await taskRepository.getNextCaseNumber();
+    const caseNumber = await taskRepository.getNextCaseNumber(caseData.surgeryDate || undefined);
     const startDept = getDepartmentForStage(startStage) ?? 'Stores';
     const skippedNote = `Skipped — case started at ${startStage}.`;
 

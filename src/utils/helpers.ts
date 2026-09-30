@@ -153,16 +153,4 @@ export const isOverdue = (dueDate: string): boolean => {
   return new Date(dueDate) < new Date();
 };
 
-/** Derive the next IMP-YYYY-NNN case number from existing cases. */
-export function nextCaseNumberFromCases(cases: { caseNumber: string }[]): string {
-  const year = new Date().getFullYear();
-  const prefix = `IMP-${year}-`;
-  let max = 0;
-  for (const c of cases) {
-    if (c.caseNumber.startsWith(prefix)) {
-      const num = parseInt(c.caseNumber.slice(prefix.length), 10);
-      if (!isNaN(num)) max = Math.max(max, num);
-    }
-  }
-  return `${prefix}${String(max + 1).padStart(3, '0')}`;
-}
+export { nextCaseNumberFromCases } from '../lib/caseNumber';
