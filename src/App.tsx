@@ -32,6 +32,7 @@ import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
+import { GlobalAddCaseFab } from './components/layout/GlobalAddCaseFab';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
@@ -316,6 +317,7 @@ function MainApp() {
       </div>
 
       <ShortcutsHelpModal isOpen={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
+      <GlobalAddCaseFab />
     </div>
     </AppErrorBoundary>
   );

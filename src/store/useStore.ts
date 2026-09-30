@@ -145,6 +145,9 @@ interface AppState {
   /** Incremented to open Create Case from keyboard shortcuts. */
   createCaseSignal: number;
   requestCreateCase: () => void;
+  createCaseModalOpen: boolean;
+  openCreateCaseModal: () => void;
+  closeCreateCaseModal: () => void;
   /** Cases list jumps to this surgery date tab after create (YYYY-MM-DD, IST). */
   caseListFocusSurgeryDate: string | null;
   focusCaseListOnSurgeryDate: (dateKey: string | null) => void;
@@ -1274,6 +1277,7 @@ export const useStore = create<AppState>((set, get) => ({
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
   createCaseSignal: 0,
+  createCaseModalOpen: false,
   caseListFocusSurgeryDate: null,
 
   setCurrentUser: (user) => {
@@ -1284,9 +1288,12 @@ export const useStore = create<AppState>((set, get) => ({
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
   setActiveTab: (tab) => set({ activeTab: tab, mobileSidebarOpen: false }),
+  openCreateCaseModal: () => set({ createCaseModalOpen: true }),
+  closeCreateCaseModal: () => set({ createCaseModalOpen: false }),
   requestCreateCase: () =>
     set((s) => ({
       createCaseSignal: s.createCaseSignal + 1,
+      createCaseModalOpen: true,
       activeTab: 'cases',
       mobileSidebarOpen: false,
     })),

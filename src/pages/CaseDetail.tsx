@@ -28,6 +28,7 @@ import { canEmployeeRequestTask, getPendingTaskRequestsForCase, hasEmployeePendi
 import { canStoreManagerSubmitSetPreparation, isFullAdmin, isSetPreparationStage } from '../lib/roles';
 import { CASE_DUTIES_TAB_ID } from '../lib/caseDuties';
 import { CaseCurrentWork, type CaseAction } from '../components/case-detail/CaseCurrentWork';
+import { FloatingCornerButton } from '../components/layout/FloatingCornerButton';
 import { CaseDetailTabs, type CaseTab } from '../components/case-detail/CaseDetailTabs';
 import {
   CaseActivity,
@@ -1102,6 +1103,16 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         {activeTabLocal === 'activity' && <CaseActivity logs={c.activityLogs} />}
         {activeTabLocal === 'comments' && <CaseComments comments={c.comments} />}
       </motion.div>
+
+      {canEditCase ? (
+        <FloatingCornerButton
+          label="Edit case"
+          icon={<Edit3 className="h-5 w-5" />}
+          onClick={() => setShowEdit(true)}
+          variant="secondary"
+          stack="above"
+        />
+      ) : null}
     </NexusPage>
   );
 };

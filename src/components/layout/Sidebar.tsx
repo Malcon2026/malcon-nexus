@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -101,10 +101,27 @@ export const Sidebar: React.FC = () => {
   } = useStore();
 
   const [casesGroupOpen, setCasesGroupOpen] = useState(() => isCasesTab(activeTab));
+  const workflowAutoCollapsedRef = useRef(false);
 
   useEffect(() => {
     if (isCasesTab(activeTab)) setCasesGroupOpen(true);
   }, [activeTab]);
+
+  /** Workflow board is wide ? collapse on desktop; expand again when leaving. */
+  useEffect(() => {
+    if (activeTab === 'workflow') {
+      const desktop = window.matchMedia('(min-width: 1024px)');
+      if (desktop.matches) {
+        setSidebarCollapsed(true);
+        workflowAutoCollapsedRef.current = true;
+      }
+      return;
+    }
+    if (workflowAutoCollapsedRef.current) {
+      setSidebarCollapsed(false);
+      workflowAutoCollapsedRef.current = false;
+    }
+  }, [activeTab, setSidebarCollapsed]);
 
   const pendingApprovals = AUTO_APPROVE_STAGE_SUBMISSIONS
     ? 0
@@ -172,6 +189,9 @@ export const Sidebar: React.FC = () => {
 
   const showLabels = mobileSidebarOpen || !sidebarCollapsed;
   const casesGroupActive = isCasesTab(activeTab);
+  const dashboardItem = topNavItems[0];
+  const workflowItem = topNavItems.find((i) => i.id === 'workflow');
+  const topNavRest = topNavItems.slice(1).filter((i) => i.id !== 'workflow');
 
   const renderNavButton = (item: NavItem, opts?: { nested?: boolean }) => {
     const badge = getBadge(item.id);
@@ -302,9 +322,10 @@ export const Sidebar: React.FC = () => {
           topNavItems.filter(filterTopItem).map((item) => renderNavButton(item))
         ) : (
           <>
-            {renderNavButton(topNavItems[0])}
+            {renderNavButton(dashboardItem)}
+            {workflowItem && filterTopItem(workflowItem) ? renderNavButton(workflowItem) : null}
             {renderCasesGroup()}
-            {topNavItems.slice(1).filter(filterTopItem).map((item) => renderNavButton(item))}
+            {topNavRest.filter(filterTopItem).map((item) => renderNavButton(item))}
           </>
         )}
       </nav>
@@ -318,7 +339,7 @@ export const Sidebar: React.FC = () => {
         {showLabels && (
           <p
             className="text-[10px] text-[var(--color-label-tertiary)] leading-none px-0.5"
-            title="Build time — confirms you're on the latest deploy"
+            title="Build time ? confirms you're on the latest deploy"
           >
             Build: {new Date(__BUILD_TIME__).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
