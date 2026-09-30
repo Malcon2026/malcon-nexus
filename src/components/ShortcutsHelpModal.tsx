@@ -11,9 +11,9 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
   const mod = modKeyLabel();
 
   const rows = [
-    { keys: `${mod} + N`, action: 'Create new case (admin)' },
+    { keys: `${mod} + C`, action: 'New case (admin / store manager)' },
+    { keys: `${mod} + K`, action: 'Open workflow board (kanban)' },
     { keys: `${mod} + L`, action: 'Go to Live Cases' },
-    { keys: `${mod} + C`, action: 'Go to Cases' },
     { keys: 'Esc', action: 'Close popup / modal' },
     { keys: '?', action: 'Show this help' },
   ];

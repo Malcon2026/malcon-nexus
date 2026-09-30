@@ -12,7 +12,7 @@ export function useAppShortcuts({ enabled = true, onShowHelp, shortcutsHelpOpen 
   const viewMode = useStore((s) => s.viewMode);
   const currentUser = useStore((s) => s.currentUser);
   const setActiveTab = useStore((s) => s.setActiveTab);
-  const requestCreateCase = useStore((s) => s.requestCreateCase);
+  const openCreateCaseModal = useStore((s) => s.openCreateCaseModal);
 
   useEffect(() => {
     if (!enabled) return;
@@ -34,21 +34,21 @@ export function useAppShortcuts({ enabled = true, onShowHelp, shortcutsHelpOpen 
 
       const key = e.key.toLowerCase();
 
-      if (key === 'n' && (viewMode === 'admin' || viewMode === 'store_manager')) {
+      if (key === 'c' && (viewMode === 'admin' || viewMode === 'store_manager')) {
         e.preventDefault();
-        requestCreateCase();
+        openCreateCaseModal();
+        return;
+      }
+
+      if (key === 'k' && currentUser.role !== 'petrol') {
+        e.preventDefault();
+        setActiveTab('workflow');
         return;
       }
 
       if (key === 'l' && currentUser.role !== 'petrol') {
         e.preventDefault();
         setActiveTab('live-cases');
-        return;
-      }
-
-      if (key === 'c' && currentUser.role !== 'petrol') {
-        e.preventDefault();
-        setActiveTab('cases');
       }
     };
 
@@ -61,6 +61,6 @@ export function useAppShortcuts({ enabled = true, onShowHelp, shortcutsHelpOpen 
     viewMode,
     currentUser.role,
     setActiveTab,
-    requestCreateCase,
+    openCreateCaseModal,
   ]);
 }
