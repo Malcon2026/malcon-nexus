@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -31,6 +31,44 @@ export const PickerSheet: React.FC<PickerSheetProps> = ({
   size = 'md',
   hideClose = false,
 }) => {
+  /** Lift sheet above iOS/Android software keyboard (visual viewport shrinks). */
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setKeyboardInset(0);
+      setViewportHeight(null);
+      return;
+    }
+    document.body.style.overflow = 'hidden';
+
+    const syncViewport = () => {
+      const vv = window.visualViewport;
+      if (!vv) {
+        setKeyboardInset(0);
+        setViewportHeight(null);
+        return;
+      }
+      const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      setKeyboardInset(inset);
+      setViewportHeight(Math.round(vv.height));
+    };
+
+    syncViewport();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', syncViewport);
+    vv?.addEventListener('scroll', syncViewport);
+
+    return () => {
+      vv?.removeEventListener('resize', syncViewport);
+      vv?.removeEventListener('scroll', syncViewport);
+      document.body.style.overflow = '';
+      setKeyboardInset(0);
+      setViewportHeight(null);
+    };
+  }, [isOpen]);
+
   // Escape closes only this sheet, not the case-entry screen underneath.
   useEffect(() => {
     if (!isOpen) return;
@@ -55,7 +93,7 @@ export const PickerSheet: React.FC<PickerSheetProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-sm"
+            className="absolute inset-0 bg-[var(--overlay-scrim)] max-sm:backdrop-blur-none sm:backdrop-blur-sm"
             onClick={onClose}
             aria-hidden
           />
@@ -67,6 +105,11 @@ export const PickerSheet: React.FC<PickerSheetProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={
+              keyboardInset > 0 && viewportHeight
+                ? { marginBottom: keyboardInset, maxHeight: Math.max(220, viewportHeight - 8) }
+                : undefined
+            }
             className={cn(
               'relative flex w-full min-h-0 flex-col bg-white border border-[var(--color-separator)] shadow-[var(--shadow-modal)]',
               'rounded-t-[var(--radius-lg)] sm:rounded-[var(--radius-lg)]',

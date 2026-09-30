@@ -48,6 +48,9 @@ export const DoctorSheet: React.FC<{
   onSelect: (name: string) => void;
 }> = ({ isOpen, onClose, options, value, onSelect }) => {
   const [query, setQuery] = useState('');
+  const isTouchPhone =
+    typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
   useEffect(() => {
     if (isOpen) setQuery('');
   }, [isOpen]);
@@ -70,7 +73,12 @@ export const DoctorSheet: React.FC<{
           <input
             id="case-create-doctor-search"
             type="search"
-            autoFocus
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="words"
+            autoFocus={!isTouchPhone}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
