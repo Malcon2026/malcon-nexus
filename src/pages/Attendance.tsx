@@ -18,6 +18,12 @@ export const Attendance: React.FC = () => {
   const pendingTotal = pendingLeaveCount + pendingOffsiteCount;
 
   const [pageTab, setPageTab] = React.useState<AttendanceTab>('today');
+  const setAttendanceRegisterViewActive = useStore((s) => s.setAttendanceRegisterViewActive);
+
+  React.useEffect(() => {
+    setAttendanceRegisterViewActive(pageTab === 'register');
+    return () => setAttendanceRegisterViewActive(false);
+  }, [pageTab, setAttendanceRegisterViewActive]);
 
   if (viewMode !== 'admin') {
     return (
@@ -26,7 +32,10 @@ export const Attendance: React.FC = () => {
   }
 
   return (
-    <NexusPage maxWidthClass="max-w-[1400px]">
+    <NexusPage
+      maxWidthClass={pageTab === 'register' ? 'max-w-none' : 'max-w-[1400px]'}
+      className={pageTab === 'register' ? 'px-2 sm:px-3' : undefined}
+    >
       <NexusPageHeader
         title="Attendance"
         description="Daily presence, register, and leave / off-site approvals."

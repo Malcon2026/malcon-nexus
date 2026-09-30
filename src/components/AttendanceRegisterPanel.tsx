@@ -491,18 +491,13 @@ export const AttendanceRegisterPanel: React.FC<AttendanceRegisterPanelProps> = (
         <p className="sm:hidden px-3 pt-2 text-[11px] text-gray-500">
           Swipe sideways to see all days →
         </p>
-        <div className="w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x pb-2 -mx-0">
-          <table
-            className="w-full border-collapse text-xs table-fixed"
-            style={{
-              minWidth: `${278 + register.days.length * 36 + 56}px`,
-            }}
-          >
+        <div className="w-full max-w-full overflow-x-auto overscroll-x-contain touch-pan-x pb-2 -mx-0 lg:overflow-x-visible">
+          <table className="w-full min-w-0 border-collapse text-xs table-fixed">
             <colgroup>
               <col style={{ width: 168 }} />
               <col style={{ width: 110 }} />
               {register.days.map((day) => (
-                <col key={day.dateKey} style={{ width: 36 }} />
+                <col key={day.dateKey} />
               ))}
               <col style={{ width: 56 }} />
             </colgroup>

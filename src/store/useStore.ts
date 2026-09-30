@@ -135,6 +135,8 @@ interface AppState {
   sidebarCollapsed: boolean;
   mobileSidebarOpen: boolean;
   activeTab: string;
+  /** Admin Attendance → Register tab (wide grid; sidebar auto-collapse on desktop). */
+  attendanceRegisterViewActive: boolean;
 
   // Actions
   setCurrentUser: (user: Employee) => void;
@@ -142,6 +144,7 @@ interface AppState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
+  setAttendanceRegisterViewActive: (active: boolean) => void;
   /** Incremented to open Create Case from keyboard shortcuts. */
   createCaseSignal: number;
   requestCreateCase: () => void;
@@ -1276,6 +1279,7 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
+  attendanceRegisterViewActive: false,
   createCaseSignal: 0,
   createCaseModalOpen: false,
   caseListFocusSurgeryDate: null,
@@ -1287,7 +1291,13 @@ export const useStore = create<AppState>((set, get) => ({
   setSelectedCase: (id) => set({ selectedCaseId: id }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
-  setActiveTab: (tab) => set({ activeTab: tab, mobileSidebarOpen: false }),
+  setActiveTab: (tab) =>
+    set({
+      activeTab: tab,
+      mobileSidebarOpen: false,
+      ...(tab !== 'attendance' ? { attendanceRegisterViewActive: false } : {}),
+    }),
+  setAttendanceRegisterViewActive: (active) => set({ attendanceRegisterViewActive: active }),
   openCreateCaseModal: () => set({ createCaseModalOpen: true }),
   closeCreateCaseModal: () => set({ createCaseModalOpen: false }),
   requestCreateCase: () =>

@@ -98,30 +98,35 @@ export const Sidebar: React.FC = () => {
     fieldTeamAttendanceApprovals,
     petrolRequests,
     caseTaskRequests,
+    attendanceRegisterViewActive,
   } = useStore();
 
   const [casesGroupOpen, setCasesGroupOpen] = useState(() => isCasesTab(activeTab));
-  const workflowAutoCollapsedRef = useRef(false);
+  const wideViewAutoCollapsedRef = useRef(false);
 
   useEffect(() => {
     if (isCasesTab(activeTab)) setCasesGroupOpen(true);
   }, [activeTab]);
 
-  /** Workflow board is wide ? collapse on desktop; expand again when leaving. */
+  /** Wide views (workflow board, attendance register) collapse sidebar on desktop; restore on leave. */
   useEffect(() => {
-    if (activeTab === 'workflow') {
+    const shouldAutoCollapse =
+      activeTab === 'workflow'
+      || (activeTab === 'attendance' && attendanceRegisterViewActive);
+
+    if (shouldAutoCollapse) {
       const desktop = window.matchMedia('(min-width: 1024px)');
       if (desktop.matches) {
         setSidebarCollapsed(true);
-        workflowAutoCollapsedRef.current = true;
+        wideViewAutoCollapsedRef.current = true;
       }
       return;
     }
-    if (workflowAutoCollapsedRef.current) {
+    if (wideViewAutoCollapsedRef.current) {
       setSidebarCollapsed(false);
-      workflowAutoCollapsedRef.current = false;
+      wideViewAutoCollapsedRef.current = false;
     }
-  }, [activeTab, setSidebarCollapsed]);
+  }, [activeTab, attendanceRegisterViewActive, setSidebarCollapsed]);
 
   const pendingApprovals = AUTO_APPROVE_STAGE_SUBMISSIONS
     ? 0
