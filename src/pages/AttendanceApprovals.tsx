@@ -4,7 +4,10 @@ import { AdminAccessGate } from '../components/layout/AdminAccessGate';
 import { FieldTeamAttendanceApprovalsPanel } from '../components/FieldTeamAttendanceApprovalsPanel';
 import { useStore } from '../store/useStore';
 import { getISTDateKey } from '../lib/attendance';
-import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
+import {
+  FIELD_TEAM_ATTENDANCE_APPROVAL_ENABLED,
+  requiresFieldTeamAttendanceApproval,
+} from '../lib/fieldTeamAttendance';
 
 export const AttendanceApprovals: React.FC = () => {
   const viewMode = useStore((s) => s.viewMode);
@@ -34,6 +37,17 @@ export const AttendanceApprovals: React.FC = () => {
   if (viewMode !== 'admin') {
     return (
       <AdminAccessGate description="Attendance approvals are only available to administrators." />
+    );
+  }
+
+  if (!FIELD_TEAM_ATTENDANCE_APPROVAL_ENABLED) {
+    return (
+      <NexusPage maxWidthClass="max-w-[1200px]">
+        <NexusPageHeader
+          title="Attendance Approvals"
+          description="Daily approval is turned off for now — every punch counts as present automatically."
+        />
+      </NexusPage>
     );
   }
 

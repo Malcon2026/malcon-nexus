@@ -1,6 +1,14 @@
 import type { Department, Employee, FieldTeamAttendanceApproval } from '../types';
 import { employeeCoversDepartment } from '../constants/departments';
 
+/**
+ * Master switch for the daily admin sign-off (Attendance Approvals page).
+ * OFF = old behaviour: every punch counts as present, nobody waits for approval.
+ * Turn back on to require sign-off for the departments below (no data is lost —
+ * existing approval rows stay in the database).
+ */
+export const FIELD_TEAM_ATTENDANCE_APPROVAL_ENABLED = false;
+
 /** Departments that need admin sign-off before a day counts as present. */
 export const FIELD_TEAM_ATTENDANCE_DEPARTMENTS: Department[] = [
   'Stores',
@@ -16,6 +24,7 @@ export function isFieldTeamAttendanceDepartment(dept: string | null | undefined)
 export function requiresFieldTeamAttendanceApproval(
   employee: Pick<Employee, 'department' | 'departments' | 'role'>,
 ): boolean {
+  if (!FIELD_TEAM_ATTENDANCE_APPROVAL_ENABLED) return false;
   if (employee.role !== 'employee') return false;
   return FIELD_TEAM_ATTENDANCE_DEPARTMENTS.some((dept) => employeeCoversDepartment(employee, dept));
 }
