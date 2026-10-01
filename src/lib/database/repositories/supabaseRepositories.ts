@@ -5,6 +5,7 @@
 // Supabase snake_case database columns.
 
 import { supabase } from '../../supabase';
+import { doctorCodeFromRow } from '../../doctorCode';
 import { formatUnknownError } from '../../../utils/errors';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
@@ -306,14 +307,16 @@ export const sbDoctorRepo = {
     ]);
     if (error) throw error;
     return (data ?? []).map((row) => {
-      const rowCode = (row as { doctor_code?: string | null }).doctor_code;
+      const storedCode = doctorCodeFromRow(row as { doctor_code?: string | null; phone?: string | null });
+      const phone = (row.phone ?? '').trim();
+      const displayPhone = storedCode && phone.toUpperCase() === storedCode ? '' : phone;
       return {
         id: row.id,
-        doctorCode: rowCode?.trim() || codeById.get(row.id) || undefined,
+        doctorCode: storedCode || codeById.get(row.id) || undefined,
         name: row.name,
         specialization: row.specialization,
         hospitalId: row.hospital_id ?? '',
-        phone: row.phone,
+        phone: displayPhone,
       };
     });
   },

@@ -68,6 +68,8 @@ function codeForIndex(i) {
   return `MLS-DOC-${String(i + 1).padStart(3, '0')}`;
 }
 
+const MLS_CODE = /^MLS-DOC-\d{3}$/i;
+
 loadEnv();
 
 const url = process.env.VITE_SUPABASE_URL;
@@ -172,20 +174,26 @@ for (const c of cases ?? []) {
   }
 }
 
-const doctorUpdates = master.map((m) => ({
-  id: m.id,
-  name: m.name,
-  specialization: 'Surgeon',
-  ...(hasDoctorCodeColumn ? { doctor_code: m.code } : {}),
-  ...(m.created ? { hospital_id: null, phone: '' } : {}),
-}));
+function doctorRowPatch(m) {
+  const patch = { name: m.name, specialization: 'Surgeon' };
+  if (hasDoctorCodeColumn) {
+    patch.doctor_code = m.code;
+    patch.phone = '';
+  } else {
+    // Until add-doctor-code.sql is applied, store code in empty phone field.
+    patch.phone = m.code;
+  }
+  return patch;
+}
 
 const toCreate = master.filter((m) => m.created);
 const toDelete = [...unusedIds];
 const orphanNames = toDelete.map((id) => allDoctors.find((d) => d.id === id)?.name).filter(Boolean);
 
 console.log(`${dryRun ? '[DRY RUN]' : '[EXECUTE]'} Canonical doctors: ${master.length}`);
-console.log(`doctor_code column: ${hasDoctorCodeColumn ? 'yes' : 'no (run add-doctor-code.sql; codes → app_settings)'}`);
+console.log(
+  `doctor_code column: ${hasDoctorCodeColumn ? 'yes' : 'no — storing MLS-DOC in doctors.phone until migration'}`,
+);
 console.log(`Create new doctor rows: ${toCreate.length}`);
 console.log(`Update doctor rows: ${master.length - toCreate.length}`);
 console.log(`Delete orphan doctor rows: ${toDelete.length}`, orphanNames.length ? `(${orphanNames.join(', ')})` : '');
@@ -206,18 +214,24 @@ console.log(`\nWrote ${csvPath}`);
 
 if (dryRun) process.exit(0);
 
-if (!hasDoctorCodeColumn) {
-  console.warn('\nNote: add doctor_code column when you can — supabase/migrations/add-doctor-code.sql');
+if (hasDoctorCodeColumn) {
+  for (const d of allDoctors) {
+    const ph = (d.phone ?? '').trim();
+    if (MLS_CODE.test(ph)) {
+      const m = master.find((x) => x.id === d.id);
+      if (m) {
+        await sb.from('doctors').update({ doctor_code: m.code, phone: '' }).eq('id', d.id);
+      }
+    }
+  }
 }
 
 for (const m of toCreate) {
+  const rowPatch = doctorRowPatch(m);
   const { error } = await sb.from('doctors').insert({
     id: m.id,
-    name: m.name,
-    specialization: 'Surgeon',
     hospital_id: null,
-    phone: '',
-    ...(hasDoctorCodeColumn ? { doctor_code: m.code } : {}),
+    ...rowPatch,
   });
   if (error) {
     console.error('Create failed', m.name, error.message);
@@ -226,8 +240,7 @@ for (const m of toCreate) {
 }
 
 for (const m of master.filter((x) => !x.created)) {
-  const patch = { name: m.name, specialization: 'Surgeon' };
-  if (hasDoctorCodeColumn) patch.doctor_code = m.code;
+  const patch = doctorRowPatch(m);
   const { error } = await sb.from('doctors').update(patch).eq('id', m.id);
   if (error) {
     console.error('Update failed', m.name, error.message);
