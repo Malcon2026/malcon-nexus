@@ -37,7 +37,22 @@ import { GlobalAddCaseFab } from './components/layout/GlobalAddCaseFab';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
+import { restoreBootstrapCacheForDisplay } from './lib/bootstrapSessionCache';
 import type { Employee } from './types';
+
+function primeStoreFromSessionCache(employeeId: string): boolean {
+  if (!restoreBootstrapCacheForDisplay(employeeId)) return false;
+  useStore.getState().reloadFromDatabase();
+  return true;
+}
+
+function storeHasBootstrapData(): boolean {
+  const s = useStore.getState();
+  if (s.cases.length > 0) return true;
+  if (s.attendanceRecords.length > 0) return true;
+  if (s.employees.filter((e) => e.id !== 'guest').length > 0) return true;
+  return false;
+}
 
 const SUPABASE_ENABLED =
   import.meta.env.VITE_SUPABASE_URL &&
@@ -70,6 +85,8 @@ function MainApp() {
   const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
   const [isAuthenticated, setIsAuthenticated] = useState(!SUPABASE_ENABLED);
   const [isHydrating, setIsHydrating] = useState(false);
+  /** Avoid flashing 0 cases / empty attendance before bootstrap or cache restore. */
+  const [shellDataReady, setShellDataReady] = useState(!SUPABASE_ENABLED);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   const showShortcutsHelp = useCallback(() => setShortcutsHelpOpen(true), []);
@@ -90,6 +107,9 @@ function MainApp() {
     const generation = ++hydrateGeneration.current;
     const startedAt = performance.now();
     setIsHydrating(true);
+    if (!storeHasBootstrapData()) {
+      setShellDataReady(false);
+    }
     try {
       const {
         bootstrapEssential,
@@ -101,10 +121,10 @@ function MainApp() {
       const role = bootstrapRoleForEmployee(employee.role);
       const options = { employeeId: employee.id };
 
-      const hadCache = restoreBootstrapCache(employee.id);
+      const hadCache = restoreBootstrapCache(employee.id) || storeHasBootstrapData();
       if (hadCache && generation === hydrateGeneration.current) {
         reloadFromDatabase();
-        setIsHydrating(false);
+        setShellDataReady(true);
       }
 
       const essentialFetched = await bootstrapEssential(role, options);
@@ -113,11 +133,9 @@ function MainApp() {
         reloadFromDatabase();
         persistBootstrapCache(employee.id, role);
       }
-
-      if (!hadCache && (role === 'employee' || role === 'store_manager')) {
-        setIsHydrating(false);
-        console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
-      }
+      setShellDataReady(true);
+      setIsHydrating(false);
+      console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
 
       void bootstrapDeferred(role, options).then(async () => {
         if (generation !== hydrateGeneration.current) return;
@@ -140,7 +158,10 @@ function MainApp() {
       });
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);
-      if (generation === hydrateGeneration.current) setIsHydrating(false);
+      if (generation === hydrateGeneration.current) {
+        setShellDataReady(true);
+        setIsHydrating(false);
+      }
     }
   }, [reloadFromDatabase]);
 
@@ -158,8 +179,10 @@ function MainApp() {
         if (cancelled) return;
 
         if (employee) {
+          const primed = primeStoreFromSessionCache(employee.id);
           setCurrentUser(employee);
           setIsAuthenticated(true);
+          setShellDataReady(primed || storeHasBootstrapData());
           void hydrateForUser(employee);
         }
         setAuthChecked(true);
@@ -175,8 +198,10 @@ function MainApp() {
           }
 
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && emp) {
+            const primed = primeStoreFromSessionCache(emp.id);
             setCurrentUser(emp);
             setIsAuthenticated(true);
+            setShellDataReady(primed || storeHasBootstrapData());
             void hydrateForUser(emp);
           }
         });
@@ -202,12 +227,30 @@ function MainApp() {
   };
 
   const handleLoginSuccess = (employee: Employee) => {
+    const primed = SUPABASE_ENABLED ? primeStoreFromSessionCache(employee.id) : true;
     setCurrentUser(employee);
     setIsAuthenticated(true);
+    setShellDataReady(primed || !SUPABASE_ENABLED || storeHasBootstrapData());
     if (SUPABASE_ENABLED) {
       void hydrateForUser(employee);
     }
   };
+
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !isAuthenticated) return;
+    const onBootstrapUpdated = () => {
+      reloadFromDatabase();
+      void Promise.all([
+        import('./lib/database/bootstrap'),
+        import('./lib/roles'),
+      ]).then(([{ persistBootstrapCache }, { bootstrapRoleForEmployee }]) => {
+        const user = useStore.getState().currentUser;
+        persistBootstrapCache(user.id, bootstrapRoleForEmployee(user.role));
+      });
+    };
+    window.addEventListener('malcon-bootstrap-updated', onBootstrapUpdated);
+    return () => window.removeEventListener('malcon-bootstrap-updated', onBootstrapUpdated);
+  }, [isAuthenticated, reloadFromDatabase]);
 
   const renderPage = () => {
     if (viewMode === 'petrol') {
@@ -282,6 +325,10 @@ function MainApp() {
         <Login onLoginSuccess={handleLoginSuccess} />
       </div>
     );
+  }
+
+  if (SUPABASE_ENABLED && isAuthenticated && !shellDataReady) {
+    return <AppBootScreen />;
   }
 
   if (activeTab === 'tv-board') {

@@ -23,6 +23,13 @@ import { getISTDateKey } from '../attendance';
 import { foodLoadWindow } from '../food';
 
 import type { BootstrapRole } from '../roles';
+import {
+  BOOTSTRAP_CACHE_TTL_MS,
+  isBootstrapCacheFresh as isSessionCacheFresh,
+  restoreBootstrapCacheForDisplay,
+  writeBootstrapCachePayload,
+  type BootstrapCachePayload,
+} from '../bootstrapSessionCache';
 
 export interface BootstrapOptions {
   employeeId?: string;
@@ -38,17 +45,9 @@ interface BootstrapTask {
   run: () => Promise<unknown>;
 }
 
-interface BootstrapCachePayload {
-  savedAt: number;
-  data: Record<string, unknown[]>;
-}
-
-const CACHE_PREFIX = 'malcon-nexus-bootstrap-v13';
 const ATTENDANCE_LOOKBACK_DAYS = 150;
 /** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
 const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
-/** Skip essential re-fetch when session cache is newer than this. */
-const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function getAttendanceSinceIso(days: number): string {
   const date = new Date();
@@ -58,24 +57,6 @@ function getAttendanceSinceIso(days: number): string {
 
 function getAttendanceBootstrapSinceIso(): string {
   return getAttendanceSinceIso(ATTENDANCE_LOOKBACK_DAYS);
-}
-
-function cacheKey(employeeId: string): string {
-  return `${CACHE_PREFIX}:${employeeId}`;
-}
-
-function readBootstrapCache(employeeId: string): BootstrapCachePayload | null {
-  if (typeof sessionStorage === 'undefined') return null;
-
-  try {
-    const raw = sessionStorage.getItem(cacheKey(employeeId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as BootstrapCachePayload;
-    if (!parsed.data) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 // Employee dashboard essentials: profile, leave, pending approvals, and recent
@@ -234,10 +215,9 @@ function shouldSkipEssentialFetch(
   runOptions?: BootstrapRunOptions,
 ): boolean {
   if (runOptions?.force) return false;
-  // Admins must always load fresh leave / off-site approval queues.
-  if (role === 'admin' || role === 'petrol' || role === 'store_manager') return false;
+  if (role === 'petrol') return false;
   if (!options?.employeeId) return false;
-  return isBootstrapCacheFresh(options.employeeId);
+  return isSessionCacheFresh(options.employeeId, BOOTSTRAP_CACHE_TTL_MS);
 }
 
 async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<void> {
@@ -275,22 +255,12 @@ async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<
 
 /** True when session cache exists and is within TTL. */
 export function isBootstrapCacheFresh(employeeId: string): boolean {
-  const parsed = readBootstrapCache(employeeId);
-  if (!parsed?.savedAt) return false;
-  return Date.now() - parsed.savedAt < CACHE_TTL_MS;
+  return isSessionCacheFresh(employeeId, BOOTSTRAP_CACHE_TTL_MS);
 }
 
 /** Restore last session cache so the UI can render immediately on reopen. */
 export function restoreBootstrapCache(employeeId: string): boolean {
-  if (!supabaseStorage) return false;
-
-  const parsed = readBootstrapCache(employeeId);
-  if (!parsed) return false;
-
-  for (const [key, value] of Object.entries(parsed.data)) {
-    supabaseStorage.seedCache(key, value);
-  }
-  return true;
+  return restoreBootstrapCacheForDisplay(employeeId);
 }
 
 /** Persist loaded collections for fast next open in the same browser session. */
@@ -314,6 +284,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
           'doctors',
           'approvals',
           'caseTaskRequests',
+          'fieldTeamAttendanceApprovals',
           'kits',
           'activityLog',
         ]
@@ -358,11 +329,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
     if (value) data[key] = value;
   }
 
-  try {
-    sessionStorage.setItem(cacheKey(employeeId), JSON.stringify({ savedAt: Date.now(), data }));
-  } catch {
-    // sessionStorage full — ignore
-  }
+  writeBootstrapCachePayload(employeeId, { savedAt: Date.now(), data });
 }
 
 /** Fresh fetch for admin approval queues (leave + off-site punch). */
@@ -394,6 +361,15 @@ export async function bootstrapEssential(
         'locationTrips',
       );
       return true;
+    }
+    if (role === 'admin') {
+      void runBootstrapTasks(tasksFor('admin', 'essential', options), 'essential-bg')
+        .then(() => refreshApprovalQueues())
+        .then(() => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('malcon-bootstrap-updated'));
+          }
+        });
     }
     return false;
   }
