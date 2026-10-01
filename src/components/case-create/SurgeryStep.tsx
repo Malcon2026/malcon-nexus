@@ -83,6 +83,9 @@ export const DoctorSheet: React.FC<{
     try {
       await onAddDoctor(newName);
       pick(newName);
+    } catch (e: any) {
+      alert("Failed to add doctor: " + (e.message || String(e)));
+      console.error(e);
     } finally {
       setAdding(false);
     }
