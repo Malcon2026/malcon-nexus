@@ -85,8 +85,6 @@ function MainApp() {
   const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
   const [isAuthenticated, setIsAuthenticated] = useState(!SUPABASE_ENABLED);
   const [isHydrating, setIsHydrating] = useState(false);
-  /** Avoid flashing 0 cases / empty attendance before bootstrap or cache restore. */
-  const [shellDataReady, setShellDataReady] = useState(!SUPABASE_ENABLED);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   const showShortcutsHelp = useCallback(() => setShortcutsHelpOpen(true), []);
@@ -107,9 +105,6 @@ function MainApp() {
     const generation = ++hydrateGeneration.current;
     const startedAt = performance.now();
     setIsHydrating(true);
-    if (!storeHasBootstrapData()) {
-      setShellDataReady(false);
-    }
     try {
       const {
         bootstrapEssential,
@@ -124,7 +119,6 @@ function MainApp() {
       const hadCache = restoreBootstrapCache(employee.id) || storeHasBootstrapData();
       if (hadCache && generation === hydrateGeneration.current) {
         reloadFromDatabase();
-        setShellDataReady(true);
       }
 
       const essentialFetched = await bootstrapEssential(role, options);
@@ -133,7 +127,6 @@ function MainApp() {
         reloadFromDatabase();
         persistBootstrapCache(employee.id, role);
       }
-      setShellDataReady(true);
       setIsHydrating(false);
       console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
 
@@ -159,7 +152,6 @@ function MainApp() {
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);
       if (generation === hydrateGeneration.current) {
-        setShellDataReady(true);
         setIsHydrating(false);
       }
     }
@@ -179,10 +171,9 @@ function MainApp() {
         if (cancelled) return;
 
         if (employee) {
-          const primed = primeStoreFromSessionCache(employee.id);
+          primeStoreFromSessionCache(employee.id);
           setCurrentUser(employee);
           setIsAuthenticated(true);
-          setShellDataReady(primed || storeHasBootstrapData());
           void hydrateForUser(employee);
         }
         setAuthChecked(true);
@@ -198,10 +189,9 @@ function MainApp() {
           }
 
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && emp) {
-            const primed = primeStoreFromSessionCache(emp.id);
+            primeStoreFromSessionCache(emp.id);
             setCurrentUser(emp);
             setIsAuthenticated(true);
-            setShellDataReady(primed || storeHasBootstrapData());
             void hydrateForUser(emp);
           }
         });
@@ -227,10 +217,9 @@ function MainApp() {
   };
 
   const handleLoginSuccess = (employee: Employee) => {
-    const primed = SUPABASE_ENABLED ? primeStoreFromSessionCache(employee.id) : true;
+    if (SUPABASE_ENABLED) primeStoreFromSessionCache(employee.id);
     setCurrentUser(employee);
     setIsAuthenticated(true);
-    setShellDataReady(primed || !SUPABASE_ENABLED || storeHasBootstrapData());
     if (SUPABASE_ENABLED) {
       void hydrateForUser(employee);
     }
@@ -325,10 +314,6 @@ function MainApp() {
         <Login onLoginSuccess={handleLoginSuccess} />
       </div>
     );
-  }
-
-  if (SUPABASE_ENABLED && isAuthenticated && !shellDataReady) {
-    return <AppBootScreen />;
   }
 
   if (activeTab === 'tv-board') {
