@@ -283,17 +283,39 @@ export const sbHospitalRepo = {
 
 // ─── DOCTORS ─────────────────────────────────────────────────
 
+async function doctorCodeMapFromSettings(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const { data } = await supabase.from('app_settings').select('value').eq('key', 'doctor_master_list').maybeSingle();
+  if (!data?.value) return map;
+  try {
+    const list = JSON.parse(data.value) as { id?: string; code?: string }[];
+    for (const row of list) {
+      if (row.id && row.code) map.set(row.id, row.code);
+    }
+  } catch {
+    /* ignore */
+  }
+  return map;
+}
+
 export const sbDoctorRepo = {
   async getAll(): Promise<Doctor[]> {
-    const { data, error } = await supabase.from('doctors').select('*').order('name');
+    const [{ data, error }, codeById] = await Promise.all([
+      supabase.from('doctors').select('*').order('name'),
+      doctorCodeMapFromSettings(),
+    ]);
     if (error) throw error;
-    return (data ?? []).map((row) => ({
-      id: row.id,
-      name: row.name,
-      specialization: row.specialization,
-      hospitalId: row.hospital_id ?? '',
-      phone: row.phone,
-    }));
+    return (data ?? []).map((row) => {
+      const rowCode = (row as { doctor_code?: string | null }).doctor_code;
+      return {
+        id: row.id,
+        doctorCode: rowCode?.trim() || codeById.get(row.id) || undefined,
+        name: row.name,
+        specialization: row.specialization,
+        hospitalId: row.hospital_id ?? '',
+        phone: row.phone,
+      };
+    });
   },
 
   async create(d: Doctor): Promise<Doctor> {
@@ -303,6 +325,7 @@ export const sbDoctorRepo = {
       specialization: d.specialization,
       hospital_id: d.hospitalId || null,
       phone: d.phone,
+      ...(d.doctorCode ? { doctor_code: d.doctorCode } : {}),
     });
     if (error) throw error;
     return d;
@@ -314,6 +337,7 @@ export const sbDoctorRepo = {
     if (u.specialization) patch.specialization = u.specialization;
     if (u.hospitalId)     patch.hospital_id = u.hospitalId;
     if (u.phone)          patch.phone = u.phone;
+    if (u.doctorCode !== undefined) patch.doctor_code = u.doctorCode;
 
     const { error } = await supabase.from('doctors').update(patch).eq('id', id);
     if (error) throw error;

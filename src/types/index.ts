@@ -76,6 +76,8 @@ export interface Hospital {
 
 export interface Doctor {
   id: string;
+  /** Master list code, e.g. MLS-DOC-001 */
+  doctorCode?: string;
   name: string;
   specialization: string;
   hospitalId: string;
