@@ -6,7 +6,14 @@ import { Avatar } from '../components/ui/Avatar';
 import { useStore } from '../store/useStore';
 import type { WorkflowStage } from '../types';
 import { priorityColors, stageColors, formatDate, normalizeWorkflowStage } from '../utils/helpers';
-import { isFcfsPoolCase, isFcfsStage, countFcfsPoolCases, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage } from '../lib/caseWorkflow';
+import {
+  isFcfsPoolCase,
+  isFcfsStage,
+  isSelfPerformedAtCurrentStage,
+  countFcfsPoolCases,
+  VISIBLE_WORKFLOW_STAGES,
+  mapCaseToVisibleStage,
+} from '../lib/caseWorkflow';
 import { matchesSurgeryDateKey } from '../lib/attendance';
 import {
   getTodaySurgeryDateKey,
@@ -176,7 +183,12 @@ export const WorkflowBoard: React.FC = () => {
 
                         {/* Assigned Employee */}
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-50">
-                          {c.assignedEmployee ? (
+                          {isSelfPerformedAtCurrentStage(c) ? (
+                            <div className="flex items-center gap-1.5 text-amber-800">
+                              <User className="h-3 w-3" aria-hidden />
+                              <span className="text-[10px] font-semibold">Self</span>
+                            </div>
+                          ) : c.assignedEmployee ? (
                             <div className="flex items-center gap-1.5">
                               <Avatar name={c.assignedEmployee.name} size="xs" />
                               <span className="text-[10px] text-gray-600 truncate max-w-[80px]">{c.assignedEmployee.name.split(' ')[0]}</span>

@@ -772,7 +772,12 @@ export function formatAssigneeDisplay(
   return 'Unassigned';
 }
 
+export function isSelfPerformedAtCurrentStage(implantCase: ImplantCase): boolean {
+  return Boolean(findStageRecord(implantCase.stages, implantCase.currentStage)?.selfPerformed);
+}
+
 export function getCurrentStageTeamDisplay(implantCase: ImplantCase): string {
+  if (isSelfPerformedAtCurrentStage(implantCase)) return 'Self';
   const rec = findStageRecord(implantCase.stages, implantCase.currentStage);
   return formatAssigneeDisplay(implantCase.assignedEmployee ?? rec?.assignedEmployee, rec?.assistantEmployee);
 }

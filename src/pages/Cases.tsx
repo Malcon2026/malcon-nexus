@@ -19,6 +19,7 @@ import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader
 import {
   isCaseAssignedToEmployee,
   isCaseVisibleToEmployee,
+  isSelfPerformedAtCurrentStage,
   VISIBLE_WORKFLOW_STAGES,
 } from '../lib/caseWorkflow';
 import { getISTDateKey, matchesSurgeryDateKey, normalizeDateKey } from '../lib/attendance';
@@ -487,7 +488,17 @@ export const Cases: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
-                      {c.assignedEmployee ? (
+                      {isSelfPerformedAtCurrentStage(c) ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-50 border border-amber-200">
+                            <Building2 className="h-3 w-3 text-amber-700" aria-hidden />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-amber-900">Self</p>
+                            <p className="text-[10px] text-amber-700/80">Hospital</p>
+                          </div>
+                        </div>
+                      ) : c.assignedEmployee ? (
                         <div className="flex items-center gap-2">
                           <Avatar name={c.assignedEmployee.name} size="xs" />
                           <div>
