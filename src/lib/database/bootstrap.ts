@@ -120,6 +120,8 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
   ];
 }
 
+const ADMIN_FIRST_PAINT_KEYS = new Set(['cases', 'employees', 'notifications']);
+
 function adminEssentialTasks(): BootstrapTask[] {
   return [
     { key: 'cases', run: () => sbCaseRepo.getAll() },
@@ -183,6 +185,45 @@ function storeManagerEssentialTasks(employeeId: string): BootstrapTask[] {
 
 function storeManagerDeferredTasks(): BootstrapTask[] {
   return [{ key: 'kits', run: () => sbKitRepo.getAll() }];
+}
+
+function firstPaintTasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
+  if (role === 'admin') {
+    return adminEssentialTasks().filter((t) => ADMIN_FIRST_PAINT_KEYS.has(t.key));
+  }
+  if (role === 'store_manager' && options?.employeeId) {
+    return [
+      { key: 'cases', run: () => sbCaseRepo.getAll() },
+      { key: 'employees', run: () => sbEmployeeRepo.getAll() },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll() },
+    ];
+  }
+  if (role === 'employee' && options?.employeeId) {
+    return employeeEssentialTasks(options.employeeId).filter((t) =>
+      ['cases', 'employees', 'notifications', 'attendanceRecords'].includes(t.key),
+    );
+  }
+  if (role === 'petrol' && options?.employeeId) {
+    return petrolEssentialTasks(options.employeeId);
+  }
+  return [];
+}
+
+function essentialRemainderTasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
+  if (role === 'admin') {
+    return adminEssentialTasks().filter((t) => !ADMIN_FIRST_PAINT_KEYS.has(t.key));
+  }
+  if (role === 'store_manager' && options?.employeeId) {
+    const all = storeManagerEssentialTasks(options.employeeId);
+    const first = new Set(['cases', 'employees', 'notifications']);
+    return all.filter((t) => !first.has(t.key));
+  }
+  if (role === 'employee' && options?.employeeId) {
+    const all = employeeEssentialTasks(options.employeeId);
+    const first = new Set(['cases', 'employees', 'notifications', 'attendanceRecords']);
+    return all.filter((t) => !first.has(t.key));
+  }
+  return [];
 }
 
 function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?: BootstrapOptions): BootstrapTask[] {
@@ -363,18 +404,24 @@ export async function bootstrapEssential(
       return true;
     }
     if (role === 'admin') {
-      void runBootstrapTasks(tasksFor('admin', 'essential', options), 'essential-bg')
-        .then(() => refreshApprovalQueues())
-        .then(() => {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('malcon-bootstrap-updated'));
-          }
-        });
+      void refreshApprovalQueues().then(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('malcon-bootstrap-updated'));
+        }
+      });
     }
     return false;
   }
 
-  await runBootstrapTasks(tasksFor(role, 'essential', options), 'essential');
+  await runBootstrapTasks(firstPaintTasks(role, options), 'essential-first');
+  const remainder = essentialRemainderTasks(role, options);
+  if (remainder.length > 0) {
+    void runBootstrapTasks(remainder, 'essential-rest').then(() => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('malcon-bootstrap-updated'));
+      }
+    });
+  }
   return true;
 }
 
