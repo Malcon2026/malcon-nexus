@@ -48,7 +48,18 @@ function freshDraft(): CreateCaseDraft {
  * `buildCreateCasePayload()` and saves through the store's `createCase()`.
  */
 export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { createCase, hospitals, employees, currentUser, viewMode, cases, doctors, setSelectedCase } = useStore();
+  const {
+    createCase,
+    createDoctor,
+    ensureDoctorForCase,
+    hospitals,
+    employees,
+    currentUser,
+    viewMode,
+    cases,
+    doctors,
+    setSelectedCase,
+  } = useStore();
   const isFullAdmin = viewMode === 'admin';
   const isCaseOps = isCaseOpsView(viewMode);
 
@@ -246,7 +257,9 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setSubmitting(true);
     try {
       const knownIds = new Set(useStore.getState().cases.map((c) => c.id));
-      const payload = buildCreateCasePayload(form, hospitals, employees, currentUser);
+      await ensureDoctorForCase(form.doctorName);
+      const freshDoctors = useStore.getState().doctors;
+      const payload = buildCreateCasePayload(form, hospitals, employees, freshDoctors, currentUser);
       await createCase(payload);
       const newCase = useStore.getState().cases.find((c) => !knownIds.has(c.id));
       setCreated({
@@ -420,6 +433,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       openDoctorSignal={doctorSignal}
                       procedureRef={procedureRef}
                       onSubmitFromKeyboard={goNext}
+                      onAddDoctor={(name) => createDoctor({ name })}
                     />
                   )}
                   {step === 2 && (

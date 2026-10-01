@@ -15,7 +15,8 @@ import {
   CASE_DUTY_WORKFLOW_STAGE,
   type CaseDutyKind,
 } from './caseDuties';
-import type { Hospital } from '../types';
+import type { Doctor, Hospital } from '../types';
+import { findDoctorByName } from './doctorMaster';
 import type { StageWithAssistant } from './caseWorkflow';
 import type { SurgeryDateMode } from '../components/SurgeryDateQuickPick';
 import { normalizeCaseTextFields } from './textFormat';
@@ -81,10 +82,18 @@ export function buildCreateCasePayload(
   form: CreateCaseDraft,
   hospitals: Hospital[],
   employees: Employee[],
+  doctors: Doctor[],
   currentUser?: Employee | null,
 ): {
   hospital: Hospital;
-  doctor: { id: string; name: string; specialization: string; hospitalId: string; phone: string };
+  doctor: {
+    id: string;
+    name: string;
+    specialization: string;
+    hospitalId: string;
+    phone: string;
+    doctorCode?: string;
+  };
   surgeryDate: string;
   implantRequired: string;
   implantType: string;
@@ -114,12 +123,17 @@ export function buildCreateCasePayload(
   const startIdx = ASSIGNABLE_WORKFLOW_STAGES.indexOf(form.startStage);
   const activeStages = ASSIGNABLE_WORKFLOW_STAGES.slice(startIdx);
 
+  const matched = findDoctorByName(doctors, text.doctorName ?? '');
+  if (!matched) {
+    throw new Error('Select a doctor from the master list or add a new doctor first.');
+  }
   const doctor = {
-    id: `doc-${Date.now()}`,
-    name: text.doctorName ?? '',
-    specialization: 'Surgeon',
-    hospitalId: hospital.id,
+    id: matched.id,
+    name: matched.name,
+    specialization: matched.specialization || 'Surgeon',
+    hospitalId: matched.hospitalId || hospital.id,
     phone: '',
+    doctorCode: matched.doctorCode,
   };
 
   const surgerySelfPerformed = form.stageEmployeeIds.Surgery === SURGERY_SELF_ASSIGNMENT_VALUE;

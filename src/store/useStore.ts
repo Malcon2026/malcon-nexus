@@ -71,7 +71,8 @@ import {
 import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, isEmployeeAssigneeOnWorkflowStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applySkipCheckingForReturnOutcome, applyParkedCompleteFromStage, getPickupReturnOutcome, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, getStageSubmitWaitMessage, indexOfStageInCase, WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
-import { normalizeCaseTextFields } from '../lib/textFormat';
+import { normalizeCaseTextFields, normalizeTitleCaseWords } from '../lib/textFormat';
+import { findDoctorByName, nextDoctorCode } from '../lib/doctorMaster';
 import { isSetPreparationStage } from '../lib/roles';
 import {
   type CancelCaseReasonType,
@@ -262,7 +263,8 @@ interface AppState {
   deleteHospital: (id: string) => void;
 
   // Doctor Actions
-  createDoctor: (data: Partial<Doctor>) => void;
+  createDoctor: (data: Partial<Doctor>) => Promise<Doctor>;
+  ensureDoctorForCase: (name: string) => Promise<Doctor>;
   updateDoctor: (id: string, updates: Partial<Doctor>) => void;
   deleteDoctor: (id: string) => void;
 
@@ -4024,21 +4026,49 @@ export const useStore = create<AppState>((set, get) => ({
 
   createDoctor: async (data) => {
     const state = get();
+    const name = normalizeTitleCaseWords((data.name || '').trim());
+    if (!name) throw new Error('Doctor name is required.');
+
+    const existing = findDoctorByName(state.doctors, name);
+    if (existing) return existing;
+
+    const doctorCode = data.doctorCode || nextDoctorCode(state.doctors);
     const newDoctor = await doctorRepository.create({
       id: newId(),
-      name: data.name || '',
-      specialization: data.specialization || '',
+      name,
+      doctorCode,
+      specialization: data.specialization || 'Surgeon',
       hospitalId: data.hospitalId || '',
-      phone: data.phone || '',
+      phone: '',
     });
 
-    const activity = createActivityEvent('Doctor Added', 'hospital', newDoctor.id, newDoctor.name, state.currentUser.name, state.currentUser.role, `Dr. ${newDoctor.name} registered.`);
+    const activity = createActivityEvent(
+      'Doctor Added',
+      'hospital',
+      newDoctor.id,
+      newDoctor.name,
+      state.currentUser.name,
+      state.currentUser.role,
+      `${newDoctor.doctorCode ?? 'Doctor'} — ${newDoctor.name} added to master list.`,
+    );
     persistActivity(activity);
 
     set((s) => ({
-      doctors: [...s.doctors, newDoctor],
+      doctors: [...s.doctors, newDoctor].sort((a, b) =>
+        (a.doctorCode ?? '').localeCompare(b.doctorCode ?? '') || a.name.localeCompare(b.name),
+      ),
       activityLog: [activity, ...s.activityLog],
     }));
+    return newDoctor;
+  },
+
+  ensureDoctorForCase: async (rawName) => {
+    const name = normalizeTitleCaseWords(rawName.trim());
+    if (!name) throw new Error('Doctor name is required.');
+    const state = get();
+    const hit = findDoctorByName(state.doctors, name);
+    if (hit) return hit;
+    return get().createDoctor({ name });
   },
 
   updateDoctor: async (id, updates) => {

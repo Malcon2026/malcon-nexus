@@ -10,7 +10,8 @@ import type { Priority } from '../../types';
 import { priorityColors } from '../../utils/helpers';
 import { formatHospitalLabel } from '../HospitalSearchSelect';
 import { PickerSheet } from './PickerSheet';
-import { allDoctors, commonProcedures, recentDoctorNames } from './caseCreateHelpers';
+import type { DoctorOption } from './caseCreateHelpers';
+import { commonProcedures, masterDoctorPickerOptions, recentDoctorNames } from './caseCreateHelpers';
 
 export type SurgeryField = 'doctor' | 'procedure' | 'date';
 
@@ -33,6 +34,8 @@ interface SurgeryStepProps {
   openDoctorSignal: number;
   procedureRef: React.RefObject<HTMLInputElement | null>;
   onSubmitFromKeyboard: () => void;
+  /** Register a new master-list doctor (auto MLS-DOC code). */
+  onAddDoctor?: (name: string) => Promise<void>;
 }
 
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
@@ -44,11 +47,13 @@ const fieldLabel = 'block text-sm font-semibold text-gray-900 mb-2';
 export const DoctorSheet: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  options: { name: string; count: number }[];
+  options: DoctorOption[];
   value: string;
   onSelect: (name: string) => void;
-}> = ({ isOpen, onClose, options, value, onSelect }) => {
+  onAddDoctor?: (name: string) => Promise<void>;
+}> = ({ isOpen, onClose, options, value, onSelect, onAddDoctor }) => {
   const [query, setQuery] = useState('');
+  const [adding, setAdding] = useState(false);
   const isTouchPhone =
     typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
@@ -57,13 +62,30 @@ export const DoctorSheet: React.FC<{
   }, [isOpen]);
 
   const q = query.trim().toLowerCase();
-  const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+  const filtered = q
+    ? options.filter(
+        (o) =>
+          o.name.toLowerCase().includes(q) ||
+          (o.doctorCode ?? '').toLowerCase().includes(q),
+      )
+    : options;
   const exact = options.some((o) => o.name.toLowerCase() === q);
   const newName = normalizeTitleCaseWords(query.trim());
 
   const pick = (name: string) => {
     onSelect(name);
     onClose();
+  };
+
+  const addNew = async () => {
+    if (!newName || exact || !onAddDoctor || adding) return;
+    setAdding(true);
+    try {
+      await onAddDoctor(newName);
+      pick(newName);
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
@@ -83,12 +105,12 @@ export const DoctorSheet: React.FC<{
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && newName && !exact) {
+              if (e.key === 'Enter' && newName && !exact && onAddDoctor) {
                 e.preventDefault();
-                pick(newName);
+                void addNew();
               }
             }}
-            placeholder="Search or type a new doctor name"
+            placeholder="Search master list or add new doctor"
             aria-label="Search or add doctor"
             className="nexus-field-input !min-h-[48px] !text-base"
           />
@@ -96,17 +118,20 @@ export const DoctorSheet: React.FC<{
       </div>
 
       <ul className="pb-3">
-        {newName && !exact ? (
+        {newName && !exact && onAddDoctor ? (
           <li>
             <button
               type="button"
-              onClick={() => pick(newName)}
-              className="flex w-full items-center gap-3 px-4 sm:px-5 min-h-[56px] py-2 text-left text-[var(--color-accent)] hover:bg-gray-50 focus:outline-none focus-visible:bg-[var(--color-accent-muted)]"
+              disabled={adding}
+              onClick={() => void addNew()}
+              className="flex w-full items-center gap-3 px-4 sm:px-5 min-h-[56px] py-2 text-left text-[var(--color-accent)] hover:bg-gray-50 focus:outline-none focus-visible:bg-[var(--color-accent-muted)] disabled:opacity-60"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-muted)]">
                 <Plus className="h-5 w-5" />
               </span>
-              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">Add “{newName}” as new doctor</span>
+              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                {adding ? 'Adding…' : `Add “${newName}” to master list`}
+              </span>
             </button>
           </li>
         ) : null}
@@ -114,7 +139,7 @@ export const DoctorSheet: React.FC<{
         {filtered.map((o) => {
           const selected = o.name.toLowerCase() === value.trim().toLowerCase();
           return (
-            <li key={o.name}>
+            <li key={o.id}>
               <button
                 type="button"
                 onClick={() => pick(o.name)}
@@ -129,11 +154,10 @@ export const DoctorSheet: React.FC<{
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-gray-900">{o.name}</span>
-                  {o.count > 0 ? (
-                    <span className="block text-xs text-gray-500">
-                      {o.count} previous case{o.count === 1 ? '' : 's'}
-                    </span>
-                  ) : null}
+                  <span className="block text-xs text-gray-500">
+                    {o.doctorCode ? `${o.doctorCode}` : 'Master list'}
+                    {o.count > 0 ? ` · ${o.count} case${o.count === 1 ? '' : 's'}` : ''}
+                  </span>
                 </span>
                 {selected ? <Check className="h-5 w-5 shrink-0 text-[var(--color-accent)]" aria-label="Selected" /> : null}
               </button>
@@ -143,9 +167,9 @@ export const DoctorSheet: React.FC<{
 
         {!newName && filtered.length === 0 ? (
           <li className="px-5 py-8 text-center text-sm text-gray-500">
-            No doctors saved yet.
+            No doctors on the master list yet.
             <br />
-            Type a name above to add one.
+            Type a name above to add one with the next MLS-DOC code.
           </li>
         ) : null}
       </ul>
@@ -166,6 +190,7 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
   openDoctorSignal,
   procedureRef,
   onSubmitFromKeyboard,
+  onAddDoctor,
 }) => {
   const [doctorOpen, setDoctorOpen] = useState(false);
 
@@ -173,8 +198,12 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
     if (openDoctorSignal > 0) setDoctorOpen(true);
   }, [openDoctorSignal]);
 
-  const doctorOptions = useMemo(() => allDoctors(cases, doctors), [cases, doctors]);
-  const recentNames = useMemo(() => recentDoctorNames(cases, 4), [cases]);
+  const doctorOptions = useMemo(() => masterDoctorPickerOptions(cases, doctors), [cases, doctors]);
+  const recentNames = useMemo(() => recentDoctorNames(cases, doctors, 4), [cases, doctors]);
+  const selectedCode = useMemo(() => {
+    const n = form.doctorName.trim().toLowerCase();
+    return doctorOptions.find((o) => o.name.toLowerCase() === n)?.doctorCode;
+  }, [doctorOptions, form.doctorName]);
   const quickDoctors = recentNames
     .filter((n) => n.toLowerCase() !== form.doctorName.trim().toLowerCase())
     .slice(0, 3)
@@ -235,7 +264,9 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
               <>
                 <span className="block truncate text-[15px] font-semibold text-gray-900">{form.doctorName}</span>
                 <span className="block truncate text-xs text-gray-500">
-                  {hospital ? formatHospitalLabel(hospital) : 'Tap to change'}
+                  {[selectedCode, hospital ? formatHospitalLabel(hospital) : 'Tap to change']
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
               </>
             ) : (
@@ -398,6 +429,7 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
         options={doctorOptions}
         value={form.doctorName}
         onSelect={(doctorName) => patch({ doctorName })}
+        onAddDoctor={onAddDoctor}
       />
     </div>
   );

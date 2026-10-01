@@ -1,17 +1,27 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Stethoscope, BarChart3 } from 'lucide-react';
+import { Search, Stethoscope, BarChart3, Plus } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { useStore } from '../store/useStore';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
 import { buildDoctorCaseStats, masterDoctorRows } from '../lib/doctorAnalytics';
+import { nextDoctorCode } from '../lib/doctorMaster';
+import { normalizeTitleCaseWords } from '../lib/textFormat';
+import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
 export const Doctors: React.FC = () => {
-  const { doctors, cases } = useStore();
+  const { doctors, cases, createDoctor, viewMode } = useStore();
   const [search, setSearch] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const stats = useMemo(() => buildDoctorCaseStats(cases, doctors), [cases, doctors]);
   const rows = useMemo(() => masterDoctorRows(doctors, stats), [doctors, stats]);
+  const nextCode = useMemo(() => nextDoctorCode(doctors), [doctors]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -34,11 +44,46 @@ export const Doctors: React.FC = () => {
     [rows],
   );
 
+  const handleAdd = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const name = normalizeTitleCaseWords(newName.trim());
+    if (!name) {
+      setAddError('Enter the doctor name.');
+      return;
+    }
+    setAdding(true);
+    setAddError(null);
+    try {
+      await createDoctor({ name });
+      setNewName('');
+      setShowAdd(false);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Could not add doctor.');
+    } finally {
+      setAdding(false);
+    }
+  };
+
   return (
     <NexusPage maxWidthClass="max-w-[1400px]">
       <NexusPageHeader
         title="Doctors"
         description={`Master surgeon list — ${doctors.length} doctors (MLS-DOC codes)`}
+        actions={
+          viewMode === 'admin' ? (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => {
+                setAddError(null);
+                setShowAdd(true);
+              }}
+            >
+              Add doctor
+            </Button>
+          ) : undefined
+        }
       />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -147,6 +192,41 @@ export const Doctors: React.FC = () => {
           <p className="p-8 text-center text-sm text-gray-500">No doctors match your search.</p>
         )}
       </Card>
+
+      <Modal isOpen={showAdd} onClose={() => !adding && setShowAdd(false)} title="Add doctor">
+        <form onSubmit={(e) => void handleAdd(e)} className="space-y-4">
+          <p className="text-sm text-gray-600">
+            A new MLS-DOC code is assigned automatically. This doctor will appear in case entry.
+          </p>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Next code</label>
+            <p className="font-mono text-sm text-[var(--color-accent)]">{nextCode}</p>
+          </div>
+          <div>
+            <label htmlFor="new-doctor-name" className="block text-xs font-medium text-gray-700 mb-1.5">
+              Doctor name
+            </label>
+            <input
+              id="new-doctor-name"
+              className={NEXUS_FORM_CONTROL}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onBlur={(e) => setNewName(normalizeTitleCaseWords(e.target.value))}
+              placeholder="Full name"
+              autoFocus
+            />
+          </div>
+          {addError ? <p className="text-sm text-red-600">{addError}</p> : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" disabled={adding} onClick={() => setShowAdd(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={adding}>
+              {adding ? 'Adding…' : 'Add doctor'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </NexusPage>
   );
 };

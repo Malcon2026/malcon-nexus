@@ -47,44 +47,55 @@ export function hospitalSubtitle(hospital: Hospital): string {
 /* ------------------------------------------------------------------ */
 
 export interface DoctorOption {
+  id: string;
   name: string;
+  doctorCode?: string;
   count: number;
 }
 
-/** Every doctor name known to the app (any hospital) — doctors are not tied to a hospital when creating a case. */
-export function allDoctors(cases: ImplantCase[], doctors: Doctor[]): DoctorOption[] {
-  const byKey = new Map<string, DoctorOption>();
-  const newestFirst = [...cases].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-
-  for (const c of newestFirst) {
-    const name = (c.doctor?.name ?? '').trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    const existing = byKey.get(key);
-    if (existing) existing.count += 1;
-    else byKey.set(key, { name, count: 1 });
+/** Master doctor list only (from Doctors page / DB) — case picker does not merge free-text case names. */
+export function masterDoctorPickerOptions(cases: ImplantCase[], doctors: Doctor[]): DoctorOption[] {
+  const counts = new Map<string, number>();
+  for (const c of cases) {
+    const id = c.doctor?.id;
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
   }
-
-  for (const d of doctors) {
-    const name = (d.name ?? '').trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    if (!byKey.has(key)) byKey.set(key, { name, count: 0 });
-  }
-
-  return [...byKey.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return doctors
+    .filter((d) => (d.name ?? '').trim())
+    .map((d) => ({
+      id: d.id,
+      name: d.name.trim(),
+      doctorCode: d.doctorCode,
+      count: counts.get(d.id) ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        (a.doctorCode && b.doctorCode
+          ? a.doctorCode.localeCompare(b.doctorCode)
+          : a.name.localeCompare(b.name)),
+    );
 }
 
-/** Most recently used distinct doctor names (quick-pick chips). */
-export function recentDoctorNames(cases: ImplantCase[], limit = 3): string[] {
+/** @deprecated Use masterDoctorPickerOptions */
+export function allDoctors(cases: ImplantCase[], doctors: Doctor[]): DoctorOption[] {
+  return masterDoctorPickerOptions(cases, doctors);
+}
+
+/** Recently used doctors that exist on the master list (quick-pick chips). */
+export function recentDoctorNames(
+  cases: ImplantCase[],
+  doctors: Doctor[],
+  limit = 3,
+): string[] {
+  const masterIds = new Set(doctors.map((d) => d.id));
   const seen = new Set<string>();
   const out: string[] = [];
   const newestFirst = [...cases].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   for (const c of newestFirst) {
+    const id = c.doctor?.id;
     const name = (c.doctor?.name ?? '').trim();
-    const key = name.toLowerCase();
-    if (!name || seen.has(key)) continue;
-    seen.add(key);
+    if (!id || !masterIds.has(id) || !name || seen.has(id)) continue;
+    seen.add(id);
     out.push(name);
     if (out.length >= limit) break;
   }

@@ -99,8 +99,18 @@ const fieldLabel = 'block text-sm font-semibold text-gray-900 mb-2';
  * Saving still goes through `updateCase` and `updateCaseStageAssignments`, unchanged.
  */
 export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, case: c }) => {
-  const { updateCase, updateCaseStageAssignments, hospitals, employees, viewMode, currentUser, cases, doctors } =
-    useStore();
+  const {
+    updateCase,
+    updateCaseStageAssignments,
+    ensureDoctorForCase,
+    createDoctor,
+    hospitals,
+    employees,
+    viewMode,
+    currentUser,
+    cases,
+    doctors,
+  } = useStore();
   const isFullAdmin = viewMode === 'admin';
   const isAdmin = viewMode === 'admin' || viewMode === 'store_manager';
   const isOwnCase = !isAdmin && isCaseAssignedToEmployee(c, currentUser);
@@ -219,14 +229,6 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     const hospitalRow = hospitals.find((h) => h.id === form.hospitalId);
     if (!hospitalRow) return;
 
-    const doctor = {
-      id: c.doctor.id.startsWith('doc-') ? c.doctor.id : `doc-${Date.now()}`,
-      name: form.doctorName.trim(),
-      specialization: 'Surgeon',
-      hospitalId: hospitalRow.id,
-      phone: '',
-    };
-
     const stageDraft: Partial<Record<AssignableStage, string>> = {};
     for (const stage of ASSIGNABLE_WORKFLOW_STAGES) {
       if (stageEmployeeIds[stage] !== initialStageIds[stage]) {
@@ -261,6 +263,16 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
     setSubmitting(true);
     setError(null);
     try {
+      const masterDoc = await ensureDoctorForCase(form.doctorName);
+      const doctor = {
+        id: masterDoc.id,
+        name: masterDoc.name,
+        specialization: masterDoc.specialization || 'Surgeon',
+        hospitalId: masterDoc.hospitalId || hospitalRow.id,
+        phone: '',
+        doctorCode: masterDoc.doctorCode,
+      };
+
       await updateCase(c.id, {
         hospital: hospitalRow,
         doctor,
@@ -427,6 +439,7 @@ export const EditCaseModal: React.FC<EditCaseModalProps> = ({ isOpen, onClose, c
                   openDoctorSignal={0}
                   procedureRef={procedureRef}
                   onSubmitFromKeyboard={() => {}}
+                  onAddDoctor={(name) => createDoctor({ name })}
                 />
 
                 {c.remarks?.trim() ? (

@@ -6,6 +6,7 @@
 
 import { supabase } from '../../supabase';
 import { doctorCodeFromRow } from '../../doctorCode';
+import { mergeDoctorMasterList } from '../../doctorMaster';
 import { formatUnknownError } from '../../../utils/errors';
 import type {
   Employee, Hospital, Doctor, ImplantCase,
@@ -331,6 +332,19 @@ export const sbDoctorRepo = {
       ...(d.doctorCode ? { doctor_code: d.doctorCode } : {}),
     });
     if (error) throw error;
+    if (d.doctorCode) {
+      const { data: setting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'doctor_master_list')
+        .maybeSingle();
+      const value = mergeDoctorMasterList(setting?.value as string | undefined, {
+        code: d.doctorCode,
+        name: d.name,
+        id: d.id,
+      });
+      await supabase.from('app_settings').upsert({ key: 'doctor_master_list', value }, { onConflict: 'key' });
+    }
     return d;
   },
 
