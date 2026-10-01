@@ -20,6 +20,7 @@ import { PetrolDashboard } from './pages/PetrolDashboard';
 import { FoodDashboard } from './pages/FoodDashboard';
 import { KmsDashboard } from './pages/KmsDashboard';
 import { Hospitals } from './pages/Hospitals';
+import { Doctors } from './pages/Doctors';
 import { Reports } from './pages/Reports';
 import { CaseHistory } from './pages/CaseHistory';
 import { ActivityLog } from './pages/ActivityLog';
@@ -261,6 +262,7 @@ function MainApp() {
       case 'food-dashboard': return <FoodDashboard />;
       case 'kms-dashboard': return <KmsDashboard />;
       case 'hospitals':  return <Hospitals />;
+      case 'doctors':    return <Doctors />;
       case 'reports':
         return viewMode === 'admin' ? <Reports /> : <EmployeeDashboard />;
       case 'case-history': return <CaseHistory />;

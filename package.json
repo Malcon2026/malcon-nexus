@@ -8,6 +8,8 @@
     "build": "vite build && vite build --config vite.gallery.config.ts && vite build --config vite.tv.config.ts",
     "preview": "vite preview",
     "db:health": "node scripts/db-health-check.mjs",
+    "db:doctor-code": "node scripts/apply-doctor-code-via-api.mjs 2>/dev/null || node scripts/apply-doctor-code-migration.mjs; node scripts/sync-doctors-master.mjs --execute",
+    "db:doctor-code:sync": "node scripts/sync-doctors-master.mjs --execute",
     "photos:sync": "node scripts/windows-photo-sync.mjs",
     "photos:migrate": "node scripts/migrate-office-photos-layout.mjs",
     "photos:migrate:execute": "node scripts/migrate-office-photos-layout.mjs --execute",

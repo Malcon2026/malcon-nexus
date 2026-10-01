@@ -156,19 +156,21 @@ for (const c of cases ?? []) {
     target = resolveMasterForSnapshotName(oldDoc.name);
   }
   if (!target) continue;
+  const prev =
+    typeof c.doctor_snapshot === 'object' && c.doctor_snapshot ? c.doctor_snapshot : {};
   const needsId = c.doctor_id !== target.id;
-  const needsSnap =
-    snapName &&
-    norm(snapName) !== norm(target.name) &&
-    resolveMasterForSnapshotName(snapName)?.id === target.id;
-  if (needsId || needsSnap) {
+  const needsSnap = norm(snapName) !== norm(target.name);
+  const prevCode = prev.doctorCode ?? prev.doctor_code;
+  const needsCode = prevCode !== target.code;
+  if (needsId || needsSnap || needsCode) {
     const snap = {
-      ...(typeof c.doctor_snapshot === 'object' ? c.doctor_snapshot : {}),
+      ...prev,
       id: target.id,
       name: target.name,
+      doctorCode: target.code,
       specialization: 'Surgeon',
-      hospitalId: c.doctor_snapshot?.hospitalId ?? '',
-      phone: c.doctor_snapshot?.phone ?? '',
+      hospitalId: prev.hospitalId ?? '',
+      phone: '',
     };
     caseUpdates.push({ id: c.id, case_number: c.case_number, doctor_id: target.id, doctor_snapshot: snap });
   }

@@ -385,13 +385,21 @@ export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase 
     id: row.id as string,
     caseNumber: row.case_number as string,
     hospital: (row.hospital_snapshot as ImplantCase['hospital']) ?? FALLBACK_HOSPITAL,
-    doctor: (row.doctor_snapshot as ImplantCase['doctor']) ?? {
-      id: '',
-      name: 'Unknown Doctor',
-      specialization: '',
-      hospitalId: '',
-      phone: '',
-    },
+    doctor: (() => {
+      const snap = (row.doctor_snapshot as ImplantCase['doctor']) ?? {
+        id: '',
+        name: 'Unknown Doctor',
+        specialization: '',
+        hospitalId: '',
+        phone: '',
+      };
+      const raw = row.doctor_snapshot as { doctorCode?: string; doctor_code?: string } | null;
+      const fromSnap = doctorCodeFromRow({
+        doctor_code: raw?.doctorCode ?? raw?.doctor_code,
+        phone: snap.phone,
+      });
+      return fromSnap ? { ...snap, doctorCode: fromSnap, phone: fromSnap === snap.phone?.toUpperCase() ? '' : snap.phone } : snap;
+    })(),
     surgeryDate: normalizeDateKey(row.surgery_date as string),
     implantRequired: (row.implant_required as string) ?? '',
     implantType: (row.implant_type as string) ?? '',
