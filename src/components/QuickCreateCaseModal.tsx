@@ -11,6 +11,7 @@ import {
   type CreateCaseDraft,
 } from '../lib/createCaseFromDraft';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
+import { findChandraGajelli } from '../lib/checkingPool';
 import { isCaseOpsView, isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 import type { CaseDutyKind } from '../lib/caseDuties';
 import { HospitalStep } from './case-create/HospitalStep';
@@ -93,6 +94,11 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const initDraft = useCallback(() => {
     const draft = freshDraft();
+    const chandra = findChandraGajelli(employees);
+    if (chandra) {
+      draft.dutyEmployeeIds.restock = chandra.id;
+      draft.stageEmployeeIds['Restock'] = chandra.id;
+    }
     if (allowPrepAssignToMe) {
       draft.stageEmployeeIds[SET_PREPARATION_STAGE] = currentUser.id;
     }
@@ -100,7 +106,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
       draft.punchedInByEmployeeId = currentUser.id;
     }
     return draft;
-  }, [allowPrepAssignToMe, currentUser.id, isFullAdmin]);
+  }, [allowPrepAssignToMe, currentUser.id, isFullAdmin, employees]);
 
   const resetAll = useCallback(() => {
     setForm(initDraft());

@@ -80,6 +80,7 @@ import {
   formatCancelReason,
   withCancelCaseRemark,
 } from '../lib/cancelCase';
+import { findChandraGajelli, isCheckingPoolCase, isCheckingPoolEmployee } from '../lib/checkingPool';
 import { canEmployeeRequestTask, getPoolCasesAvailableToRequest, getMyPendingTaskRequests as filterMyPendingTaskRequests } from '../lib/caseTaskRequests';
 import {
   CASE_DUTY_LABELS,
@@ -206,6 +207,7 @@ interface AppState {
   ) => Promise<void>;
   requestTask: (caseId: string) => Promise<{ error: string | null }>;
   approveTaskRequest: (requestId: string) => Promise<{ error: string | null }>;
+  claimCheckingCase: (caseId: string) => Promise<{ error?: string; case?: ImplantCase }>;
   getPoolCasesAvailableForCurrentUser: () => ImplantCase[];
   getMyPendingTaskRequests: () => CaseTaskRequest[];
   reactivateAssignedCase: (caseId: string) => Promise<void>;
@@ -1083,6 +1085,7 @@ function buildAutoAdvanceFromSubmit(
     atPickup: boolean;
     returnOutcome?: import('../types').ReturnOutcome;
     submittedStage: WorkflowStage;
+    submittingEmployee?: Employee | null;
   },
 ): {
   stages: ImplantCase['stages'];
@@ -1107,6 +1110,8 @@ function buildAutoAdvanceFromSubmit(
         ? {
             ...s,
             status: 'Approved' as const,
+            assignedEmployee: s.assignedEmployee ?? opts.submittingEmployee ?? null,
+            assignedAt: s.assignedAt ?? (opts.submittingEmployee ? opts.now : null),
             submittedAt: opts.now,
             approvedAt: opts.now,
             notes: opts.notes,
@@ -1160,7 +1165,30 @@ function buildAutoAdvanceFromSubmit(
       ? ' Return/checking skipped — Restock next.'
       : '';
 
-  const pointer = computeOpenCasePointer({ stages: updatedStages, cancelReason: c.cancelReason });
+  let pointer = computeOpenCasePointer({ stages: updatedStages, cancelReason: c.cancelReason });
+
+  if (pointer.currentStage === 'Restock') {
+    const restockRec = findStageRecord(updatedStages, 'Restock');
+    if (restockRec && !restockRec.assignedEmployee) {
+      const stateEmployees = Database.getAll<Employee>('employees');
+      const chandra = findChandraGajelli(stateEmployees);
+      if (chandra) {
+        updatedStages = normalizeCaseStages(
+          updatedStages.map((s) =>
+            normalizeWorkflowStageName(s.stage) === 'Restock'
+              ? {
+                  ...s,
+                  assignedEmployee: chandra,
+                  assignedAt: opts.now,
+                  status: s.status === 'Pending' ? ('Assigned' as const) : s.status,
+                }
+              : s,
+          ),
+        );
+        pointer = computeOpenCasePointer({ stages: updatedStages, cancelReason: c.cancelReason });
+      }
+    }
+  }
 
   const advanceLog = {
     id: `log-${Date.now()}-adv`,
@@ -1400,10 +1428,13 @@ export const useStore = create<AppState>((set, get) => ({
       const pickupReturnOutcome = caseData.pickupReturnOutcome;
       const isSpecialReturn =
         stage === 'Pickup from Hospital' && Boolean(pickupReturnOutcome);
-      const emp =
+      let emp =
         isFcfsStage(stage) || isSelfSurgery || isSpecialReturn
           ? null
           : (assignments[stage as keyof typeof assignments] ?? null);
+      if (stage === 'Restock' && !emp) {
+        emp = findChandraGajelli(state.employees) ?? null;
+      }
       const assistantEmp =
         stageSupportsAssistant(stage) && !isSelfSurgery
           ? (assistantAssignments[stage] ?? null)
@@ -1475,7 +1506,19 @@ export const useStore = create<AppState>((set, get) => ({
       surgeryOutcomeDetail: '',
       postponeReason: '',
       postponedFrom: '',
-      postSurgeryDuties: caseData.postSurgeryDuties,
+      postSurgeryDuties: (() => {
+        let duties = caseData.postSurgeryDuties;
+        if (!duties?.restock?.assignedEmployee) {
+          const chandra = findChandraGajelli(state.employees);
+          if (chandra) {
+            duties = {
+              ...(duties ?? normalizePostSurgeryDuties(null)),
+              restock: { assignedEmployee: chandra, assignedAt: now },
+            };
+          }
+        }
+        return duties;
+      })(),
     };
 
     try {
@@ -1575,7 +1618,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Pre-assign only for non-FCFS stages; FCFS stages open as an Active pool.
     if (next && next !== 'Completed' && !isFcfsStage(next)) {
-      const nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
+      let nextEmp = findStageRecord(c.stages, next)?.assignedEmployee;
+      if (!nextEmp && next === 'Restock') {
+        nextEmp = findChandraGajelli(state.employees);
+      }
       if (nextEmp) {
         await get().approveStageAndAssign(
           caseId,
@@ -1761,7 +1807,10 @@ export const useStore = create<AppState>((set, get) => ({
           };
         }
         if (name === targetName && targetName !== 'Completed') {
-          const emp = s.assignedEmployee;
+          let emp = s.assignedEmployee;
+          if (!emp && targetName === 'Restock') {
+            emp = findChandraGajelli(state.employees);
+          }
           if (emp) {
             return {
               ...s,
@@ -2633,6 +2682,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     let returnOutcomeSet: import('../types').ReturnOutcome | null = null;
 
+    if (!employeeIds.restock?.trim() && !duties.restock?.assignedEmployee) {
+      const chandra = findChandraGajelli(state.employees);
+      if (chandra) {
+        employeeIds = { ...employeeIds, restock: chandra.id };
+      }
+    }
+
     for (const kind of CASE_DUTY_KINDS) {
       const empId = employeeIds[kind]?.trim();
       if (!empId) continue;
@@ -2863,6 +2919,94 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to approve request';
+      return { error: message };
+    }
+  },
+
+  claimCheckingCase: async (caseId: string) => {
+    const state = get();
+    const c = state.cases.find((x) => x.id === caseId);
+    if (!c) return { error: 'Case not found.' };
+
+    const currentName = normalizeWorkflowStageName(c.currentStage);
+    if (currentName !== 'Checking & Audit') {
+      return { error: 'This case is not currently in the Checking & Audit stage.' };
+    }
+
+    const checkingRec = findStageRecord(c.stages, 'Checking & Audit');
+    if (checkingRec?.assignedEmployee && checkingRec.assignedEmployee.id !== state.currentUser.id) {
+      return {
+        error: `This case was already claimed by ${checkingRec.assignedEmployee.name}.`,
+      };
+    }
+
+    const now = new Date().toISOString();
+    const employee = state.currentUser;
+    const stageIdx = indexOfStageInCase(c.stages, 'Checking & Audit');
+    if (stageIdx < 0) return { error: 'Checking & Audit stage not found on case.' };
+
+    const updatedStages = normalizeCaseStages(
+      c.stages.map((s, i) =>
+        i === stageIdx
+          ? {
+              ...s,
+              assignedEmployee: employee,
+              assignedAt: now,
+              status: 'Assigned' as const,
+            }
+          : s,
+      ),
+    );
+
+    const postSurgeryDuties = {
+      ...(c.postSurgeryDuties ?? normalizePostSurgeryDuties(null)),
+      cleaning: { assignedEmployee: employee, assignedAt: now },
+    };
+
+    const claimLog = {
+      id: `log-${Date.now()}-claim`,
+      caseId,
+      action: 'Checking Claimed (FCFS Pool)',
+      performedBy: employee.name,
+      performedByRole: employee.role === 'admin' ? ('admin' as const) : ('employee' as const),
+      department: employee.department,
+      timestamp: now,
+      details: `${employee.name} selected and claimed this case for Checking & Audit.`,
+    };
+
+    try {
+      const updatedCase = await taskRepository.update(
+        caseId,
+        {
+          assignedEmployee: employee,
+          currentDepartment: 'Checking & Audit' as Department,
+          status: 'Active',
+          stages: updatedStages,
+          postSurgeryDuties: postSurgeryDuties as PostSurgeryDuties,
+          activityLogs: [...c.activityLogs, claimLog],
+        },
+        c,
+      );
+
+      const activity = createActivityEvent(
+        'Case Claimed: Checking & Audit',
+        'case',
+        caseId,
+        c.caseNumber,
+        employee.name,
+        employee.role === 'admin' ? 'admin' : 'employee',
+        `${employee.name} selected ${c.caseNumber} from the Checking Pool.`,
+      );
+      persistActivity(activity);
+
+      set((s) => ({
+        cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
+        activityLog: [activity, ...s.activityLog],
+      }));
+
+      return { case: updatedCase };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to claim case';
       return { error: message };
     }
   },
@@ -3119,7 +3263,12 @@ export const useStore = create<AppState>((set, get) => ({
     if (atRestockSubmit && !restockOutcome) {
       return { error: 'Choose Restocked or Stock ordered, then confirm.' };
     }
-    if (!canBypassAssigneeForSubmit(state.currentUser.role, submitStageName)) {
+    const isCheckingPoolSubmit =
+      submitStageName === 'Checking & Audit' &&
+      isCheckingPoolEmployee(state.currentUser) &&
+      !stageRecord?.assignedEmployee;
+
+    if (!canBypassAssigneeForSubmit(state.currentUser.role, submitStageName) && !isCheckingPoolSubmit) {
       const onStage = isEmployeeAssigneeOnWorkflowStage(c, submitStageName, state.currentUser);
       const allowed = getEmployeeSubmitStage(c, state.currentUser);
       if (!onStage && allowed !== submitStageName) {
@@ -3137,7 +3286,7 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    const stageAssignee = stageRecord?.assignedEmployee;
+    const stageAssignee = stageRecord?.assignedEmployee ?? (isCheckingPoolSubmit ? state.currentUser : null);
     const uploadedBy = stageAssignee?.name || state.currentUser.name;
     const restockLabel = restockOutcome ? restockOutcomeLabel(restockOutcome) : '';
     const returnLabel = returnOutcome ? returnOutcomeLabel(returnOutcome) : '';
@@ -3208,6 +3357,7 @@ export const useStore = create<AppState>((set, get) => ({
           atPickup,
           returnOutcome,
           submittedStage: submitStageName,
+          submittingEmployee: isCheckingPoolSubmit ? (stageAssignee as Employee) : null,
         });
         const headerFromStages = computeOpenCasePointer({
           stages: advanced.stages,
@@ -3271,6 +3421,8 @@ export const useStore = create<AppState>((set, get) => ({
             ? {
                 ...s,
                 status: 'Submitted' as const,
+                assignedEmployee: s.assignedEmployee ?? (isCheckingPoolSubmit ? (stageAssignee as Employee) : null),
+                assignedAt: s.assignedAt ?? (isCheckingPoolSubmit ? now : null),
                 submittedAt: now,
                 notes: effectiveNotes,
                 ...(atRestock && restockOutcome ? { restockOutcome } : {}),

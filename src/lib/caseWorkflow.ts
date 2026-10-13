@@ -1,6 +1,23 @@
 import type { Department, Employee, ImplantCase, ReturnOutcome, StageRecord, WorkflowStage } from '../types';
 import { CHECKING_AUDIT_DEPARTMENT, getEmployeeDepartments, normalizeDepartment } from '../constants/departments';
 import { getISTDateKey, matchesSurgeryDateKey } from './attendance';
+import {
+  isCheckingPoolCase,
+  isCheckingPoolEmployee,
+  isChandraGajelli,
+  findChandraGajelli,
+  CHECKING_POOL_LABEL,
+  canEmployeeClaimCheckingCase,
+} from './checkingPool';
+
+export {
+  isCheckingPoolCase,
+  isCheckingPoolEmployee,
+  isChandraGajelli,
+  findChandraGajelli,
+  CHECKING_POOL_LABEL,
+  canEmployeeClaimCheckingCase,
+};
 
 /** Active pipeline — Restock is the last operational stage; case closes after Restock. */
 export const WORKFLOW_STAGES: WorkflowStage[] = [
@@ -166,6 +183,7 @@ export function employeeMatchesFcfsStage(
 }
 
 export function isFcfsPoolCase(c: ImplantCase): boolean {
+  if (isCheckingPoolCase(c)) return true;
   if (!isFcfsStage(c.currentStage)) return false;
   if (c.assignedEmployee) return false;
   // Active = normal pool; Draft = legacy rows advanced before FCFS went live.
@@ -184,6 +202,7 @@ export function canRequestTaskCase(
 ): boolean {
   if (!FCFS_POOL_ENABLED) return false;
   if (!isFcfsPoolCase(c)) return false;
+  if (isCheckingPoolCase(c)) return false;
   if (!employeeMatchesFcfsStage(employee, c.currentStage)) return false;
   const stageIdx = getStageIndex(c.currentStage);
   const record = stageIdx >= 0 ? c.stages[stageIdx] : undefined;
@@ -757,6 +776,7 @@ export function isCaseVisibleToEmployee(
   if (isEmployeeAssigneeOnCurrentStage(implantCase, employee)) return true;
   if (isAssignedOnPostSurgeryDuties(implantCase, employee)) return true;
   if (isAssignedOnAnyWorkflowStage(implantCase, employee)) return true;
+  if (isCheckingPoolEmployee(employee) && isCheckingPoolCase(implantCase)) return true;
   return false;
 }
 
@@ -882,6 +902,11 @@ export function getEmployeeSubmitStage(
   employee: Pick<Employee, 'id' | 'email'>,
 ): WorkflowStage | null {
   if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return null;
+  if (isCheckingPoolEmployee(employee) && isCheckingPoolCase(implantCase)) {
+    if (priorStagesAllApproved(implantCase, 'Checking & Audit')) {
+      return 'Checking & Audit';
+    }
+  }
   if (isFcfsPoolCase(implantCase)) return null;
 
   for (const stage of VISIBLE_WORKFLOW_STAGES) {
@@ -959,6 +984,9 @@ export function canEmployeeSubmitCase(
   employee: Pick<Employee, 'id' | 'email' | 'department'>,
 ): boolean {
   if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return false;
+  if (isCheckingPoolEmployee(employee) && isCheckingPoolCase(implantCase)) {
+    return priorStagesAllApproved(implantCase, 'Checking & Audit');
+  }
   if (isFcfsPoolCase(implantCase)) return false;
   return getEmployeeSubmitStage(implantCase, employee) !== null;
 }

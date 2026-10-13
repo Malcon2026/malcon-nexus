@@ -20,6 +20,7 @@ import {
   formatDate, timeAgo
 } from '../utils/helpers';
 import { canEmployeeSubmitCase, isCaseVisibleToEmployee, getCurrentStageTeamDisplay, findStageRecord, isCaseAssistantOnCurrentStage, needsAssignmentReactivation, getNextWorkflowStage, isFcfsPoolCase, isWorkflowStageEnabled, FORCE_ADVANCE_ENABLED, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, normalizeWorkflowStageName, getEmployeeSubmitStage, getStageSubmitWaitMessage } from '../lib/caseWorkflow';
+import { isCheckingPoolEmployee, isCheckingPoolCase } from '../lib/checkingPool';
 import { CANCEL_CASE_REASONS, type CancelCaseReasonType } from '../lib/cancelCase';
 import { NexusPage } from '../components/layout/NexusPageHeader';
 import { NEXUS_FORM_CONTROL, NEXUS_TEXTAREA_CONTROL } from '../constants/formStyles';
@@ -750,7 +751,7 @@ interface CaseDetailProps {
 }
 
 export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBack }) => {
-  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase, requestTask, approveTaskRequest, caseTaskRequests, setSelectedCase, setActiveTab } = useStore();
+  const { viewMode, currentUser, closeCase, reactivateAssignedCase, assignEmployee, deleteCase, requestTask, approveTaskRequest, claimCheckingCase, caseTaskRequests, setSelectedCase, setActiveTab } = useStore();
   const c = useStore((s) => s.cases.find((x) => x.id === initialCase.id)) ?? initialCase;
   const [approvalModal, setApprovalModal] = useState<'approve' | 'reject' | 'changes' | 'force' | null>(null);
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
@@ -800,6 +801,11 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const canEmployeeEdit =
     (viewMode === 'employee' || viewMode === 'store_manager') && isCaseVisibleToEmployee(c, currentUser);
   const inFcfsPool = isFcfsPoolCase(c);
+  const isCheckingPool = isCheckingPoolCase(c);
+  const canClaimChecking =
+    (viewMode === 'employee' || viewMode === 'store_manager') &&
+    isCheckingPoolEmployee(currentUser) &&
+    isCheckingPool;
   const pendingForCase = getPendingTaskRequestsForCase(caseTaskRequests, c.id);
   const myPendingRequest = hasEmployeePendingTaskRequest(caseTaskRequests, c.id, currentUser.id);
   const canRequest = viewMode === 'employee' && canEmployeeRequestTask(c, caseTaskRequests, currentUser);
@@ -872,6 +878,18 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       tone: 'primary',
       icon: <Send className="h-5 w-5" />,
       onClick: () => setShowSubmit(true),
+    });
+  }
+  if (canClaimChecking) {
+    actions.push({
+      key: 'claim-checking',
+      label: 'Select (Claim)',
+      tone: 'secondary',
+      icon: <CheckCircle className="h-4 w-4" />,
+      onClick: async () => {
+        const res = await claimCheckingCase(c.id);
+        if (res.error) alert(res.error);
+      },
     });
   }
   if (isFullAdminUser && isApproved && nextStage === 'Completed') {
@@ -1021,7 +1039,15 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         ) : null}
       </header>
 
-      {inFcfsPool && (
+      {isCheckingPool ? (
+        <Notice tone="sky" icon={<Clock className="h-4 w-4" />} title="Checking & Audit Pool (FCFS)">
+          <p>
+            {canClaimChecking
+              ? 'This case is ready for Checking & Audit. You can select it or submit checking details directly.'
+              : 'Allotted to Srivani Adire & Ramakanth Perumandla (FCFS pool). Whoever sees it first can claim and submit.'}
+          </p>
+        </Notice>
+      ) : inFcfsPool ? (
         <Notice tone="amber" icon={<AlertTriangle className="h-4 w-4" />} title={`Open pool — ${c.currentStage}`}>
           <p>
             {isFullAdminUser
@@ -1057,7 +1083,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
             </div>
           )}
         </Notice>
-      )}
+      ) : null}
 
       {returningUnused && (
         <Notice tone="amber" icon={<Ban className="h-4 w-4" />} title="Case cancelled — kit returning">

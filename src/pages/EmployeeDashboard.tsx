@@ -19,6 +19,7 @@ import {
   isCaseAssistantOnCurrentStage,
   isCaseAssignedToEmployee,
 } from '../lib/caseWorkflow';
+import { isCheckingPoolCase, isCheckingPoolEmployee } from '../lib/checkingPool';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase } from '../lib/caseTaskRequests';
 import { CaseDetail } from './CaseDetail';
 import { SubmitStageModal } from '../components/SubmitStageModal';
@@ -308,15 +309,119 @@ const EmployeeCasesPanel: React.FC<{
   const poolCases = getPoolCasesAvailableForCurrentUser();
   const pendingRequests = getMyPendingTaskRequests();
   const [requestingId, setRequestingId] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const claimCheckingCase = useStore((s) => s.claimCheckingCase);
   const myCases = useMyCases(employee);
   const completedCases = myCases.filter((c) =>
     c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
   );
 
+  const isCheckingEligible = isCheckingPoolEmployee(currentUser);
+  const checkingPoolCases = useMemo(() => {
+    if (!isCheckingEligible) return [];
+    return cases.filter(isCheckingPoolCase);
+  }, [isCheckingEligible, cases]);
+
+  const handleSelectAndSubmit = async (c: ImplantCase) => {
+    setClaimingId(c.id);
+    const res = await claimCheckingCase(c.id);
+    setClaimingId(null);
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+    onSubmitCase(res.case ?? c);
+  };
+
+  const handleSelectCase = async (c: ImplantCase) => {
+    setClaimingId(c.id);
+    const res = await claimCheckingCase(c.id);
+    setClaimingId(null);
+    if (res.error) {
+      alert(res.error);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
         <h2 className="text-sm font-bold text-gray-900 sm:hidden">My Cases</h2>
+
+        {checkingPoolCases.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-purple-900">Checking &amp; Audit Pool (FCFS)</h3>
+              <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                {checkingPoolCases.length} {checkingPoolCases.length === 1 ? 'case' : 'cases'}
+              </Badge>
+            </div>
+            <p className="text-xs text-purple-800/80">
+              Available to Srivani &amp; Ramakanth — who can see first can select and submit.
+            </p>
+            {checkingPoolCases.map((c, idx) => {
+              const sc = getStageStyle(c.currentStage);
+              const pc = getPriorityStyle(c.priority);
+              const claiming = claimingId === c.id;
+              return (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                >
+                  <Card className="border-purple-200 bg-purple-50/20 shadow-sm">
+                    <CardBody>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
+                            <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
+                              <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                              {c.currentStage}
+                            </Badge>
+                            <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
+                            <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                              FCFS Pool
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">{c.hospital?.name ?? 'Unknown Hospital'}</p>
+                          <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<FileText className="h-3.5 w-3.5" />}
+                            onClick={() => onViewCase(c)}
+                          >
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={claiming}
+                            onClick={() => handleSelectCase(c)}
+                          >
+                            {claiming ? 'Selecting…' : 'Select'}
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={claiming}
+                            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                            onClick={() => handleSelectAndSubmit(c)}
+                          >
+                            {claiming ? 'Selecting…' : 'Select & Submit'}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
 
         {pendingRequests.length > 0 && (
           <div className="space-y-3">
@@ -409,7 +514,7 @@ const EmployeeCasesPanel: React.FC<{
           </div>
         )}
 
-        {myCases.length === 0 && poolCases.length === 0 && pendingRequests.length === 0 ? (
+        {myCases.length === 0 && poolCases.length === 0 && pendingRequests.length === 0 && checkingPoolCases.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="h-12 w-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
               <CheckCircle2 className="h-6 w-6 text-gray-400" />

@@ -15,6 +15,7 @@ import {
   CASE_DUTY_WORKFLOW_STAGE,
   type CaseDutyKind,
 } from './caseDuties';
+import { findChandraGajelli } from './checkingPool';
 import type { Doctor, Hospital } from '../types';
 import { findDoctorByName } from './doctorMaster';
 import type { StageWithAssistant } from './caseWorkflow';
@@ -190,6 +191,14 @@ export function buildCreateCasePayload(
     if (!empId || isReturnDutySpecialValue(empId)) continue;
     const emp = employees.find((e) => e.id === empId);
     if (emp) stageAssignments[workflowStage] = emp;
+  }
+
+  // Restock is automatically assigned to Chandra Gajelli
+  if (activeStages.includes('Restock') && !stageAssignments['Restock']) {
+    const chandra = findChandraGajelli(employees);
+    if (chandra) {
+      stageAssignments['Restock'] = chandra;
+    }
   }
 
   let createdBy = currentUser?.name?.trim() || 'Admin';

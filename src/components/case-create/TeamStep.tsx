@@ -454,7 +454,11 @@ export const TeamStep: React.FC<TeamStepProps> = ({
             <TeamRow
               key={kind}
               label={CASE_DUTY_LABELS[kind]}
-              question={DUTY_COPY[kind]}
+              question={
+                kind === 'cleaning' && !form.dutyEmployeeIds[kind]
+                  ? 'FCFS Pool: Srivani Adire & Ramakanth Perumandla (or choose person)'
+                  : DUTY_COPY[kind]
+              }
               view={view(form.dutyEmployeeIds[kind])}
               onChoose={() => openPicker({ kind: 'duty', duty: kind })}
             />

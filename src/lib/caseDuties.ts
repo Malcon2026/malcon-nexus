@@ -1,6 +1,7 @@
 import type { Employee, ImplantCase, WorkflowStage } from '../types';
 import { findStageRecord, normalizeWorkflowStageName } from './caseWorkflow';
 import { isReturnDutySpecialValue } from './returnPickup';
+import { findChandraGajelli } from './checkingPool';
 
 /** After-surgery stages: Return, Clean & audit, Restock (assigned at create or by store manager). */
 export type CaseDutyKind = 'return' | 'cleaning' | 'restock';
@@ -141,6 +142,13 @@ export function buildPostSurgeryDutiesFromEmployeeIds(
     const emp = employees.find((e) => e.id === id);
     if (!emp) continue;
     duties[kind] = { assignedEmployee: emp, assignedAt: now };
+  }
+  // Restock is automatically assigned to Chandra Gajelli if unassigned
+  if (!duties.restock.assignedEmployee) {
+    const chandra = findChandraGajelli(employees);
+    if (chandra) {
+      duties.restock = { assignedEmployee: chandra, assignedAt: now };
+    }
   }
   return duties;
 }

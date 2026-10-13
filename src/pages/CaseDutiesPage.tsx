@@ -21,6 +21,7 @@ import {
 import type { ImplantCase } from '../types';
 import { findStageRecord } from '../lib/caseWorkflow';
 import { returnOutcomeToDutyId } from '../lib/returnPickup';
+import { findChandraGajelli } from '../lib/checkingPool';
 import { CaseDetail } from './CaseDetail';
 
 function emptyDraftIds(): Record<CaseDutyKind, string> {
@@ -54,12 +55,17 @@ export const CaseDutiesPage: React.FC = () => {
   const openPicker = (c: ImplantCase) => {
     if (!canConfirm) return;
     setPickCase(c);
+    const chandra = findChandraGajelli(employees);
     setDraftIds(
       Object.fromEntries(
         CASE_DUTY_KINDS.map((k) => {
           if (k === 'return') {
             const outcome = findStageRecord(c.stages, 'Pickup from Hospital')?.returnOutcome;
             if (outcome) return [k, returnOutcomeToDutyId(outcome)];
+          }
+          if (k === 'restock') {
+            const currentRestock = getDutyEmployee(c, k)?.id;
+            return [k, currentRestock || chandra?.id || ''];
           }
           return [k, getDutyEmployee(c, k)?.id ?? ''];
         }),
@@ -170,11 +176,26 @@ export const CaseDutiesPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3.5 text-gray-700">{formatDate(c.surgeryDate)}</td>
                   <td className="px-4 py-3.5 text-gray-700">{c.hospital.name}</td>
-                  {CASE_DUTY_KINDS.map((kind) => (
-                    <td key={kind} className="px-4 py-3.5 text-gray-900 font-medium">
-                      {getDutyEmployee(c, kind)?.name ?? '—'}
-                    </td>
-                  ))}
+                  {CASE_DUTY_KINDS.map((kind) => {
+                    const emp = getDutyEmployee(c, kind);
+                    return (
+                      <td key={kind} className="px-4 py-3.5 text-gray-900 font-medium">
+                        {emp ? (
+                          emp.name
+                        ) : kind === 'cleaning' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            FCFS Pool (Srivani / Ramakanth)
+                          </span>
+                        ) : kind === 'restock' ? (
+                          <span className="text-gray-500 font-normal">
+                            {findChandraGajelli(employees)?.name ?? 'Chandra Gajelli'}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    );
+                  })}
                   {canConfirm && (
                     <td className="px-4 py-3.5">
                       <Button variant="outline" size="sm" onClick={() => openPicker(c)}>
@@ -242,7 +263,13 @@ export const CaseDutiesPage: React.FC = () => {
                 employees={employees}
                 value={draftIds[kind]}
                 onChange={(value) => setDraftIds((d) => ({ ...d, [kind]: value }))}
-                placeholder={dutyPickerPlaceholder(kind)}
+                placeholder={
+                  kind === 'cleaning'
+                    ? 'FCFS Pool (Srivani & Ramakanth)'
+                    : kind === 'restock'
+                      ? 'Chandra Gajelli (default)'
+                      : dutyPickerPlaceholder(kind)
+                }
                 allowReturnSpecial={kind === 'return'}
               />
             </div>
