@@ -39,6 +39,8 @@ export const employees = sqliteTable(
     authUserId: text('auth_user_id'),
     /** PBKDF2 password hash for Cloudflare-native login (admins / provisioned accounts) */
     passwordHash: text('password_hash'),
+    /** Supabase Auth `encrypted_password` (bcrypt) — migrated; upgraded to password_hash on login */
+    supabasePasswordHash: text('supabase_password_hash'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

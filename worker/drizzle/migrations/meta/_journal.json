@@ -36,6 +36,13 @@
       "when": 1791990700000,
       "tag": "0004_employee_password_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791990800000,
+      "tag": "0005_supabase_legacy_password",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { createDb } from '../db/client';
 import { employees, loginOtps } from '../db/schema';
 import { employeeCodeMatches, hashLoginOtp, randomSixDigitOtp } from '../lib/loginOtp';
 import { hashPassword, verifyPassword } from '../lib/passwordHash';
+import { verifySupabaseLegacyPassword } from '../lib/supabaseLegacyPassword';
 import { signAccessToken } from '../lib/malconJwt';
 import { normalizeAppRole, type MappedEmployee } from '../lib/employeeLookup';
 import { isFullAdminRole, usesEmployeeSignInRole } from '../lib/authRoles';
@@ -79,7 +80,22 @@ export async function loginWithPassword(
     return { error: 'Your account is inactive. Contact admin.', status: 403 };
   }
 
-  const ok = await verifyPassword(password, row.passwordHash);
+  let ok = await verifyPassword(password, row.passwordHash);
+  if (!ok && row.supabasePasswordHash) {
+    ok = await verifySupabaseLegacyPassword(password, row.supabasePasswordHash);
+    if (ok) {
+      const upgraded = await hashPassword(password);
+      const now = new Date().toISOString();
+      await db
+        .update(employees)
+        .set({
+          passwordHash: upgraded,
+          supabasePasswordHash: null,
+          updatedAt: now,
+        })
+        .where(eq(employees.id, row.id));
+    }
+  }
   if (!ok) {
     return { error: 'Invalid email or password', status: 401 };
   }
