@@ -2,7 +2,7 @@ import { eq, inArray, isNotNull, and } from 'drizzle-orm';
 import type { Env } from '../env';
 import { createDb } from '../db/client';
 import { cases, employees } from '../db/schema';
-import { employeeCodeMatches, sanitizeEmployeeCodeInput } from '../lib/loginOtp';
+import { employeeCodeMatches, parseTelegramStartArg, sanitizeEmployeeCodeInput } from '../lib/loginOtp';
 import { telegramChatReachable, telegramSendMessage } from '../lib/telegramApi';
 
 type TelegramEvent = 'assignment' | 'postpone';
@@ -195,7 +195,7 @@ export async function handleTelegramWebhookUpdate(env: Env, update: unknown): Pr
     return;
   }
 
-  const codeArg = sanitizeEmployeeCodeInput(text.slice('/start'.length));
+  const codeArg = parseTelegramStartArg(text);
   if (!codeArg) {
     await telegramSendMessage(
       botToken,
@@ -245,10 +245,20 @@ export async function handleTelegramWebhookUpdate(env: Env, update: unknown): Pr
   }
 
   const now = new Date().toISOString();
-  await db
-    .update(employees)
-    .set({ telegramChatId: chatIdStr, updatedAt: now })
-    .where(eq(employees.id, match.id));
+  try {
+    await db
+      .update(employees)
+      .set({ telegramChatId: chatIdStr, updatedAt: now })
+      .where(eq(employees.id, match.id));
+  } catch (err) {
+    console.error('[telegram-webhook] link save failed', err);
+    await telegramSendMessage(
+      botToken,
+      chatId,
+      'Could not save your Telegram link right now (server database is temporarily busy). Please try again after midnight UTC or contact your admin.',
+    );
+    return;
+  }
 
   await telegramSendMessage(
     botToken,
