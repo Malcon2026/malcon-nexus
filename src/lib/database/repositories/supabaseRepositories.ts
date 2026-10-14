@@ -1190,6 +1190,20 @@ export const sbAttendanceRepo = {
     return rows.map(rowToAttendance);
   },
 
+  /** Admin register window — avoids loading full punch history on login. */
+  async getRecentSince(sinceIso: string): Promise<AttendanceRecord[]> {
+    if (useWorkerOperationsReads()) return fetchAllAttendanceFromWorker({ since: sinceIso });
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from('attendance_records')
+        .select('*')
+        .gte('punched_at', sinceIso)
+        .order('punched_at', { ascending: false })
+        .range(from, to),
+    );
+    return rows.map(rowToAttendance);
+  },
+
   async getRecentForEmployee(employeeId: string, sinceIso: string): Promise<AttendanceRecord[]> {
     if (useWorkerOperationsReads()) return fetchRecentAttendanceForEmployeeFromWorker(employeeId, sinceIso);
     const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>

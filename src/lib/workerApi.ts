@@ -124,20 +124,47 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
   }
 }
 
-const CASE_BOOTSTRAP_PAGE_SIZE = 200;
+const CASE_BOOTSTRAP_PAGE_SIZE = 500;
+
+/** Fetch all pages in parallel after the first (same host, HTTP/2). */
+async function fetchAllPaginated<T>(
+  fetchPage: (page: number, pageSize: number) => Promise<Paginated<T>>,
+  options: { cap?: number; pageSize: number },
+): Promise<T[]> {
+  const cap = options.cap ?? Number.POSITIVE_INFINITY;
+  const pageSize = options.pageSize;
+  const first = await fetchPage(1, Math.min(pageSize, cap));
+  const out: T[] = [];
+  for (const row of first.items) {
+    out.push(row);
+    if (out.length >= cap) return out;
+  }
+  const { totalPages } = first.pagination;
+  if (totalPages <= 1) return out;
+
+  const restPages: number[] = [];
+  for (let p = 2; p <= totalPages; p += 1) {
+    restPages.push(p);
+  }
+  const chunks = await Promise.all(restPages.map((p) => fetchPage(p, pageSize)));
+  for (const chunk of chunks) {
+    for (const row of chunk.items) {
+      out.push(row);
+      if (out.length >= cap) return out;
+    }
+  }
+  return out;
+}
 
 /**
  * Paginated case list with header snapshots (no per-case detail round-trips).
  * Full stages load on demand via getCase() when opening a case.
  */
 export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
-  const first = await getCasesPage({ page: 1, pageSize: CASE_BOOTSTRAP_PAGE_SIZE });
-  const items: WorkerCaseDetail[] = [...first.items];
-  for (let page = 2; page <= first.pagination.totalPages; page += 1) {
-    const next = await getCasesPage({ page, pageSize: CASE_BOOTSTRAP_PAGE_SIZE });
-    items.push(...next.items);
-  }
-  return items;
+  return fetchAllPaginated<WorkerCaseDetail>(
+    (page, pageSize) => getCasesPage({ page, pageSize }),
+    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+  );
 }
 
 export type WorkerNotificationRow = {
@@ -154,7 +181,7 @@ export type WorkerNotificationRow = {
 /** Match Supabase employee bootstrap cap; admin uses a higher bounded cap (not full-table). */
 export const NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE = 300;
 export const NOTIFICATION_BOOTSTRAP_CAP_ADMIN = 500;
-const NOTIFICATION_PAGE_SIZE = 100;
+const NOTIFICATION_PAGE_SIZE = 250;
 
 export async function getNotificationsPage(params: {
   page?: number;
@@ -185,22 +212,10 @@ export async function getNotificationSummary(recipientId?: string): Promise<{ to
 export async function getAllNotificationsViaWorker(recipientId?: string): Promise<WorkerNotificationRow[]> {
   const cap = recipientId ? NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE : NOTIFICATION_BOOTSTRAP_CAP_ADMIN;
   const pageSize = Math.min(NOTIFICATION_PAGE_SIZE, cap);
-  const out: WorkerNotificationRow[] = [];
-  let page = 1;
-  while (out.length < cap) {
-    const chunk = await getNotificationsPage({
-      page,
-      pageSize,
-      recipientId,
-    });
-    for (const row of chunk.items) {
-      out.push(row);
-      if (out.length >= cap) break;
-    }
-    if (page >= chunk.pagination.totalPages || chunk.items.length === 0) break;
-    page += 1;
-  }
-  return out;
+  return fetchAllPaginated<WorkerNotificationRow>(
+    (page, ps) => getNotificationsPage({ page, pageSize: ps, recipientId }),
+    { cap, pageSize },
+  );
 }
 
 export type WorkerHospitalRow = {
@@ -241,26 +256,8 @@ export type WorkerKitRow = {
   last_used_date: string | null;
 };
 
-const REFERENCE_PAGE_SIZE = 100;
+const REFERENCE_PAGE_SIZE = 250;
 export const REFERENCE_BOOTSTRAP_CAP = 2000;
-
-async function fetchAllPaginated<T>(
-  fetchPage: (page: number, pageSize: number) => Promise<Paginated<T>>,
-  cap = REFERENCE_BOOTSTRAP_CAP,
-): Promise<T[]> {
-  const out: T[] = [];
-  let page = 1;
-  while (out.length < cap) {
-    const chunk = await fetchPage(page, Math.min(REFERENCE_PAGE_SIZE, cap));
-    for (const row of chunk.items) {
-      out.push(row);
-      if (out.length >= cap) break;
-    }
-    if (page >= chunk.pagination.totalPages || chunk.items.length === 0) break;
-    page += 1;
-  }
-  return out;
-}
 
 export async function getHospitalsPage(page: number, pageSize: number): Promise<Paginated<WorkerHospitalRow>> {
   const q = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -269,7 +266,10 @@ export async function getHospitalsPage(page: number, pageSize: number): Promise<
 }
 
 export async function getAllHospitalsViaWorker(): Promise<WorkerHospitalRow[]> {
-  return fetchAllPaginated((page, pageSize) => getHospitalsPage(page, pageSize));
+  return fetchAllPaginated((page, pageSize) => getHospitalsPage(page, pageSize), {
+    cap: REFERENCE_BOOTSTRAP_CAP,
+    pageSize: REFERENCE_PAGE_SIZE,
+  });
 }
 
 export async function getDoctorsPage(page: number, pageSize: number): Promise<Paginated<WorkerDoctorRow>> {
@@ -279,7 +279,10 @@ export async function getDoctorsPage(page: number, pageSize: number): Promise<Pa
 }
 
 export async function getAllDoctorsViaWorker(): Promise<WorkerDoctorRow[]> {
-  return fetchAllPaginated((page, pageSize) => getDoctorsPage(page, pageSize));
+  return fetchAllPaginated((page, pageSize) => getDoctorsPage(page, pageSize), {
+    cap: REFERENCE_BOOTSTRAP_CAP,
+    pageSize: REFERENCE_PAGE_SIZE,
+  });
 }
 
 export async function getDepartmentsViaWorker(): Promise<WorkerDepartmentRow[]> {
@@ -299,7 +302,7 @@ export async function getAppSettingsViaWorker(): Promise<Record<string, string>>
 
 export type WorkerPgRow = Record<string, unknown>;
 
-const OPERATIONS_PAGE_SIZE = 100;
+const OPERATIONS_PAGE_SIZE = 250;
 export const OPERATIONS_BOOTSTRAP_CAP = 2000;
 export const ATTENDANCE_BOOTSTRAP_CAP = 5000;
 
@@ -308,23 +311,18 @@ async function fetchPaginatedItems(
   params: Record<string, string | undefined>,
   cap: number,
 ): Promise<WorkerPgRow[]> {
-  const out: WorkerPgRow[] = [];
-  let page = 1;
-  while (out.length < cap) {
-    const q = new URLSearchParams({ page: String(page), pageSize: String(Math.min(OPERATIONS_PAGE_SIZE, cap)) });
-    for (const [k, v] of Object.entries(params)) {
-      if (v) q.set(k, v);
-    }
-    const body = await workerFetchJson<{ data: Paginated<WorkerPgRow> }>(`${path}?${q.toString()}`);
-    const chunk = body.data;
-    for (const row of chunk.items) {
-      out.push(row);
-      if (out.length >= cap) break;
-    }
-    if (page >= chunk.pagination.totalPages || chunk.items.length === 0) break;
-    page += 1;
-  }
-  return out;
+  const pageSize = Math.min(OPERATIONS_PAGE_SIZE, cap);
+  return fetchAllPaginated<WorkerPgRow>(
+    async (page, ps) => {
+      const q = new URLSearchParams({ page: String(page), pageSize: String(ps) });
+      for (const [k, v] of Object.entries(params)) {
+        if (v) q.set(k, v);
+      }
+      const body = await workerFetchJson<{ data: Paginated<WorkerPgRow> }>(`${path}?${q.toString()}`);
+      return body.data;
+    },
+    { cap, pageSize },
+  );
 }
 
 export async function getAllAttendanceRecordsViaWorker(params: {
@@ -344,23 +342,11 @@ export async function getRecentEmployeeAttendanceViaWorker(
   employeeId: string,
   sinceIso: string,
 ): Promise<WorkerPgRow[]> {
-  const out: WorkerPgRow[] = [];
-  let page = 1;
-  const cap = ATTENDANCE_BOOTSTRAP_CAP;
-  while (out.length < cap) {
-    const chunk = await getEmployeeAttendance(employeeId, {
-      page,
-      pageSize: OPERATIONS_PAGE_SIZE,
-      since: sinceIso,
-    });
-    for (const row of chunk.items) {
-      out.push(row);
-      if (out.length >= cap) break;
-    }
-    if (page >= chunk.pagination.totalPages || chunk.items.length === 0) break;
-    page += 1;
-  }
-  return out;
+  return fetchAllPaginated<WorkerPgRow>(
+    (page, pageSize) =>
+      getEmployeeAttendance(employeeId, { page, pageSize, since: sinceIso }).then((chunk) => chunk),
+    { cap: ATTENDANCE_BOOTSTRAP_CAP, pageSize: OPERATIONS_PAGE_SIZE },
+  );
 }
 
 export async function getAllAttendanceApprovalsViaWorker(employeeId?: string): Promise<WorkerPgRow[]> {

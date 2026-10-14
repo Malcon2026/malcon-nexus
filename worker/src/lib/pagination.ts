@@ -1,6 +1,6 @@
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 200;
+const MAX_PAGE_SIZE = 500;
 
 export type PageParams = {
   page: number;

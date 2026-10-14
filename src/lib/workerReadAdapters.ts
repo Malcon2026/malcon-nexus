@@ -21,9 +21,14 @@ import {
   workerNotificationToApp,
 } from './workerReadMappers';
 
+let caseRowToImplantCaseFn: ((row: Record<string, unknown>) => ImplantCase) | null = null;
+
 async function toImplantCase(detail: Record<string, unknown>): Promise<ImplantCase> {
-  const { caseRowToImplantCase } = await import('./database/repositories/supabaseRepositories');
-  return caseRowToImplantCase(workerCaseDetailToPgRow(detail));
+  if (!caseRowToImplantCaseFn) {
+    const mod = await import('./database/repositories/supabaseRepositories');
+    caseRowToImplantCaseFn = mod.caseRowToImplantCase;
+  }
+  return caseRowToImplantCaseFn(workerCaseDetailToPgRow(detail));
 }
 
 export async function fetchEmployeesFromWorker(): Promise<Employee[]> {

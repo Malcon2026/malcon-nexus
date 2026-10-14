@@ -123,11 +123,17 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
 /** Cases load in essential-rest — listing + 500+ detail fetches must not block first paint. */
 const ADMIN_FIRST_PAINT_KEYS = new Set(['employees', 'notifications']);
 
+/** Loaded before other admin essential-rest tasks so the case board fills quickly. */
+const ADMIN_PRIORITY_REST_KEYS = new Set(['cases', 'hospitals', 'doctors']);
+
 function adminEssentialTasks(): BootstrapTask[] {
   return [
     { key: 'cases', run: () => sbCaseRepo.getAll() },
     { key: 'notifications', run: () => sbNotificationRepo.getAll() },
-    { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
+    {
+      key: 'attendanceRecords',
+      run: () => sbAttendanceRepo.getRecentSince(getAttendanceBootstrapSinceIso()),
+    },
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
@@ -416,11 +422,27 @@ export async function bootstrapEssential(
   await runBootstrapTasks(firstPaintTasks(role, options), 'essential-first');
   const remainder = essentialRemainderTasks(role, options);
   if (remainder.length > 0) {
-    void runBootstrapTasks(remainder, 'essential-rest').then(() => {
+    const priority =
+      role === 'admin'
+        ? remainder.filter((t) => ADMIN_PRIORITY_REST_KEYS.has(t.key))
+        : remainder.filter((t) => t.key === 'cases');
+    const rest =
+      role === 'admin'
+        ? remainder.filter((t) => !ADMIN_PRIORITY_REST_KEYS.has(t.key))
+        : remainder.filter((t) => t.key !== 'cases');
+
+    const notify = () => {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('malcon-bootstrap-updated'));
       }
-    });
+    };
+
+    if (priority.length > 0) {
+      void runBootstrapTasks(priority, 'essential-priority').then(notify);
+    }
+    if (rest.length > 0) {
+      void runBootstrapTasks(rest, 'essential-rest').then(notify);
+    }
   }
   return true;
 }

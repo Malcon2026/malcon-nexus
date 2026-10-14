@@ -35,8 +35,11 @@ function mapRows<T>(rows: WorkerPgRow[], fn: (row: WorkerPgRow) => T): T[] {
   return rows.map(fn);
 }
 
-export async function fetchAllAttendanceFromWorker(): Promise<AttendanceRecord[]> {
-  const rows = await getAllAttendanceRecordsViaWorker({});
+export async function fetchAllAttendanceFromWorker(params: {
+  since?: string;
+  until?: string;
+} = {}): Promise<AttendanceRecord[]> {
+  const rows = await getAllAttendanceRecordsViaWorker(params);
   return mapRows(rows, workerAttendanceToApp);
 }
 
