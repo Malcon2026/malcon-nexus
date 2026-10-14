@@ -38,6 +38,8 @@ import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
 import { restoreBootstrapCacheForDisplay } from './lib/bootstrapSessionCache';
+import { USE_CLOUDFLARE_BACKEND } from './lib/cloudflareConfig';
+import { USE_SUPABASE } from './lib/database/config';
 import type { Employee } from './types';
 
 function primeStoreFromSessionCache(employeeId: string): boolean {
@@ -54,9 +56,8 @@ function storeHasBootstrapData(): boolean {
   return false;
 }
 
-const SUPABASE_ENABLED =
-  import.meta.env.VITE_SUPABASE_URL &&
-  import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
+/** Remote login + Worker/Supabase data bootstrap (not offline localStorage demo mode). */
+const REMOTE_AUTH = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -82,8 +83,8 @@ function App() {
 function MainApp() {
   const { activeTab, viewMode, setCurrentUser, reloadFromDatabase } = useStore();
 
-  const [authChecked, setAuthChecked] = useState(!SUPABASE_ENABLED);
-  const [isAuthenticated, setIsAuthenticated] = useState(!SUPABASE_ENABLED);
+  const [authChecked, setAuthChecked] = useState(!REMOTE_AUTH);
+  const [isAuthenticated, setIsAuthenticated] = useState(!REMOTE_AUTH);
   const [isHydrating, setIsHydrating] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
@@ -158,7 +159,7 @@ function MainApp() {
   }, [reloadFromDatabase]);
 
   useEffect(() => {
-    if (!SUPABASE_ENABLED) return;
+    if (!REMOTE_AUTH) return;
 
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
@@ -217,16 +218,16 @@ function MainApp() {
   };
 
   const handleLoginSuccess = (employee: Employee) => {
-    if (SUPABASE_ENABLED) primeStoreFromSessionCache(employee.id);
+    if (REMOTE_AUTH) primeStoreFromSessionCache(employee.id);
     setCurrentUser(employee);
     setIsAuthenticated(true);
-    if (SUPABASE_ENABLED) {
+    if (REMOTE_AUTH) {
       void hydrateForUser(employee);
     }
   };
 
   useEffect(() => {
-    if (!SUPABASE_ENABLED || !isAuthenticated) return;
+    if (!REMOTE_AUTH || !isAuthenticated) return;
     const onBootstrapUpdated = () => {
       reloadFromDatabase();
       void Promise.all([
@@ -308,7 +309,7 @@ function MainApp() {
     return <AppBootScreen />;
   }
 
-  if (SUPABASE_ENABLED && !isAuthenticated) {
+  if (REMOTE_AUTH && !isAuthenticated) {
     return (
       <div className="w-full min-w-0 overflow-x-hidden">
         <Login onLoginSuccess={handleLoginSuccess} />
