@@ -5,7 +5,7 @@
  *   node scripts/worker-set-password.mjs --email admin@example.com --password 'YourNewPass'
  *   node scripts/worker-set-password.mjs --email admin@example.com --password '...' --remote
  */
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { randomBytes, pbkdf2Sync } from 'node:crypto';
 import { parseArgs } from 'node:util';
 
@@ -37,10 +37,8 @@ const escaped = hash.replace(/'/g, "''");
 const sql = `UPDATE employees SET password_hash = '${escaped}', updated_at = datetime('now') WHERE lower(email) = '${email.replace(/'/g, "''")}';`;
 
 const cwd = new URL('../worker', import.meta.url).pathname;
-const envFlag = values.remote ? '--env production --remote' : '--local';
-execSync(`npx wrangler d1 execute malcon-nexus-production ${envFlag} --command ${JSON.stringify(sql)}`, {
-  cwd,
-  stdio: 'inherit',
-});
+const args = ['wrangler', 'd1', 'execute', 'malcon-nexus-production', '--command', sql];
+if (values.remote) args.push('--env', 'production', '--remote');
+execFileSync('npx', args, { cwd, stdio: 'inherit', env: process.env });
 
 console.info(`Password updated for ${email}. Use Admin login on the SPA.`);
