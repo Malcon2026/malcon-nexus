@@ -23,6 +23,120 @@ import type {
 import { normalizeWorkflowStage } from '../../../utils/helpers';
 import { normalizeDateKey } from '../../attendance';
 import { getEmployeeDepartments, normalizeDepartment } from '../../../constants/departments';
+import {
+  useWorkerCaseScopeReads,
+  useWorkerNotificationReads,
+  useWorkerOperationsReads,
+  useWorkerReads,
+  useWorkerReferenceReads,
+  useWorkerRemainingReads,
+} from '../../workerReadConfig';
+import {
+  useWorkerWritesActivity,
+  useWorkerWritesApprovals,
+  useWorkerWritesAttendance,
+  useWorkerWritesCaseClaim,
+  useWorkerWritesCases,
+  useWorkerWritesCaseTasks,
+  useWorkerWritesDoctors,
+  useWorkerWritesEmployees,
+  useWorkerWritesExpenses,
+  useWorkerWritesFood,
+  useWorkerWritesHospitals,
+  useWorkerWritesKits,
+  useWorkerWritesLeave,
+  useWorkerWritesNotifications,
+  useWorkerWritesPetrol,
+  useWorkerWritesSettings,
+  useWorkerWritesTrips,
+} from '../../workerWriteConfig';
+import {
+  adminSubmitFoodOnWorker,
+  createCaseTaskOnWorker,
+  createDoctorOnWorker,
+  createEmployeeOnWorker,
+  createHospitalOnWorker,
+  deleteAttendanceApprovalIdsOnWorker,
+  deleteAttendanceIdsOnWorker,
+  deleteDoctorOnWorker,
+  deleteEmployeeOnWorker,
+  deleteHospitalOnWorker,
+  deleteLeaveIdsOnWorker,
+  insertAttendanceApprovalOnWorker,
+  insertAttendanceOnWorker,
+  insertLocationTripOnWorker,
+  insertPetrolOnWorker,
+  patchAttendanceApprovalOnWorker,
+  patchAttendanceOnWorker,
+  patchFieldTeamOnWorker,
+  patchLeaveOnWorker,
+  patchLocationTripOnWorker,
+  patchPetrolOnWorker,
+  removeAllPetrolOnWorker,
+  removeLocationTripOnWorker,
+  removePetrolOnWorker,
+  resolveCaseTasksOnWorker,
+  updateCaseTaskStatusOnWorker,
+  updateDoctorOnWorker,
+  updateEmployeeOnWorker,
+  updateHospitalOnWorker,
+  upsertFieldTeamOnWorker,
+  upsertFoodOnWorker,
+} from '../../workerWriteApiMedium';
+import {
+  claimCaseOnWorker,
+  createCaseOnWorker,
+  deleteCaseOnWorker,
+  saveCaseOnWorker,
+  syncCaseHeaderOnWorker,
+} from '../../workerWriteApiCases';
+import {
+  createNotificationOnWorker,
+  deleteDailyExpenseOnWorker,
+  markAllNotificationsReadOnWorker,
+  markNotificationReadOnWorker,
+  patchSurgicalKitOnWorker,
+  setAppSettingOnWorker,
+  upsertApprovalOnWorker,
+  upsertDailyExpenseOnWorker,
+  writeActivityToWorker,
+} from '../../workerWriteApi';
+import {
+  fetchActivityFromWorker,
+  fetchAllCaseTaskRequestsFromWorker,
+  fetchAllAttendanceApprovalsFromWorker,
+  fetchApprovalsFromWorker,
+  fetchCaseTaskRequestsForEmployeeFromWorker,
+  fetchCasesForEmployeeIncludingPoolFromWorker,
+  fetchCasesForEmployeeFromWorker,
+  fetchFcfsPoolForEmployeeFromWorker,
+  fetchPendingCaseTaskRequestsForCaseFromWorker,
+  fetchAllAttendanceFromWorker,
+  fetchAllCasesFromWorker,
+  fetchAllDailyExpensesFromWorker,
+  fetchAllFieldTeamAttendanceFromWorker,
+  fetchAllFoodFromWorker,
+  fetchAllLeaveFromWorker,
+  fetchAllLocationTripsFromWorker,
+  fetchAllPetrolFromWorker,
+  fetchAttendanceApprovalsForEmployeeFromWorker,
+  fetchCaseByIdFromWorker,
+  fetchDepartmentsFromWorker,
+  fetchDoctorsFromWorker,
+  fetchEmployeeByIdFromWorker,
+  fetchEmployeesFromWorker,
+  fetchFieldTeamAttendanceForDateFromWorker,
+  fetchFoodForDateRangeFromWorker,
+  fetchFoodForEmployeeFromWorker,
+  fetchHospitalsFromWorker,
+  fetchKitsFromWorker,
+  fetchLeaveForEmployeeFromWorker,
+  fetchLocationTripsForEmployeeFromWorker,
+  fetchNotificationsFromWorker,
+  fetchPetrolForEmployeeFromWorker,
+  fetchRecentAttendanceForEmployeeFromWorker,
+  fetchSettingsFromWorker,
+} from '../../workerReadAdapters';
 import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployee } from '../../caseWorkflow';
 import { normalizePostSurgeryDuties } from '../../caseDuties';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from '../../caseNumber';
@@ -119,12 +233,14 @@ export function employeeRowToEmployee(row: Record<string, unknown>): Employee {
 
 export const sbEmployeeRepo = {
   async getAll(): Promise<Employee[]> {
+    if (useWorkerReads()) return fetchEmployeesFromWorker();
     const { data, error } = await supabase.from('employees').select('*').order('name');
     if (error) throw error;
     return (data ?? []).map((row) => employeeRowToEmployee(row as Record<string, unknown>));
   },
 
   async getById(id: string): Promise<Employee | null> {
+    if (useWorkerReads()) return fetchEmployeeByIdFromWorker(id);
     const { data, error } = await supabase.from('employees').select('*').eq('id', id).single();
     if (error || !data) return null;
     return employeeRowToEmployee(data as Record<string, unknown>);
@@ -151,6 +267,7 @@ export const sbEmployeeRepo = {
   },
 
   async create(e: Employee): Promise<Employee> {
+    if (useWorkerWritesEmployees()) return createEmployeeOnWorker(e);
     const deptFields = {
       department: e.department,
       departments: getEmployeeDepartments(e),
@@ -175,6 +292,10 @@ export const sbEmployeeRepo = {
   },
 
   async update(id: string, updates: Partial<Employee>): Promise<Employee> {
+    if (useWorkerWritesEmployees()) {
+      await updateEmployeeOnWorker(id, updates);
+      return (await this.getById(id))!;
+    }
     const patch: Record<string, unknown> = {};
     if (updates.name)           patch.name = updates.name;
     if (updates.email)          patch.email = updates.email;
@@ -205,11 +326,16 @@ export const sbEmployeeRepo = {
   },
 
   async delete(id: string): Promise<void> {
+    if (useWorkerWritesEmployees()) return deleteEmployeeOnWorker(id);
     const { error } = await supabase.from('employees').delete().eq('id', id);
     if (error) throw error;
   },
 
   async linkAuthUser(employeeId: string, authUserId: string): Promise<void> {
+    if (useWorkerWritesEmployees()) {
+      const { linkAuthUserOnWorker } = await import('../../workerWriteApiMedium');
+      return linkAuthUserOnWorker(employeeId);
+    }
     const { error } = await supabase.from('employees').update({ auth_user_id: authUserId }).eq('id', employeeId);
     if (error) throw error;
   },
@@ -220,6 +346,7 @@ export const sbEmployeeRepo = {
 
 export const sbHospitalRepo = {
   async getAll(): Promise<Hospital[]> {
+    if (useWorkerReferenceReads()) return fetchHospitalsFromWorker();
     const { data, error } = await supabase.from('hospitals').select('*').order('name');
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -236,6 +363,7 @@ export const sbHospitalRepo = {
   },
 
   async create(h: Hospital): Promise<Hospital> {
+    if (useWorkerWritesHospitals()) return createHospitalOnWorker(h);
     const base = {
       id: h.id,
       name: h.name,
@@ -256,6 +384,11 @@ export const sbHospitalRepo = {
   },
 
   async update(id: string, u: Partial<Hospital>): Promise<Hospital> {
+    if (useWorkerWritesHospitals()) {
+      await updateHospitalOnWorker(id, u);
+      const all = await this.getAll();
+      return all.find((h) => h.id === id)!;
+    }
     const patch: Record<string, unknown> = {};
     if (u.name)          patch.name = u.name;
     if (u.branch !== undefined) patch.branch = u.branch;
@@ -277,6 +410,7 @@ export const sbHospitalRepo = {
   },
 
   async delete(id: string): Promise<void> {
+    if (useWorkerWritesHospitals()) return deleteHospitalOnWorker(id);
     const { error } = await supabase.from('hospitals').delete().eq('id', id);
     if (error) throw error;
   },
@@ -302,6 +436,7 @@ async function doctorCodeMapFromSettings(): Promise<Map<string, string>> {
 
 export const sbDoctorRepo = {
   async getAll(): Promise<Doctor[]> {
+    if (useWorkerReferenceReads()) return fetchDoctorsFromWorker();
     const [{ data, error }, codeById] = await Promise.all([
       supabase.from('doctors').select('*').order('name'),
       doctorCodeMapFromSettings(),
@@ -323,6 +458,7 @@ export const sbDoctorRepo = {
   },
 
   async create(d: Doctor): Promise<Doctor> {
+    if (useWorkerWritesDoctors()) return createDoctorOnWorker(d);
     const { error } = await supabase.from('doctors').insert({
       id: d.id,
       name: d.name,
@@ -349,6 +485,11 @@ export const sbDoctorRepo = {
   },
 
   async update(id: string, u: Partial<Doctor>): Promise<Doctor> {
+    if (useWorkerWritesDoctors()) {
+      await updateDoctorOnWorker(id, u);
+      const all = await this.getAll();
+      return all.find((d) => d.id === id)!;
+    }
     const patch: Record<string, unknown> = {};
     if (u.name)           patch.name = u.name;
     if (u.specialization) patch.specialization = u.specialization;
@@ -363,6 +504,7 @@ export const sbDoctorRepo = {
   },
 
   async delete(id: string): Promise<void> {
+    if (useWorkerWritesDoctors()) return deleteDoctorOnWorker(id);
     const { error } = await supabase.from('doctors').delete().eq('id', id);
     if (error) throw error;
   },
@@ -492,12 +634,27 @@ export const sbCaseRepo = {
   },
 
   async getAll(): Promise<ImplantCase[]> {
+    if (useWorkerReads()) return fetchAllCasesFromWorker();
     const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map((row) => caseRowToImplantCase(row as Record<string, unknown>));
   },
 
   async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
+    if (useWorkerCaseScopeReads()) return fetchCasesForEmployeeFromWorker(employeeId);
+    if (useWorkerReads()) {
+      const all = await fetchAllCasesFromWorker();
+      const byId = new Map<string, ImplantCase>();
+      for (const c of all) {
+        if (c.assignedEmployee?.id === employeeId) byId.set(c.id, c);
+        for (const s of c.stages) {
+          if (s.assignedEmployee?.id === employeeId || s.assistantEmployee?.id === employeeId) {
+            byId.set(c.id, c);
+          }
+        }
+      }
+      return [...byId.values()];
+    }
     // RLS returns rows where employee is primary assignee OR assistant on current stage.
     const { data, error } = await supabase
       .from('cases')
@@ -534,6 +691,19 @@ export const sbCaseRepo = {
     const fcfsStages = fcfsStagesForEmployee(employee);
     if (fcfsStages.length === 0) return [];
 
+    if (useWorkerCaseScopeReads()) return fetchFcfsPoolForEmployeeFromWorker(employee);
+    if (useWorkerReads()) {
+      const all = await fetchAllCasesFromWorker();
+      return all
+        .filter((c) => !c.assignedEmployee)
+        .filter((c) => ['Active', 'Draft'].includes(c.status))
+        .filter((c) => fcfsStages.includes(normalizeWorkflowStageName(c.currentStage)))
+        .filter((c) => {
+          const stageDept = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(c.currentStage)];
+          return !stageDept || c.currentDepartment === stageDept;
+        });
+    }
+
     const { data, error } = await supabase
       .from('cases')
       .select('*')
@@ -555,6 +725,33 @@ export const sbCaseRepo = {
     employeeId: string,
     employee: Pick<Employee, 'department' | 'departments'>,
   ): Promise<ImplantCase[]> {
+    if (useWorkerCaseScopeReads()) {
+      return fetchCasesForEmployeeIncludingPoolFromWorker(employeeId, employee);
+    }
+    if (useWorkerReads()) {
+      const all = await fetchAllCasesFromWorker();
+      const fcfsStages = fcfsStagesForEmployee(employee);
+      const byId = new Map<string, ImplantCase>();
+      for (const c of all) {
+        if (c.assignedEmployee?.id === employeeId) byId.set(c.id, c);
+        for (const s of c.stages) {
+          if (s.assignedEmployee?.id === employeeId || s.assistantEmployee?.id === employeeId) {
+            byId.set(c.id, c);
+          }
+        }
+      }
+      if (fcfsStages.length > 0) {
+        for (const c of all) {
+          if (c.assignedEmployee) continue;
+          if (!['Active', 'Draft'].includes(c.status)) continue;
+          if (!fcfsStages.includes(normalizeWorkflowStageName(c.currentStage))) continue;
+          const stageDept = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(c.currentStage)];
+          if (stageDept && c.currentDepartment !== stageDept) continue;
+          byId.set(c.id, c);
+        }
+      }
+      return [...byId.values()];
+    }
     const [assigned, pool] = await Promise.all([
       this.getForEmployee(employeeId),
       this.getFcfsPoolForEmployee(employeeId, employee),
@@ -565,6 +762,10 @@ export const sbCaseRepo = {
   },
 
   async claimCase(caseId: string, employee: Employee): Promise<ImplantCase> {
+    if (useWorkerWritesCaseClaim()) {
+      const row = await claimCaseOnWorker(caseId, employee);
+      return caseRowToImplantCase(row);
+    }
     const existing = await this.getById(caseId);
     if (!existing) throw new Error('Case not found');
     if (!isFcfsStage(existing.currentStage)) throw new Error('This stage is not FCFS.');
@@ -608,12 +809,17 @@ export const sbCaseRepo = {
   },
 
   async getById(id: string): Promise<ImplantCase | null> {
+    if (useWorkerReads()) return fetchCaseByIdFromWorker(id);
     const { data, error } = await supabase.from('cases').select('*').eq('id', id).single();
     if (error || !data) return null;
     return caseRowToImplantCase(data as Record<string, unknown>);
   },
 
   async create(c: ImplantCase): Promise<ImplantCase> {
+    if (useWorkerWritesCases()) {
+      await createCaseOnWorker(c);
+      return c;
+    }
     const row = caseToRow(c);
     if (!row.hospital_id) {
       throw new Error('Hospital must be saved in the database before creating a case. Re-add the hospital and try again.');
@@ -636,6 +842,10 @@ export const sbCaseRepo = {
       );
     }
     const merged = { ...base, ...updates, updatedAt: new Date().toISOString() };
+    if (useWorkerWritesCases()) {
+      await saveCaseOnWorker(merged);
+      return merged;
+    }
     const row = caseToRow(merged);
 
     const trySave = async () => supabase.rpc('save_case_for_session', { p_case: row });
@@ -648,6 +858,11 @@ export const sbCaseRepo = {
       rpcMessage.toLowerCase().includes('assigned to') && rpcMessage.toLowerCase().includes('not you');
 
     if (assigneeBlocked) {
+      if (useWorkerWritesCases()) {
+        await syncCaseHeaderOnWorker(id);
+        await saveCaseOnWorker(merged);
+        return merged;
+      }
       const { error: syncErr } = await supabase.rpc('sync_case_header_from_stages', { p_case_id: id });
       if (!syncErr) {
         ({ error: rpcError } = await trySave());
@@ -683,6 +898,7 @@ export const sbCaseRepo = {
   },
 
   async delete(id: string): Promise<void> {
+    if (useWorkerWritesCases()) return deleteCaseOnWorker(id);
     const { error } = await supabase.from('cases').delete().eq('id', id);
     if (error) throw error;
   },
@@ -690,7 +906,11 @@ export const sbCaseRepo = {
   async saveAll(cases: ImplantCase[]): Promise<void> {
     // Used by useStore's bulk-save pattern
     for (const c of cases) {
-      await this.update(c.id, c).catch(() => this.create(c));
+      if (useWorkerWritesCases()) {
+        await saveCaseOnWorker(c).catch(() => createCaseOnWorker(c));
+      } else {
+        await this.update(c.id, c).catch(() => this.create(c));
+      }
     }
   },
 };
@@ -700,6 +920,7 @@ export const sbCaseRepo = {
 
 export const sbNotificationRepo = {
   async getAll(recipientId?: string): Promise<Notification[]> {
+    if (useWorkerNotificationReads()) return fetchNotificationsFromWorker(recipientId);
     let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
     if (recipientId) {
       // A single employee never needs their entire lifetime history on
@@ -720,16 +941,19 @@ export const sbNotificationRepo = {
   },
 
   async markRead(id: string): Promise<void> {
+    if (useWorkerWritesNotifications()) return markNotificationReadOnWorker(id);
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
     if (error) throw error;
   },
 
   async markAllRead(recipientId: string): Promise<void> {
+    if (useWorkerWritesNotifications()) return markAllNotificationsReadOnWorker(recipientId);
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('recipient_id', recipientId).eq('is_read', false);
     if (error) throw error;
   },
 
   async create(n: Notification & { recipientId?: string }): Promise<void> {
+    if (useWorkerWritesNotifications()) return createNotificationOnWorker(n);
     const { error } = await supabase.from('notifications').insert({
       id: n.id,
       title: n.title,
@@ -748,12 +972,14 @@ export const sbNotificationRepo = {
 
 export const sbApprovalRepo = {
   async getAll(): Promise<Approval[]> {
+    if (useWorkerRemainingReads()) return fetchApprovalsFromWorker();
     const { data, error } = await supabase.from('approvals').select('*').order('submitted_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map((row) => snakeToCamel<Approval>(row as Record<string, unknown>));
   },
 
   async upsert(a: Approval): Promise<void> {
+    if (useWorkerWritesApprovals()) return upsertApprovalOnWorker(a);
     const { error } = await supabase.from('approvals').upsert({
       id: a.id,
       case_id: a.caseId,
@@ -793,6 +1019,7 @@ function mapCaseTaskRequestRow(row: Record<string, unknown>): CaseTaskRequest {
 
 export const sbCaseTaskRequestRepo = {
   async getAll(): Promise<CaseTaskRequest[]> {
+    if (useWorkerRemainingReads()) return fetchAllCaseTaskRequestsFromWorker();
     const { data, error } = await supabase
       .from('case_task_requests')
       .select('*')
@@ -802,6 +1029,7 @@ export const sbCaseTaskRequestRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<CaseTaskRequest[]> {
+    if (useWorkerRemainingReads()) return fetchCaseTaskRequestsForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('case_task_requests')
       .select('*')
@@ -812,6 +1040,7 @@ export const sbCaseTaskRequestRepo = {
   },
 
   async getPendingForCase(caseId: string): Promise<CaseTaskRequest[]> {
+    if (useWorkerRemainingReads()) return fetchPendingCaseTaskRequestsForCaseFromWorker(caseId);
     const { data, error } = await supabase
       .from('case_task_requests')
       .select('*')
@@ -823,6 +1052,7 @@ export const sbCaseTaskRequestRepo = {
   },
 
   async create(req: CaseTaskRequest): Promise<CaseTaskRequest> {
+    if (useWorkerWritesCaseTasks()) return createCaseTaskOnWorker(req);
     const { data, error } = await supabase
       .from('case_task_requests')
       .insert({
@@ -847,6 +1077,7 @@ export const sbCaseTaskRequestRepo = {
     status: CaseTaskRequest['status'],
     reviewed: { reviewedBy: string; reviewedById: string; adminNotes?: string },
   ): Promise<void> {
+    if (useWorkerWritesCaseTasks()) return updateCaseTaskStatusOnWorker(id, status, reviewed);
     const { error } = await supabase
       .from('case_task_requests')
       .update({
@@ -866,6 +1097,9 @@ export const sbCaseTaskRequestRepo = {
     assignedEmployeeId: string | null,
     reviewed: { reviewedBy: string; reviewedById: string; adminNotes?: string },
   ): Promise<void> {
+    if (useWorkerWritesCaseTasks()) {
+      return resolveCaseTasksOnWorker(caseId, approvedRequestId, assignedEmployeeId, reviewed);
+    }
     const pending = await this.getPendingForCase(caseId);
     const reviewedAt = new Date().toISOString();
     for (const r of pending) {
@@ -894,6 +1128,7 @@ export const sbCaseTaskRequestRepo = {
 
 export const sbActivityRepo = {
   async getAll(): Promise<ActivityEvent[]> {
+    if (useWorkerRemainingReads()) return fetchActivityFromWorker();
     const { data, error } = await supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(500);
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -910,6 +1145,7 @@ export const sbActivityRepo = {
   },
 
   async insert(e: ActivityEvent): Promise<void> {
+    if (useWorkerWritesActivity()) return writeActivityToWorker(e);
     const { error } = await supabase.from('activity_log').insert({
       id: e.id,
       action: e.action,
@@ -929,6 +1165,7 @@ export const sbActivityRepo = {
 
 export const sbAttendanceRepo = {
   async getAll(): Promise<AttendanceRecord[]> {
+    if (useWorkerOperationsReads()) return fetchAllAttendanceFromWorker();
     const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from('attendance_records')
@@ -940,6 +1177,7 @@ export const sbAttendanceRepo = {
   },
 
   async getRecentForEmployee(employeeId: string, sinceIso: string): Promise<AttendanceRecord[]> {
+    if (useWorkerOperationsReads()) return fetchRecentAttendanceForEmployeeFromWorker(employeeId, sinceIso);
     const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from('attendance_records')
@@ -953,6 +1191,7 @@ export const sbAttendanceRepo = {
   },
 
   async insert(record: AttendanceRecord): Promise<void> {
+    if (useWorkerWritesAttendance()) return insertAttendanceOnWorker(record);
     const { error } = await supabase.from('attendance_records').insert({
       id: record.id,
       employee_id: record.employeeId,
@@ -971,6 +1210,7 @@ export const sbAttendanceRepo = {
   },
 
   async update(id: string, updates: Partial<AttendanceRecord>): Promise<void> {
+    if (useWorkerWritesAttendance()) return patchAttendanceOnWorker(id, updates);
     const payload: Record<string, unknown> = {};
     if (updates.selfieUrl !== undefined) payload.selfie_url = updates.selfieUrl;
     if (Object.keys(payload).length === 0) return;
@@ -980,6 +1220,7 @@ export const sbAttendanceRepo = {
 
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    if (useWorkerWritesAttendance()) return deleteAttendanceIdsOnWorker(ids);
     const { error } = await supabase.from('attendance_records').delete().in('id', ids);
     if (error) throw error;
   },
@@ -1014,6 +1255,7 @@ function mapAttendanceApprovalRow(row: Record<string, unknown>): AttendanceAppro
 
 export const sbAttendanceApprovalRepo = {
   async getAll(): Promise<AttendanceApprovalRequest[]> {
+    if (useWorkerOperationsReads()) return fetchAllAttendanceApprovalsFromWorker();
     const { data, error } = await supabase
       .from('attendance_approval_requests')
       .select('*')
@@ -1023,6 +1265,7 @@ export const sbAttendanceApprovalRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<AttendanceApprovalRequest[]> {
+    if (useWorkerOperationsReads()) return fetchAttendanceApprovalsForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('attendance_approval_requests')
       .select('*')
@@ -1033,6 +1276,7 @@ export const sbAttendanceApprovalRepo = {
   },
 
   async insert(request: AttendanceApprovalRequest): Promise<void> {
+    if (useWorkerWritesAttendance()) return insertAttendanceApprovalOnWorker(request);
     const { error } = await supabase.from('attendance_approval_requests').insert({
       id: request.id,
       employee_id: request.employeeId,
@@ -1056,6 +1300,7 @@ export const sbAttendanceApprovalRepo = {
   },
 
   async update(id: string, updates: Partial<AttendanceApprovalRequest>): Promise<void> {
+    if (useWorkerWritesAttendance()) return patchAttendanceApprovalOnWorker(id, updates);
     const payload: Record<string, unknown> = {};
     if (updates.status !== undefined) payload.status = updates.status;
     if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
@@ -1074,6 +1319,7 @@ export const sbAttendanceApprovalRepo = {
 
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    if (useWorkerWritesAttendance()) return deleteAttendanceApprovalIdsOnWorker(ids);
     const { error } = await supabase.from('attendance_approval_requests').delete().in('id', ids);
     if (error) throw error;
   },
@@ -1098,6 +1344,7 @@ function mapFieldTeamAttendanceRow(row: Record<string, unknown>): FieldTeamAtten
 
 export const sbFieldTeamAttendanceRepo = {
   async getAll(): Promise<FieldTeamAttendanceApproval[]> {
+    if (useWorkerOperationsReads()) return fetchAllFieldTeamAttendanceFromWorker();
     const { data, error } = await supabase
       .from('field_team_attendance_approvals')
       .select('*')
@@ -1107,6 +1354,7 @@ export const sbFieldTeamAttendanceRepo = {
   },
 
   async getForDate(dateKey: string): Promise<FieldTeamAttendanceApproval[]> {
+    if (useWorkerOperationsReads()) return fetchFieldTeamAttendanceForDateFromWorker(dateKey);
     const { data, error } = await supabase
       .from('field_team_attendance_approvals')
       .select('*')
@@ -1116,6 +1364,7 @@ export const sbFieldTeamAttendanceRepo = {
   },
 
   async upsert(row: FieldTeamAttendanceApproval): Promise<void> {
+    if (useWorkerWritesAttendance()) return upsertFieldTeamOnWorker(row);
     const { error } = await supabase.from('field_team_attendance_approvals').upsert(
       {
         id: row.id,
@@ -1137,6 +1386,7 @@ export const sbFieldTeamAttendanceRepo = {
   },
 
   async update(id: string, updates: Partial<FieldTeamAttendanceApproval>): Promise<void> {
+    if (useWorkerWritesAttendance()) return patchFieldTeamOnWorker(id, updates);
     const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (updates.status !== undefined) payload.status = updates.status;
     if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
@@ -1177,6 +1427,7 @@ function mapLeaveRow(row: Record<string, unknown>): LeaveRequest {
 
 export const sbLeaveRepo = {
   async getAll(): Promise<LeaveRequest[]> {
+    if (useWorkerOperationsReads()) return fetchAllLeaveFromWorker();
     const { data, error } = await supabase
       .from('leave_requests')
       .select('*')
@@ -1186,6 +1437,7 @@ export const sbLeaveRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<LeaveRequest[]> {
+    if (useWorkerOperationsReads()) return fetchLeaveForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('leave_requests')
       .select('*')
@@ -1196,6 +1448,14 @@ export const sbLeaveRepo = {
   },
 
   async insert(request: LeaveRequest): Promise<void> {
+    if (
+      request.status === 'pending' &&
+      !request.reviewedById &&
+      useWorkerWritesLeave()
+    ) {
+      const { submitOwnLeaveOnWorker } = await import('../../workerWriteApiMedium');
+      return submitOwnLeaveOnWorker(request);
+    }
     if (request.status === 'pending' && !request.reviewedById) {
       const { error: rpcError } = await supabase.rpc('submit_own_leave', {
         p_id: request.id,
@@ -1233,6 +1493,7 @@ export const sbLeaveRepo = {
   },
 
   async update(id: string, updates: Partial<LeaveRequest>): Promise<void> {
+    if (useWorkerWritesLeave()) return patchLeaveOnWorker(id, updates);
     const payload: Record<string, unknown> = {};
     if (updates.status !== undefined) payload.status = updates.status;
     if (updates.reviewedBy !== undefined) payload.reviewed_by = updates.reviewedBy;
@@ -1251,6 +1512,7 @@ export const sbLeaveRepo = {
 
   async deleteByIds(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    if (useWorkerWritesLeave()) return deleteLeaveIdsOnWorker(ids);
     const { error } = await supabase.from('leave_requests').delete().in('id', ids);
     if (error) throw error;
   },
@@ -1280,6 +1542,7 @@ function rowToExpense(row: Record<string, unknown>): DailyExpense {
 
 export const sbExpenseRepo = {
   async getAll(): Promise<DailyExpense[]> {
+    if (useWorkerOperationsReads()) return fetchAllDailyExpensesFromWorker();
     const { data, error } = await supabase
       .from('employee_daily_expenses')
       .select('*')
@@ -1290,6 +1553,7 @@ export const sbExpenseRepo = {
 
   /** Insert or update by primary key `id` (the store resolves the existing id for the employee+date first). */
   async upsert(expense: DailyExpense): Promise<void> {
+    if (useWorkerWritesExpenses()) return upsertDailyExpenseOnWorker(expense);
     const { error } = await supabase.from('employee_daily_expenses').upsert({
       id: expense.id,
       employee_id: expense.employeeId,
@@ -1310,6 +1574,7 @@ export const sbExpenseRepo = {
   },
 
   async delete(id: string): Promise<void> {
+    if (useWorkerWritesExpenses()) return deleteDailyExpenseOnWorker(id);
     const { error } = await supabase.from('employee_daily_expenses').delete().eq('id', id);
     if (error) throw error;
   },
@@ -1324,12 +1589,14 @@ function settingsRowToEntry(row: Record<string, unknown>): [string, string] {
 
 export const sbSettingsRepo = {
   async getAll(): Promise<Record<string, string>> {
+    if (useWorkerReferenceReads()) return fetchSettingsFromWorker();
     const { data, error } = await supabase.from('app_settings').select('key, value');
     if (error) throw error;
     return Object.fromEntries((data ?? []).map(settingsRowToEntry));
   },
 
   async set(key: string, value: string, updatedBy: string): Promise<void> {
+    if (useWorkerWritesSettings()) return setAppSettingOnWorker(key, value, updatedBy);
     const { error } = await supabase.from('app_settings').upsert({
       key,
       value,
@@ -1345,6 +1612,7 @@ export const sbSettingsRepo = {
 
 export const sbDepartmentRepo = {
   async getAll(): Promise<DepartmentInfo[]> {
+    if (useWorkerReferenceReads()) return fetchDepartmentsFromWorker();
     const { data, error } = await supabase.from('departments').select('*').order('name');
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -1361,6 +1629,7 @@ export const sbDepartmentRepo = {
 
 export const sbKitRepo = {
   async getAll(): Promise<SurgicalKit[]> {
+    if (useWorkerReferenceReads()) return fetchKitsFromWorker();
     const { data, error } = await supabase.from('surgical_kits').select('*').order('name');
     if (error) throw error;
     return (data ?? []).map((row) => ({
@@ -1374,6 +1643,7 @@ export const sbKitRepo = {
   },
 
   async update(id: string, updates: Partial<SurgicalKit>): Promise<void> {
+    if (useWorkerWritesKits()) return patchSurgicalKitOnWorker(id, updates);
     const patch: Record<string, unknown> = {};
     if (updates.status)       patch.status = updates.status;
     if (updates.lastUsedDate) patch.last_used_date = updates.lastUsedDate;
@@ -1414,6 +1684,7 @@ function rowToPetrol(row: Record<string, unknown>): PetrolRequest {
 
 export const sbPetrolRepo = {
   async getAll(): Promise<PetrolRequest[]> {
+    if (useWorkerOperationsReads()) return fetchAllPetrolFromWorker();
     const { data, error } = await supabase
       .from('petrol_requests')
       .select('*')
@@ -1423,6 +1694,7 @@ export const sbPetrolRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<PetrolRequest[]> {
+    if (useWorkerOperationsReads()) return fetchPetrolForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('petrol_requests')
       .select('*')
@@ -1433,6 +1705,7 @@ export const sbPetrolRepo = {
   },
 
   async insert(request: PetrolRequest): Promise<void> {
+    if (useWorkerWritesPetrol()) return insertPetrolOnWorker(request);
     const { error } = await supabase.from('petrol_requests').insert({
       id: request.id,
       employee_id: request.employeeId,
@@ -1461,6 +1734,7 @@ export const sbPetrolRepo = {
   },
 
   async update(id: string, updates: Partial<PetrolRequest>): Promise<void> {
+    if (useWorkerWritesPetrol()) return patchPetrolOnWorker(id, updates);
     const payload: Record<string, unknown> = {};
     if (updates.vehicleNo !== undefined) payload.vehicle_no = updates.vehicleNo;
     if (updates.amount !== undefined) payload.amount = updates.amount;
@@ -1485,11 +1759,13 @@ export const sbPetrolRepo = {
   },
 
   async remove(id: string): Promise<void> {
+    if (useWorkerWritesPetrol()) return removePetrolOnWorker(id);
     const { error } = await supabase.from('petrol_requests').delete().eq('id', id);
     if (error) throw error;
   },
 
   async removeAll(): Promise<void> {
+    if (useWorkerWritesPetrol()) return removeAllPetrolOnWorker();
     const { error } = await supabase
       .from('petrol_requests')
       .delete()
@@ -1571,6 +1847,7 @@ function rowToLocationTrip(row: Record<string, unknown>): LocationTrip {
 
 export const sbLocationTripRepo = {
   async getAll(): Promise<LocationTrip[]> {
+    if (useWorkerOperationsReads()) return fetchAllLocationTripsFromWorker();
     const { data, error } = await supabase
       .from('location_trips')
       .select('*')
@@ -1580,6 +1857,7 @@ export const sbLocationTripRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<LocationTrip[]> {
+    if (useWorkerOperationsReads()) return fetchLocationTripsForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('location_trips')
       .select('*')
@@ -1590,6 +1868,7 @@ export const sbLocationTripRepo = {
   },
 
   async insert(trip: LocationTrip): Promise<void> {
+    if (useWorkerWritesTrips()) return insertLocationTripOnWorker(trip);
     const payload: Record<string, unknown> = {
       id: trip.id,
       employee_id: trip.employeeId,
@@ -1651,6 +1930,7 @@ export const sbLocationTripRepo = {
   },
 
   async update(id: string, updates: Partial<LocationTrip>): Promise<void> {
+    if (useWorkerWritesTrips()) return patchLocationTripOnWorker(id, updates);
     const payload: Record<string, unknown> = {};
     if (updates.notes !== undefined) payload.notes = updates.notes;
     if (updates.status !== undefined) payload.status = updates.status;
@@ -1702,6 +1982,7 @@ export const sbLocationTripRepo = {
   },
 
   async remove(id: string): Promise<void> {
+    if (useWorkerWritesTrips()) return removeLocationTripOnWorker(id);
     const { error } = await supabase.from('location_trips').delete().eq('id', id);
     if (error) throw error;
   },
@@ -1726,6 +2007,7 @@ function mapFoodRow(row: Record<string, unknown>): EmployeeFoodSelection {
 
 export const sbFoodRepo = {
   async getAll(): Promise<EmployeeFoodSelection[]> {
+    if (useWorkerOperationsReads()) return fetchAllFoodFromWorker();
     const { data, error } = await supabase
       .from('employee_food_selections')
       .select('*')
@@ -1735,6 +2017,7 @@ export const sbFoodRepo = {
   },
 
   async getForEmployee(employeeId: string): Promise<EmployeeFoodSelection[]> {
+    if (useWorkerOperationsReads()) return fetchFoodForEmployeeFromWorker(employeeId);
     const { data, error } = await supabase
       .from('employee_food_selections')
       .select('*')
@@ -1745,6 +2028,7 @@ export const sbFoodRepo = {
   },
 
   async getForDateRange(fromDate: string, toDate: string): Promise<EmployeeFoodSelection[]> {
+    if (useWorkerOperationsReads()) return fetchFoodForDateRangeFromWorker(fromDate, toDate);
     const { data, error } = await supabase
       .from('employee_food_selections')
       .select('*')
@@ -1756,6 +2040,10 @@ export const sbFoodRepo = {
   },
 
   async submitOwn(selection: EmployeeFoodSelection): Promise<EmployeeFoodSelection> {
+    if (useWorkerWritesFood()) {
+      const { submitOwnFoodOnWorker } = await import('../../workerWriteApiMedium');
+      return submitOwnFoodOnWorker(selection);
+    }
     const { data, error: rpcError } = await supabase.rpc('submit_own_food_meals', {
       p_meal_date: selection.mealDate,
       p_breakfast: selection.breakfast,
@@ -1792,6 +2080,7 @@ export const sbFoodRepo = {
   },
 
   async adminSubmit(selection: EmployeeFoodSelection): Promise<EmployeeFoodSelection> {
+    if (useWorkerWritesFood()) return adminSubmitFoodOnWorker(selection);
     const { data, error } = await supabase
       .from('employee_food_selections')
       .upsert(
@@ -1820,6 +2109,7 @@ export const sbFoodRepo = {
       await this.submitOwn(selection);
       return;
     }
+    if (useWorkerWritesFood()) return upsertFoodOnWorker(selection);
     const { error } = await supabase.from('employee_food_selections').upsert(
       {
         id: selection.id,

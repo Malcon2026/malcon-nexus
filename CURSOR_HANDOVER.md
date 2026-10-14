@@ -138,3 +138,4 @@ When taking over in Cursor:
    - If deploying web changes, run `npm run deploy:hostinger`.
 3. **Preserve Database Contracts**: Do not modify Supabase tables, migrations, or the `cases.stages` structure unless explicitly instructed by the user.
 4. **Preserve Workflow Order**: Keep `Set Preparation` → `Delivery` → `Surgery` → `Pickup from Hospital` → `Checking & Audit` → `Restock` → `Completed`.
+

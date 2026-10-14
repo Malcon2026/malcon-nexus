@@ -20,5 +20,8 @@ dist/
 EMP ATTENDANCE*.xlsx
 .env*
 
+# Emergency DB/storage exports (never commit)
+backups/
+
 # WhatsApp Web.js local cache
 .wwebjs_cache/

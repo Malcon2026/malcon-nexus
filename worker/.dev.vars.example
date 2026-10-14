@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local `wrangler dev` (never commit .dev.vars)
+# ENVIRONMENT=development
+# JWT_SECRET=local-dev-only-secret
+# SUPABASE_JWT_SECRET=same-as-supabase-dashboard-jwt-secret
+# SUPABASE_JWT_AUD=authenticated
+# API_REQUIRE_AUTH=1

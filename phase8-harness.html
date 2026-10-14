@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Phase 8 read harness (local only)</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 1rem; }
+      pre { background: #f4f4f5; padding: 0.75rem; overflow: auto; max-height: 40vh; }
+      .pass { color: #15803d; }
+      .fail { color: #b91c1c; }
+    </style>
+  </head>
+  <body>
+    <h1>Phase 8 read harness</h1>
+    <p>Uses the same <code>sbEmployeeRepo</code> / <code>sbCaseRepo</code> modules as the SPA (no UI).</p>
+    <div id="status">Running…</div>
+    <pre id="log"></pre>
+    <script type="module" src="/src/dev/phase8ReadHarness.ts"></script>
+  </body>
+</html>

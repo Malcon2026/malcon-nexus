@@ -1,0 +1,23 @@
+{
+  "synthetic": true,
+  "expected_counts": {
+    "departments": 1,
+    "app_settings": 1,
+    "hospitals": 1,
+    "employees": 1,
+    "doctors": 1,
+    "cases": 1,
+    "employee_daily_expenses": 1,
+    "notifications": 1,
+    "activity_log": 1,
+    "attendance_records": 1,
+    "hr_job_postings": 1,
+    "hr_walk_in_applications": 1,
+    "hr_kyc_intake": 1,
+    "hr_onboarding_tracks": 1,
+    "malcon_tms_profiles": 1,
+    "malcon_tms_tasks": 1,
+    "malcon_tms_activity": 1
+  },
+  "generatedAt": "2026-05-01T12:00:00.000Z"
+}

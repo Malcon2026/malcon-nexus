@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1791979740647,
+      "tag": "0000_famous_daimon_hellstrom",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791980000000,
+      "tag": "0001_hr_tms_production_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791990500000,
+      "tag": "0002_attendance_approval_distance_m",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791990600000,
+      "tag": "0003_production_column_alignment",
+      "breakpoints": true
+    }
+  ]
+}

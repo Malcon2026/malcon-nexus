@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { USE_WORKER_STORAGE } from './workerStorageConfig';
+import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
 import type { Document, Employee, WorkflowStage } from '../types';
 import { canViewCaseStagePhotos } from './superAdmin';
@@ -313,8 +315,27 @@ async function uploadStagePhotoToStorage(
   const fullPath = `${basePath}-full.jpg`;
   const thumbPath = `${basePath}-thumb.jpg`;
 
-  const bucket = supabase.storage.from('stage-photos');
   const contentType = 'image/jpeg';
+
+  if (USE_WORKER_STORAGE) {
+    await uploadViaWorkerStorage('stage-photos', fullPath, file, { caseId });
+    const thumbUp = await uploadViaWorkerStorage('stage-photos', thumbPath, thumbFile, { caseId });
+    const url = thumbUp.publicUrl;
+    if (!url) {
+      throw new Error('Photo uploaded but public URL is not configured for Worker storage yet.');
+    }
+    return {
+      id: photoId,
+      name: `${stage} photo`,
+      type: contentType,
+      size: formatFileSize(thumbFile.size),
+      uploadedBy,
+      uploadedAt: new Date().toISOString(),
+      url,
+    };
+  }
+
+  const bucket = supabase.storage.from('stage-photos');
 
   const { error: fullError } = await bucket.upload(fullPath, file, {
     contentType: file.type || contentType,
