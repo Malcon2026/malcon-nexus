@@ -43,7 +43,12 @@ export async function fetchEmployeeByIdFromWorker(id: string): Promise<Employee 
 
 export async function fetchAllCasesFromWorker(): Promise<ImplantCase[]> {
   const details = await getAllCasesViaWorker();
-  return Promise.all(details.map((d) => toImplantCase(d)));
+  if (details.length === 0) return [];
+  if (!caseRowToImplantCaseFn) {
+    const mod = await import('./database/repositories/supabaseRepositories');
+    caseRowToImplantCaseFn = mod.caseRowToImplantCase;
+  }
+  return details.map((d) => caseRowToImplantCaseFn!(workerCaseDetailToPgRow(d)));
 }
 
 export async function fetchHospitalsFromWorker(): Promise<Hospital[]> {

@@ -130,22 +130,9 @@ function adminEssentialTasks(): BootstrapTask[] {
   return [
     { key: 'cases', run: () => sbCaseRepo.getAll() },
     { key: 'notifications', run: () => sbNotificationRepo.getAll() },
-    {
-      key: 'attendanceRecords',
-      run: () => sbAttendanceRepo.getRecentSince(getAttendanceBootstrapSinceIso()),
-    },
     { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
     { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
     { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
-    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
-    {
-      key: 'foodSelections',
-      run: () => {
-        const { from, to } = foodLoadWindow(getISTDateKey());
-        return sbFoodRepo.getForDateRange(from, to);
-      },
-    },
-    { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
     { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     { key: 'employees', run: () => sbEmployeeRepo.getAll() },
     { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
@@ -159,6 +146,19 @@ function adminDeferredTasks(): BootstrapTask[] {
   return [
     { key: 'kits', run: () => sbKitRepo.getAll() },
     { key: 'activityLog', run: () => sbActivityRepo.getAll() },
+    {
+      key: 'attendanceRecords',
+      run: () => sbAttendanceRepo.getRecentSince(getAttendanceBootstrapSinceIso()),
+    },
+    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+    {
+      key: 'foodSelections',
+      run: () => {
+        const { from, to } = foodLoadWindow(getISTDateKey());
+        return sbFoodRepo.getForDateRange(from, to);
+      },
+    },
+    { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
   ];
 }
 
@@ -267,18 +267,27 @@ function shouldSkipEssentialFetch(
   return isSessionCacheFresh(options.employeeId, BOOTSTRAP_CACHE_TTL_MS);
 }
 
+/** Avoid dozens of simultaneous Worker/D1 calls during login. */
+const BOOTSTRAP_TASK_CONCURRENCY = 4;
+
 async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<void> {
   if (!supabaseStorage || tasks.length === 0) return;
 
   const startedAt = performance.now();
-  const timedTasks = tasks.map((t) => {
-    const taskStart = performance.now();
-    return t.run().then(
-      (value) => ({ value, ms: performance.now() - taskStart }),
-      (reason) => Promise.reject({ reason, ms: performance.now() - taskStart }),
-    );
-  });
-  const results = await Promise.allSettled(timedTasks);
+  const results: PromiseSettledResult<{ value: unknown; ms: number }>[] = [];
+
+  for (let i = 0; i < tasks.length; i += BOOTSTRAP_TASK_CONCURRENCY) {
+    const slice = tasks.slice(i, i + BOOTSTRAP_TASK_CONCURRENCY);
+    const timedTasks = slice.map((t) => {
+      const taskStart = performance.now();
+      return t.run().then(
+        (value) => ({ value, ms: performance.now() - taskStart }),
+        (reason) => Promise.reject({ reason, ms: performance.now() - taskStart }),
+      );
+    });
+    const batch = await Promise.allSettled(timedTasks);
+    results.push(...batch);
+  }
 
   let slowestKey = '';
   let slowestMs = 0;
@@ -438,10 +447,12 @@ export async function bootstrapEssential(
     };
 
     if (priority.length > 0) {
-      void runBootstrapTasks(priority, 'essential-priority').then(notify);
+      await runBootstrapTasks(priority, 'essential-priority');
+      notify();
     }
     if (rest.length > 0) {
-      void runBootstrapTasks(rest, 'essential-rest').then(notify);
+      await runBootstrapTasks(rest, 'essential-rest');
+      notify();
     }
   }
   return true;

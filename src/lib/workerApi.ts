@@ -124,34 +124,27 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
   }
 }
 
-const CASE_BOOTSTRAP_PAGE_SIZE = 500;
+const CASE_BOOTSTRAP_PAGE_SIZE = 200;
 
-/** Fetch all pages in parallel after the first (same host, HTTP/2). */
+/** Sequential pages — unbounded parallel requests were overloading D1 and slowing login. */
 async function fetchAllPaginated<T>(
   fetchPage: (page: number, pageSize: number) => Promise<Paginated<T>>,
   options: { cap?: number; pageSize: number },
 ): Promise<T[]> {
   const cap = options.cap ?? Number.POSITIVE_INFINITY;
   const pageSize = options.pageSize;
-  const first = await fetchPage(1, Math.min(pageSize, cap));
   const out: T[] = [];
-  for (const row of first.items) {
-    out.push(row);
-    if (out.length >= cap) return out;
-  }
-  const { totalPages } = first.pagination;
-  if (totalPages <= 1) return out;
-
-  const restPages: number[] = [];
-  for (let p = 2; p <= totalPages; p += 1) {
-    restPages.push(p);
-  }
-  const chunks = await Promise.all(restPages.map((p) => fetchPage(p, pageSize)));
-  for (const chunk of chunks) {
+  let page = 1;
+  let totalPages = 1;
+  while (out.length < cap && page <= totalPages) {
+    const chunk = await fetchPage(page, Math.min(pageSize, cap - out.length));
+    totalPages = chunk.pagination.totalPages;
     for (const row of chunk.items) {
       out.push(row);
       if (out.length >= cap) return out;
     }
+    if (chunk.items.length === 0) break;
+    page += 1;
   }
   return out;
 }
@@ -181,7 +174,7 @@ export type WorkerNotificationRow = {
 /** Match Supabase employee bootstrap cap; admin uses a higher bounded cap (not full-table). */
 export const NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE = 300;
 export const NOTIFICATION_BOOTSTRAP_CAP_ADMIN = 500;
-const NOTIFICATION_PAGE_SIZE = 250;
+const NOTIFICATION_PAGE_SIZE = 100;
 
 export async function getNotificationsPage(params: {
   page?: number;
@@ -256,7 +249,7 @@ export type WorkerKitRow = {
   last_used_date: string | null;
 };
 
-const REFERENCE_PAGE_SIZE = 250;
+const REFERENCE_PAGE_SIZE = 100;
 export const REFERENCE_BOOTSTRAP_CAP = 2000;
 
 export async function getHospitalsPage(page: number, pageSize: number): Promise<Paginated<WorkerHospitalRow>> {
@@ -302,7 +295,7 @@ export async function getAppSettingsViaWorker(): Promise<Record<string, string>>
 
 export type WorkerPgRow = Record<string, unknown>;
 
-const OPERATIONS_PAGE_SIZE = 250;
+const OPERATIONS_PAGE_SIZE = 100;
 export const OPERATIONS_BOOTSTRAP_CAP = 2000;
 export const ATTENDANCE_BOOTSTRAP_CAP = 5000;
 

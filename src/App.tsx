@@ -228,18 +228,26 @@ function MainApp() {
 
   useEffect(() => {
     if (!REMOTE_AUTH || !isAuthenticated) return;
+    let bootstrapReloadTimer: ReturnType<typeof setTimeout> | null = null;
     const onBootstrapUpdated = () => {
-      reloadFromDatabase();
-      void Promise.all([
-        import('./lib/database/bootstrap'),
-        import('./lib/roles'),
-      ]).then(([{ persistBootstrapCache }, { bootstrapRoleForEmployee }]) => {
-        const user = useStore.getState().currentUser;
-        persistBootstrapCache(user.id, bootstrapRoleForEmployee(user.role));
-      });
+      if (bootstrapReloadTimer != null) clearTimeout(bootstrapReloadTimer);
+      bootstrapReloadTimer = setTimeout(() => {
+        bootstrapReloadTimer = null;
+        reloadFromDatabase();
+        void Promise.all([
+          import('./lib/database/bootstrap'),
+          import('./lib/roles'),
+        ]).then(([{ persistBootstrapCache }, { bootstrapRoleForEmployee }]) => {
+          const user = useStore.getState().currentUser;
+          persistBootstrapCache(user.id, bootstrapRoleForEmployee(user.role));
+        });
+      }, 120);
     };
     window.addEventListener('malcon-bootstrap-updated', onBootstrapUpdated);
-    return () => window.removeEventListener('malcon-bootstrap-updated', onBootstrapUpdated);
+    return () => {
+      if (bootstrapReloadTimer != null) clearTimeout(bootstrapReloadTimer);
+      window.removeEventListener('malcon-bootstrap-updated', onBootstrapUpdated);
+    };
   }, [isAuthenticated, reloadFromDatabase]);
 
   const renderPage = () => {
