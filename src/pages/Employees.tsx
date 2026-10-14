@@ -96,14 +96,19 @@ export const Employees: React.FC = () => {
         return;
       }
     } else {
-      createEmployee({
-        name: form.name,
-        ...deptFields,
-        email: form.email,
-        phone: form.phone,
-        employeeCode: form.employeeCode.trim(),
-        role: form.role,
-      });
+      try {
+        await createEmployee({
+          name: form.name,
+          ...deptFields,
+          email: form.email,
+          phone: form.phone,
+          employeeCode: form.employeeCode.trim(),
+          role: form.role,
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Could not create employee. Try again.');
+        return;
+      }
     }
 
     setShowModal(false);

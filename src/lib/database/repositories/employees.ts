@@ -1,6 +1,17 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
+import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
 import { sbEmployeeRepo } from './supabaseRepositories';
+
+/** Worker/Supabase-backed employee rows — not browser-only localStorage. */
+const REMOTE_EMPLOYEES = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+
+function persistEmployeeList(list: Employee[]): void {
+  if (USE_CLOUDFLARE_BACKEND) {
+    Database.saveAll('employees', list);
+  }
+  setCache('employees', list);
+}
 import type { Employee } from '../../../types';
 import { normalizeDepartment, getEmployeeDepartments } from '../../../constants/departments';
 
@@ -20,10 +31,10 @@ export const employeeRepository = {
   },
 
   async create(item: Employee): Promise<Employee> {
-    if (USE_SUPABASE) {
+    if (REMOTE_EMPLOYEES) {
       await sbEmployeeRepo.create(item);
       const list = await this.getAll();
-      setCache('employees', [...list.filter(e => e.id !== item.id), item]);
+      persistEmployeeList([...list.filter((e) => e.id !== item.id), item]);
       return item;
     }
 
@@ -36,10 +47,10 @@ export const employeeRepository = {
   },
 
   async update(id: string, updates: Partial<Employee>): Promise<Employee> {
-    if (USE_SUPABASE) {
+    if (REMOTE_EMPLOYEES) {
       const updated = await sbEmployeeRepo.update(id, updates);
       const list = await this.getAll();
-      setCache('employees', list.map(e => (e.id === id ? updated : e)));
+      persistEmployeeList(list.map((e) => (e.id === id ? updated : e)));
       return updated;
     }
 
@@ -58,10 +69,10 @@ export const employeeRepository = {
   },
 
   async delete(id: string): Promise<void> {
-    if (USE_SUPABASE) {
+    if (REMOTE_EMPLOYEES) {
       await sbEmployeeRepo.delete(id);
       const list = await this.getAll();
-      setCache('employees', list.filter(e => e.id !== id));
+      persistEmployeeList(list.filter((e) => e.id !== id));
       return;
     }
 
