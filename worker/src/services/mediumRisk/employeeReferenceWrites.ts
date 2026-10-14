@@ -29,6 +29,8 @@ export async function createEmployee(
 ): Promise<void> {
   assertAdminWrite(ctx, relaxed);
   const ts = nowIso();
+  const code = body.employeeCode?.trim() || null;
+  try {
   await db.insert(employees).values({
     id: body.id,
     name: body.name,
@@ -39,13 +41,20 @@ export async function createEmployee(
     status: body.status,
     avatar: body.avatar ?? '',
     phone: body.phone ?? '',
-    employeeCode: body.employeeCode?.trim() || null,
+    employeeCode: code,
     casesCompleted: body.casesCompleted ?? 0,
     casesActive: body.casesActive ?? 0,
     joinDate: body.joinDate,
     createdAt: ts,
     updatedAt: ts,
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/unique|UNIQUE|idx_employees_employee_code|employees\.email/i.test(msg)) {
+      throw new AuthError('An employee with this email or employee ID already exists.', 409);
+    }
+    throw e;
+  }
 }
 
 export async function updateEmployee(

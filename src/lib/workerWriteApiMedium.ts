@@ -22,25 +22,36 @@ async function write(path: string, init: RequestInit): Promise<void> {
 }
 
 export async function createEmployeeOnWorker(e: Employee): Promise<Employee> {
-  await write('/api/employees', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: e.id,
-      name: e.name,
-      email: e.email,
-      department: e.department,
-      departments: getEmployeeDepartments(e),
-      role: e.role,
-      status: e.status,
-      avatar: e.avatar,
-      phone: e.phone,
-      employeeCode: e.employeeCode,
-      casesCompleted: e.casesCompleted,
-      casesActive: e.casesActive,
-      joinDate: e.joinDate,
-    }),
-  });
+  try {
+    await write('/api/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: e.id,
+        name: e.name,
+        email: e.email,
+        department: e.department,
+        departments: getEmployeeDepartments(e),
+        role: e.role,
+        status: e.status,
+        avatar: e.avatar,
+        phone: e.phone,
+        employeeCode: e.employeeCode?.trim() || null,
+        casesCompleted: e.casesCompleted,
+        casesActive: e.casesActive,
+        joinDate: e.joinDate,
+      }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/forbidden|admin/i.test(msg)) {
+      throw new Error(`Could not save employee: ${msg} (Admin login required.)`);
+    }
+    if (/unique|already exists|employee_code|email/i.test(msg)) {
+      throw new Error(`Could not save employee: ${msg} (duplicate email or employee ID?)`);
+    }
+    throw new Error(`Could not save employee to server: ${msg}`);
+  }
   return e;
 }
 

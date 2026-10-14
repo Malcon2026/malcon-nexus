@@ -4075,7 +4075,12 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    const updated = await employeeRepository.update(id, updates);
+    let updated: Employee;
+    try {
+      updated = await employeeRepository.update(id, updates);
+    } catch (err) {
+      return { error: formatUnknownError(err) };
+    }
 
     const activity = createActivityEvent('Employee Updated', 'employee', id, updated.name, state.currentUser.name, state.currentUser.role, `Employee ${updated.name} profile updated.`);
     persistActivity(activity);

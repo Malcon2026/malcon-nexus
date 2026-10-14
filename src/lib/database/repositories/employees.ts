@@ -1,10 +1,26 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
 import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import {
+  createEmployeeOnWorker,
+  deleteEmployeeOnWorker,
+  updateEmployeeOnWorker,
+} from '../../workerWriteApiMedium';
 import { sbEmployeeRepo } from './supabaseRepositories';
+import type { Employee } from '../../../types';
+import { normalizeDepartment, getEmployeeDepartments } from '../../../constants/departments';
 
 /** Worker/Supabase-backed employee rows — not browser-only localStorage. */
 const REMOTE_EMPLOYEES = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+
+function readEmployeeList(): Employee[] {
+  const list = Database.getAll<Employee>('employees');
+  return list.map((e) => ({
+    ...e,
+    department: normalizeDepartment(e.department) ?? e.department,
+    departments: getEmployeeDepartments(e),
+  }));
+}
 
 function persistEmployeeList(list: Employee[]): void {
   if (USE_CLOUDFLARE_BACKEND) {
@@ -12,17 +28,47 @@ function persistEmployeeList(list: Employee[]): void {
   }
   setCache('employees', list);
 }
-import type { Employee } from '../../../types';
-import { normalizeDepartment, getEmployeeDepartments } from '../../../constants/departments';
+
+async function persistEmployeeCreate(item: Employee): Promise<Employee> {
+  if (USE_CLOUDFLARE_BACKEND) {
+    await createEmployeeOnWorker(item);
+  } else {
+    await sbEmployeeRepo.create(item);
+  }
+  const list = readEmployeeList();
+  persistEmployeeList([...list.filter((e) => e.id !== item.id), item]);
+  return item;
+}
+
+async function persistEmployeeUpdate(id: string, updates: Partial<Employee>): Promise<Employee> {
+  if (USE_CLOUDFLARE_BACKEND) {
+    await updateEmployeeOnWorker(id, updates);
+    const list = readEmployeeList();
+    const merged = list.find((e) => e.id === id);
+    if (!merged) throw new Error('Employee not found after update');
+    const updated = { ...merged, ...updates };
+    persistEmployeeList(list.map((e) => (e.id === id ? updated : e)));
+    return updated;
+  }
+  const updated = await sbEmployeeRepo.update(id, updates);
+  const list = readEmployeeList();
+  persistEmployeeList(list.map((e) => (e.id === id ? updated : e)));
+  return updated;
+}
+
+async function persistEmployeeDelete(id: string): Promise<void> {
+  if (USE_CLOUDFLARE_BACKEND) {
+    await deleteEmployeeOnWorker(id);
+  } else {
+    await sbEmployeeRepo.delete(id);
+  }
+  const list = readEmployeeList();
+  persistEmployeeList(list.filter((e) => e.id !== id));
+}
 
 export const employeeRepository = {
   async getAll(): Promise<Employee[]> {
-    const list = Database.getAll<Employee>('employees');
-    return list.map((e) => ({
-      ...e,
-      department: normalizeDepartment(e.department) ?? e.department,
-      departments: getEmployeeDepartments(e),
-    }));
+    return readEmployeeList();
   },
 
   async getById(id: string): Promise<Employee | null> {
@@ -32,10 +78,7 @@ export const employeeRepository = {
 
   async create(item: Employee): Promise<Employee> {
     if (REMOTE_EMPLOYEES) {
-      await sbEmployeeRepo.create(item);
-      const list = await this.getAll();
-      persistEmployeeList([...list.filter((e) => e.id !== item.id), item]);
-      return item;
+      return persistEmployeeCreate(item);
     }
 
     const list = await this.getAll();
@@ -48,10 +91,7 @@ export const employeeRepository = {
 
   async update(id: string, updates: Partial<Employee>): Promise<Employee> {
     if (REMOTE_EMPLOYEES) {
-      const updated = await sbEmployeeRepo.update(id, updates);
-      const list = await this.getAll();
-      persistEmployeeList(list.map((e) => (e.id === id ? updated : e)));
-      return updated;
+      return persistEmployeeUpdate(id, updates);
     }
 
     const list = await this.getAll();
@@ -70,9 +110,7 @@ export const employeeRepository = {
 
   async delete(id: string): Promise<void> {
     if (REMOTE_EMPLOYEES) {
-      await sbEmployeeRepo.delete(id);
-      const list = await this.getAll();
-      persistEmployeeList(list.filter((e) => e.id !== id));
+      await persistEmployeeDelete(id);
       return;
     }
 
