@@ -1,11 +1,34 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from '../../db/client';
 import { appSettings, doctors, employees, hospitals } from '../../db/schema';
+import { employeeCodeMatches } from '../../lib/loginOtp';
 import { mergeDoctorMasterList } from '../../lib/doctorMaster';
 import { nowIso } from '../../lib/writeContext';
 import type { RequestContext } from '../../middleware/auth';
 import { AuthError } from '../../middleware/authorization';
 import { assertAdminWrite } from '../../middleware/writeAuth';
+
+async function assertEmployeeUnique(
+  db: Db,
+  email: string,
+  employeeCode: string | null,
+  excludeId?: string,
+): Promise<void> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const rows = await db
+    .select({ id: employees.id, email: employees.email, employeeCode: employees.employeeCode })
+    .from(employees);
+
+  for (const row of rows) {
+    if (excludeId && row.id === excludeId) continue;
+    if (row.email.trim().toLowerCase() === normalizedEmail) {
+      throw new AuthError('An employee with this email already exists.', 409);
+    }
+    if (employeeCode && employeeCodeMatches(row.employeeCode, employeeCode)) {
+      throw new AuthError('An employee with this employee ID already exists.', 409);
+    }
+  }
+}
 
 export async function createEmployee(
   db: Db,
@@ -30,7 +53,7 @@ export async function createEmployee(
   assertAdminWrite(ctx, relaxed);
   const ts = nowIso();
   const code = body.employeeCode?.trim() || null;
-  try {
+  await assertEmployeeUnique(db, body.email, code);
   await db.insert(employees).values({
     id: body.id,
     name: body.name,
@@ -48,13 +71,6 @@ export async function createEmployee(
     createdAt: ts,
     updatedAt: ts,
   });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/unique|UNIQUE|idx_employees_employee_code|employees\.email/i.test(msg)) {
-      throw new AuthError('An employee with this email or employee ID already exists.', 409);
-    }
-    throw e;
-  }
 }
 
 export async function updateEmployee(
@@ -97,6 +113,28 @@ export async function updateEmployee(
   if (updates.casesCompleted !== undefined) set.casesCompleted = updates.casesCompleted;
   if (updates.casesActive !== undefined) set.casesActive = updates.casesActive;
   if (updates.joinDate) set.joinDate = updates.joinDate;
+
+  const nextEmail = (updates.email as string | undefined) ?? undefined;
+  const nextCodeRaw = updates.employeeCode;
+  const nextCode =
+    nextCodeRaw !== undefined ? String(nextCodeRaw ?? '').trim() || null : undefined;
+  if (nextEmail !== undefined || nextCode !== undefined) {
+    const current = await db
+      .select({ email: employees.email, employeeCode: employees.employeeCode })
+      .from(employees)
+      .where(eq(employees.id, id))
+      .limit(1);
+    const row = current[0];
+    if (row) {
+      await assertEmployeeUnique(
+        db,
+        nextEmail ?? row.email,
+        nextCode !== undefined ? nextCode : row.employeeCode,
+        id,
+      );
+    }
+  }
+
   await db.update(employees).set(set).where(eq(employees.id, id));
 }
 

@@ -1,4 +1,5 @@
 import { apiError } from '../lib/http';
+import { publicWriteErrorMessage } from '../lib/dbWriteErrors';
 import { AuthError } from '../middleware/authorization';
 
 export async function readJson<T>(request: Request): Promise<T | Response> {
@@ -23,8 +24,11 @@ export function mapWriteError(e: unknown): Response {
               : 'FORBIDDEN';
     return apiError(code, e.message, e.status);
   }
-  const message = e instanceof Error ? e.message : String(e);
-  if (/missing|invalid|already has|already exists|required/i.test(message)) {
+  const message = publicWriteErrorMessage(e);
+  if (/already exists/i.test(message)) {
+    return apiError('CONFLICT', message, 409);
+  }
+  if (/missing|invalid|already has|required/i.test(message)) {
     return apiError('BAD_REQUEST', message, 400);
   }
   return apiError('INTERNAL', message, 500);

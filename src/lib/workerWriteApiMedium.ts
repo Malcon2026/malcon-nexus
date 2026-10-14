@@ -1,7 +1,7 @@
 /**
  * Phase 10.2 — medium-risk Worker writes (no Supabase fallback).
  */
-import { workerFetchJson } from './workerApi';
+import { WorkerApiError, workerFetchJson } from './workerApi';
 import { getEmployeeDepartments } from '../constants/departments';
 import type {
   AttendanceApprovalRequest,
@@ -43,14 +43,10 @@ export async function createEmployeeOnWorker(e: Employee): Promise<Employee> {
       }),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (/forbidden|admin/i.test(msg)) {
-      throw new Error(`Could not save employee: ${msg} (Admin login required.)`);
+    if (err instanceof WorkerApiError) {
+      throw new Error(err.message);
     }
-    if (/unique|already exists|employee_code|email/i.test(msg)) {
-      throw new Error(`Could not save employee: ${msg} (duplicate email or employee ID?)`);
-    }
-    throw new Error(`Could not save employee to server: ${msg}`);
+    throw err instanceof Error ? err : new Error(String(err));
   }
   return e;
 }
