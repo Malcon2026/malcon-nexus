@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes, pbkdf2Sync } from 'node:crypto';
 import { parseArgs } from 'node:util';
 
-const ITERATIONS = 120_000;
+const ITERATIONS = 100_000;
 
 function hashPassword(password) {
   const salt = randomBytes(16);

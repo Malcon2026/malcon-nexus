@@ -1,6 +1,7 @@
 /** PBKDF2-SHA256 password hashes for Worker-native login. */
 
-const ITERATIONS = 120_000;
+/** Web Crypto on Workers caps PBKDF2 at 100_000 iterations. */
+const ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
 
