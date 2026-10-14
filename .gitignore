@@ -22,6 +22,7 @@ EMP ATTENDANCE*.xlsx
 !.env.example
 !.env.production.cutover.example
 !.env.production.cloudflare.example
+!.env.telegram.local.example
 
 # Emergency DB/storage exports (never commit)
 backups/
