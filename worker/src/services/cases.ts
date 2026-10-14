@@ -8,6 +8,8 @@ export const CASE_LIST_COLUMNS = {
   caseNumber: cases.caseNumber,
   hospitalId: cases.hospitalId,
   doctorId: cases.doctorId,
+  hospitalSnapshot: cases.hospitalSnapshot,
+  doctorSnapshot: cases.doctorSnapshot,
   surgeryDate: cases.surgeryDate,
   implantRequired: cases.implantRequired,
   implantType: cases.implantType,
@@ -17,6 +19,9 @@ export const CASE_LIST_COLUMNS = {
   currentStage: cases.currentStage,
   currentDepartment: cases.currentDepartment,
   assignedEmployeeId: cases.assignedEmployeeId,
+  assignedEmployeeSnapshot: cases.assignedEmployeeSnapshot,
+  createdBy: cases.createdBy,
+  remarks: cases.remarks,
   paymentStatus: cases.paymentStatus,
   invoiceAmountMinor: cases.invoiceAmountMinor,
   collectedAmountMinor: cases.collectedAmountMinor,
@@ -30,6 +35,8 @@ type CaseListRow = {
   caseNumber: string;
   hospitalId: string;
   doctorId: string | null;
+  hospitalSnapshot: string | null;
+  doctorSnapshot: string | null;
   surgeryDate: string | null;
   implantRequired: string;
   implantType: string;
@@ -39,6 +46,9 @@ type CaseListRow = {
   currentStage: string;
   currentDepartment: string | null;
   assignedEmployeeId: string | null;
+  assignedEmployeeSnapshot: string | null;
+  createdBy: string;
+  remarks: string | null;
   paymentStatus: string | null;
   invoiceAmountMinor: number | null;
   collectedAmountMinor: number | null;
@@ -53,6 +63,8 @@ function mapCaseList(r: CaseListRow) {
     case_number: r.caseNumber,
     hospital_id: r.hospitalId,
     doctor_id: r.doctorId,
+    hospital_snapshot: parseJsonField(r.hospitalSnapshot, {}),
+    doctor_snapshot: parseJsonField(r.doctorSnapshot, {}),
     surgery_date: r.surgeryDate,
     implant_required: r.implantRequired,
     implant_type: r.implantType,
@@ -62,12 +74,20 @@ function mapCaseList(r: CaseListRow) {
     current_stage: r.currentStage,
     current_department: r.currentDepartment,
     assigned_employee_id: r.assignedEmployeeId,
+    assigned_employee_snapshot: r.assignedEmployeeSnapshot
+      ? parseJsonField(r.assignedEmployeeSnapshot, null)
+      : null,
+    created_by: r.createdBy,
+    remarks: r.remarks,
     payment_status: r.paymentStatus,
     invoice_amount_minor: r.invoiceAmountMinor,
     collected_amount_minor: r.collectedAmountMinor,
     due_date: r.dueDate,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
+    stages: [],
+    activity_logs: [],
+    comments: [],
   };
 }
 

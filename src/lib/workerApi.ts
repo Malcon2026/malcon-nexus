@@ -124,26 +124,20 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
   }
 }
 
-const CASE_DETAIL_CONCURRENCY = 20;
+const CASE_BOOTSTRAP_PAGE_SIZE = 200;
 
-/** Paginated list + detail fetch (bootstrap parity; not a single PostgREST SELECT *). */
+/**
+ * Paginated case list with header snapshots (no per-case detail round-trips).
+ * Full stages load on demand via getCase() when opening a case.
+ */
 export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
-  const first = await getCasesPage({ page: 1, pageSize: 100 });
-  const ids: string[] = first.items.map((r) => String(r.id));
+  const first = await getCasesPage({ page: 1, pageSize: CASE_BOOTSTRAP_PAGE_SIZE });
+  const items: WorkerCaseDetail[] = [...first.items];
   for (let page = 2; page <= first.pagination.totalPages; page += 1) {
-    const next = await getCasesPage({ page, pageSize: 100 });
-    ids.push(...next.items.map((r) => String(r.id)));
+    const next = await getCasesPage({ page, pageSize: CASE_BOOTSTRAP_PAGE_SIZE });
+    items.push(...next.items);
   }
-
-  const details: WorkerCaseDetail[] = [];
-  for (let i = 0; i < ids.length; i += CASE_DETAIL_CONCURRENCY) {
-    const chunk = ids.slice(i, i + CASE_DETAIL_CONCURRENCY);
-    const rows = await Promise.all(chunk.map((id) => getCase(id)));
-    for (const row of rows) {
-      if (row) details.push(row);
-    }
-  }
-  return details;
+  return items;
 }
 
 export type WorkerNotificationRow = {
