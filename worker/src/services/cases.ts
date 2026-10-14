@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, gte, or, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { cases } from '../db/schema';
 
@@ -100,15 +100,33 @@ function parseJsonField(raw: string | null, fallback: unknown) {
   }
 }
 
-export async function countCases(db: Db) {
-  const row = await db.select({ c: sql<number>`count(*)` }).from(cases);
+function istDayStartIso(dateKey: string): string {
+  return new Date(`${dateKey}T00:00:00+05:30`).toISOString();
+}
+
+/** Surgery scheduled today (IST) or touched since midnight IST. */
+export function whereCasesForBootstrapDay(dayKey: string): SQL {
+  return or(
+    sql`substr(${cases.surgeryDate}, 1, 10) = ${dayKey}`,
+    gte(cases.updatedAt, istDayStartIso(dayKey)),
+  )!;
+}
+
+export async function countCases(db: Db, dayKey?: string) {
+  const where = dayKey ? whereCasesForBootstrapDay(dayKey) : undefined;
+  const row = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(cases)
+    .where(where);
   return Number(row[0]?.c ?? 0);
 }
 
-export async function listCases(db: Db, offset: number, limit: number) {
+export async function listCases(db: Db, offset: number, limit: number, dayKey?: string) {
+  const where = dayKey ? whereCasesForBootstrapDay(dayKey) : undefined;
   const rows = await db
     .select(CASE_LIST_COLUMNS)
     .from(cases)
+    .where(where)
     .orderBy(desc(cases.updatedAt))
     .limit(limit)
     .offset(offset);

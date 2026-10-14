@@ -106,10 +106,13 @@ export async function getEmployeeAttendance(
 export async function getCasesPage(params: {
   page?: number;
   pageSize?: number;
+  /** IST calendar day — surgery today or updated since that day. */
+  dayKey?: string;
 }): Promise<Paginated<WorkerCaseListItem>> {
   const q = new URLSearchParams();
   q.set('page', String(params.page ?? 1));
   q.set('pageSize', String(params.pageSize ?? 50));
+  if (params.dayKey) q.set('dayKey', params.dayKey);
   const body = await workerFetchJson<{ data: Paginated<WorkerCaseListItem> }>(`/api/cases?${q.toString()}`);
   return body.data;
 }
@@ -160,6 +163,13 @@ export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
   );
 }
 
+export async function getBootstrapDayCasesViaWorker(dayKey: string): Promise<WorkerCaseDetail[]> {
+  return fetchAllPaginated<WorkerCaseDetail>(
+    (page, pageSize) => getCasesPage({ page, pageSize, dayKey }),
+    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+  );
+}
+
 export type WorkerNotificationRow = {
   id: string;
   title: string;
@@ -174,6 +184,7 @@ export type WorkerNotificationRow = {
 /** Match Supabase employee bootstrap cap; admin uses a higher bounded cap (not full-table). */
 export const NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE = 300;
 export const NOTIFICATION_BOOTSTRAP_CAP_ADMIN = 500;
+export const NOTIFICATION_BOOTSTRAP_CAP_STAGE1 = 80;
 const NOTIFICATION_PAGE_SIZE = 100;
 
 export async function getNotificationsPage(params: {
@@ -202,8 +213,13 @@ export async function getNotificationSummary(recipientId?: string): Promise<{ to
 }
 
 /** Paginated bootstrap load — never downloads the full notifications table. */
-export async function getAllNotificationsViaWorker(recipientId?: string): Promise<WorkerNotificationRow[]> {
-  const cap = recipientId ? NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE : NOTIFICATION_BOOTSTRAP_CAP_ADMIN;
+export async function getAllNotificationsViaWorker(
+  recipientId?: string,
+  capOverride?: number,
+): Promise<WorkerNotificationRow[]> {
+  const cap =
+    capOverride ??
+    (recipientId ? NOTIFICATION_BOOTSTRAP_CAP_EMPLOYEE : NOTIFICATION_BOOTSTRAP_CAP_ADMIN);
   const pageSize = Math.min(NOTIFICATION_PAGE_SIZE, cap);
   return fetchAllPaginated<WorkerNotificationRow>(
     (page, ps) => getNotificationsPage({ page, pageSize: ps, recipientId }),

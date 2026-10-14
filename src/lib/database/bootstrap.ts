@@ -19,8 +19,9 @@ import {
   sbFoodRepo,
 } from './repositories/supabaseRepositories';
 import { FCFS_POOL_ENABLED } from '../caseWorkflow';
-import { getISTDateKey } from '../attendance';
+import { getISTDateKey, getISTDayStartIso } from '../attendance';
 import { foodLoadWindow } from '../food';
+import { NOTIFICATION_BOOTSTRAP_CAP_STAGE1 } from '../workerApi';
 
 import type { BootstrapRole } from '../roles';
 import {
@@ -46,8 +47,6 @@ interface BootstrapTask {
 }
 
 const ATTENDANCE_LOOKBACK_DAYS = 150;
-/** Loaded on login so punch-in/out status is correct on first paint (not after deferred load). */
-const ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS = 30;
 
 function getAttendanceSinceIso(days: number): string {
   const date = new Date();
@@ -59,201 +58,152 @@ function getAttendanceBootstrapSinceIso(): string {
   return getAttendanceSinceIso(ATTENDANCE_LOOKBACK_DAYS);
 }
 
-// Employee dashboard essentials: profile, leave, pending approvals, and recent
-// punches so the hero never flips from OUT → IN after deferred load (which
-// looked like an automatic punch-in when opening the app).
-function employeeEssentialTasks(employeeId: string): BootstrapTask[] {
-  const recentSinceIso = getAttendanceSinceIso(ATTENDANCE_ESSENTIAL_LOOKBACK_DAYS);
-  return [
-    // Own profile is required so "My Attendance Register" can render a row
-    // (the register builds from the employees list, not currentUser alone).
-    {
-      key: 'employees',
-      run: async () => {
-        const self = await sbEmployeeRepo.getById(employeeId);
-        return self ? [self] : [];
-      },
-    },
-    {
-      key: 'attendanceRecords',
-      run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, recentSinceIso),
-    },
-    { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
-    { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
-    { key: 'foodSelections', run: () => sbFoodRepo.getForEmployee(employeeId) },
-    { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
-    { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
-    {
-      key: 'attendanceApprovalRequests',
-      run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
-    },
-    // Cases must load on login — otherwise My Cases stays empty until a late
-    // deferred fetch (or stale session cache) finishes.
-    { key: 'cases', run: async () => {
-        const self = await sbEmployeeRepo.getById(employeeId);
-        if (!self) return [];
-        return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, self);
-      } },
-    { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getForEmployee(employeeId) : Promise.resolve([])) },
-    { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
-  ];
+function todayBootstrapContext() {
+  const dateKey = getISTDateKey();
+  return { dateKey, dayStartIso: getISTDayStartIso(dateKey) };
 }
 
-function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
-  if (employeeId) {
-    const sinceIso = getAttendanceBootstrapSinceIso();
+function employeeCasesTask(employeeId: string): BootstrapTask {
+  return {
+    key: 'cases',
+    run: async () => {
+      const self = await sbEmployeeRepo.getById(employeeId);
+      if (!self) return [];
+      return sbCaseRepo.getCasesForEmployeeIncludingPool(employeeId, self);
+    },
+  };
+}
+
+/** Stage 1 — employees + today's operational data only (fast login). */
+function stage1Tasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
+  const { dateKey, dayStartIso } = todayBootstrapContext();
+  const notifyCap = { cap: NOTIFICATION_BOOTSTRAP_CAP_STAGE1 };
+
+  if (role === 'admin') {
     return [
-      // 150-day attendance history is only needed by the (lazy-loaded)
-      // Attendance Register further down the dashboard — never blocks login.
-      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, sinceIso) },
-      { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
-      // Not read by any employee-facing screen today; still loaded in the
-      // background in case something needs it, just never blocking.
+      { key: 'employees', run: () => sbEmployeeRepo.getAll() },
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
-      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
+      { key: 'cases', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },
+      {
+        key: 'foodSelections',
+        run: () => {
+          const { from, to } = foodLoadWindow(dateKey);
+          return sbFoodRepo.getForDateRange(from, to);
+        },
+      },
+      { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getForDate(dateKey) },
     ];
   }
 
-  return [
-    { key: 'cases', run: () => sbCaseRepo.getAll() },
-    { key: 'notifications', run: () => sbNotificationRepo.getAll() },
-  ];
-}
-
-/** Cases load in essential-rest — listing + 500+ detail fetches must not block first paint. */
-const ADMIN_FIRST_PAINT_KEYS = new Set(['employees', 'notifications']);
-
-/** Loaded before other admin essential-rest tasks so the case board fills quickly. */
-const ADMIN_PRIORITY_REST_KEYS = new Set(['cases', 'hospitals', 'doctors']);
-
-function adminEssentialTasks(): BootstrapTask[] {
-  return [
-    { key: 'cases', run: () => sbCaseRepo.getAll() },
-    { key: 'notifications', run: () => sbNotificationRepo.getAll() },
-    { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
-    { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
-    { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
-    { key: 'departments', run: () => sbDepartmentRepo.getAll() },
-    { key: 'employees', run: () => sbEmployeeRepo.getAll() },
-    { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
-    { key: 'doctors', run: () => sbDoctorRepo.getAll() },
-    { key: 'approvals', run: () => sbApprovalRepo.getAll() },
-    { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
-  ];
-}
-
-function adminDeferredTasks(): BootstrapTask[] {
-  return [
-    { key: 'kits', run: () => sbKitRepo.getAll() },
-    { key: 'activityLog', run: () => sbActivityRepo.getAll() },
-    {
-      key: 'attendanceRecords',
-      run: () => sbAttendanceRepo.getRecentSince(getAttendanceBootstrapSinceIso()),
-    },
-    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
-    {
-      key: 'foodSelections',
-      run: () => {
-        const { from, to } = foodLoadWindow(getISTDateKey());
-        return sbFoodRepo.getForDateRange(from, to);
-      },
-    },
-    { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
-  ];
-}
-
-function petrolEssentialTasks(_employeeId: string): BootstrapTask[] {
-  return [
-    { key: 'employees', run: () => sbEmployeeRepo.getAll() },
-    { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
-  ];
-}
-
-/** Store managers: team attendance register + full case board for assign/create. */
-function storeManagerEssentialTasks(employeeId: string): BootstrapTask[] {
-  const base = employeeEssentialTasks(employeeId).filter(
-    (t) =>
-      !['cases', 'employees', 'attendanceRecords', 'leaveRequests', 'attendanceApprovalRequests'].includes(
-        t.key,
-      ),
-  );
-  return [
-    ...base,
-    { key: 'cases', run: () => sbCaseRepo.getAll() },
-    { key: 'employees', run: () => sbEmployeeRepo.getAll() },
-    { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
-    { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
-    { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
-    { key: 'doctors', run: () => sbDoctorRepo.getAll() },
-    { key: 'departments', run: () => sbDepartmentRepo.getAll() },
-    { key: 'approvals', run: () => sbApprovalRepo.getAll() },
-  ];
-}
-
-function storeManagerDeferredTasks(): BootstrapTask[] {
-  return [{ key: 'kits', run: () => sbKitRepo.getAll() }];
-}
-
-function firstPaintTasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
-  if (role === 'admin') {
-    return adminEssentialTasks().filter((t) => ADMIN_FIRST_PAINT_KEYS.has(t.key));
-  }
   if (role === 'store_manager' && options?.employeeId) {
     return [
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
-      { key: 'notifications', run: () => sbNotificationRepo.getAll() },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
+      { key: 'cases', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },
+      { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     ];
   }
+
   if (role === 'employee' && options?.employeeId) {
-    return employeeEssentialTasks(options.employeeId).filter((t) =>
-      ['cases', 'employees', 'notifications', 'attendanceRecords'].includes(t.key),
-    );
+    const employeeId = options.employeeId;
+    return [
+      {
+        key: 'employees',
+        run: async () => {
+          const self = await sbEmployeeRepo.getById(employeeId);
+          return self ? [self] : [];
+        },
+      },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId, notifyCap) },
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, dayStartIso) },
+      employeeCasesTask(employeeId),
+    ];
   }
+
   if (role === 'petrol' && options?.employeeId) {
-    return petrolEssentialTasks(options.employeeId);
+    return [
+      { key: 'employees', run: () => sbEmployeeRepo.getAll() },
+      { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+    ];
   }
+
   return [];
 }
 
-function essentialRemainderTasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
+/** Stage 2 — full history and reference data (background after shell is usable). */
+function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): BootstrapTask[] {
+  const { dateKey } = todayBootstrapContext();
+  const attendanceSinceIso = getAttendanceBootstrapSinceIso();
+
   if (role === 'admin') {
-    return adminEssentialTasks().filter((t) => !ADMIN_FIRST_PAINT_KEYS.has(t.key));
+    return [
+      { key: 'cases', run: () => sbCaseRepo.getAll() },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'doctors', run: () => sbDoctorRepo.getAll() },
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(attendanceSinceIso) },
+      { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+      { key: 'fieldTeamAttendanceApprovals', run: () => sbFieldTeamAttendanceRepo.getAll() },
+      { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+      { key: 'petrolRequests', run: () => sbPetrolRepo.getAll() },
+      {
+        key: 'foodSelections',
+        run: () => {
+          const { from, to } = foodLoadWindow(dateKey);
+          return sbFoodRepo.getForDateRange(from, to);
+        },
+      },
+      { key: 'locationTrips', run: () => sbLocationTripRepo.getAll() },
+      { key: 'approvals', run: () => sbApprovalRepo.getAll() },
+      { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
+      { key: 'kits', run: () => sbKitRepo.getAll() },
+      { key: 'activityLog', run: () => sbActivityRepo.getAll() },
+    ];
   }
+
   if (role === 'store_manager' && options?.employeeId) {
-    const all = storeManagerEssentialTasks(options.employeeId);
-    const first = new Set(['cases', 'employees', 'notifications']);
-    return all.filter((t) => !first.has(t.key));
+    const employeeId = options.employeeId;
+    return [
+      { key: 'cases', run: () => sbCaseRepo.getAll() },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'doctors', run: () => sbDoctorRepo.getAll() },
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getAll() },
+      { key: 'leaveRequests', run: () => sbLeaveRepo.getAll() },
+      { key: 'attendanceApprovalRequests', run: () => sbAttendanceApprovalRepo.getAll() },
+      { key: 'approvals', run: () => sbApprovalRepo.getAll() },
+      { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getAll() : Promise.resolve([])) },
+      { key: 'kits', run: () => sbKitRepo.getAll() },
+      { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
+      { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
+      { key: 'foodSelections', run: () => sbFoodRepo.getForEmployee(employeeId) },
+    ];
   }
+
   if (role === 'employee' && options?.employeeId) {
-    const all = employeeEssentialTasks(options.employeeId);
-    const first = new Set(['cases', 'employees', 'notifications', 'attendanceRecords']);
-    return all.filter((t) => !first.has(t.key));
+    const employeeId = options.employeeId;
+    return [
+      employeeCasesTask(employeeId),
+      { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, attendanceSinceIso) },
+      { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
+      { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
+      { key: 'foodSelections', run: () => sbFoodRepo.getForEmployee(employeeId) },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
+      { key: 'departments', run: () => sbDepartmentRepo.getAll() },
+      {
+        key: 'attendanceApprovalRequests',
+        run: () => sbAttendanceApprovalRepo.getForEmployee(employeeId),
+      },
+      { key: 'caseTaskRequests', run: () => (FCFS_POOL_ENABLED ? sbCaseTaskRequestRepo.getForEmployee(employeeId) : Promise.resolve([])) },
+      { key: 'notifications', run: () => sbNotificationRepo.getAll(employeeId) },
+    ];
   }
+
   return [];
-}
-
-function tasksFor(role: BootstrapRole, tier: 'essential' | 'deferred', options?: BootstrapOptions): BootstrapTask[] {
-  if (role === 'petrol') {
-    return tier === 'essential' && options?.employeeId
-      ? petrolEssentialTasks(options.employeeId)
-      : [];
-  }
-  if (role === 'store_manager') {
-    if (!options?.employeeId) return [];
-    return tier === 'essential'
-      ? storeManagerEssentialTasks(options.employeeId)
-      : storeManagerDeferredTasks();
-  }
-  if (role === 'employee') {
-    if (!options?.employeeId) {
-      return employeeDeferredTasks();
-    }
-    return tier === 'essential'
-      ? employeeEssentialTasks(options.employeeId)
-      : employeeDeferredTasks(options.employeeId);
-  }
-
-  return tier === 'essential' ? adminEssentialTasks() : adminDeferredTasks();
 }
 
 function shouldSkipEssentialFetch(
@@ -428,43 +378,20 @@ export async function bootstrapEssential(
     return false;
   }
 
-  await runBootstrapTasks(firstPaintTasks(role, options), 'essential-first');
-  const remainder = essentialRemainderTasks(role, options);
-  if (remainder.length > 0) {
-    const priority =
-      role === 'admin'
-        ? remainder.filter((t) => ADMIN_PRIORITY_REST_KEYS.has(t.key))
-        : remainder.filter((t) => t.key === 'cases');
-    const rest =
-      role === 'admin'
-        ? remainder.filter((t) => !ADMIN_PRIORITY_REST_KEYS.has(t.key))
-        : remainder.filter((t) => t.key !== 'cases');
-
-    const notify = () => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('malcon-bootstrap-updated'));
-      }
-    };
-
-    if (priority.length > 0) {
-      await runBootstrapTasks(priority, 'essential-priority');
-      notify();
-    }
-    if (rest.length > 0) {
-      await runBootstrapTasks(rest, 'essential-rest');
-      notify();
-    }
-  }
+  await runBootstrapTasks(stage1Tasks(role, options), 'stage-1');
   return true;
 }
 
-/** Load heavier collections after the shell is visible. */
+/** Stage 2 — full datasets after login (see `stage2Tasks`). */
 export async function bootstrapDeferred(
   role: BootstrapRole,
   options?: BootstrapOptions,
   _runOptions?: BootstrapRunOptions,
 ): Promise<void> {
-  await runBootstrapTasks(tasksFor(role, 'deferred', options), 'deferred');
+  await runBootstrapTasks(stage2Tasks(role, options), 'stage-2');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('malcon-bootstrap-updated'));
+  }
 }
 
 /** Full bootstrap — used after login and manual refresh. */

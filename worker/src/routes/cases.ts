@@ -12,9 +12,14 @@ export async function handleListCases(request: Request, env: Env, _ctx: RequestC
     return apiError('BAD_REQUEST', parsed.error, 400);
   }
 
+  const dayKey = url.searchParams.get('dayKey')?.trim() || undefined;
+  if (dayKey && !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    return apiError('BAD_REQUEST', 'dayKey must be YYYY-MM-DD', 400);
+  }
+
   const db = createDb(env);
-  const total = await countCases(db);
-  const items = await listCases(db, parsed.offset, parsed.limit);
+  const total = await countCases(db, dayKey);
+  const items = await listCases(db, parsed.offset, parsed.limit, dayKey);
   return apiData({
     items,
     pagination: pageMeta(parsed.page, parsed.pageSize, total),

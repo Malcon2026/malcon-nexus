@@ -1,6 +1,7 @@
 import type { DepartmentInfo, Doctor, Employee, Hospital, ImplantCase, Notification, SurgicalKit } from '../types';
 import {
   getAllCasesViaWorker,
+  getBootstrapDayCasesViaWorker,
   getAllDoctorsViaWorker,
   getAllHospitalsViaWorker,
   getAllNotificationsViaWorker,
@@ -41,14 +42,21 @@ export async function fetchEmployeeByIdFromWorker(id: string): Promise<Employee 
   return row ? workerEmployeeToApp(row) : null;
 }
 
-export async function fetchAllCasesFromWorker(): Promise<ImplantCase[]> {
-  const details = await getAllCasesViaWorker();
+async function mapWorkerCaseList(details: Record<string, unknown>[]): Promise<ImplantCase[]> {
   if (details.length === 0) return [];
   if (!caseRowToImplantCaseFn) {
     const mod = await import('./database/repositories/supabaseRepositories');
     caseRowToImplantCaseFn = mod.caseRowToImplantCase;
   }
   return details.map((d) => caseRowToImplantCaseFn!(workerCaseDetailToPgRow(d)));
+}
+
+export async function fetchAllCasesFromWorker(): Promise<ImplantCase[]> {
+  return mapWorkerCaseList(await getAllCasesViaWorker());
+}
+
+export async function fetchBootstrapDayCasesFromWorker(dayKey: string): Promise<ImplantCase[]> {
+  return mapWorkerCaseList(await getBootstrapDayCasesViaWorker(dayKey));
 }
 
 export async function fetchHospitalsFromWorker(): Promise<Hospital[]> {
@@ -75,8 +83,11 @@ export async function fetchSettingsFromWorker(): Promise<Record<string, string>>
   return getAppSettingsViaWorker();
 }
 
-export async function fetchNotificationsFromWorker(recipientId?: string): Promise<Notification[]> {
-  const rows = await getAllNotificationsViaWorker(recipientId);
+export async function fetchNotificationsFromWorker(
+  recipientId?: string,
+  capOverride?: number,
+): Promise<Notification[]> {
+  const rows = await getAllNotificationsViaWorker(recipientId, capOverride);
   return rows.map(workerNotificationToApp);
 }
 

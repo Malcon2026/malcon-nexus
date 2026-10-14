@@ -113,6 +113,7 @@ import {
   fetchPendingCaseTaskRequestsForCaseFromWorker,
   fetchAllAttendanceFromWorker,
   fetchAllCasesFromWorker,
+  fetchBootstrapDayCasesFromWorker,
   fetchAllDailyExpensesFromWorker,
   fetchAllFieldTeamAttendanceFromWorker,
   fetchAllFoodFromWorker,
@@ -651,6 +652,18 @@ export const sbCaseRepo = {
     return (data ?? []).map((row) => caseRowToImplantCase(row as Record<string, unknown>));
   },
 
+  /** Stage-1 login: today's surgeries + cases updated since IST midnight. */
+  async getForBootstrapDay(dayKey: string, dayStartIso: string): Promise<ImplantCase[]> {
+    if (useWorkerReads()) return fetchBootstrapDayCasesFromWorker(dayKey);
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*')
+      .or(`surgery_date.eq.${dayKey},updated_at.gte.${dayStartIso}`)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => caseRowToImplantCase(row as Record<string, unknown>));
+  },
+
   async getForEmployee(employeeId: string): Promise<ImplantCase[]> {
     if (useWorkerCaseScopeReads()) return fetchCasesForEmployeeFromWorker(employeeId);
     if (useWorkerReads()) {
@@ -930,16 +943,14 @@ export const sbCaseRepo = {
 // ─── NOTIFICATIONS ───────────────────────────────────────────
 
 export const sbNotificationRepo = {
-  async getAll(recipientId?: string): Promise<Notification[]> {
-    if (useWorkerNotificationReads()) return fetchNotificationsFromWorker(recipientId);
+  async getAll(recipientId?: string, options?: { cap?: number }): Promise<Notification[]> {
+    const cap = options?.cap ?? (recipientId ? 300 : 500);
+    if (useWorkerNotificationReads()) return fetchNotificationsFromWorker(recipientId, cap);
     let query = supabase.from('notifications').select('*').order('created_at', { ascending: false });
     if (recipientId) {
-      // A single employee never needs their entire lifetime history on
-      // login — cap it so this stays a cheap, bounded query.
-      query = query.eq('recipient_id', recipientId).limit(300);
+      query = query.eq('recipient_id', recipientId).limit(cap);
     } else {
-      // Admin bootstrap used to pull the full table (~70k+ rows) and blew egress quota.
-      query = query.limit(500);
+      query = query.limit(cap);
     }
     const { data, error } = await query;
     if (error) throw error;

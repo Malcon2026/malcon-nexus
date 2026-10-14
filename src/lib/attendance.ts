@@ -53,6 +53,11 @@ export function getISTDateKey(date: Date | string = new Date()): string {
   return d.toLocaleDateString('en-CA', { timeZone: IST });
 }
 
+/** Start of an IST calendar day as ISO (for `since` filters). */
+export function getISTDayStartIso(dateKey: string): string {
+  return new Date(`${dateKey}T00:00:00+05:30`).toISOString();
+}
+
 /** Normalize API/DB date strings to YYYY-MM-DD for reliable comparisons. */
 export function normalizeDateKey(value: string | null | undefined): string {
   if (!value) return '';

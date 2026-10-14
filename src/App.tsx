@@ -86,6 +86,7 @@ function MainApp() {
   const [authChecked, setAuthChecked] = useState(!REMOTE_AUTH);
   const [isAuthenticated, setIsAuthenticated] = useState(!REMOTE_AUTH);
   const [isHydrating, setIsHydrating] = useState(false);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   const showShortcutsHelp = useCallback(() => setShortcutsHelpOpen(true), []);
@@ -129,8 +130,9 @@ function MainApp() {
         persistBootstrapCache(employee.id, role);
       }
       setIsHydrating(false);
-      console.info(`[perf] essential hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
+      console.info(`[perf] stage-1 hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
 
+      setIsBackgroundSyncing(true);
       void bootstrapDeferred(role, options).then(async () => {
         if (generation !== hydrateGeneration.current) return;
         reloadFromDatabase();
@@ -147,8 +149,10 @@ function MainApp() {
           reloadFromDatabase();
         }
         persistBootstrapCache(employee.id, role);
-        setIsHydrating(false);
-        console.info(`[perf] full hydration (incl. deferred) done in ${Math.round(performance.now() - startedAt)}ms`);
+        setIsBackgroundSyncing(false);
+        console.info(`[perf] stage-2 hydration done in ${Math.round(performance.now() - startedAt)}ms`);
+      }).catch(() => {
+        if (generation === hydrateGeneration.current) setIsBackgroundSyncing(false);
       });
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);
@@ -340,7 +344,7 @@ function MainApp() {
 
       <div className="nexus-app-main flex-1 min-w-0 flex flex-col overflow-hidden">
         <TopBar onLogout={handleLogout} />
-        <DataHydrationBar active={isHydrating} />
+        <DataHydrationBar active={isHydrating || isBackgroundSyncing} />
 
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
