@@ -31,6 +31,11 @@ import { EmployeeDashboard } from './pages/EmployeeDashboard';
 import { FCFS_POOL_ENABLED } from './lib/caseWorkflow';
 import { Login } from './pages/Login';
 import { AppBootScreen } from './components/AppBootScreen';
+import {
+  DataHydrationBanner,
+  DataHydrationMainOverlay,
+  type DataHydrationPhase,
+} from './components/DataHydrationBanner';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
 import { GlobalAddCaseFab } from './components/layout/GlobalAddCaseFab';
@@ -67,15 +72,6 @@ const pageVariants = {
 
 const pageTransition = { duration: 0.2 };
 
-function DataHydrationBar({ active }: { active: boolean }) {
-  if (!active) return null;
-  return (
-    <div className="h-0.5 w-full bg-blue-50 shrink-0">
-      <div className="h-full w-full bg-[#0071e3]/80 animate-pulse" />
-    </div>
-  );
-}
-
 function App() {
   return <MainApp />;
 }
@@ -88,6 +84,12 @@ function MainApp() {
   const [isHydrating, setIsHydrating] = useState(false);
   const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
+  const hydrationPhase: DataHydrationPhase | null = isHydrating
+    ? 'stage1'
+    : isBackgroundSyncing
+      ? 'stage2'
+      : null;
 
   const showShortcutsHelp = useCallback(() => setShortcutsHelpOpen(true), []);
   useAppShortcuts({
@@ -344,9 +346,10 @@ function MainApp() {
 
       <div className="nexus-app-main flex-1 min-w-0 flex flex-col overflow-hidden">
         <TopBar onLogout={handleLogout} />
-        <DataHydrationBar active={isHydrating || isBackgroundSyncing} />
+        <DataHydrationBanner phase={hydrationPhase} />
 
-        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+        <main className="relative flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+          <DataHydrationMainOverlay active={isHydrating} />
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeTab}-${viewMode}`}

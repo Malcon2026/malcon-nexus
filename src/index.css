@@ -768,3 +768,16 @@ textarea {
     sans-serif;
   font-feature-settings: 'kern' 1;
 }
+
+@keyframes nexus-hydration-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.nexus-hydration-bar {
+  animation: nexus-hydration-bar 1.35s ease-in-out infinite;
+}
