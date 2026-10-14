@@ -120,7 +120,8 @@ function employeeDeferredTasks(employeeId?: string): BootstrapTask[] {
   ];
 }
 
-const ADMIN_FIRST_PAINT_KEYS = new Set(['cases', 'employees', 'notifications']);
+/** Cases load in essential-rest — listing + 500+ detail fetches must not block first paint. */
+const ADMIN_FIRST_PAINT_KEYS = new Set(['employees', 'notifications']);
 
 function adminEssentialTasks(): BootstrapTask[] {
   return [
@@ -193,7 +194,6 @@ function firstPaintTasks(role: BootstrapRole, options?: BootstrapOptions): Boots
   }
   if (role === 'store_manager' && options?.employeeId) {
     return [
-      { key: 'cases', run: () => sbCaseRepo.getAll() },
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
       { key: 'notifications', run: () => sbNotificationRepo.getAll() },
     ];
