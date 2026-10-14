@@ -164,5 +164,9 @@ execSync(
 );
 
 console.info('\nLive at https://app.malconnexus.com/');
-console.info('Update Supabase → Authentication → URL Configuration: Site URL + redirect https://app.malconnexus.com');
-console.info('Set Supabase secret APP_URL=https://app.malconnexus.com for assignment emails/alerts.');
+if (cloudflare) {
+  console.info('Cloudflare backend — ensure Worker secrets (JWT, TELEGRAM_BOT_TOKEN) are set; see .env.production.cloudflare.example');
+} else {
+  console.info('Update Supabase → Authentication → URL Configuration: Site URL + redirect https://app.malconnexus.com');
+  console.info('Set Supabase secret APP_URL=https://app.malconnexus.com for assignment emails/alerts.');
+}
