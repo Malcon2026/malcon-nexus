@@ -20,7 +20,7 @@ export async function handleAuthMe(env: Env, auth: RequestContext): Promise<Resp
     throw e;
   }
   const db = createDb(env);
-  const employee = await getEmployeeById(db, auth.employeeId!);
+  const employee = await getEmployeeById(db, auth.employeeId!, true);
   if (!employee) return apiError('NOT_FOUND', 'Employee not found', 404);
   return jsonResponse({ employee });
 }

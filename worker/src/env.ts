@@ -19,6 +19,7 @@ export interface Env {
   /** Public base URL for R2 objects when served via custom domain (future). */
   R2_PUBLIC_BASE_URL?: string;
   TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
   /** Pepper for login OTP hashing (falls back to JWT secret). */
   LOGIN_OTP_SECRET?: string;
 }

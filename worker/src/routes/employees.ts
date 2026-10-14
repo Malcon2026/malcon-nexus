@@ -12,23 +12,25 @@ import {
 
 const MAX_EMPLOYEE_LIST = 100;
 
-export async function handleListEmployees(_request: Request, env: Env, _ctx: RequestContext): Promise<Response> {
+export async function handleListEmployees(_request: Request, env: Env, ctx: RequestContext): Promise<Response> {
   const db = createDb(env);
-  const data = await listEmployees(db, MAX_EMPLOYEE_LIST);
+  const includeTelegram = ctx.role === 'admin';
+  const data = await listEmployees(db, MAX_EMPLOYEE_LIST, includeTelegram);
   return apiData(data);
 }
 
 export async function handleGetEmployee(
   _request: Request,
   env: Env,
-  _ctx: RequestContext,
+  ctx: RequestContext,
   id: string,
 ): Promise<Response> {
   if (!isUuidLike(id)) {
     return apiError('BAD_REQUEST', 'Invalid employee id', 400);
   }
   const db = createDb(env);
-  const row = await getEmployeeById(db, id);
+  const includeTelegram = ctx.role === 'admin' || ctx.employeeId === id;
+  const row = await getEmployeeById(db, id, includeTelegram);
   if (!row) return apiError('NOT_FOUND', 'Employee not found', 404);
   return apiData(row);
 }

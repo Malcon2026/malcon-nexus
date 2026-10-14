@@ -26,6 +26,10 @@ export const EMPLOYEE_PUBLIC_COLUMNS = {
   updatedAt: employees.updatedAt,
 } as const;
 
+const EMPLOYEE_TELEGRAM_COLUMN = {
+  telegramChatId: employees.telegramChatId,
+} as const;
+
 export type EmployeePublicRow = {
   id: string;
   name: string;
@@ -44,7 +48,7 @@ export type EmployeePublicRow = {
   updatedAt: string;
 };
 
-function mapEmployee(row: EmployeePublicRow) {
+function mapEmployee(row: EmployeePublicRow & { telegramChatId?: string | null }, includeTelegram: boolean) {
   let departments: string[] = [];
   try {
     departments = JSON.parse(row.departments) as string[];
@@ -67,21 +71,29 @@ function mapEmployee(row: EmployeePublicRow) {
     join_date: row.joinDate,
     created_at: row.createdAt,
     updated_at: row.updatedAt,
+    ...(includeTelegram ? { telegram_chat_id: row.telegramChatId ?? null } : {}),
   };
 }
 
-export async function listEmployees(db: Db, limit: number) {
+export async function listEmployees(db: Db, limit: number, includeTelegram = false) {
+  const columns = includeTelegram
+    ? { ...EMPLOYEE_PUBLIC_COLUMNS, ...EMPLOYEE_TELEGRAM_COLUMN }
+    : EMPLOYEE_PUBLIC_COLUMNS;
   const rows = await db
-    .select(EMPLOYEE_PUBLIC_COLUMNS)
+    .select(columns)
     .from(employees)
     .orderBy(employees.name)
     .limit(limit);
-  return rows.map(mapEmployee);
+  return rows.map((r) => mapEmployee(r as EmployeePublicRow & { telegramChatId?: string | null }, includeTelegram));
 }
 
-export async function getEmployeeById(db: Db, id: string) {
-  const rows = await db.select(EMPLOYEE_PUBLIC_COLUMNS).from(employees).where(eq(employees.id, id)).limit(1);
-  return rows[0] ? mapEmployee(rows[0]) : null;
+export async function getEmployeeById(db: Db, id: string, includeTelegram = false) {
+  const columns = includeTelegram
+    ? { ...EMPLOYEE_PUBLIC_COLUMNS, ...EMPLOYEE_TELEGRAM_COLUMN }
+    : EMPLOYEE_PUBLIC_COLUMNS;
+  const rows = await db.select(columns).from(employees).where(eq(employees.id, id)).limit(1);
+  const row = rows[0] as (EmployeePublicRow & { telegramChatId?: string | null }) | undefined;
+  return row ? mapEmployee(row, includeTelegram) : null;
 }
 
 export async function countEmployeeAttendance(

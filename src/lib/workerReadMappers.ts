@@ -110,7 +110,7 @@ export function workerEmployeeToApp(row: WorkerEmployeeRow): Employee {
     avatar: row.avatar,
     phone: row.phone,
     employeeCode: row.employee_code ?? '',
-    telegramChatId: null,
+    telegramChatId: row.telegram_chat_id ?? null,
     casesCompleted: row.cases_completed,
     casesActive: row.cases_active,
     joinDate: row.join_date,

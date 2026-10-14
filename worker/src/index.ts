@@ -57,6 +57,11 @@ import {
   handleAuthVerifyOtp,
 } from './routes/auth';
 import {
+  handleTelegramBroadcast,
+  handleTelegramNotify,
+  handleTelegramWebhook,
+} from './routes/telegram';
+import {
   handleBatchDeleteAttendance,
   handleBatchDeleteAttendanceApprovals,
   handleBatchDeleteLeave,
@@ -114,6 +119,10 @@ export default {
       const auth = await buildAuthContext(request, env);
 
       if (path.startsWith('/api/')) {
+        if (request.method === 'POST' && path === '/api/telegram/webhook') {
+          return withCors(await handleTelegramWebhook(request, env), env);
+        }
+
         const publicAuth =
           (request.method === 'POST' &&
             (path === '/api/auth/login' ||
@@ -140,6 +149,13 @@ export default {
         }
         if (request.method === 'GET' && path === '/api/auth/me') {
           return withCors(await handleAuthMe(env, auth), env);
+        }
+
+        if (request.method === 'POST' && path === '/api/telegram/notify') {
+          return withCors(await handleTelegramNotify(request, env, auth), env);
+        }
+        if (request.method === 'POST' && path === '/api/telegram/broadcast') {
+          return withCors(await handleTelegramBroadcast(request, env, auth), env);
         }
 
         if (request.method === 'GET' && path === '/api/storage/status') {
