@@ -35,8 +35,10 @@ export const employees = sqliteTable(
     casesCompleted: integer('cases_completed').notNull().default(0),
     casesActive: integer('cases_active').notNull().default(0),
     joinDate: text('join_date').notNull(),
-    /** External auth subject (Supabase auth.users.id today) */
+    /** External auth subject (Supabase auth.users.id or Malcon JWT `sub`) */
     authUserId: text('auth_user_id'),
+    /** PBKDF2 password hash for Cloudflare-native login (admins / provisioned accounts) */
+    passwordHash: text('password_hash'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

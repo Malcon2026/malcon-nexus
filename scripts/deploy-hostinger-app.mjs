@@ -7,6 +7,7 @@
  *   node scripts/deploy-hostinger-app.mjs
  *   node scripts/deploy-hostinger-app.mjs --dry-run
  *   node scripts/deploy-hostinger-app.mjs --cutover   # loads .env.production.cutover (Worker/D1 data; Supabase Auth only)
+ *   node scripts/deploy-hostinger-app.mjs --cloudflare # loads .env.production.cloudflare (no Supabase)
  */
 
 import { readFileSync, existsSync, rmSync, mkdirSync, cpSync, statSync } from 'node:fs';
@@ -18,6 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
 const cutover = process.argv.includes('--cutover');
+const cloudflare = process.argv.includes('--cloudflare');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
@@ -42,7 +44,14 @@ function loadEnv() {
   for (const f of ['.env', '.env.local', '.env.production']) {
     loadEnvFile(f);
   }
-  if (cutover) {
+  if (cloudflare) {
+    const path = '.env.production.cloudflare';
+    if (!loadEnvFile(path, { override: true })) {
+      console.error(`Missing ${path}. Copy .env.production.cloudflare.example → ${path}.`);
+      process.exit(1);
+    }
+    console.info('[deploy] Cloudflare-only — Worker auth + D1 (no Supabase)');
+  } else if (cutover) {
     const cutoverPath = '.env.production.cutover';
     if (!loadEnvFile(cutoverPath, { override: true })) {
       console.error(
@@ -92,13 +101,18 @@ async function tusUpload(baseUrl, authKey, restAuthKey, relativePath, filePath) 
 
 loadEnv();
 
-if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+if (!cloudflare && (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY)) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
   process.exit(1);
 }
 
-if (cutover && !process.env.VITE_WORKER_API_URL) {
-  console.error('Cutover deploy requires VITE_WORKER_API_URL in .env.production.cutover');
+if ((cutover || cloudflare) && !process.env.VITE_WORKER_API_URL) {
+  console.error('Cutover/Cloudflare deploy requires VITE_WORKER_API_URL');
+  process.exit(1);
+}
+
+if (cloudflare && process.env.VITE_USE_CLOUDFLARE_BACKEND !== 'true') {
+  console.error('Cloudflare deploy requires VITE_USE_CLOUDFLARE_BACKEND=true');
   process.exit(1);
 }
 

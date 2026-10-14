@@ -29,6 +29,13 @@
       "when": 1791990600000,
       "tag": "0003_production_column_alignment",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791990700000,
+      "tag": "0004_employee_password_hash",
+      "breakpoints": true
     }
   ]
 }

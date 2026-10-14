@@ -1,23 +1,26 @@
+import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+
 /**
  * Phase 10.1 — opt-in Worker + D1 writes (default off; Supabase remains default).
  */
 
 export const USE_WORKER_WRITES_ACTIVITY =
-  import.meta.env.VITE_USE_WORKER_WRITES_ACTIVITY === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_ACTIVITY === 'true';
 
 export const USE_WORKER_WRITES_NOTIFICATIONS =
-  import.meta.env.VITE_USE_WORKER_WRITES_NOTIFICATIONS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_NOTIFICATIONS === 'true';
 
 export const USE_WORKER_WRITES_SETTINGS =
-  import.meta.env.VITE_USE_WORKER_WRITES_SETTINGS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_SETTINGS === 'true';
 
-export const USE_WORKER_WRITES_KITS = import.meta.env.VITE_USE_WORKER_WRITES_KITS === 'true';
+export const USE_WORKER_WRITES_KITS =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_KITS === 'true';
 
 export const USE_WORKER_WRITES_EXPENSES =
-  import.meta.env.VITE_USE_WORKER_WRITES_EXPENSES === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_EXPENSES === 'true';
 
 export const USE_WORKER_WRITES_APPROVALS =
-  import.meta.env.VITE_USE_WORKER_WRITES_APPROVALS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_APPROVALS === 'true';
 
 export function useWorkerWritesActivity(): boolean {
   return USE_WORKER_WRITES_ACTIVITY;
@@ -44,27 +47,31 @@ export function useWorkerWritesApprovals(): boolean {
 }
 
 export const USE_WORKER_WRITES_EMPLOYEES =
-  import.meta.env.VITE_USE_WORKER_WRITES_EMPLOYEES === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_EMPLOYEES === 'true';
 
 export const USE_WORKER_WRITES_HOSPITALS =
-  import.meta.env.VITE_USE_WORKER_WRITES_HOSPITALS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_HOSPITALS === 'true';
 
 export const USE_WORKER_WRITES_DOCTORS =
-  import.meta.env.VITE_USE_WORKER_WRITES_DOCTORS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_DOCTORS === 'true';
 
 export const USE_WORKER_WRITES_ATTENDANCE =
-  import.meta.env.VITE_USE_WORKER_WRITES_ATTENDANCE === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_ATTENDANCE === 'true';
 
-export const USE_WORKER_WRITES_LEAVE = import.meta.env.VITE_USE_WORKER_WRITES_LEAVE === 'true';
+export const USE_WORKER_WRITES_LEAVE =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_LEAVE === 'true';
 
-export const USE_WORKER_WRITES_FOOD = import.meta.env.VITE_USE_WORKER_WRITES_FOOD === 'true';
+export const USE_WORKER_WRITES_FOOD =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_FOOD === 'true';
 
-export const USE_WORKER_WRITES_PETROL = import.meta.env.VITE_USE_WORKER_WRITES_PETROL === 'true';
+export const USE_WORKER_WRITES_PETROL =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_PETROL === 'true';
 
-export const USE_WORKER_WRITES_TRIPS = import.meta.env.VITE_USE_WORKER_WRITES_TRIPS === 'true';
+export const USE_WORKER_WRITES_TRIPS =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_TRIPS === 'true';
 
 export const USE_WORKER_WRITES_CASE_TASKS =
-  import.meta.env.VITE_USE_WORKER_WRITES_CASE_TASKS === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_CASE_TASKS === 'true';
 
 export function useWorkerWritesEmployees(): boolean {
   return USE_WORKER_WRITES_EMPLOYEES;
@@ -102,10 +109,11 @@ export function useWorkerWritesCaseTasks(): boolean {
   return USE_WORKER_WRITES_CASE_TASKS;
 }
 
-export const USE_WORKER_WRITES_CASES = import.meta.env.VITE_USE_WORKER_WRITES_CASES === 'true';
+export const USE_WORKER_WRITES_CASES =
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_CASES === 'true';
 
 export const USE_WORKER_WRITES_CASE_CLAIM =
-  import.meta.env.VITE_USE_WORKER_WRITES_CASE_CLAIM === 'true';
+  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_WRITES_CASE_CLAIM === 'true';
 
 export function useWorkerWritesCases(): boolean {
   return USE_WORKER_WRITES_CASES;

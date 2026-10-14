@@ -7,6 +7,10 @@ import { sbEmployeeRepo } from './database/repositories/supabaseRepositories';
 import type { Employee } from '../types';
 import { isFullAdmin, usesEmployeeSignIn } from './roles';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { clearAccessToken, getAccessToken, setAccessToken } from './malconSession';
+import { workerFetchMe, workerLogin, workerRequestOtp, workerVerifyOtp } from './workerAuthClient';
+import { employeeRowToEmployee } from './database/repositories/supabaseRepositories';
 
 export interface AuthResult {
   employee: Employee | null;
@@ -75,9 +79,18 @@ async function invokeLoginFunction<T extends Record<string, unknown>>(
   return { data, error: null };
 }
 
+async function employeeAfterCloudflareLogin(employeeId: string): Promise<Employee | null> {
+  return sbEmployeeRepo.getById(employeeId);
+}
+
 export const authService = {
   /** Request a Telegram OTP for employee sign-in (non-admin). */
   async requestLoginOtp(employeeCode: string): Promise<{ error: string | null; message?: string }> {
+    if (USE_CLOUDFLARE_BACKEND) {
+      const { data, error } = await workerRequestOtp(employeeCode);
+      if (error) return { error };
+      return { error: null, message: data?.message };
+    }
     const { data, error } = await invokeLoginFunction<{ message?: string; ok?: boolean }>(
       'request-login-otp',
       { employeeCode: employeeCode.trim() },
@@ -89,6 +102,32 @@ export const authService = {
   /** Verify OTP and establish a Supabase session for the employee. */
   async signInWithTelegramOtp(employeeCode: string, otp: string): Promise<AuthResult> {
     pendingManualSignIn = true;
+
+    if (USE_CLOUDFLARE_BACKEND) {
+      const { data, error } = await workerVerifyOtp(employeeCode, otp);
+      if (error) {
+        pendingManualSignIn = false;
+        return { employee: null, error };
+      }
+      const token = data?.access_token;
+      if (!token) {
+        pendingManualSignIn = false;
+        return { employee: null, error: 'Invalid server response' };
+      }
+      setAccessToken(token);
+      const employee = await employeeAfterCloudflareLogin(data!.employee.id);
+      if (!employee) {
+        pendingManualSignIn = false;
+        clearAccessToken();
+        return { employee: null, error: 'No employee account found. Contact your administrator.' };
+      }
+      if (isFullAdmin(employee.role)) {
+        pendingManualSignIn = false;
+        clearAccessToken();
+        return { employee: null, error: 'Use Admin login with email and password.' };
+      }
+      return { employee, error: null };
+    }
 
     const { data, error } = await invokeLoginFunction<{ token_hash?: string }>('verify-login-otp', {
       employeeCode: employeeCode.trim(),
@@ -144,6 +183,52 @@ export const authService = {
   async signIn(email: string, password: string): Promise<AuthResult> {
     const startedAt = performance.now();
     const normalizedEmail = email.trim().toLowerCase();
+
+    if (USE_CLOUDFLARE_BACKEND) {
+      pendingManualSignIn = true;
+      const { data, error } = await workerLogin(normalizedEmail, password);
+      if (error) {
+        pendingManualSignIn = false;
+        return { employee: null, error };
+      }
+      const token = data?.access_token;
+      if (!token) {
+        pendingManualSignIn = false;
+        return { employee: null, error: 'Authentication failed' };
+      }
+      setAccessToken(token);
+      let employee = await employeeAfterCloudflareLogin(data!.employee.id);
+      if (!employee) {
+        employee = await sbEmployeeRepo.getByEmail(normalizedEmail);
+      }
+      if (!employee) {
+        pendingManualSignIn = false;
+        clearAccessToken();
+        return {
+          employee: null,
+          error: 'No employee account found for this email. Contact your administrator.',
+        };
+      }
+      if (usesEmployeeSignIn(employee.role)) {
+        pendingManualSignIn = false;
+        clearAccessToken();
+        return {
+          employee: null,
+          error: 'Staff sign in with Employee ID and Telegram OTP.',
+        };
+      }
+      if (employee.role !== 'admin') {
+        pendingManualSignIn = false;
+        clearAccessToken();
+        return {
+          employee: null,
+          error: 'This login type is not supported. Contact your administrator.',
+        };
+      }
+      console.info(`[perf] auth.signIn resolved in ${Math.round(performance.now() - startedAt)}ms`);
+      return { employee, error: null };
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,
@@ -206,17 +291,35 @@ export const authService = {
 
   /** Sign out the current user */
   async signOut(): Promise<void> {
+    if (USE_CLOUDFLARE_BACKEND) {
+      clearAccessToken();
+      return;
+    }
     await supabase.auth.signOut();
   },
 
   /** Get the currently logged-in employee (on page refresh) */
   async getCurrentEmployee(): Promise<Employee | null> {
+    if (USE_CLOUDFLARE_BACKEND) {
+      if (!getAccessToken()) return null;
+      const { data, error } = await workerFetchMe();
+      if (error || !data?.employee) return null;
+      return employeeRowToEmployee(data.employee);
+    }
     const { data: { session } } = await supabase.auth.getSession();
     return employeeFromSession(session);
   },
 
   /** Subscribe to auth state changes */
   onAuthStateChange(callback: (event: AuthChangeEvent, employee: Employee | null) => void) {
+    if (USE_CLOUDFLARE_BACKEND) {
+      const noop = { data: { subscription: { unsubscribe: () => {} } } };
+      void (async () => {
+        const emp = await authService.getCurrentEmployee();
+        if (emp) callback('INITIAL_SESSION' as AuthChangeEvent, emp);
+      })();
+      return noop as ReturnType<typeof supabase.auth.onAuthStateChange>;
+    }
     return supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         callback(event, null);

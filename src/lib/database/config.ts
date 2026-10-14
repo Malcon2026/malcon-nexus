@@ -1,6 +1,8 @@
+import { USE_CLOUDFLARE_BACKEND } from '../cloudflareConfig';
 import { supabaseStorage } from './storage';
 
 export const USE_SUPABASE =
+  !USE_CLOUDFLARE_BACKEND &&
   !!import.meta.env.VITE_SUPABASE_URL &&
   import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
 

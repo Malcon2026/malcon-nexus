@@ -247,6 +247,11 @@ export const sbEmployeeRepo = {
   },
 
   async getByEmail(email: string): Promise<Employee | null> {
+    if (useWorkerReads()) {
+      const normalized = email.trim().toLowerCase();
+      const all = await fetchEmployeesFromWorker();
+      return all.find((e) => e.email.trim().toLowerCase() === normalized) ?? null;
+    }
     const { data, error } = await supabase.from('employees').select('*').eq('email', email).single();
     if (error || !data) return null;
     // Build the employee straight from this row — no need for a second
@@ -257,6 +262,12 @@ export const sbEmployeeRepo = {
   /** Single round-trip lookup used on login/session-restore — avoids a
    *  separate "find id" query followed by a "fetch full row" query. */
   async getByAuthUserId(authUserId: string): Promise<Employee | null> {
+    if (useWorkerReads()) {
+      const byId = await fetchEmployeeByIdFromWorker(authUserId);
+      if (byId) return byId;
+      const all = await fetchEmployeesFromWorker();
+      return all.find((e) => e.id === authUserId) ?? null;
+    }
     const { data, error } = await supabase
       .from('employees')
       .select('*')

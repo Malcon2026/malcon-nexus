@@ -50,6 +50,13 @@ import {
   handlePutDailyExpense,
 } from './routes/lowRiskWrites';
 import {
+  handleAuthLogin,
+  handleAuthMe,
+  handleAuthRequestOtp,
+  handleAuthSetPassword,
+  handleAuthVerifyOtp,
+} from './routes/auth';
+import {
   handleBatchDeleteAttendance,
   handleBatchDeleteAttendanceApprovals,
   handleBatchDeleteLeave,
@@ -107,8 +114,33 @@ export default {
       const auth = await buildAuthContext(request, env);
 
       if (path.startsWith('/api/')) {
-        const denied = enforceApiAuth(auth, env);
-        if (denied) return withCors(denied, env);
+        const publicAuth =
+          (request.method === 'POST' &&
+            (path === '/api/auth/login' ||
+              path === '/api/auth/request-otp' ||
+              path === '/api/auth/verify-otp')) ||
+          false;
+
+        if (!publicAuth) {
+          const denied = enforceApiAuth(auth, env);
+          if (denied) return withCors(denied, env);
+        }
+
+        if (request.method === 'POST' && path === '/api/auth/login') {
+          return withCors(await handleAuthLogin(request, env), env);
+        }
+        if (request.method === 'POST' && path === '/api/auth/request-otp') {
+          return withCors(await handleAuthRequestOtp(request, env), env);
+        }
+        if (request.method === 'POST' && path === '/api/auth/verify-otp') {
+          return withCors(await handleAuthVerifyOtp(request, env), env);
+        }
+        if (request.method === 'POST' && path === '/api/auth/set-password') {
+          return withCors(await handleAuthSetPassword(request, env, auth), env);
+        }
+        if (request.method === 'GET' && path === '/api/auth/me') {
+          return withCors(await handleAuthMe(env, auth), env);
+        }
 
         if (request.method === 'GET' && path === '/api/storage/status') {
           return withCors(await handleStorageStatus(request, env), env);
