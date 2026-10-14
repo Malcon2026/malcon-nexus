@@ -1,11 +1,17 @@
+/** Strip UI prefixes (e.g. "# 0143") and whitespace from employee codes. */
+export function sanitizeEmployeeCodeInput(raw: string): string {
+  return raw.trim().replace(/^#+\s*/, '').trim();
+}
+
 export function normalizeEmployeeCode(raw: string): string {
-  return raw.trim().replace(/^0+/, '') || '0';
+  const cleaned = sanitizeEmployeeCodeInput(raw);
+  return cleaned.replace(/^0+/, '') || '0';
 }
 
 export function employeeCodeMatches(stored: string | null | undefined, input: string): boolean {
-  const code = String(stored ?? '').trim();
+  const code = sanitizeEmployeeCodeInput(String(stored ?? ''));
   if (!code) return false;
-  const arg = input.trim();
+  const arg = sanitizeEmployeeCodeInput(input);
   return normalizeEmployeeCode(code) === normalizeEmployeeCode(arg) || code === arg;
 }
 

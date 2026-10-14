@@ -33,7 +33,8 @@ export async function workerLogin(email: string, password: string) {
 }
 
 export async function workerRequestOtp(employeeCode: string) {
-  return postJson<{ ok?: boolean; message?: string }>('/api/auth/request-otp', { employeeCode });
+  const trimmed = employeeCode.trim().replace(/^#+\s*/, '').trim();
+  return postJson<{ ok?: boolean; message?: string }>('/api/auth/request-otp', { employeeCode: trimmed });
 }
 
 export async function workerVerifyOtp(employeeCode: string, otp: string) {

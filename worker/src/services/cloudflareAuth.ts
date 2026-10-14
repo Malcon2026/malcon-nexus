@@ -2,7 +2,8 @@ import { and, desc, eq, gte, isNull } from 'drizzle-orm';
 import type { Env } from '../env';
 import { createDb } from '../db/client';
 import { employees, loginOtps } from '../db/schema';
-import { employeeCodeMatches, hashLoginOtp, randomSixDigitOtp } from '../lib/loginOtp';
+import { employeeCodeMatches, hashLoginOtp, randomSixDigitOtp, sanitizeEmployeeCodeInput } from '../lib/loginOtp';
+import { isStaleTelegramChatError, telegramSendMessage } from '../lib/telegramApi';
 import { hashPassword, verifyPassword } from '../lib/passwordHash';
 import { verifySupabaseLegacyPassword } from '../lib/supabaseLegacyPassword';
 import { signAccessToken } from '../lib/malconJwt';
@@ -108,7 +109,7 @@ export async function requestLoginOtp(
   env: Env,
   employeeCode: string,
 ): Promise<{ message: string } | { error: string; status: number }> {
-  const codeInput = employeeCode.trim();
+  const codeInput = sanitizeEmployeeCodeInput(employeeCode);
   if (!codeInput) return { error: 'Employee ID is required', status: 400 };
 
   const botToken = env.TELEGRAM_BOT_TOKEN;
@@ -171,14 +172,21 @@ export async function requestLoginOtp(
   });
 
   const text = `Malcon Nexus login code: ${otp}\nValid for 5 minutes. Do not share this code.`;
-  const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
-  });
-  const tgBody = (await tgRes.json().catch(() => ({}))) as { ok?: boolean; description?: string };
-  if (!tgRes.ok || !tgBody.ok) {
-    return { error: tgBody.description ?? 'Could not send OTP via Telegram', status: 502 };
+  const sent = await telegramSendMessage(botToken, chatId, text);
+  if (!sent.ok) {
+    if (isStaleTelegramChatError(sent.error)) {
+      const nowIso = new Date().toISOString();
+      await db
+        .update(employees)
+        .set({ telegramChatId: null, updatedAt: nowIso })
+        .where(eq(employees.id, match.id));
+      return {
+        error:
+          'Telegram link expired or blocked. Open @Malcon_Nexus_bot and send /start YOUR_CODE to reconnect, then request OTP again.',
+        status: 400,
+      };
+    }
+    return { error: sent.error ?? 'Could not send OTP via Telegram', status: 502 };
   }
 
   return {
@@ -193,7 +201,7 @@ export async function verifyLoginOtp(
   employeeCode: string,
   otp: string,
 ): Promise<{ accessToken: string; employee: MappedEmployee } | { error: string; status: number }> {
-  const codeInput = employeeCode.trim();
+  const codeInput = sanitizeEmployeeCodeInput(employeeCode);
   const otpInput = otp.trim().replace(/\s/g, '');
   if (!codeInput || !/^\d{6}$/.test(otpInput)) {
     return { error: 'Employee ID and a 6-digit OTP are required', status: 400 };

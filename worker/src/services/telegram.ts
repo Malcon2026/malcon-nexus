@@ -2,8 +2,8 @@ import { eq, inArray, isNotNull, and } from 'drizzle-orm';
 import type { Env } from '../env';
 import { createDb } from '../db/client';
 import { cases, employees } from '../db/schema';
-import { telegramSendMessage } from '../lib/telegramApi';
-import { employeeCodeMatches } from '../lib/loginOtp';
+import { employeeCodeMatches, sanitizeEmployeeCodeInput } from '../lib/loginOtp';
+import { telegramChatReachable, telegramSendMessage } from '../lib/telegramApi';
 
 type TelegramEvent = 'assignment' | 'postpone';
 
@@ -195,7 +195,7 @@ export async function handleTelegramWebhookUpdate(env: Env, update: unknown): Pr
     return;
   }
 
-  const codeArg = text.slice('/start'.length).trim();
+  const codeArg = sanitizeEmployeeCodeInput(text.slice('/start'.length));
   if (!codeArg) {
     await telegramSendMessage(
       botToken,
@@ -226,13 +226,22 @@ export async function handleTelegramWebhookUpdate(env: Env, update: unknown): Pr
     return;
   }
 
-  if (match.telegramChatId && match.telegramChatId !== chatIdStr) {
-    await telegramSendMessage(
-      botToken,
-      chatId,
-      `${match.name} is already linked to another Telegram account.\n\nContact admin if you need to switch devices.`,
-    );
+  if (match.status !== 'Active') {
+    await telegramSendMessage(botToken, chatId, 'Your employee account is inactive. Contact admin.');
     return;
+  }
+
+  const existingChat = match.telegramChatId?.trim();
+  if (existingChat && existingChat !== chatIdStr) {
+    const oldReachable = await telegramChatReachable(botToken, existingChat);
+    if (oldReachable) {
+      await telegramSendMessage(
+        botToken,
+        chatId,
+        `${match.name} is already linked to another Telegram account.\n\nContact admin if you need to switch devices.`,
+      );
+      return;
+    }
   }
 
   const now = new Date().toISOString();

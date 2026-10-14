@@ -79,8 +79,10 @@ async function invokeLoginFunction<T extends Record<string, unknown>>(
   return { data, error: null };
 }
 
-async function employeeAfterCloudflareLogin(employeeId: string): Promise<Employee | null> {
-  return sbEmployeeRepo.getById(employeeId);
+async function employeeAfterCloudflareLogin(_employeeId: string): Promise<Employee | null> {
+  const { data, error } = await workerFetchMe();
+  if (error || !data?.employee) return null;
+  return employeeRowToEmployee(data.employee);
 }
 
 export const authService = {
