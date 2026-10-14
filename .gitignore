@@ -19,6 +19,8 @@ dist/
 # Local attendance imports (not for repo)
 EMP ATTENDANCE*.xlsx
 .env*
+!.env.example
+!.env.production.cutover.example
 
 # Emergency DB/storage exports (never commit)
 backups/

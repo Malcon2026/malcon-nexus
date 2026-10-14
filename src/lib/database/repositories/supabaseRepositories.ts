@@ -926,6 +926,9 @@ export const sbNotificationRepo = {
       // A single employee never needs their entire lifetime history on
       // login — cap it so this stays a cheap, bounded query.
       query = query.eq('recipient_id', recipientId).limit(300);
+    } else {
+      // Admin bootstrap used to pull the full table (~70k+ rows) and blew egress quota.
+      query = query.limit(500);
     }
     const { data, error } = await query;
     if (error) throw error;

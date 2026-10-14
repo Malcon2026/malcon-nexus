@@ -6,6 +6,7 @@
  *
  *   node scripts/deploy-hostinger-app.mjs
  *   node scripts/deploy-hostinger-app.mjs --dry-run
+ *   node scripts/deploy-hostinger-app.mjs --cutover   # loads .env.production.cutover (Worker/D1 data; Supabase Auth only)
  */
 
 import { readFileSync, existsSync, rmSync, mkdirSync, cpSync, statSync } from 'node:fs';
@@ -16,23 +17,40 @@ import { execSync } from 'node:child_process';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
+const cutover = process.argv.includes('--cutover');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
 const ARCHIVE_NAME = 'malcon-nexus-dist.zip';
 
+function loadEnvFile(relativePath, { override = false } = {}) {
+  const p = resolve(root, relativePath);
+  if (!existsSync(p)) return false;
+  for (const line of readFileSync(p, 'utf8').split('\n')) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const i = t.indexOf('=');
+    if (i <= 0) continue;
+    const key = t.slice(0, i).trim();
+    if (!override && process.env[key]) continue;
+    process.env[key] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  return true;
+}
+
 function loadEnv() {
   for (const f of ['.env', '.env.local', '.env.production']) {
-    const p = resolve(root, f);
-    if (!existsSync(p)) continue;
-    for (const line of readFileSync(p, 'utf8').split('\n')) {
-      const t = line.trim();
-      if (!t || t.startsWith('#')) continue;
-      const i = t.indexOf('=');
-      if (i > 0 && !process.env[t.slice(0, i).trim()]) {
-        process.env[t.slice(0, i).trim()] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '');
-      }
+    loadEnvFile(f);
+  }
+  if (cutover) {
+    const cutoverPath = '.env.production.cutover';
+    if (!loadEnvFile(cutoverPath, { override: true })) {
+      console.error(
+        `Missing ${cutoverPath}. Copy .env.production.cutover.example → ${cutoverPath} and set VITE_SUPABASE_* plus Worker URL.`,
+      );
+      process.exit(1);
     }
+    console.info('[deploy] cutover mode — SPA data via Cloudflare Worker/D1; Supabase Auth unchanged');
   }
 }
 
@@ -76,6 +94,11 @@ loadEnv();
 
 if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
+  process.exit(1);
+}
+
+if (cutover && !process.env.VITE_WORKER_API_URL) {
+  console.error('Cutover deploy requires VITE_WORKER_API_URL in .env.production.cutover');
   process.exit(1);
 }
 
