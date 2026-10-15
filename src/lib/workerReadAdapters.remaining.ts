@@ -10,7 +10,7 @@ import {
   fcfsStagesForEmployee,
   normalizeWorkflowStageName,
 } from './caseWorkflow';
-import { getCaseDetailsByIds, getEmployeeCaseIdsViaWorker, getFcfsPoolListViaWorker } from './workerApi';
+import { getCaseDetailsByIds, getEmployeeCasesFullViaWorker, getFcfsPoolListViaWorker } from './workerApi';
 import {
   workerActivityToApp,
   workerApprovalToApp,
@@ -54,8 +54,7 @@ export async function fetchPendingCaseTaskRequestsForCaseFromWorker(caseId: stri
 }
 
 export async function fetchCasesForEmployeeFromWorker(employeeId: string): Promise<ImplantCase[]> {
-  const ids = await getEmployeeCaseIdsViaWorker(employeeId);
-  const details = await getCaseDetailsByIds(ids);
+  const details = await getEmployeeCasesFullViaWorker(employeeId, []);
   return caseDetailsToImplantCases(details);
 }
 
@@ -77,15 +76,32 @@ export async function fetchFcfsPoolForEmployeeFromWorker(
   );
 }
 
+/** One Worker round-trip: assigned cases + FCFS pool with full stages from D1. */
 export async function fetchCasesForEmployeeIncludingPoolFromWorker(
   employeeId: string,
   employee: Pick<Employee, 'department' | 'departments'>,
 ): Promise<ImplantCase[]> {
-  const [assigned, pool] = await Promise.all([
-    fetchCasesForEmployeeFromWorker(employeeId),
-    fetchFcfsPoolForEmployeeFromWorker(employee),
-  ]);
+  const fcfsStages = fcfsStagesForEmployee(employee);
+  const details = await getEmployeeCasesFullViaWorker(employeeId, fcfsStages);
+  const all = await caseDetailsToImplantCases(details);
   const byId = new Map<string, ImplantCase>();
-  for (const c of [...assigned, ...pool]) byId.set(c.id, c);
+  for (const c of all) {
+    if (c.assignedEmployee?.id === employeeId) byId.set(c.id, c);
+    for (const s of c.stages) {
+      if (s.assignedEmployee?.id === employeeId || s.assistantEmployee?.id === employeeId) {
+        byId.set(c.id, c);
+      }
+    }
+  }
+  if (fcfsStages.length > 0) {
+    for (const c of all) {
+      if (c.assignedEmployee) continue;
+      if (!['Active', 'Draft'].includes(c.status)) continue;
+      if (!fcfsStages.includes(normalizeWorkflowStageName(c.currentStage))) continue;
+      const stageDept = STAGE_DEPARTMENT_MAP[normalizeWorkflowStageName(c.currentStage)];
+      if (stageDept && c.currentDepartment !== stageDept) continue;
+      byId.set(c.id, c);
+    }
+  }
   return [...byId.values()];
 }

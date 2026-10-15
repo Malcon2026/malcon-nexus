@@ -3,7 +3,7 @@ import { createDb } from '../db/client';
 import { apiData, apiError, isUuidLike } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
-import { countCases, getCaseDetail, listCases } from '../services/cases';
+import { countCases, getCaseDetail, listCases, listCasesFull } from '../services/cases';
 
 export async function handleListCases(request: Request, env: Env, _ctx: RequestContext): Promise<Response> {
   const url = new URL(request.url);
@@ -17,9 +17,13 @@ export async function handleListCases(request: Request, env: Env, _ctx: RequestC
     return apiError('BAD_REQUEST', 'dayKey must be YYYY-MM-DD', 400);
   }
 
+  const full = url.searchParams.get('full') === '1' || url.searchParams.get('full') === 'true';
+
   const db = createDb(env);
   const total = await countCases(db, dayKey);
-  const items = await listCases(db, parsed.offset, parsed.limit, dayKey);
+  const items = full
+    ? await listCasesFull(db, parsed.offset, parsed.limit, dayKey)
+    : await listCases(db, parsed.offset, parsed.limit, dayKey);
   return apiData({
     items,
     pagination: pageMeta(parsed.page, parsed.pageSize, total),

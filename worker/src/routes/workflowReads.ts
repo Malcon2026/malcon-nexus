@@ -3,7 +3,9 @@ import { createDb } from '../db/client';
 import { apiData, apiError, isUuidLike } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
+import { AuthError, requireEmployeeAccess } from '../middleware/authorization';
 import { listCaseIdsForEmployee, listFcfsPoolCaseIds } from '../services/caseScope';
+import { getCaseDetailsByIds } from '../services/cases';
 import {
   ACTIVITY_READ_CAP,
   countActivityLog,
@@ -65,13 +67,57 @@ export async function handleListActivityLog(request: Request, env: Env, _ctx: Re
 export async function handleEmployeeCaseIds(
   _request: Request,
   env: Env,
-  _ctx: RequestContext,
+  ctx: RequestContext,
   employeeId: string,
 ) {
   if (!isUuidLike(employeeId)) return apiError('BAD_REQUEST', 'Invalid employee id', 400);
+  try {
+    requireEmployeeAccess(ctx, employeeId);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
   const db = createDb(env);
   const ids = await listCaseIdsForEmployee(db, employeeId);
   return apiData({ ids });
+}
+
+/** Assigned + optional FCFS pool cases with full stages — one HTTP call for employee login. */
+export async function handleEmployeeCasesFull(
+  request: Request,
+  env: Env,
+  ctx: RequestContext,
+  employeeId: string,
+) {
+  if (!isUuidLike(employeeId)) return apiError('BAD_REQUEST', 'Invalid employee id', 400);
+  try {
+    requireEmployeeAccess(ctx, employeeId);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
+
+  const url = new URL(request.url);
+  const poolStagesRaw = url.searchParams.get('poolStages')?.trim() ?? '';
+  const poolStages = poolStagesRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const db = createDb(env);
+  const assignedIds = await listCaseIdsForEmployee(db, employeeId);
+  let poolIds: string[] = [];
+  if (poolStages.length > 0) {
+    const pool = await listFcfsPoolCaseIds(db, poolStages);
+    poolIds = pool.map((p) => p.id);
+  }
+  const ids = [...new Set([...assignedIds, ...poolIds])];
+  const items = await getCaseDetailsByIds(db, ids);
+  return apiData({ items });
 }
 
 export async function handleFcfsPoolCases(request: Request, env: Env, _ctx: RequestContext) {

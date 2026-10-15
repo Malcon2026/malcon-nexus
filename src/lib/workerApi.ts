@@ -109,12 +109,15 @@ export async function getCasesPage(params: {
   pageSize?: number;
   /** IST calendar day — surgery today or updated since that day. */
   dayKey?: string;
-}): Promise<Paginated<WorkerCaseListItem>> {
+  /** Include stages/activity JSON in each row (required for store — list stubs must not be saved). */
+  full?: boolean;
+}): Promise<Paginated<WorkerCaseDetail>> {
   const q = new URLSearchParams();
   q.set('page', String(params.page ?? 1));
   q.set('pageSize', String(params.pageSize ?? 50));
   if (params.dayKey) q.set('dayKey', params.dayKey);
-  const body = await workerFetchJson<{ data: Paginated<WorkerCaseListItem> }>(`/api/cases?${q.toString()}`);
+  if (params.full) q.set('full', '1');
+  const body = await workerFetchJson<{ data: Paginated<WorkerCaseDetail> }>(`/api/cases?${q.toString()}`);
   return body.data;
 }
 
@@ -155,26 +158,32 @@ async function fetchAllPaginated<T>(
   return out;
 }
 
-async function hydrateCaseIdsFromListPages(
-  fetchPage: (page: number, pageSize: number) => Promise<Paginated<WorkerCaseListItem>>,
-): Promise<WorkerCaseDetail[]> {
-  const list = await fetchAllPaginated<WorkerCaseListItem>(fetchPage, {
-    pageSize: CASE_BOOTSTRAP_PAGE_SIZE,
-  });
-  const ids = [...new Set(list.map((row) => String(row.id ?? '')).filter(Boolean))];
-  if (ids.length === 0) return [];
-  return getCaseDetailsByIds(ids);
-}
-
-/** Full case rows from D1 (list API omits stage JSON — stubs must not enter the store). */
+/** Full case rows from D1 — one paginated API call per chunk (`full=1`). */
 export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
-  return hydrateCaseIdsFromListPages((page, pageSize) => getCasesPage({ page, pageSize }));
+  return fetchAllPaginated<WorkerCaseDetail>(
+    (page, pageSize) => getCasesPage({ page, pageSize, full: true }),
+    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+  );
 }
 
 export async function getBootstrapDayCasesViaWorker(dayKey: string): Promise<WorkerCaseDetail[]> {
-  return hydrateCaseIdsFromListPages((page, pageSize) =>
-    getCasesPage({ page, pageSize, dayKey }),
+  return fetchAllPaginated<WorkerCaseDetail>(
+    (page, pageSize) => getCasesPage({ page, pageSize, dayKey, full: true }),
+    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
   );
+}
+
+export async function getEmployeeCasesFullViaWorker(
+  employeeId: string,
+  poolStages: string[],
+): Promise<WorkerCaseDetail[]> {
+  const q = new URLSearchParams();
+  if (poolStages.length > 0) q.set('poolStages', poolStages.join(','));
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  const body = await workerFetchJson<{ data: { items: WorkerCaseDetail[] } }>(
+    `/api/cases/for-employee/${encodeURIComponent(employeeId)}/full${suffix}`,
+  );
+  return body.data?.items ?? [];
 }
 
 export type WorkerNotificationRow = {

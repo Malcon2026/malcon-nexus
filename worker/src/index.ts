@@ -24,6 +24,7 @@ import {
 } from './routes/operationsData';
 import {
   handleEmployeeCaseIds,
+  handleEmployeeCasesFull,
   handleFcfsPoolCases,
   handleListActivityLog,
   handleListApprovals,
@@ -188,6 +189,11 @@ export default {
 
         if (request.method === 'GET' && path === '/api/cases/fcfs-pool') {
           return withCors(await handleFcfsPoolCases(request, env, auth), env);
+        }
+
+        const forEmpFullMatch = path.match(/^\/api\/cases\/for-employee\/([^/]+)\/full$/);
+        if (request.method === 'GET' && forEmpFullMatch) {
+          return withCors(await handleEmployeeCasesFull(request, env, auth, forEmpFullMatch[1]), env);
         }
 
         const forEmpMatch = path.match(/^\/api\/cases\/for-employee\/([^/]+)$/);
