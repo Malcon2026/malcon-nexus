@@ -28,6 +28,7 @@
     "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs",
     "deploy:hostinger:cutover": "node scripts/deploy-hostinger-app.mjs --cutover",
     "deploy:hostinger:cloudflare": "node scripts/deploy-hostinger-app.mjs --cloudflare",
+    "deploy:hostinger:aws": "node scripts/deploy-hostinger-app.mjs --aws",
     "telegram:sync-ids": "node scripts/sync-telegram-chat-ids-to-d1.mjs",
     "telegram:link": "node scripts/link-telegram-chat-id-d1.mjs",
     "telegram:configure": "node scripts/configure-worker-telegram.mjs",

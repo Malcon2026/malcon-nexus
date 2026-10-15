@@ -6,16 +6,27 @@ const MAX_EMPLOYEE_CASE_IDS = 300;
 const MAX_FCFS_POOL_IDS = 150;
 
 /** Cases where employee is primary assignee, on a stage, or legacy snapshot match. */
-export async function listCaseIdsForEmployee(db: Db, employeeId: string, limit = MAX_EMPLOYEE_CASE_IDS) {
+export async function listCaseIdsForEmployee(
+  db: Db,
+  employeeId: string,
+  limit = MAX_EMPLOYEE_CASE_IDS,
+  postgres = false,
+) {
   const stageNeedle = `%${employeeId}%`;
+  const stagesMatch = postgres
+    ? sql`${cases.stages}::text LIKE ${stageNeedle}`
+    : sql`${cases.stages} LIKE ${stageNeedle}`;
+  const snapshotMatch = postgres
+    ? sql`(${cases.assignedEmployeeSnapshot}::json->>'id') = ${employeeId}`
+    : sql`json_extract(${cases.assignedEmployeeSnapshot}, '$.id') = ${employeeId}`;
   const rows = await db
     .select({ id: cases.id })
     .from(cases)
     .where(
       or(
         eq(cases.assignedEmployeeId, employeeId),
-        sql`${cases.stages} LIKE ${stageNeedle}`,
-        sql`json_extract(${cases.assignedEmployeeSnapshot}, '$.id') = ${employeeId}`,
+        stagesMatch,
+        snapshotMatch,
       ),
     )
     .orderBy(desc(cases.updatedAt))

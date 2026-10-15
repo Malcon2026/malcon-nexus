@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 import { WorkerApiError, workerFetchJson } from './workerApi';
 
 export type TelegramBroadcastResult =
@@ -12,7 +12,7 @@ export async function sendTelegramBroadcast(
   target: 'all' | 'selected',
   employeeIds?: string[],
 ): Promise<TelegramBroadcastResult> {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     try {
       const body = await workerFetchJson<{
         sent?: number;

@@ -19,7 +19,7 @@ import {
   sbFoodRepo,
 } from './repositories/supabaseRepositories';
 import { FCFS_POOL_ENABLED } from '../caseWorkflow';
-import { USE_CLOUDFLARE_BACKEND } from '../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../cloudflareConfig';
 import { ADMIN_BACKGROUND_CASE_CAP } from '../workerApi';
 import { getISTDateKey, getISTDayStartIso } from '../attendance';
 import { foodLoadWindow } from '../food';
@@ -145,7 +145,7 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
       {
         key: 'cases',
         run: () =>
-          USE_CLOUDFLARE_BACKEND
+          USE_MANAGED_API_BACKEND
             ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
             : sbCaseRepo.getAll(),
       },
@@ -178,7 +178,7 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
       {
         key: 'cases',
         run: () =>
-          USE_CLOUDFLARE_BACKEND
+          USE_MANAGED_API_BACKEND
             ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
             : sbCaseRepo.getAll(),
       },

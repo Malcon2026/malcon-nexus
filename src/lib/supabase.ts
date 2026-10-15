@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 if (
-  !USE_CLOUDFLARE_BACKEND &&
+  !USE_MANAGED_API_BACKEND &&
   (!supabaseUrl || !supabaseAnonKey)
 ) {
   throw new Error(
@@ -16,7 +16,7 @@ if (
   );
 }
 
-export const supabase = USE_CLOUDFLARE_BACKEND
+export const supabase = USE_MANAGED_API_BACKEND
   ? (null as unknown as ReturnType<typeof createClient<Database>>)
   : createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {

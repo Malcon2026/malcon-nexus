@@ -1,11 +1,11 @@
 import { Database } from '../database';
 import { REMOTE_DATA, setCache } from '../config';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import { sbNotificationRepo } from './supabaseRepositories';
 import type { Notification } from '../../../types';
 
 function persistNotificationList(list: Notification[]): void {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     Database.saveAll('notifications', list);
   }
   setCache('notifications', list);

@@ -31,7 +31,7 @@ import { CASE_DUTIES_TAB_ID } from '../lib/caseDuties';
 import { CaseCurrentWork, type CaseAction } from '../components/case-detail/CaseCurrentWork';
 import { FloatingCornerButton } from '../components/layout/FloatingCornerButton';
 import { CaseDetailTabs, type CaseTab } from '../components/case-detail/CaseDetailTabs';
-import { USE_CLOUDFLARE_BACKEND } from '../lib/cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../lib/cloudflareConfig';
 import { taskRepository } from '../lib/database/repositories/tasks';
 import {
   CaseActivity,
@@ -767,7 +767,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
 
   /** D1 is source of truth — list bootstrap rows omit stages and must not drive assign/submit UI. */
   useEffect(() => {
-    if (!USE_CLOUDFLARE_BACKEND) return;
+    if (!USE_MANAGED_API_BACKEND) return;
     let cancelled = false;
     void (async () => {
       try {

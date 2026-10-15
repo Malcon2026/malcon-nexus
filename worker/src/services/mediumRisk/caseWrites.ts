@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { Env } from '../../env';
 import type { Db } from '../../db/client';
 import { cases, hospitals } from '../../db/schema';
@@ -331,21 +331,20 @@ export async function claimCaseFcfs(
   const stagesJson = JSON.stringify(updatedStages);
   const empSnap = JSON.stringify(employee);
 
-  const result = await env.DB.prepare(
-    `UPDATE cases SET
-      assigned_employee_id = ?,
-      assigned_employee_snapshot = ?,
-      status = ?,
-      current_department = ?,
-      stages = ?,
-      updated_at = ?
-    WHERE id = ? AND assigned_employee_id IS NULL`,
-  )
-    .bind(employee.id, empSnap, 'Active', employee.department, stagesJson, assignedAt, caseId)
-    .run();
+  const claimed = await db
+    .update(cases)
+    .set({
+      assignedEmployeeId: employee.id,
+      assignedEmployeeSnapshot: empSnap,
+      status: 'Active',
+      currentDepartment: employee.department,
+      stages: stagesJson,
+      updatedAt: assignedAt,
+    })
+    .where(and(eq(cases.id, caseId), isNull(cases.assignedEmployeeId)))
+    .returning({ id: cases.id });
 
-  const changes = (result.meta as { changes?: number })?.changes ?? 0;
-  if (changes !== 1) {
+  if (claimed.length !== 1) {
     throw new AuthError('This case was already claimed by someone else.', 409);
   }
 
