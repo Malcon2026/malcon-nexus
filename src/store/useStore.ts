@@ -81,6 +81,7 @@ import {
   getStaleOpenShiftBeforeDate,
   buildAutoCloseOutRecord,
 } from '../lib/manualAttendance';
+import { assertForceAdvancePassword } from '../lib/forceAdvanceAuth';
 import { needsAssignmentReactivation, type StageAssignments, type StageAssistantAssignments, type StageAssistantIds, type StageWithAssistant, type AssignableStage, findStageRecord, normalizeCaseStages, normalizeWorkflowStageName, getNextWorkflowStage, returnStageAfterCancel, AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, FORCE_ADVANCE_ENABLED, isFcfsStage, canRequestTaskCase, getAvailablePoolCases, isFcfsPoolCase, SURGERY_SELF_ASSIGNMENT_VALUE, stageSupportsAssistant, skipDisabledWorkflowStages, VISIBLE_WORKFLOW_STAGES, mapCaseToVisibleStage, isPostRestockStageDisabled, isLegacyBillingStage, isRestockStageComplete, getCurrentStageAssignee, isEmployeeAssigneeOnCurrentStage, isEmployeeAssigneeOnWorkflowStage, resolveNextStageAfterApproval, applyApprovalWithSelfSurgerySkip, applyApprovalWithPickupUsedNoReturnSkip, applySkipCheckingForReturnOutcome, applyParkedCompleteFromStage, getPickupReturnOutcome, isSelfPerformedSurgery, isPostponedCase, shouldClearPostponeAfterStage, SELF_SURGERY_AUTO_ADVANCE_NOTE, PICKUP_PARKED_COMPLETE_NOTE, computeOpenCasePointer, getEmployeeSubmitStage, getStageSubmitWaitMessage, indexOfStageInCase, WORKFLOW_STAGES } from '../lib/caseWorkflow';
 import { isReturnDutySpecialValue, returnDutyIdToOutcome, returnOutcomeLabel } from '../lib/returnPickup';
 import { shouldDefaultPreparationToCurrentUser } from '../lib/assignableEmployees';
@@ -186,8 +187,13 @@ interface AppState {
   updateCase: (id: string, updates: Partial<ImplantCase>) => void;
   approveStage: (caseId: string, adminNotes: string) => void;
   /** Admin: skip one or more stages and jump to a later stage (or close). */
-  forceAdvanceCase: (caseId: string, targetStage: WorkflowStage, adminNotes: string) => Promise<void>;
-  setParkedCompleteCase: (caseId: string, reason: string) => Promise<void>;
+  forceAdvanceCase: (
+    caseId: string,
+    targetStage: WorkflowStage,
+    adminNotes: string,
+    forceAdvancePassword: string,
+  ) => Promise<void>;
+  setParkedCompleteCase: (caseId: string, reason: string, forceAdvancePassword: string) => Promise<void>;
   /** Surgery stage only — hospital performed surgery independently; skips employee submission and advances the case. */
   markSurgerySelfPerformed: (caseId: string, notes: string) => Promise<{ error: string | null }>;
   /** Update pre-assigned / historical assignees for any workflow stage on a case. */
@@ -1779,10 +1785,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  forceAdvanceCase: async (caseId, targetStage, adminNotes) => {
+  forceAdvanceCase: async (caseId, targetStage, adminNotes, forceAdvancePassword) => {
     if (!FORCE_ADVANCE_ENABLED) {
       throw new Error('Force advance is temporarily disabled.');
     }
+    assertForceAdvancePassword(forceAdvancePassword);
     const state = get();
     if (isStoreManager(state.currentUser.role)) {
       throw new Error('Only full admins can force-advance cases.');
@@ -1963,7 +1970,11 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  setParkedCompleteCase: async (caseId, reason) => {
+  setParkedCompleteCase: async (caseId, reason, forceAdvancePassword) => {
+    if (!FORCE_ADVANCE_ENABLED) {
+      throw new Error('Force advance is temporarily disabled.');
+    }
+    assertForceAdvancePassword(forceAdvancePassword);
     const trimmed = reason.trim();
     if (!trimmed) throw new Error('Reason is required.');
 

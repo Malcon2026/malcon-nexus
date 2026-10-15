@@ -69,6 +69,7 @@ type ForceTarget = WorkflowStage | typeof SET_PARKED;
 const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, caseId }) => {
   const { approveStage, rejectStage, requestChanges, forceAdvanceCase, setParkedCompleteCase, cases } = useStore();
   const [notes, setNotes] = useState('');
+  const [forcePassword, setForcePassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const implantCase = cases.find((x) => x.id === caseId);
   const stageIdx = implantCase ? WORKFLOW_STAGES.indexOf(implantCase.currentStage) : -1;
@@ -88,6 +89,7 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
     if (!isOpen || type !== 'force') return;
     setForceTarget(SET_PARKED);
     setNotes('');
+    setForcePassword('');
   }, [isOpen, type, caseId, forceTargetOptions]);
 
   const skippedStageLabels =
@@ -124,7 +126,10 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
   };
 
   const notesRequired = type === 'force';
-  const canSubmit = !notesRequired || notes.trim().length > 0;
+  const forcePasswordRequired = type === 'force';
+  const canSubmit =
+    (!notesRequired || notes.trim().length > 0) &&
+    (!forcePasswordRequired || forcePassword.trim().length > 0);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -133,18 +138,20 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
       if (type === 'approve') await approveStage(caseId, notes);
       else if (type === 'force') {
         if (isSetParked) {
-          await setParkedCompleteCase(caseId, notes.trim());
+          await setParkedCompleteCase(caseId, notes.trim(), forcePassword);
         } else {
           await forceAdvanceCase(
             caseId,
             forceTarget as WorkflowStage,
             `Manually advanced by admin — employee did not submit. Reason: ${notes.trim()}`,
+            forcePassword,
           );
         }
       }
       else if (type === 'reject') await rejectStage(caseId, notes);
       else await requestChanges(caseId, notes);
       setNotes('');
+      setForcePassword('');
       onClose();
     } catch (err) {
       alert(err instanceof Error ? `Failed to save: ${err.message}` : 'Failed to save. Please try again.');
@@ -212,6 +219,19 @@ const ApprovalModal: React.FC<ApprovalModalProps> = ({ isOpen, onClose, type, ca
                 Will skip and close from: {skippedStageLabels}
               </p>
             )}
+          </>
+        )}
+        {type === 'force' && (
+          <>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Force advance password *</label>
+            <input
+              type="password"
+              className={`${NEXUS_FORM_CONTROL} mb-3`}
+              autoComplete="off"
+              placeholder="Enter override password"
+              value={forcePassword}
+              onChange={(e) => setForcePassword(e.target.value)}
+            />
           </>
         )}
         <label className="block text-xs font-medium text-gray-700 mb-1.5">

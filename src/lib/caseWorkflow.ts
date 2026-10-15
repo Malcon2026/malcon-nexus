@@ -36,8 +36,8 @@ export const REMOVED_BILLING_STAGES = ['Billing', 'Bill Submission'] as const;
 export const BILLING_ENABLED = false;
 export const BILL_SUBMISSION_ENABLED = false;
 
-/** Admin “Force Advance” on case detail — off until re-enabled. */
-export const FORCE_ADVANCE_ENABLED = false;
+/** Admin “Force Advance” on case detail (password required in UI). */
+export const FORCE_ADVANCE_ENABLED = true;
 
 export function isLegacyBillingStage(stage: WorkflowStage | string): boolean {
   const raw = (stage ?? '').trim();
