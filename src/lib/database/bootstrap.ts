@@ -363,13 +363,21 @@ export async function bootstrapEssential(
     // Always re-read location trips so refresh does not wipe them.
     if ((role === 'employee' || role === 'store_manager') && options?.employeeId) {
       const employeeId = options.employeeId;
+      const { dateKey, dayStartIso } = todayBootstrapContext();
       await runBootstrapTasks(
         [
           { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
-          // Assignments change often — never skip case scope on a fresh session cache hit.
+          { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, dayStartIso) },
+          {
+            key: 'foodSelections',
+            run: () => {
+              const { from, to } = foodLoadWindow(dateKey);
+              return sbFoodRepo.getForDateRange(from, to);
+            },
+          },
           employeeCasesTask(employeeId),
         ],
-        'locationTrips+cases',
+        'employee-refresh',
       );
       return true;
     }

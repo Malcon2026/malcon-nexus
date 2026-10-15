@@ -6,13 +6,14 @@ export const USE_SUPABASE =
   !!import.meta.env.VITE_SUPABASE_URL &&
   import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
 
-/** Update in-memory cache without triggering broken generic Supabase upsert. */
+/** Worker/D1 or Supabase — not offline localStorage-only demo mode. */
+export const REMOTE_DATA = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+
+/** Update session cache (Supabase + Cloudflare Worker bootstrap store). */
 export function setCache<T>(key: string, data: T[]): void {
-  if (USE_SUPABASE && supabaseStorage) {
+  if (REMOTE_DATA && supabaseStorage) {
     supabaseStorage.seedCache(key, data);
-    return;
   }
-  // Local mode: fall through to Database.saveAll via repositories
 }
 
 export function newId(): string {

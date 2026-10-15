@@ -20,7 +20,7 @@ import { employeeRepository } from '../lib/database/repositories/employees';
 import { hospitalRepository } from '../lib/database/repositories/hospitals';
 import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
-import { newId, USE_SUPABASE, setCache } from '../lib/database/config';
+import { newId, USE_SUPABASE, REMOTE_DATA, setCache } from '../lib/database/config';
 import {
   notifyCaseAssignmentToEmployee,
   notifyCaseAssignmentsToEmployees,
@@ -491,7 +491,7 @@ const createNotification = (
 
 // Persist activity event to DB and return it
 const persistActivity = async (event: ActivityEvent): Promise<void> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     await sbActivityRepo.insert(event).catch((err) => console.error('[activity] persist failed:', err));
     const list = Database.getAll<ActivityEvent>('activityLog');
     setCache('activityLog', [event, ...list]);
@@ -503,7 +503,7 @@ const persistActivity = async (event: ActivityEvent): Promise<void> => {
 
 // Persist notification to DB and return it
 const persistNotification = async (notif: Notification): Promise<void> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     await sbNotificationRepo.create(notif).catch((err) => console.error('[notification] persist failed:', err));
     const list = Database.getAll<Notification>('notifications');
     setCache('notifications', [notif, ...list]);
@@ -514,7 +514,7 @@ const persistNotification = async (notif: Notification): Promise<void> => {
 };
 
 const persistAttendance = async (record: AttendanceRecord): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbAttendanceRepo.insert(record);
     } catch (err) {
@@ -566,7 +566,7 @@ const clearManualDayEntries = async (
   const punchIds = findAttendanceRecordIdsForDayClear(attendanceRecords, employeeId, dateKey);
   const leavePlan = planLeaveClearForDate(leaveRequests, employeeId, dateKey);
 
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       if (punchIds.length) await sbAttendanceRepo.deleteByIds(punchIds);
       if (leavePlan.deleteIds.length) await sbLeaveRepo.deleteByIds(leavePlan.deleteIds);
@@ -601,7 +601,7 @@ const clearManualDayEntries = async (
 const persistAttendanceApprovalRequest = async (
   request: AttendanceApprovalRequest,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbAttendanceApprovalRepo.insert(request);
     } catch (err) {
@@ -630,7 +630,7 @@ const upsertFieldTeamAttendanceApprovalLocal = (row: FieldTeamAttendanceApproval
     row,
     ...list.filter((a) => !(a.employeeId === row.employeeId && a.dateKey === row.dateKey)),
   ];
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     setCache('fieldTeamAttendanceApprovals', next);
   } else {
     Database.saveAll('fieldTeamAttendanceApprovals', next);
@@ -640,7 +640,7 @@ const upsertFieldTeamAttendanceApprovalLocal = (row: FieldTeamAttendanceApproval
 const persistFieldTeamAttendanceApproval = async (
   row: FieldTeamAttendanceApproval,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbFieldTeamAttendanceRepo.upsert(row);
     } catch (err) {
@@ -664,7 +664,7 @@ const updateFieldTeamAttendanceApproval = async (
   id: string,
   updates: Partial<FieldTeamAttendanceApproval>,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbFieldTeamAttendanceRepo.update(id, updates);
     } catch (err) {
@@ -746,7 +746,7 @@ const updateAttendanceApprovalRequest = async (
   id: string,
   updates: Partial<AttendanceApprovalRequest>,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbAttendanceApprovalRepo.update(id, updates);
     } catch (err) {
@@ -782,7 +782,7 @@ function supabaseErrorMessage(err: unknown, fallback: string): string {
 }
 
 const persistLeaveRequest = async (request: LeaveRequest): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbLeaveRepo.insert(request);
     } catch (err) {
@@ -831,7 +831,7 @@ const updateLeaveRequest = async (
   id: string,
   updates: Partial<LeaveRequest>,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbLeaveRepo.update(id, updates);
     } catch (err) {
@@ -901,7 +901,7 @@ const locationTripDbError = (err: unknown, fallback: string): string => {
 };
 
 const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbLocationTripRepo.insert(trip);
     } catch (err) {
@@ -918,7 +918,7 @@ const persistLocationTrip = async (trip: LocationTrip): Promise<{ error: string 
 };
 
 const persistLocationTripSession = (employee: { id: string; role: Employee['role'] }) => {
-  if (!USE_SUPABASE) return;
+  if (!REMOTE_DATA) return;
   const role = bootstrapRoleForEmployee(employee.role);
   void import('../lib/database/bootstrap').then(({ persistBootstrapCache }) => {
     persistBootstrapCache(employee.id, role);
@@ -929,7 +929,7 @@ const updateLocationTrip = async (
   id: string,
   updates: Partial<LocationTrip>,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbLocationTripRepo.update(id, updates);
     } catch (err) {
@@ -952,7 +952,7 @@ const updateLocationTrip = async (
 };
 
 const persistPetrolRequest = async (request: PetrolRequest): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbPetrolRepo.insert(request);
     } catch (err) {
@@ -988,7 +988,7 @@ const mergeFoodSelections = (
 const persistFoodSelection = async (
   selection: EmployeeFoodSelection,
 ): Promise<{ error: string | null; saved?: EmployeeFoodSelection }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       const saved = selection.submittedAt
         ? await sbFoodRepo.submitOwn(selection)
@@ -1007,8 +1007,7 @@ const persistFoodSelection = async (
       const msg = formatUnknownError(err);
       if (msg.includes('row-level security')) {
         return {
-          error:
-            'Could not save meals. Ask admin to run supabase/migrations/fix-food-employee-submit-rpc.sql in Supabase.',
+          error: 'Could not save meals. Log out and log in again, then retry.',
         };
       }
       return { error: msg };
@@ -1032,7 +1031,7 @@ const updatePetrolRequest = async (
   id: string,
   updates: Partial<PetrolRequest>,
 ): Promise<{ error: string | null }> => {
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbPetrolRepo.update(id, updates);
     } catch (err) {
@@ -2625,7 +2624,7 @@ export const useStore = create<AppState>((set, get) => ({
         reviewedById: state.currentUser.id,
         adminNotes: options?.approvedRequestId ? 'Approved from task request.' : 'Assigned by admin.',
       };
-      if (USE_SUPABASE) {
+      if (REMOTE_DATA) {
         await sbCaseTaskRequestRepo.resolvePendingForCase(
           caseId,
           options?.approvedRequestId ?? null,
@@ -2840,7 +2839,7 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     try {
-      const created = USE_SUPABASE ? await sbCaseTaskRequestRepo.create(req) : req;
+      const created = REMOTE_DATA ? await sbCaseTaskRequestRepo.create(req) : req;
 
       const requestLog = {
         id: `log-${Date.now()}`,
@@ -4347,7 +4346,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       locationTrips: [trip, ...s.locationTrips.filter((t) => t.id !== trip.id)],
     }));
-    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    if (REMOTE_DATA) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
     const warning = graceWarning(
@@ -4395,7 +4394,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       locationTrips: s.locationTrips.map((t) => (t.id === open.id ? { ...t, ...updates } : t)),
     }));
-    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    if (REMOTE_DATA) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
 
     return { error: null, distanceKm, bikeKm, bikeMinutes, tripNo: open.tripNo, plusCode: endPlusCode };
@@ -4409,7 +4408,7 @@ export const useStore = create<AppState>((set, get) => ({
     const trip = locationTrips.find((t) => t.id === tripId);
     if (!trip) return { error: 'Trip not found.' };
 
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       try {
         await sbLocationTripRepo.remove(tripId);
       } catch (err) {
@@ -4425,7 +4424,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       locationTrips: s.locationTrips.filter((t) => t.id !== tripId),
     }));
-    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    if (REMOTE_DATA) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
     return { error: null };
   },
@@ -4455,7 +4454,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       locationTrips: s.locationTrips.map((t) => (t.id === tripId ? { ...t, ...updates } : t)),
     }));
-    if (USE_SUPABASE) setCache('locationTrips', get().locationTrips);
+    if (REMOTE_DATA) setCache('locationTrips', get().locationTrips);
     persistLocationTripSession(currentUser);
     return { error: null };
   },
@@ -4534,13 +4533,13 @@ export const useStore = create<AppState>((set, get) => ({
           currentUser.id,
         );
       } catch (err) {
-        if (USE_SUPABASE) {
+        if (REMOTE_DATA) {
           await sbAttendanceRepo.deleteByIds([record.id]).catch(() => {});
         }
         const list = Database.getAll<AttendanceRecord>('attendanceRecords').filter(
           (r) => r.id !== record.id,
         );
-        if (USE_SUPABASE) {
+        if (REMOTE_DATA) {
           setCache('attendanceRecords', list);
         } else {
           Database.saveAll('attendanceRecords', list);
@@ -4552,12 +4551,12 @@ export const useStore = create<AppState>((set, get) => ({
       record.selfieUrl = selfieUrl;
       // Edge function already writes selfie_url; keep local cache in sync (never roll back punch on this).
       try {
-        if (USE_SUPABASE) {
+        if (REMOTE_DATA) {
           await sbAttendanceRepo.update(record.id, { selfieUrl }).catch(() => {});
         }
         const list = Database.getAll<AttendanceRecord>('attendanceRecords');
         const next = list.map((r) => (r.id === record.id ? { ...r, selfieUrl } : r));
-        if (USE_SUPABASE) {
+        if (REMOTE_DATA) {
           setCache('attendanceRecords', next);
         } else {
           Database.saveAll('attendanceRecords', next);
@@ -4686,7 +4685,7 @@ export const useStore = create<AppState>((set, get) => ({
       set((s) => ({
         attendanceRecords: [autoOut, ...s.attendanceRecords],
       }));
-      if (USE_SUPABASE) {
+      if (REMOTE_DATA) {
         setCache('attendanceRecords', get().attendanceRecords);
       }
     }
@@ -4710,7 +4709,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const record of newRecords) {
       const persistResult = await persistAttendance(record);
       if (persistResult.error) {
-        if (USE_SUPABASE && insertedIds.length) {
+        if (REMOTE_DATA && insertedIds.length) {
           await sbAttendanceRepo.deleteByIds(insertedIds).catch((err) => {
             console.error('[attendance] rollback failed:', err);
           });
@@ -4718,7 +4717,7 @@ export const useStore = create<AppState>((set, get) => ({
         set((s) => ({
           attendanceRecords: s.attendanceRecords.filter((r) => !insertedIds.includes(r.id)),
         }));
-        if (USE_SUPABASE) setCache('attendanceRecords', get().attendanceRecords);
+        if (REMOTE_DATA) setCache('attendanceRecords', get().attendanceRecords);
         return { error: persistResult.error };
       }
       insertedIds.push(record.id);
@@ -4741,7 +4740,7 @@ export const useStore = create<AppState>((set, get) => ({
       attendanceRecords: [...newRecords, ...s.attendanceRecords],
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('attendanceRecords', get().attendanceRecords);
+    if (REMOTE_DATA) setCache('attendanceRecords', get().attendanceRecords);
 
     if (requiresFieldTeamAttendanceApproval(employee)) {
       const reviewedAt = new Date().toISOString();
@@ -4872,7 +4871,7 @@ export const useStore = create<AppState>((set, get) => ({
       leaveRequests: [request, ...s.leaveRequests.filter((lr) => lr.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+    if (REMOTE_DATA) setCache('leaveRequests', get().leaveRequests);
 
     return {
       error: null,
@@ -5216,7 +5215,7 @@ export const useStore = create<AppState>((set, get) => ({
         currentUser.id,
       );
     } catch (err) {
-      if (USE_SUPABASE) {
+      if (REMOTE_DATA) {
         await sbAttendanceApprovalRepo.deleteByIds([request.id]).catch(() => {});
       } else {
         const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests')
@@ -5232,7 +5231,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const requestWithSelfie = { ...request, selfieUrl };
 
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
       setCache(
         'attendanceApprovalRequests',
@@ -5654,7 +5653,7 @@ export const useStore = create<AppState>((set, get) => ({
       activityLog: [activity, ...s.activityLog],
       notifications: [notif, ...s.notifications],
     }));
-    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+    if (REMOTE_DATA) setCache('leaveRequests', get().leaveRequests);
 
     return {
       error: null,
@@ -5766,7 +5765,7 @@ export const useStore = create<AppState>((set, get) => ({
           leaveRequests: [...inserted, ...s.leaveRequests.filter((r) => r.id !== requestId)],
           activityLog: [activity, ...s.activityLog],
         }));
-        if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+        if (REMOTE_DATA) setCache('leaveRequests', get().leaveRequests);
 
         return { error: null };
       }
@@ -5820,7 +5819,7 @@ export const useStore = create<AppState>((set, get) => ({
       ),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+    if (REMOTE_DATA) setCache('leaveRequests', get().leaveRequests);
 
     return { error: null };
   },
@@ -5866,7 +5865,7 @@ export const useStore = create<AppState>((set, get) => ({
       ),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('leaveRequests', get().leaveRequests);
+    if (REMOTE_DATA) setCache('leaveRequests', get().leaveRequests);
 
     return { error: null };
   },
@@ -5927,7 +5926,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: [request, ...s.petrolRequests.filter((r) => r.id !== request.id)],
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -5963,7 +5962,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -6015,7 +6014,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -6055,7 +6054,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -6111,7 +6110,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: s.petrolRequests.map((r) => (r.id === requestId ? { ...r, ...updates } : r)),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -6124,7 +6123,7 @@ export const useStore = create<AppState>((set, get) => ({
     const request = petrolRequests.find((r) => r.id === requestId);
     if (!request) return { error: 'Petrol entry not found.' };
 
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       try {
         await sbPetrolRepo.remove(requestId);
       } catch (err) {
@@ -6152,7 +6151,7 @@ export const useStore = create<AppState>((set, get) => ({
       petrolRequests: s.petrolRequests.filter((r) => r.id !== requestId),
       activityLog: [activity, ...s.activityLog],
     }));
-    if (USE_SUPABASE) setCache('petrolRequests', get().petrolRequests);
+    if (REMOTE_DATA) setCache('petrolRequests', get().petrolRequests);
 
     return { error: null };
   },
@@ -6190,7 +6189,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       foodSelections: mergeFoodSelections(s.foodSelections, [saved], normalized, normalized),
     }));
-    if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
+    if (REMOTE_DATA) setCache('foodSelections', get().foodSelections);
 
     return { error: null };
   },
@@ -6228,7 +6227,7 @@ export const useStore = create<AppState>((set, get) => ({
       updatedAt: now,
     };
 
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       try {
         const saved = await sbFoodRepo.adminSubmit(selection);
         set((s) => ({
@@ -6256,13 +6255,13 @@ export const useStore = create<AppState>((set, get) => ({
   loadFoodSelectionsWindow: async (centerDate, options) => {
     const normalized = normalizeDateKey(centerDate);
     const { from, to } = foodLoadWindow(normalized);
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       try {
         const rows = await sbFoodRepo.getForDateRange(from, to);
         set((s) => ({
           foodSelections: mergeFoodSelections(s.foodSelections, rows, from, to),
         }));
-        if (USE_SUPABASE) setCache('foodSelections', get().foodSelections);
+        if (REMOTE_DATA) setCache('foodSelections', get().foodSelections);
         return { error: null };
       } catch (err) {
         if (!options?.force) return { error: formatUnknownError(err) };
@@ -6450,7 +6449,7 @@ const applyManualDayClearLocal = (
       ...s.leaveRequests.filter((lr) => !leaveIds.includes(lr.id)),
     ],
   }));
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     setCache('attendanceRecords', useStore.getState().attendanceRecords);
     setCache('leaveRequests', useStore.getState().leaveRequests);
   }
@@ -6458,7 +6457,7 @@ const applyManualDayClearLocal = (
 
 const deleteLeaveRequests = async (ids: string[]): Promise<{ error: string | null }> => {
   if (ids.length === 0) return { error: null };
-  if (USE_SUPABASE) {
+  if (REMOTE_DATA) {
     try {
       await sbLeaveRepo.deleteByIds(ids);
     } catch (err) {
@@ -6473,6 +6472,6 @@ const deleteLeaveRequests = async (ids: string[]): Promise<{ error: string | nul
   useStore.setState((s) => ({
     leaveRequests: s.leaveRequests.filter((lr) => !ids.includes(lr.id)),
   }));
-  if (USE_SUPABASE) setCache('leaveRequests', useStore.getState().leaveRequests);
+  if (REMOTE_DATA) setCache('leaveRequests', useStore.getState().leaveRequests);
   return { error: null };
 };
