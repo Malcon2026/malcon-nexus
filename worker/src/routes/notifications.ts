@@ -3,6 +3,8 @@ import { createDb } from '../db/client';
 import { apiData, apiError, isUuidLike } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
+import { AuthError } from '../middleware/authorization';
+import { resolveNotificationRecipientFilter } from '../lib/readRouteAuth';
 import {
   countNotifications,
   countUnreadNotifications,
@@ -19,7 +21,7 @@ function parseRecipientId(url: URL): string | null | undefined {
 export async function handleListNotifications(
   request: Request,
   env: Env,
-  _ctx: RequestContext,
+  ctx: RequestContext,
 ): Promise<Response> {
   const url = new URL(request.url);
   const parsed = parsePagination(url);
@@ -27,9 +29,19 @@ export async function handleListNotifications(
     return apiError('BAD_REQUEST', parsed.error, 400);
   }
 
-  const recipientId = parseRecipientId(url);
-  if (recipientId === null) {
+  const requestedRecipient = parseRecipientId(url);
+  if (requestedRecipient === null) {
     return apiError('BAD_REQUEST', 'Invalid recipientId', 400);
+  }
+
+  let recipientId: string | undefined;
+  try {
+    recipientId = resolveNotificationRecipientFilter(ctx, requestedRecipient);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
   }
 
   const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
@@ -47,12 +59,25 @@ export async function handleListNotifications(
 export async function handleNotificationSummary(
   request: Request,
   env: Env,
-  _ctx: RequestContext,
+  ctx: RequestContext,
 ): Promise<Response> {
   const url = new URL(request.url);
-  const recipientId = parseRecipientId(url);
-  if (recipientId === null) {
+  const requestedRecipient = parseRecipientId(url);
+  if (requestedRecipient === null) {
     return apiError('BAD_REQUEST', 'Invalid recipientId', 400);
+  }
+
+  let recipientId: string | undefined;
+  try {
+    recipientId = resolveNotificationRecipientFilter(ctx, requestedRecipient);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
+  if (!recipientId) {
+    return apiError('BAD_REQUEST', 'recipientId is required', 400);
   }
 
   const db = createDb(env);

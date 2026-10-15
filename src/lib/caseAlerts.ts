@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { logIntegrationSkipped } from './cloudflareIntegrations';
 
 type AlertEvent = 'assignment' | 'postpone';
 
@@ -7,7 +8,10 @@ async function invokeCaseAlerts(
   fn: string,
   body: Record<string, string>,
 ): Promise<void> {
-  if (!USE_SUPABASE) return;
+  if (!USE_SUPABASE) {
+    logIntegrationSkipped('caseAlerts');
+    return;
+  }
 
   try {
     const { data, error } = await supabase.functions.invoke(fn, { body });

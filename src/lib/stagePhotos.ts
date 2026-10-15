@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
 import { USE_WORKER_STORAGE } from './workerStorageConfig';
 import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
@@ -289,6 +290,60 @@ function mapStorageUploadError(message: string): string {
   return message || 'Photo upload failed';
 }
 
+/** Cloudflare Worker → R2 (production D1 backend). */
+async function uploadStagePhotoToWorkerR2(
+  caseId: string,
+  stage: WorkflowStage,
+  file: File,
+  uploadedBy: string,
+): Promise<Document> {
+  if (file.size === 0) {
+    throw new Error('Photo file is empty. Please retake the photo and try again.');
+  }
+  if (file.size > MAX_UPLOAD_PHOTO_BYTES) {
+    throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
+  }
+
+  const thumbFile = await compressImageForUpload(file, {
+    maxEdge: CLOUD_PHOTO_MAX_EDGE,
+    targetBytes: CLOUD_PHOTO_TARGET_BYTES,
+  });
+
+  const photoId = crypto.randomUUID();
+  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
+  const fullPath = `${basePath}-full.jpg`;
+  const thumbPath = `${basePath}-thumb.jpg`;
+  const contentType = 'image/jpeg';
+
+  try {
+    await uploadViaWorkerStorage('stage-photos', fullPath, file, { caseId });
+    const thumbUp = await uploadViaWorkerStorage('stage-photos', thumbPath, thumbFile, { caseId });
+    const url = thumbUp.publicUrl;
+    if (!url) {
+      throw new Error(
+        'Photo uploaded but public URL is not configured. Ask admin to set R2_PUBLIC_BASE_URL on the Worker.',
+      );
+    }
+    return {
+      id: photoId,
+      name: `${stage} photo`,
+      type: contentType,
+      size: formatFileSize(thumbFile.size),
+      uploadedBy,
+      uploadedAt: new Date().toISOString(),
+      url,
+    };
+  } catch (err) {
+    const msg = formatUnknownError(err);
+    if (/not configured|501|NOT_CONFIGURED/i.test(msg)) {
+      throw new Error(
+        'Stage photo storage (R2) is not configured on the server. Ask admin to bind the stage-photos bucket on Cloudflare.',
+      );
+    }
+    throw err instanceof Error ? err : new Error(msg);
+  }
+}
+
 /** Upload directly to Supabase Storage (same pattern as petrol receipts — reliable on mobile). */
 async function uploadStagePhotoToStorage(
   caseId: string,
@@ -296,6 +351,10 @@ async function uploadStagePhotoToStorage(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
+  if (USE_WORKER_STORAGE) {
+    return uploadStagePhotoToWorkerR2(caseId, stage, file, uploadedBy);
+  }
+
   if (file.size === 0) {
     throw new Error('Photo file is empty. Please retake the photo and try again.');
   }
@@ -316,24 +375,6 @@ async function uploadStagePhotoToStorage(
   const thumbPath = `${basePath}-thumb.jpg`;
 
   const contentType = 'image/jpeg';
-
-  if (USE_WORKER_STORAGE) {
-    await uploadViaWorkerStorage('stage-photos', fullPath, file, { caseId });
-    const thumbUp = await uploadViaWorkerStorage('stage-photos', thumbPath, thumbFile, { caseId });
-    const url = thumbUp.publicUrl;
-    if (!url) {
-      throw new Error('Photo uploaded but public URL is not configured for Worker storage yet.');
-    }
-    return {
-      id: photoId,
-      name: `${stage} photo`,
-      type: contentType,
-      size: formatFileSize(thumbFile.size),
-      uploadedBy,
-      uploadedAt: new Date().toISOString(),
-      url,
-    };
-  }
 
   const bucket = supabase.storage.from('stage-photos');
 
@@ -378,6 +419,14 @@ export async function uploadStagePhoto(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
+  if (USE_CLOUDFLARE_BACKEND) {
+    try {
+      return await uploadStagePhotoToWorkerR2(caseId, stage, file, uploadedBy);
+    } catch (err) {
+      throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
+    }
+  }
+
   if (!USE_SUPABASE) {
     const dataUrl = await fileToDataUrl(file);
     return {
@@ -445,7 +494,8 @@ export async function stagePhotoViewUrlForViewer(
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
   if (!doc.url) return null;
-  if (!USE_SUPABASE || doc.url.startsWith('data:')) return doc.url;
+  if (USE_CLOUDFLARE_BACKEND || doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
+  if (!USE_SUPABASE) return doc.url;
 
   const path = stagePhotoObjectPath(doc.url);
   if (!path) return doc.url;

@@ -3,6 +3,8 @@ import { createDb } from '../db/client';
 import { apiData, apiError } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
+import { AuthError } from '../middleware/authorization';
+import { enforceAttendanceListScope } from '../lib/readRouteAuth';
 import { countAttendanceRecords, listAttendanceRecords } from '../services/attendanceRecords';
 import {
   countAttendanceApprovals,
@@ -26,13 +28,24 @@ function parseOptionalIso(url: URL, key: string): string | undefined {
   return v && v.trim() ? v.trim() : undefined;
 }
 
-export async function handleListAttendanceRecords(request: Request, env: Env, _ctx: RequestContext) {
+export async function handleListAttendanceRecords(request: Request, env: Env, ctx: RequestContext) {
   const url = new URL(request.url);
   const parsed = parsePagination(url);
   if ('error' in parsed) return apiError('BAD_REQUEST', parsed.error, 400);
 
+  const requestedEmployeeId = url.searchParams.get('employeeId')?.trim() || undefined;
+  let employeeId: string | undefined;
+  try {
+    employeeId = enforceAttendanceListScope(ctx, requestedEmployeeId);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
+
   const filters = {
-    employeeId: url.searchParams.get('employeeId')?.trim() || undefined,
+    employeeId,
     since: parseOptionalIso(url, 'since'),
     until: parseOptionalIso(url, 'until'),
   };
@@ -43,11 +56,28 @@ export async function handleListAttendanceRecords(request: Request, env: Env, _c
   return apiData({ items, pagination: pageMeta(parsed.page, parsed.pageSize, total) });
 }
 
-export async function handleListAttendanceApprovals(request: Request, env: Env, _ctx: RequestContext) {
+export async function handleListAttendanceApprovals(request: Request, env: Env, ctx: RequestContext) {
   const url = new URL(request.url);
   const parsed = parsePagination(url);
   if ('error' in parsed) return apiError('BAD_REQUEST', parsed.error, 400);
-  const employeeId = url.searchParams.get('employeeId')?.trim() || undefined;
+  const requestedEmployeeId = url.searchParams.get('employeeId')?.trim() || undefined;
+  let employeeId: string | undefined;
+  try {
+    if (ctx.role === 'admin' || ctx.role === 'store_manager') {
+      employeeId = requestedEmployeeId;
+    } else if (!ctx.employeeId) {
+      throw new AuthError('Forbidden', 403);
+    } else if (requestedEmployeeId && requestedEmployeeId !== ctx.employeeId) {
+      throw new AuthError('Forbidden', 403);
+    } else {
+      employeeId = ctx.employeeId;
+    }
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
 
   const db = createDb(env);
   const total = await countAttendanceApprovals(db, employeeId);

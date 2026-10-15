@@ -164,13 +164,17 @@ function MainApp() {
             void useStore.getState().repairStuckAssignmentsForCurrentUser().then(() => {
               if (generation === hydrateGeneration.current) reloadFromDatabase();
             });
-          } else if (role === 'admin' && !USE_CLOUDFLARE_BACKEND) {
+          } else if (role === 'admin') {
             void (async () => {
-              await useStore.getState().repairPendingStageSubmissions();
-              await useStore.getState().repairStuckSelfSurgeryCases();
-              await useStore.getState().repairStuckPickupReturnOutcomes();
-              await useStore.getState().repairLegacyBillingCases();
-              await useStore.getState().repairCaseHeaderPointers();
+              try {
+                await useStore.getState().repairPendingStageSubmissions();
+                await useStore.getState().repairStuckSelfSurgeryCases();
+                await useStore.getState().repairStuckPickupReturnOutcomes();
+                await useStore.getState().repairLegacyBillingCases();
+                await useStore.getState().repairCaseHeaderPointers();
+              } catch (err) {
+                console.error('[bootstrap] admin case repairs failed:', err);
+              }
               if (generation === hydrateGeneration.current) reloadFromDatabase();
             })();
           }

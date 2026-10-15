@@ -38,33 +38,6 @@ export function requireEmployeeAccess(ctx: RequestContext, targetEmployeeId: str
   }
 }
 
-/**
- * Case visibility — port of RLS + parallel workflow helpers:
- * - admin / store_manager: broad access (store_manager rules TBD per route)
- * - employee: assigned_employee_id OR stage assignee/assistant in JSON stages
- */
-export function canReadCase(
-  ctx: RequestContext,
-  caseRow: {
-    assignedEmployeeId: string | null;
-    stagesJson: string;
-  },
-): boolean {
-  if (!ctx.identity) return false;
-  if (ctx.role === 'admin' || ctx.role === 'store_manager') return true;
-  if (!ctx.employeeId) return false;
-  if (caseRow.assignedEmployeeId === ctx.employeeId) return true;
-  try {
-    const stages = JSON.parse(caseRow.stagesJson) as Array<{
-      stage?: string;
-      assignedEmployee?: { id?: string };
-      assistantEmployee?: { id?: string };
-    }>;
-    return stages.some(
-      (s) =>
-        s.assignedEmployee?.id === ctx.employeeId || s.assistantEmployee?.id === ctx.employeeId,
-    );
-  } catch {
-    return false;
-  }
-}
+/** Case visibility — see `lib/caseReadAuth.ts` (parallel workflow + FCFS pool RLS). */
+export { canReadCaseRow as canReadCase } from '../lib/caseReadAuth';
+export type { CaseReadRow } from '../lib/caseReadAuth';

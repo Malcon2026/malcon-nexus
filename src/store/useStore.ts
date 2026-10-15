@@ -492,7 +492,7 @@ const createNotification = (
 // Persist activity event to DB and return it
 const persistActivity = async (event: ActivityEvent): Promise<void> => {
   if (REMOTE_DATA) {
-    await sbActivityRepo.insert(event).catch((err) => console.error('[activity] persist failed:', err));
+    await sbActivityRepo.insert(event);
     const list = Database.getAll<ActivityEvent>('activityLog');
     setCache('activityLog', [event, ...list]);
     return;
@@ -501,10 +501,9 @@ const persistActivity = async (event: ActivityEvent): Promise<void> => {
   Database.saveAll('activityLog', [event, ...list]);
 };
 
-// Persist notification to DB and return it
 const persistNotification = async (notif: Notification): Promise<void> => {
   if (REMOTE_DATA) {
-    await sbNotificationRepo.create(notif).catch((err) => console.error('[notification] persist failed:', err));
+    await sbNotificationRepo.create(notif);
     const list = Database.getAll<Notification>('notifications');
     setCache('notifications', [notif, ...list]);
     return;
@@ -1057,15 +1056,14 @@ const updateCaseApproval = async (
   caseId: string,
   stage: WorkflowStage,
   updates: Partial<Approval>,
-): Promise<void> => {
+): Promise<{ error: string | null }> => {
   const approval = await approvalRepository.findByCaseAndStage(caseId, stage);
-  if (!approval) return;
+  if (!approval) return { error: null };
   try {
     await approvalRepository.update(approval.id, updates);
+    return { error: null };
   } catch (err) {
-    // Employees can INSERT approvals but not UPDATE them (RLS). Stale rows must
-    // not block auto-advance after submit — especially Billing → Bill Submission.
-    console.warn('[updateCaseApproval] skipped:', formatUnknownError(err));
+    return { error: formatUnknownError(err) };
   }
 };
 
@@ -1689,11 +1687,14 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     // Update approvals table
-    await updateCaseApproval(caseId, c.currentStage, {
-      status: 'Approved',
-      approvedAt,
-      adminNotes,
-    });
+    {
+      const approvalPatch = await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Approved',
+        approvedAt,
+        adminNotes,
+      });
+      if (approvalPatch.error) throw new Error(approvalPatch.error);
+    }
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
@@ -1840,11 +1841,14 @@ export const useStore = create<AppState>((set, get) => ({
       details: `Skipped: ${skippedLabels}. ${adminNotes}`,
     };
 
-    await updateCaseApproval(caseId, c.currentStage, {
-      status: 'Approved',
-      approvedAt: now,
-      adminNotes: skipNote,
-    });
+    {
+      const approvalPatch = await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Approved',
+        approvedAt: now,
+        adminNotes: skipNote,
+      });
+      if (approvalPatch.error) throw new Error(approvalPatch.error);
+    }
 
     let updatedEmployees = state.employees;
     const canUpdateEmployeeStats = canManageAllCases(state.currentUser.role);
@@ -2388,11 +2392,14 @@ export const useStore = create<AppState>((set, get) => ({
       details: `${employee.name} assigned to ${nextName} stage.`,
     };
 
-    await updateCaseApproval(caseId, c.currentStage, {
-      status: 'Approved',
-      approvedAt,
-      adminNotes,
-    });
+    {
+      const approvalPatch = await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Approved',
+        approvedAt,
+        adminNotes,
+      });
+      if (approvalPatch.error) throw new Error(approvalPatch.error);
+    }
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
@@ -2487,10 +2494,13 @@ export const useStore = create<AppState>((set, get) => ({
       details: `Admin rejected ${c.currentStage} stage. Reason: ${adminNotes}`,
     };
 
-    await updateCaseApproval(caseId, c.currentStage, {
-      status: 'Rejected',
-      adminNotes,
-    });
+    {
+      const approvalPatch = await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Rejected',
+        adminNotes,
+      });
+      if (approvalPatch.error) throw new Error(approvalPatch.error);
+    }
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
@@ -2532,10 +2542,13 @@ export const useStore = create<AppState>((set, get) => ({
       details: `Admin requested changes for ${c.currentStage}. Notes: ${adminNotes}`,
     };
 
-    await updateCaseApproval(caseId, c.currentStage, {
-      status: 'Changes Requested',
-      adminNotes,
-    });
+    {
+      const approvalPatch = await updateCaseApproval(caseId, c.currentStage, {
+        status: 'Changes Requested',
+        adminNotes,
+      });
+      if (approvalPatch.error) throw new Error(approvalPatch.error);
+    }
 
     const updatedCase = await taskRepository.update(caseId, {
       stages: updatedStages,
@@ -3387,7 +3400,13 @@ export const useStore = create<AppState>((set, get) => ({
           'employee',
           `${submitStageName} submitted with ${photoLabel} — case now at ${advanced.currentStage}.`,
         );
-        void persistActivity(activity);
+        try {
+          await persistActivity(activity);
+        } catch (err) {
+          return {
+            error: `Stage saved but activity log failed: ${formatUnknownError(err)}`,
+          };
+        }
 
         set((s) => ({
           cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
@@ -3411,7 +3430,13 @@ export const useStore = create<AppState>((set, get) => ({
           'success',
           caseId,
         );
-        void persistNotification(successNotif);
+        try {
+          await persistNotification(successNotif);
+        } catch (err) {
+          return {
+            error: `Stage saved but notification failed: ${formatUnknownError(err)}`,
+          };
+        }
         set((s) => ({ notifications: [successNotif, ...s.notifications] }));
         return { error: null };
       }
@@ -3462,7 +3487,13 @@ export const useStore = create<AppState>((set, get) => ({
         'employee',
         `${submitStageName} submitted with ${photoLabel} for review.`,
       );
-      void persistActivity(activity);
+      try {
+        await persistActivity(activity);
+      } catch (err) {
+        return {
+          error: `Stage saved but activity log failed: ${formatUnknownError(err)}`,
+        };
+      }
 
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),
@@ -3480,9 +3511,13 @@ export const useStore = create<AppState>((set, get) => ({
         notes: effectiveNotes,
       };
 
-      await approvalRepository.create(newApproval).catch((err) => {
-        console.error('[submitStage] approval create failed:', err);
-      });
+      try {
+        await approvalRepository.create(newApproval);
+      } catch (err) {
+        return {
+          error: `Case stage saved but approval queue update failed: ${formatUnknownError(err)}`,
+        };
+      }
 
       const notif = createNotification(
         'Approval Required',
@@ -3492,7 +3527,13 @@ export const useStore = create<AppState>((set, get) => ({
         'warning',
         caseId,
       );
-      void persistNotification(notif);
+      try {
+        await persistNotification(notif);
+      } catch (err) {
+        return {
+          error: `Approval saved but admin notification failed: ${formatUnknownError(err)}`,
+        };
+      }
 
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),

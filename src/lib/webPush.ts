@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { integrationAvailability, logIntegrationSkipped } from './cloudflareIntegrations';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '';
 
@@ -46,7 +47,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 }
 
 export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!USE_SUPABASE) return { ok: false, error: 'Supabase is not enabled.' };
+  if (!USE_SUPABASE) {
+    const info = integrationAvailability('webPush');
+    return { ok: false, error: info.reason || 'Push is not available on this backend.' };
+  }
   if (!isWebPushSupported()) {
     return { ok: false, error: 'Push notifications are not supported on this browser.' };
   }
@@ -96,7 +100,11 @@ export async function subscribeToWebPush(): Promise<{ ok: true } | { ok: false; 
 type PushEvent = 'assignment' | 'postpone';
 
 async function invokePush(event: PushEvent, caseId: string, employeeId: string): Promise<void> {
-  if (!USE_SUPABASE || !employeeId) return;
+  if (!employeeId) return;
+  if (!USE_SUPABASE) {
+    logIntegrationSkipped('webPush');
+    return;
+  }
 
   try {
     const { data, error } = await supabase.functions.invoke('send-push', {

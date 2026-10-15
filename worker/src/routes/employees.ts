@@ -3,6 +3,7 @@ import { createDb } from '../db/client';
 import { apiData, apiError, isUuidLike } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
+import { AuthError, requireEmployeeAccess } from '../middleware/authorization';
 import {
   countEmployeeAttendance,
   getEmployeeById,
@@ -28,6 +29,15 @@ export async function handleGetEmployee(
   if (!isUuidLike(id)) {
     return apiError('BAD_REQUEST', 'Invalid employee id', 400);
   }
+  try {
+    requireEmployeeAccess(ctx, id);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
+  }
+
   const db = createDb(env);
   const includeTelegram = ctx.role === 'admin' || ctx.employeeId === id;
   const row = await getEmployeeById(db, id, includeTelegram);
@@ -38,11 +48,19 @@ export async function handleGetEmployee(
 export async function handleEmployeeAttendance(
   request: Request,
   env: Env,
-  _ctx: RequestContext,
+  ctx: RequestContext,
   id: string,
 ): Promise<Response> {
   if (!isUuidLike(id)) {
     return apiError('BAD_REQUEST', 'Invalid employee id', 400);
+  }
+  try {
+    requireEmployeeAccess(ctx, id);
+  } catch (e) {
+    if (e instanceof AuthError) {
+      return apiError(e.status === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN', e.message, e.status);
+    }
+    throw e;
   }
   const url = new URL(request.url);
   const parsed = parsePagination(url);

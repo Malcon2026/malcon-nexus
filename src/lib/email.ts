@@ -1,12 +1,17 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { logIntegrationSkipped } from './cloudflareIntegrations';
 
 /** Fire-and-forget email when a case is assigned to an employee. */
 export async function notifyCaseAssignment(
   caseId: string,
   employeeId: string | undefined | null,
 ): Promise<void> {
-  if (!USE_SUPABASE || !employeeId) return;
+  if (!employeeId) return;
+  if (!USE_SUPABASE) {
+    logIntegrationSkipped('email');
+    return;
+  }
 
   try {
     const { data, error } = await supabase.functions.invoke('send-assignment-email', {

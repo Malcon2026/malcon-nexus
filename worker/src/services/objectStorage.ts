@@ -4,6 +4,7 @@ import { AuthError, canReadCase } from '../middleware/authorization';
 import { createDb } from '../db/client';
 import { cases } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { loadEmployeeDeptContext } from '../lib/readRouteAuth';
 
 export type StorageBucketKey = 'stage-photos' | 'attendance-selfies' | 'hr-kyc-uploads';
 
@@ -42,13 +43,32 @@ export async function assertStagePhotoUploadAuth(
     .select({
       assignedEmployeeId: cases.assignedEmployeeId,
       stagesJson: cases.stages,
+      currentStage: cases.currentStage,
+      currentDepartment: cases.currentDepartment,
+      status: cases.status,
     })
     .from(cases)
     .where(eq(cases.id, caseId))
     .limit(1);
   const row = rows[0];
   if (!row) throw new AuthError('Case not found', 404);
-  if (!canReadCase(ctx, { assignedEmployeeId: row.assignedEmployeeId, stagesJson: row.stagesJson })) {
+  const dept =
+    ctx.role === 'admin' || ctx.role === 'store_manager' || !ctx.employeeId
+      ? null
+      : await loadEmployeeDeptContext(db, ctx.employeeId);
+  if (
+    !canReadCase(
+      ctx,
+      {
+        assignedEmployeeId: row.assignedEmployeeId,
+        stagesJson: row.stagesJson,
+        currentStage: row.currentStage,
+        currentDepartment: row.currentDepartment,
+        status: row.status,
+      },
+      dept,
+    )
+  ) {
     throw new AuthError('Forbidden', 403);
   }
 }

@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
 import { stampPhotoForUpload } from './stagePhotos';
+import { uploadViaWorkerStorage } from './workerStorageClient';
+import { formatUnknownError } from '../utils/errors';
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL
   ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-attendance-selfie`
@@ -40,6 +43,32 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+async function uploadSelfieToWorkerR2(
+  target: AttendanceSelfieTarget,
+  file: File,
+  employeeId: string,
+): Promise<string> {
+  const objectId = target.kind === 'approval' ? target.requestId : target.recordId;
+  const key = `${employeeId}/${target.kind}/${objectId}-${Date.now()}.jpg`;
+  try {
+    const { publicUrl } = await uploadViaWorkerStorage('attendance-selfies', key, file);
+    if (!publicUrl) {
+      throw new Error(
+        'Selfie uploaded but public URL is not configured. Ask admin to set R2_PUBLIC_BASE_URL on the Worker.',
+      );
+    }
+    return publicUrl;
+  } catch (err) {
+    const msg = formatUnknownError(err);
+    if (/not configured|501|NOT_CONFIGURED/i.test(msg)) {
+      throw new Error(
+        'Attendance selfie storage (R2) is not configured on the server. Ask admin to bind the attendance-selfies bucket.',
+      );
+    }
+    throw err instanceof Error ? err : new Error(msg);
+  }
+}
+
 /** Stamp name/ID/time onto selfie and upload for an approval request or punch-in record. */
 export async function uploadAttendanceSelfie(
   target: AttendanceSelfieTarget,
@@ -52,6 +81,10 @@ export async function uploadAttendanceSelfie(
     employeeId,
     capturedAt: new Date(),
   });
+
+  if (USE_CLOUDFLARE_BACKEND) {
+    return uploadSelfieToWorkerR2(target, stamped, employeeId);
+  }
 
   if (!USE_SUPABASE) {
     return fileToDataUrl(stamped);

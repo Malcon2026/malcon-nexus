@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
+import { logIntegrationSkipped } from './cloudflareIntegrations';
 import { OFFICE_LOCATION } from './attendance';
 import type { Hospital } from '../types';
 
@@ -40,7 +41,11 @@ export async function searchMapplsPlaces(
   lat?: number,
   lng?: number,
 ): Promise<HospitalPlace[]> {
-  if (!USE_SUPABASE || query.trim().length < 2) return [];
+  if (query.trim().length < 2) return [];
+  if (!USE_SUPABASE) {
+    logIntegrationSkipped('hospitalSearchMappls');
+    return [];
+  }
 
   const { data, error } = await supabase.functions.invoke('location-hospital-search', {
     body: {
