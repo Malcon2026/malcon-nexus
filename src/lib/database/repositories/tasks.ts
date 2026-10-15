@@ -1,12 +1,23 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
+import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
 import { sbCaseRepo } from './supabaseRepositories';
 import { nextCaseNumberFromCases } from '../../../utils/helpers';
 import type { ImplantCase } from '../../../types';
 
+/** Worker/Supabase-backed cases — not browser-only localStorage. */
+const REMOTE_CASES = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+
+function persistCaseList(list: ImplantCase[]): void {
+  if (USE_CLOUDFLARE_BACKEND) {
+    Database.saveAll('cases', list);
+  }
+  setCache('cases', list);
+}
+
 export const taskRepository = {
   async getNextCaseNumber(surgeryDate?: string): Promise<string> {
-    if (USE_SUPABASE) return sbCaseRepo.getNextCaseNumber(surgeryDate);
+    if (REMOTE_CASES) return sbCaseRepo.getNextCaseNumber(surgeryDate);
     const list = await this.getAll();
     return nextCaseNumberFromCases(list, surgeryDate);
   },
@@ -17,20 +28,20 @@ export const taskRepository = {
 
   async getById(id: string): Promise<ImplantCase | null> {
     const list = await this.getAll();
-    return list.find(c => c.id === id) || null;
+    return list.find((c) => c.id === id) || null;
   },
 
-  /** Always hits Supabase — use before submit/save to avoid stale session cache. */
+  /** Fetch latest row from Worker/Supabase before submit/save. */
   async getFreshById(id: string): Promise<ImplantCase | null> {
-    if (USE_SUPABASE) return sbCaseRepo.getById(id);
+    if (REMOTE_CASES) return sbCaseRepo.getById(id);
     return this.getById(id);
   },
 
   async create(item: ImplantCase): Promise<ImplantCase> {
-    if (USE_SUPABASE) {
+    if (REMOTE_CASES) {
       await sbCaseRepo.create(item);
       const list = await this.getAll();
-      setCache('cases', [item, ...list.filter(c => c.id !== item.id)]);
+      persistCaseList([item, ...list.filter((c) => c.id !== item.id)]);
       return item;
     }
 
@@ -41,16 +52,16 @@ export const taskRepository = {
   },
 
   async update(id: string, updates: Partial<ImplantCase>, existing?: ImplantCase): Promise<ImplantCase> {
-    if (USE_SUPABASE) {
+    if (REMOTE_CASES) {
       const updated = await sbCaseRepo.update(id, updates, existing);
       const list = await this.getAll();
-      setCache('cases', list.map(c => (c.id === id ? updated : c)));
+      persistCaseList(list.map((c) => (c.id === id ? updated : c)));
       return updated;
     }
 
     const list = await this.getAll();
     let updatedItem: ImplantCase | null = null;
-    const updatedList = list.map(item => {
+    const updatedList = list.map((item) => {
       if (item.id === id) {
         updatedItem = { ...item, ...updates, updatedAt: new Date().toISOString() };
         return updatedItem;
@@ -65,14 +76,14 @@ export const taskRepository = {
   },
 
   async delete(id: string): Promise<void> {
-    if (USE_SUPABASE) {
+    if (REMOTE_CASES) {
       await sbCaseRepo.delete(id);
       const list = await this.getAll();
-      setCache('cases', list.filter(c => c.id !== id));
+      persistCaseList(list.filter((c) => c.id !== id));
       return;
     }
 
     const list = await this.getAll();
-    Database.saveAll('cases', list.filter(item => item.id !== id));
+    Database.saveAll('cases', list.filter((item) => item.id !== id));
   },
 };
