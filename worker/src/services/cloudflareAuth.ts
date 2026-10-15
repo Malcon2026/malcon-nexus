@@ -3,6 +3,7 @@ import type { Env } from '../env';
 import { createDb } from '../db/client';
 import { employees, loginOtps } from '../db/schema';
 import { employeeCodeMatches, hashLoginOtp, randomSixDigitOtp, sanitizeEmployeeCodeInput } from '../lib/loginOtp';
+import { publicWriteErrorMessage } from '../lib/dbWriteErrors';
 import { isStaleTelegramChatError, telegramSendMessage } from '../lib/telegramApi';
 import { hashPassword, verifyPassword } from '../lib/passwordHash';
 import { verifySupabaseLegacyPassword } from '../lib/supabaseLegacyPassword';
@@ -235,27 +236,31 @@ export async function verifyLoginOtp(
   const row = otpRows[0];
   if (!row) return { error: 'OTP expired or not found. Request a new code.', status: 401 };
 
-  if (row.attempts >= MAX_OTP_ATTEMPTS) {
+  try {
+    if (row.attempts >= MAX_OTP_ATTEMPTS) {
+      await db.update(loginOtps).set({ consumedAt: nowIso }).where(eq(loginOtps.id, row.id));
+      return { error: 'Too many wrong attempts. Request a new OTP.', status: 401 };
+    }
+
+    const expectedHash = await hashLoginOtp(match.id, otpInput, otpPepper(env));
+    if (expectedHash !== row.codeHash) {
+      await db
+        .update(loginOtps)
+        .set({ attempts: row.attempts + 1 })
+        .where(eq(loginOtps.id, row.id));
+      return { error: 'Invalid Employee ID or OTP', status: 401 };
+    }
+
     await db.update(loginOtps).set({ consumedAt: nowIso }).where(eq(loginOtps.id, row.id));
-    return { error: 'Too many wrong attempts. Request a new OTP.', status: 401 };
+
+    const mapped = mapRow(match);
+    if (!mapped) return { error: 'Invalid account configuration', status: 403 };
+
+    const accessToken = await issueToken(env, match);
+    return { accessToken, employee: mapped };
+  } catch (e) {
+    return { error: publicWriteErrorMessage(e), status: 503 };
   }
-
-  const expectedHash = await hashLoginOtp(match.id, otpInput, otpPepper(env));
-  if (expectedHash !== row.codeHash) {
-    await db
-      .update(loginOtps)
-      .set({ attempts: row.attempts + 1 })
-      .where(eq(loginOtps.id, row.id));
-    return { error: 'Invalid Employee ID or OTP', status: 401 };
-  }
-
-  await db.update(loginOtps).set({ consumedAt: nowIso }).where(eq(loginOtps.id, row.id));
-
-  const mapped = mapRow(match);
-  if (!mapped) return { error: 'Invalid account configuration', status: 403 };
-
-  const accessToken = await issueToken(env, match);
-  return { accessToken, employee: mapped };
 }
 
 export async function setEmployeePassword(

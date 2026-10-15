@@ -1,5 +1,6 @@
 import { notifyCaseAssignment } from './email';
 import { startCaseAlertEscalation } from './caseAlerts';
+import { notifyTelegramAssignment, notifyTelegramPostpone } from './telegram';
 
 /** Email + Telegram Alert 1 (and escalation ladder) for one assignee. */
 export function notifyCaseAssignmentToEmployee(
@@ -8,6 +9,7 @@ export function notifyCaseAssignmentToEmployee(
 ): void {
   if (!employeeId) return;
   void notifyCaseAssignment(caseId, employeeId);
+  notifyTelegramAssignment(caseId, employeeId);
   startCaseAlertEscalation(caseId, employeeId, 'assignment');
 }
 
@@ -29,7 +31,9 @@ export function notifyAssignmentAlerts(caseId: string, employeeId: string | unde
   startCaseAlertEscalation(caseId, employeeId, 'assignment');
 }
 
-/** Same 3-step ladder for postpone. */
+/** Telegram + escalation ladder for postpone. */
 export function notifyPostponeAlerts(caseId: string, employeeId: string | undefined | null): void {
+  if (!employeeId) return;
+  notifyTelegramPostpone(caseId, employeeId);
   startCaseAlertEscalation(caseId, employeeId, 'postpone');
 }

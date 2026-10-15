@@ -29,6 +29,7 @@
     "deploy:hostinger:cutover": "node scripts/deploy-hostinger-app.mjs --cutover",
     "deploy:hostinger:cloudflare": "node scripts/deploy-hostinger-app.mjs --cloudflare",
     "telegram:sync-ids": "node scripts/sync-telegram-chat-ids-to-d1.mjs",
+    "telegram:link": "node scripts/link-telegram-chat-id-d1.mjs",
     "telegram:configure": "node scripts/configure-worker-telegram.mjs",
     "auth:migrate-supabase-to-d1": "node scripts/migrate-supabase-auth-to-d1.mjs",
     "phase11:verify-export": "node scripts/phase11-verify-export.mjs",

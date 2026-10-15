@@ -50,7 +50,10 @@ export async function handleAuthRequestOtp(request: Request, env: Env): Promise<
 export async function handleAuthVerifyOtp(request: Request, env: Env): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as { employeeCode?: string; otp?: string };
   const result = await verifyLoginOtp(env, body.employeeCode ?? '', body.otp ?? '');
-  if ('error' in result) return apiError('UNAUTHORIZED', result.error, result.status);
+  if ('error' in result) {
+    const code = result.status === 503 ? 'INTERNAL' : 'UNAUTHORIZED';
+    return apiError(code, result.error, result.status);
+  }
   return jsonResponse({
     access_token: result.accessToken,
     token_type: 'bearer',
