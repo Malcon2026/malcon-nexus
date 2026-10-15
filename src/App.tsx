@@ -40,6 +40,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
 import { GlobalAddCaseFab } from './components/layout/GlobalAddCaseFab';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
+import { useLiveDataSync } from './hooks/useLiveDataSync';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
 import { restoreBootstrapCacheForDisplay } from './lib/bootstrapSessionCache';
@@ -97,6 +98,10 @@ function MainApp() {
     onShowHelp: showShortcutsHelp,
     shortcutsHelpOpen,
   });
+
+  useLiveDataSync(
+    REMOTE_AUTH && isAuthenticated && authChecked && activeTab !== 'tv-board',
+  );
 
   const hydrateGeneration = useRef(0);
 
