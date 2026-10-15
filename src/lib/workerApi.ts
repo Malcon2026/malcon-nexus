@@ -129,6 +129,8 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
 }
 
 const CASE_BOOTSTRAP_PAGE_SIZE = 200;
+/** Bounded parallel GET /api/cases/:id for employee-scoped id lists. */
+const CASE_DETAIL_CONCURRENCY = 6;
 
 /** Sequential pages — unbounded parallel requests were overloading D1 and slowing login. */
 async function fetchAllPaginated<T>(

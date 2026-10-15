@@ -357,6 +357,7 @@ export function workerCaseDetailToPgRow(detail: Record<string, unknown>): Record
     status: detail.status,
     current_stage: detail.current_stage,
     current_department: detail.current_department,
+    assigned_employee_id: detail.assigned_employee_id,
     assigned_employee_snapshot: detail.assigned_employee_snapshot,
     created_by: detail.created_by,
     created_at: detail.created_at,

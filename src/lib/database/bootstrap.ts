@@ -362,9 +362,14 @@ export async function bootstrapEssential(
     // Session cache is from login time and does not include punches made later.
     // Always re-read location trips so refresh does not wipe them.
     if ((role === 'employee' || role === 'store_manager') && options?.employeeId) {
+      const employeeId = options.employeeId;
       await runBootstrapTasks(
-        [{ key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(options.employeeId!) }],
-        'locationTrips',
+        [
+          { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
+          // Assignments change often — never skip case scope on a fresh session cache hit.
+          employeeCasesTask(employeeId),
+        ],
+        'locationTrips+cases',
       );
       return true;
     }
