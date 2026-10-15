@@ -31,6 +31,8 @@ import { CASE_DUTIES_TAB_ID } from '../lib/caseDuties';
 import { CaseCurrentWork, type CaseAction } from '../components/case-detail/CaseCurrentWork';
 import { FloatingCornerButton } from '../components/layout/FloatingCornerButton';
 import { CaseDetailTabs, type CaseTab } from '../components/case-detail/CaseDetailTabs';
+import { USE_CLOUDFLARE_BACKEND } from '../lib/cloudflareConfig';
+import { taskRepository } from '../lib/database/repositories/tasks';
 import {
   CaseActivity,
   CaseComments,
@@ -762,6 +764,28 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [requesting, setRequesting] = useState(false);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [activeTabLocal, setActiveTabLocal] = useState<'overview' | 'stages' | 'activity' | 'comments'>('overview');
+
+  /** D1 is source of truth — list bootstrap rows omit stages and must not drive assign/submit UI. */
+  useEffect(() => {
+    if (!USE_CLOUDFLARE_BACKEND) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const fresh = await taskRepository.getFreshById(initialCase.id);
+        if (cancelled || !fresh) return;
+        useStore.setState((s) => ({
+          cases: s.cases.some((x) => x.id === fresh.id)
+            ? s.cases.map((x) => (x.id === fresh.id ? fresh : x))
+            : [...s.cases, fresh],
+        }));
+      } catch (err) {
+        console.warn('[CaseDetail] D1 refresh failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialCase.id]);
 
   const progressStage = mapCaseToVisibleStage(c.currentStage);
   const currentStageIdx = VISIBLE_WORKFLOW_STAGES.indexOf(progressStage);

@@ -1600,7 +1600,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (updates.implantType !== undefined) patch.implantType = formatted.implantType ?? '';
     if (updates.implantCompany !== undefined) patch.implantCompany = formatted.implantCompany ?? '';
     if (updates.remarks !== undefined) patch.remarks = formatted.remarks ?? '';
-    const updated = await taskRepository.update(id, patch);
+    const existing = (await taskRepository.getFreshById(id)) ?? get().cases.find((c) => c.id === id);
+    const updated = await taskRepository.update(id, patch, existing ?? undefined);
     set((s) => ({
       cases: s.cases.map((c) => (c.id === id ? updated : c)),
     }));
@@ -2558,7 +2559,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   assignEmployee: async (caseId, employee, nextStage, options) => {
     const state = get();
-    const c = state.cases.find((x) => x.id === caseId);
+    const c =
+      (await taskRepository.getFreshById(caseId)) ?? state.cases.find((x) => x.id === caseId);
     if (!c) return;
     if (!employee?.id) {
       throw new Error('Cannot assign: employee is missing an id.');

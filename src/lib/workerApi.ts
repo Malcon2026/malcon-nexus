@@ -155,21 +155,25 @@ async function fetchAllPaginated<T>(
   return out;
 }
 
-/**
- * Paginated case list with header snapshots (no per-case detail round-trips).
- * Full stages load on demand via getCase() when opening a case.
- */
+async function hydrateCaseIdsFromListPages(
+  fetchPage: (page: number, pageSize: number) => Promise<Paginated<WorkerCaseListItem>>,
+): Promise<WorkerCaseDetail[]> {
+  const list = await fetchAllPaginated<WorkerCaseListItem>(fetchPage, {
+    pageSize: CASE_BOOTSTRAP_PAGE_SIZE,
+  });
+  const ids = [...new Set(list.map((row) => String(row.id ?? '')).filter(Boolean))];
+  if (ids.length === 0) return [];
+  return getCaseDetailsByIds(ids);
+}
+
+/** Full case rows from D1 (list API omits stage JSON — stubs must not enter the store). */
 export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
-  return fetchAllPaginated<WorkerCaseDetail>(
-    (page, pageSize) => getCasesPage({ page, pageSize }),
-    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
-  );
+  return hydrateCaseIdsFromListPages((page, pageSize) => getCasesPage({ page, pageSize }));
 }
 
 export async function getBootstrapDayCasesViaWorker(dayKey: string): Promise<WorkerCaseDetail[]> {
-  return fetchAllPaginated<WorkerCaseDetail>(
-    (page, pageSize) => getCasesPage({ page, pageSize, dayKey }),
-    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+  return hydrateCaseIdsFromListPages((page, pageSize) =>
+    getCasesPage({ page, pageSize, dayKey }),
   );
 }
 

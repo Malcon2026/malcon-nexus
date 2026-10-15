@@ -187,6 +187,31 @@ export async function saveCaseForSession(
   }
   const ts = nowIso();
   const patch = rowFromPayload(payload, ts);
+
+  /** List/bootstrap rows ship `stages: []` — reject accidental wipe of assignments/submissions. */
+  let stagesToWrite = patch.stages ?? existing.stages;
+  if (patch.stages != null && patch.stages !== existing.stages) {
+    const existingStages = parseStagesJson(existing.stages);
+    const incomingStages = parseStagesJson(patch.stages);
+    const existingHadWork = existingStages.some(
+      (s) =>
+        s.assignedEmployee?.id ||
+        s.status === 'Submitted' ||
+        s.status === 'Approved' ||
+        s.submittedAt,
+    );
+    const incomingHasWork = incomingStages.some(
+      (s) =>
+        s.assignedEmployee?.id ||
+        s.status === 'Submitted' ||
+        s.status === 'Approved' ||
+        s.submittedAt,
+    );
+    if (existingHadWork && !incomingHasWork) {
+      stagesToWrite = existing.stages;
+    }
+  }
+
   await db
     .update(cases)
     .set({
@@ -213,7 +238,7 @@ export async function saveCaseForSession(
       createdBy: patch.createdBy ?? existing.createdBy,
       dueDate: patch.dueDate === undefined ? existing.dueDate : patch.dueDate,
       remarks: patch.remarks ?? existing.remarks,
-      stages: patch.stages ?? existing.stages,
+      stages: stagesToWrite,
       activityLogs: patch.activityLogs ?? existing.activityLogs,
       comments: patch.comments ?? existing.comments,
       postSurgeryDuties:
@@ -233,6 +258,8 @@ export async function saveCaseForSession(
       updatedAt: ts,
     })
     .where(eq(cases.id, caseId));
+
+  await syncCaseHeaderFromStages(db, caseId);
 }
 
 export async function deleteCase(db: Db, ctx: RequestContext, id: string, relaxed: boolean): Promise<void> {
