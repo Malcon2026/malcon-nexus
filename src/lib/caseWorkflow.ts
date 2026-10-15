@@ -369,16 +369,15 @@ function isTvBoardSurgeryToday(surgeryDate: string | undefined): boolean {
 }
 
 /**
- * Office TV board: open cases through Restock, plus completed cases for today's surgery date.
+ * Office TV board: today's surgeries only (IST), open through Restock or completed same day.
  * Cancelled / kit-return cases are excluded.
  */
 export function isTvBoardVisibleCase(c: ImplantCase): boolean {
   if (c.status === 'Cancelled' || c.cancelReason) return false;
+  if (!isTvBoardSurgeryToday(c.surgeryDate)) return false;
 
   const stage = normalizeWorkflowStageName(c.currentStage);
-  if (c.status === 'Completed' || stage === 'Completed') {
-    return isTvBoardSurgeryToday(c.surgeryDate);
-  }
+  if (c.status === 'Completed' || stage === 'Completed') return true;
 
   return TV_BOARD_STAGES.has(stage);
 }

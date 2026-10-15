@@ -469,7 +469,11 @@ export const TvBoard: React.FC<TvBoardProps> = ({ kioskMode = false, kioskToken 
       if (p !== 0) return p;
       return new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime();
     };
-    const board = cases.filter(isTvBoardVisibleCase).sort(sortFn);
+    const todayKey = getISTDateKey();
+    const board = cases
+      .filter(isTvBoardVisibleCase)
+      .filter((c) => matchesSurgeryDateKey(c.surgeryDate, todayKey))
+      .sort(sortFn);
     return {
       openCases: board,
       boardCases: board,
