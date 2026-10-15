@@ -637,6 +637,13 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
 export const sbCaseRepo = {
   async getNextCaseNumber(surgeryDate?: string): Promise<string> {
     const prefix = caseNumberPrefixForDate(surgeryDate ?? new Date());
+    if (useWorkerReads()) {
+      const all = await fetchAllCasesFromWorker();
+      const rows = all
+        .filter((c) => c.caseNumber.startsWith(prefix))
+        .map((c) => ({ caseNumber: c.caseNumber }));
+      return nextCaseNumberWithPrefix(rows, prefix);
+    }
     const { data, error } = await supabase
       .from('cases')
       .select('case_number')
