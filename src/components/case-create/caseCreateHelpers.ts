@@ -39,7 +39,7 @@ export function rankHospitals(
 }
 
 export function hospitalSubtitle(hospital: Hospital): string {
-  return [hospital.address, hospital.city].filter(Boolean).join(', ');
+  return (hospital.branch ?? '').trim();
 }
 
 /* ------------------------------------------------------------------ */

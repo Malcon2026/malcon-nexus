@@ -195,7 +195,7 @@ export const Hospitals: React.FC = () => {
                         <div className="flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3 w-3 text-gray-400" />
                           <span className="text-xs text-gray-500">
-                            {[hospital.branch, hospital.city].filter(Boolean).join(' • ')}
+                            {hospital.branch || null}
                           </span>
                         </div>
                       </div>

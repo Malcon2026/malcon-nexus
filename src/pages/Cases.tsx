@@ -460,7 +460,9 @@ export const Cases: React.FC = () => {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 truncate max-w-[140px]">{c.hospital.name}</p>
-                          <p className="text-xs text-gray-400">{c.hospital.city}</p>
+                          {c.hospital.branch ? (
+                            <p className="text-xs text-gray-400">{c.hospital.branch}</p>
+                          ) : null}
                         </div>
                       </div>
                     </td>

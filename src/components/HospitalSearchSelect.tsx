@@ -163,11 +163,9 @@ export const HospitalSearchSelect: React.FC<HospitalSearchSelectProps> = ({
                 <Building2 className="h-3.5 w-3.5 text-[var(--color-accent)] shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{formatHospitalLabel(hospital)}</p>
-                  {(hospital.city || hospital.address) && (
-                    <p className="text-[11px] text-gray-400 truncate">
-                      {[hospital.address, hospital.city].filter(Boolean).join(', ')}
-                    </p>
-                  )}
+                  {hospital.branch ? (
+                    <p className="text-[11px] text-gray-400 truncate">{hospital.branch}</p>
+                  ) : null}
                 </div>
               </button>
             ))}

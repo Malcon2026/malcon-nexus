@@ -84,8 +84,8 @@ export const CaseOverview: React.FC<{ case: ImplantCase; onManageTeam?: () => vo
             </span>
             <div className="min-w-0">
               <p className="break-words text-sm font-semibold text-gray-900">{c.hospital.name}</p>
-              {[c.hospital.branch, c.hospital.city].filter(Boolean).length > 0 ? (
-                <p className="text-xs text-gray-500">{[c.hospital.branch, c.hospital.city].filter(Boolean).join(' · ')}</p>
+              {c.hospital.branch ? (
+                <p className="text-xs text-gray-500">{c.hospital.branch}</p>
               ) : null}
               {hospitalContacts.map(({ icon: Icon, value }) => (
                 <p key={value} className="mt-1.5 flex items-center gap-1.5 break-all text-xs text-gray-600">
