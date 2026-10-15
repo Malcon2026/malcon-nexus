@@ -17,7 +17,7 @@ import {
   getStageSubmitWaitMessage,
   isCaseVisibleToEmployee,
   isCaseAssistantOnCurrentStage,
-  isCaseAssignedToEmployee,
+  isEmployeeCaseClosedInList,
 } from '../lib/caseWorkflow';
 import { isCheckingPoolCase, isCheckingPoolEmployee } from '../lib/checkingPool';
 import { canEmployeeRequestTask, getPendingTaskRequestsForCase } from '../lib/caseTaskRequests';
@@ -313,9 +313,18 @@ const EmployeeCasesPanel: React.FC<{
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const claimCheckingCase = useStore((s) => s.claimCheckingCase);
   const myCases = useMyCases(employee);
-  const completedCases = myCases.filter((c) =>
-    c.stages.some((stage) => isCaseAssignedToEmployee({ ...c, assignedEmployee: stage.assignedEmployee }, employee) && stage.status === 'Approved'),
-  );
+  const { activeMyCases, completedMyCases } = useMemo(() => {
+    const completed = myCases.filter((c) => isEmployeeCaseClosedInList(c, employee));
+    const completedIds = new Set(completed.map((c) => c.id));
+    const active = myCases.filter((c) => !completedIds.has(c.id));
+    active.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+    completed.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+    return { activeMyCases: active, completedMyCases: completed };
+  }, [myCases, employee]);
 
   const isCheckingEligible = isCheckingPoolEmployee(currentUser);
   const checkingPoolCases = useMemo(() => {
@@ -525,123 +534,180 @@ const EmployeeCasesPanel: React.FC<{
             <Te className="text-gray-400 mt-1 mb-0">Admin meeku cases istaru</Te>
           </Card>
         ) : (
-          myCases.map((c, idx) => {
-            const sc = getStageStyle(c.currentStage);
-            const pc = getPriorityStyle(c.priority);
-            const isSubmitted = c.status === 'Waiting For Approval';
-            const canSubmit = canEmployeeSubmitCase(c, currentUser);
-            const mySubmitStage = getEmployeeSubmitStage(c, currentUser);
-            const submitWaitMessage = getStageSubmitWaitMessage(c, currentUser);
-            const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
+          <>
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-gray-900">Active</h3>
+                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs">
+                  {activeMyCases.length}
+                </Badge>
+              </div>
+              {activeMyCases.length === 0 ? (
+                <p className="text-xs text-gray-500 py-2">No active cases — see completed below or check the pool.</p>
+              ) : (
+                activeMyCases.map((c, idx) => {
+                  const sc = getStageStyle(c.currentStage);
+                  const pc = getPriorityStyle(c.priority);
+                  const isSubmitted = c.status === 'Waiting For Approval';
+                  const canSubmit = canEmployeeSubmitCase(c, currentUser);
+                  const mySubmitStage = getEmployeeSubmitStage(c, currentUser);
+                  const submitWaitMessage = getStageSubmitWaitMessage(c, currentUser);
+                  const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
-            return (
-              <motion.div
-                key={c.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.07 }}
-              >
-                <Card>
-                  <CardBody>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
-                          <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
-                            <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-                            {c.currentStage}
-                          </Badge>
-                          {submitWaitMessage && (
-                            <Badge className="bg-slate-50 text-slate-700 border-slate-200 text-xs max-w-[220px] whitespace-normal text-left">
-                              Waiting on prior stage
-                            </Badge>
-                          )}
-                          {canSubmit && mySubmitStage && (
-                            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs">
-                              Ready: {mySubmitStage}
-                            </Badge>
-                          )}
-                          <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
-                          {isSubmitted && (
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                              Waiting for admin
-                            </Badge>
-                          )}
-                          {isExtraPerson && (
-                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">
-                              Extra person
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">{c.hospital?.name ?? 'Unknown Hospital'}</p>
-                        <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
-                        <p className="text-xs text-gray-400 mt-1">{c.implantRequired}</p>
+                  return (
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                    >
+                      <Card>
+                        <CardBody>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <span className="text-sm font-bold text-[var(--color-accent)]">{c.caseNumber}</span>
+                                <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs`}>
+                                  <div className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
+                                  {c.currentStage}
+                                </Badge>
+                                {submitWaitMessage && (
+                                  <Badge className="bg-slate-50 text-slate-700 border-slate-200 text-xs max-w-[220px] whitespace-normal text-left">
+                                    Waiting on prior stage
+                                  </Badge>
+                                )}
+                                {canSubmit && mySubmitStage && (
+                                  <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs">
+                                    Ready: {mySubmitStage}
+                                  </Badge>
+                                )}
+                                <Badge className={`${pc} text-xs`}>{c.priority}</Badge>
+                                {isSubmitted && (
+                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                    Waiting for admin
+                                  </Badge>
+                                )}
+                                {isExtraPerson && (
+                                  <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-xs">
+                                    Extra person
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">{c.hospital?.name ?? 'Unknown Hospital'}</p>
+                              <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
+                              <p className="text-xs text-gray-400 mt-1">{c.implantRequired}</p>
 
-                        {c.remarks && (
-                          <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
-                            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                            {c.remarks}
+                              {c.remarks && (
+                                <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
+                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                  {c.remarks}
+                                </div>
+                              )}
+                              {submitWaitMessage && (
+                                <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
+                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                  {submitWaitMessage}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                icon={<FileText className="h-3.5 w-3.5" />}
+                                onClick={() => onViewCase(c)}
+                              >
+                                View
+                              </Button>
+                              {canSubmit && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  icon={<Send className="h-3.5 w-3.5" />}
+                                  onClick={() => onSubmitCase(c)}
+                                >
+                                  Submit
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        {submitWaitMessage && (
-                          <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2">
-                            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                            {submitWaitMessage}
-                          </div>
-                        )}
-                      </div>
+                        </CardBody>
+                      </Card>
+                    </motion.div>
+                  );
+                })
+              )}
+            </section>
 
-                      <div className="flex flex-col gap-2 shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<FileText className="h-3.5 w-3.5" />}
-                          onClick={() => onViewCase(c)}
-                        >
-                          View
-                        </Button>
-                        {canSubmit && (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={<Send className="h-3.5 w-3.5" />}
-                            onClick={() => onSubmitCase(c)}
-                          >
-                            Submit
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardBody>
-                </Card>
-              </motion.div>
-            );
-          })
+            {completedMyCases.length > 0 && (
+              <section className="space-y-3 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-gray-700">Completed</h3>
+                  <Badge className="bg-gray-100 text-gray-700 border-gray-200 text-xs">
+                    {completedMyCases.length}
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-500">Finished cases — view only, newest first.</p>
+                {completedMyCases.map((c, idx) => {
+                  const sc = getStageStyle(c.currentStage);
+                  const doneLabel =
+                    c.status === 'Cancelled' ? 'Cancelled' : c.status === 'Completed' ? 'Completed' : 'Your stage done';
+                  return (
+                    <motion.div
+                      key={c.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.03 }}
+                    >
+                      <Card className="border-gray-200 bg-gray-50/40">
+                        <CardBody className="py-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-sm font-bold text-gray-700">{c.caseNumber}</span>
+                                <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-xs opacity-90`}>
+                                  {c.currentStage}
+                                </Badge>
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                                  <CheckCircle2 className="h-3 w-3 inline mr-0.5" />
+                                  {doneLabel}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-800">{c.hospital?.name ?? 'Unknown Hospital'}</p>
+                              <p className="text-xs text-gray-500">{c.doctor.name} • Surgery: {formatDate(c.surgeryDate)}</p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              icon={<FileText className="h-3.5 w-3.5" />}
+                              onClick={() => onViewCase(c)}
+                            >
+                              View
+                            </Button>
+                          </div>
+                        </CardBody>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </section>
+            )}
+          </>
         )}
       </div>
 
       <Card className="hidden lg:block h-fit">
-        <CardHeader><h3 className="text-sm font-semibold text-gray-900">Recently Done</h3></CardHeader>
-        <CardBody className="p-0">
-          {completedCases.length === 0 ? (
-            <div className="py-8 text-center text-gray-400">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-xs">No done cases yet</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {completedCases.slice(0, 4).map((c) => (
-                <div key={c.id} className="px-5 py-3">
-                  <p className="text-xs font-bold text-[var(--color-accent)]">{c.caseNumber}</p>
-                  <p className="text-xs text-gray-700 truncate">{c.hospital?.name ?? 'Unknown Hospital'}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                    <span className="text-[10px] text-emerald-600">Done</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <CardHeader><h3 className="text-sm font-semibold text-gray-900">My cases</h3></CardHeader>
+        <CardBody className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Active</span>
+            <span className="font-semibold text-emerald-700">{activeMyCases.length}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Completed</span>
+            <span className="font-semibold text-gray-700">{completedMyCases.length}</span>
+          </div>
         </CardBody>
       </Card>
     </div>

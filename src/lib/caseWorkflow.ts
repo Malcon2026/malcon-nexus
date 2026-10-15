@@ -768,6 +768,27 @@ export function isCaseAssistantOnCurrentStage(
   return employeeMatches(rec?.assistantEmployee, employee);
 }
 
+/** Employee dashboard: case belongs in Completed (not Active) list. */
+export function isEmployeeCaseClosedInList(
+  implantCase: ImplantCase,
+  employee: Pick<Employee, 'id' | 'email'>,
+): boolean {
+  if (implantCase.status === 'Completed' || implantCase.status === 'Cancelled') return true;
+  if (
+    isEmployeeAssigneeOnCurrentStage(implantCase, employee) ||
+    isCaseAssistantOnCurrentStage(implantCase, employee)
+  ) {
+    return false;
+  }
+  return implantCase.stages.some(
+    (stage) =>
+      isCaseAssignedToEmployee(
+        { ...implantCase, assignedEmployee: stage.assignedEmployee },
+        employee,
+      ) && stage.status === 'Approved',
+  );
+}
+
 export function isCaseVisibleToEmployee(
   implantCase: ImplantCase,
   employee: Pick<Employee, 'id' | 'email'>,
