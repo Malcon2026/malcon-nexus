@@ -6,6 +6,10 @@
 import type { Env } from '../env';
 import { JwtVerificationError, parseBearerToken, verifySupabaseAccessToken } from '../lib/jwt';
 import { lookupEmployeeForAuth } from '../lib/employeeLookup';
+import { publicWriteErrorMessage } from '../lib/dbWriteErrors';
+import { AuthError } from './authorization';
+import { isRetriableD1Error } from '../lib/d1Retry';
+import { DrizzleQueryError } from 'drizzle-orm/errors';
 
 export type AppRole = 'admin' | 'employee' | 'petrol' | 'store_manager';
 
@@ -93,6 +97,9 @@ export async function authenticateRequest(request: Request, env: Env): Promise<R
   } catch (e) {
     if (e instanceof JwtVerificationError) {
       return { identity: null, employeeId: null, role: null, authFailure: 'invalid_jwt' };
+    }
+    if (e instanceof DrizzleQueryError || isRetriableD1Error(e)) {
+      throw new AuthError(publicWriteErrorMessage(e), 503);
     }
     throw e;
   }

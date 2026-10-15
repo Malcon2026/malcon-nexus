@@ -1,6 +1,8 @@
 import type { Env } from './env';
 import { buildAuthContext, enforceApiAuth } from './middleware/api-auth';
 import { withCors } from './lib/http';
+import { publicWriteErrorMessage } from './lib/dbWriteErrors';
+import { AuthError } from './middleware/authorization';
 import { handleHealth, handleHealthDb } from './routes/health';
 import { handleEmployeeAttendance, handleGetEmployee, handleListEmployees } from './routes/employees';
 import { handleGetCase, handleListCases } from './routes/cases';
@@ -494,10 +496,19 @@ export default {
         env,
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = publicWriteErrorMessage(e);
+      const status = e instanceof AuthError ? e.status : 500;
+      const code =
+        status === 503
+          ? 'UNAVAILABLE'
+          : status === 401
+            ? 'UNAUTHORIZED'
+            : status === 403
+              ? 'FORBIDDEN'
+              : 'INTERNAL';
       return withCors(
-        new Response(JSON.stringify({ error: { code: 'INTERNAL', message } }), {
-          status: 500,
+        new Response(JSON.stringify({ error: { code, message } }), {
+          status,
           headers: { 'Content-Type': 'application/json' },
         }),
         env,

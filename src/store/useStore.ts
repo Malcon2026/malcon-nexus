@@ -3691,12 +3691,16 @@ export const useStore = create<AppState>((set, get) => ({
     const remarks = withCancelCaseRemark(c.remarks, reasonType);
 
     if (!returnStage) {
-      const updatedCase = await taskRepository.update(caseId, {
-        cancelReason: trimmed,
-        remarks,
-        stages: updatedStages,
-        activityLogs: [...c.activityLogs, cancelLog],
-      });
+      const updatedCase = await taskRepository.update(
+        caseId,
+        {
+          cancelReason: trimmed,
+          remarks,
+          stages: updatedStages,
+          activityLogs: [...c.activityLogs, cancelLog],
+        },
+        c,
+      );
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? { ...updatedCase, cancelReason: trimmed, remarks } : x)),
       }));
@@ -3719,16 +3723,20 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     );
 
-    const updatedCase = await taskRepository.update(caseId, {
-      cancelReason: trimmed,
-      remarks,
-      currentStage: returnStage,
-      currentDepartment: getDepartmentForStage(returnStage),
-      assignedEmployee: nextEmp,
-      status: 'Active',
-      stages: stagesWithReturn,
-      activityLogs: [...c.activityLogs, cancelLog],
-    });
+    const updatedCase = await taskRepository.update(
+      caseId,
+      {
+        cancelReason: trimmed,
+        remarks,
+        currentStage: returnStage,
+        currentDepartment: getDepartmentForStage(returnStage),
+        assignedEmployee: nextEmp,
+        status: 'Active',
+        stages: stagesWithReturn,
+        activityLogs: [...c.activityLogs, cancelLog],
+      },
+      c,
+    );
 
     let updatedEmployees = state.employees;
     const prev = c.assignedEmployee;
