@@ -13,7 +13,8 @@ import type { ImplantCase } from '../types';
 /** How often open tabs poll for case stage moves (no Supabase Realtime on AWS). */
 export const LIVE_DATA_POLL_MS = 20_000;
 
-function mergeCasesIntoCache(incoming: ImplantCase[]): void {
+/** Upsert by id — avoids dropping today's cases when stage-2 cap excludes them. */
+export function mergeCasesIntoCache(incoming: ImplantCase[]): void {
   if (!supabaseStorage || incoming.length === 0) return;
   const existing = (supabaseStorage.getItem('cases') ?? []) as ImplantCase[];
   const byId = new Map(existing.map((c) => [c.id, c]));

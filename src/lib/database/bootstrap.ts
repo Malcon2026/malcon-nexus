@@ -24,6 +24,8 @@ import { ADMIN_BACKGROUND_CASE_CAP } from '../workerApi';
 import { getISTDateKey, getISTDayStartIso } from '../attendance';
 import { foodLoadWindow } from '../food';
 import { NOTIFICATION_BOOTSTRAP_CAP_STAGE1 } from '../workerApi';
+import { mergeCasesIntoCache } from '../liveDataSync';
+import type { ImplantCase } from '../../types';
 
 import type { BootstrapRole } from '../roles';
 import {
@@ -46,6 +48,8 @@ export interface BootstrapRunOptions {
 interface BootstrapTask {
   key: string;
   run: () => Promise<unknown>;
+  /** Employee login replaces case list; admin/store merges so capped sync cannot drop today. */
+  casesSeed?: 'merge' | 'replace';
 }
 
 const ATTENDANCE_LOOKBACK_DAYS = 150;
@@ -68,6 +72,7 @@ function todayBootstrapContext() {
 function employeeCasesTask(employeeId: string): BootstrapTask {
   return {
     key: 'cases',
+    casesSeed: 'replace',
     run: async () => {
       const self = await sbEmployeeRepo.getById(employeeId);
       if (!self) return [];
@@ -86,7 +91,7 @@ function stage1Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
       { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
-      { key: 'cases', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
+      { key: 'cases', casesSeed: 'merge', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },
       {
         key: 'foodSelections',
@@ -103,7 +108,7 @@ function stage1Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
     return [
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
       { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
-      { key: 'cases', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
+      { key: 'cases', casesSeed: 'merge', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
     ];
@@ -144,6 +149,7 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
     return [
       {
         key: 'cases',
+        casesSeed: 'merge',
         run: () =>
           USE_CLOUDFLARE_BACKEND
             ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
@@ -177,6 +183,7 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
     return [
       {
         key: 'cases',
+        casesSeed: 'merge',
         run: () =>
           USE_CLOUDFLARE_BACKEND
             ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
@@ -263,7 +270,12 @@ async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<
     }
     const { value, ms } = result.value;
     if (ms > slowestMs) { slowestMs = ms; slowestKey = key; }
-    supabaseStorage!.seedCache(key, value as unknown[]);
+    const task = tasks[i];
+    if (key === 'cases' && task.casesSeed !== 'replace') {
+      mergeCasesIntoCache(value as ImplantCase[]);
+    } else {
+      supabaseStorage!.seedCache(key, value as unknown[]);
+    }
   });
 
   console.info(
@@ -416,6 +428,10 @@ export async function bootstrapDeferred(
   _runOptions?: BootstrapRunOptions,
 ): Promise<void> {
   await runBootstrapTasks(stage2Tasks(role, options), 'stage-2');
+  if (role === 'admin' || role === 'store_manager') {
+    const { refreshLiveWorkspaceData } = await import('../liveDataSync');
+    await refreshLiveWorkspaceData(role, options?.employeeId ? { employeeId: options.employeeId } : undefined);
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('malcon-bootstrap-updated'));
   }

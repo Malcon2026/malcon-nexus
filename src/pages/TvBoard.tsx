@@ -444,9 +444,9 @@ export const TvBoard: React.FC<TvBoardProps> = ({ kioskMode = false, kioskToken 
 
     const refreshFromSession = async () => {
       try {
-        const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
-        const role = viewMode === 'admin' ? 'admin' : 'employee';
-        await bootstrapSupabaseData(role, role === 'employee' ? { employeeId: currentUser.id } : undefined, { force: true });
+        const { refreshLiveWorkspaceData } = await import('../lib/liveDataSync');
+        const role = viewMode === 'admin' || viewMode === 'store_manager' ? 'admin' : 'employee';
+        await refreshLiveWorkspaceData(role, { employeeId: currentUser.id });
         reloadFromDatabase();
         await loadAppSettings();
       } catch (err) {
