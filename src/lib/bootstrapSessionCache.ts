@@ -1,10 +1,11 @@
+import { USE_AWS_BACKEND } from './cloudflareConfig';
 import { supabaseStorage } from './database/storage';
 
 /** Must stay in sync with `bootstrap.ts` persist keys / version. */
 export const BOOTSTRAP_CACHE_PREFIX = 'malcon-nexus-bootstrap-v16';
 
 /** Skip network essential fetch when session cache is newer than this. */
-export const BOOTSTRAP_CACHE_TTL_MS = 5 * 60 * 1000;
+export const BOOTSTRAP_CACHE_TTL_MS = USE_AWS_BACKEND ? 15 * 60 * 1000 : 5 * 60 * 1000;
 
 /** Show last-known data from cache up to this age (localStorage survives tab close). */
 const DISPLAY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

@@ -1,6 +1,7 @@
 /**
  * Local Cloudflare Worker API client (Phase 8). Never touches D1 directly.
  */
+import { USE_AWS_BACKEND } from './cloudflareConfig';
 import { WORKER_API_URL } from './workerReadConfig';
 import { getWorkerAuthHeaders } from './workerAuthHeaders';
 
@@ -132,14 +133,15 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
 }
 
 const CASE_BOOTSTRAP_PAGE_SIZE = 200;
-/** Smaller pages when each row includes full stages JSON (avoids mobile timeouts). */
-const CASE_FULL_PAGE_SIZE = 60;
+/** Full rows include large stages JSON — larger pages on RDS cut round-trips vs D1. */
+const CASE_FULL_PAGE_SIZE = USE_AWS_BACKEND ? 200 : 60;
+/** Parallel page fetches after page 1 (RDS/API Gateway tolerate more concurrency than D1). */
+const PAGINATION_PARALLEL_PAGES = USE_AWS_BACKEND ? 4 : 1;
 /** Background admin sync — enough for dashboards; open Case History to load more. */
 export const ADMIN_BACKGROUND_CASE_CAP = 280;
 /** Bounded parallel GET /api/cases/:id for employee-scoped id lists. */
 const CASE_DETAIL_CONCURRENCY = 6;
 
-/** Sequential pages — unbounded parallel requests were overloading D1 and slowing login. */
 async function fetchAllPaginated<T>(
   fetchPage: (page: number, pageSize: number) => Promise<Paginated<T>>,
   options: { cap?: number; pageSize: number },
@@ -147,17 +149,30 @@ async function fetchAllPaginated<T>(
   const cap = options.cap ?? Number.POSITIVE_INFINITY;
   const pageSize = options.pageSize;
   const out: T[] = [];
-  let page = 1;
-  let totalPages = 1;
-  while (out.length < cap && page <= totalPages) {
-    const chunk = await fetchPage(page, Math.min(pageSize, cap - out.length));
-    totalPages = chunk.pagination.totalPages;
-    for (const row of chunk.items) {
-      out.push(row);
-      if (out.length >= cap) return out;
+
+  const first = await fetchPage(1, Math.min(pageSize, cap));
+  const totalPages = first.pagination.totalPages;
+  for (const row of first.items) {
+    out.push(row);
+    if (out.length >= cap) return out;
+  }
+  if (totalPages <= 1 || out.length >= cap) return out;
+
+  const remaining: number[] = [];
+  for (let p = 2; p <= totalPages; p++) remaining.push(p);
+
+  const parallel = Math.max(1, PAGINATION_PARALLEL_PAGES);
+  for (let i = 0; i < remaining.length; i += parallel) {
+    const batch = remaining.slice(i, i + parallel);
+    const chunks = await Promise.all(
+      batch.map((page) => fetchPage(page, Math.min(pageSize, cap - out.length))),
+    );
+    for (const chunk of chunks) {
+      for (const row of chunk.items) {
+        out.push(row);
+        if (out.length >= cap) return out;
+      }
     }
-    if (chunk.items.length === 0) break;
-    page += 1;
   }
   return out;
 }
@@ -285,7 +300,7 @@ export type WorkerKitRow = {
   last_used_date: string | null;
 };
 
-const REFERENCE_PAGE_SIZE = 100;
+const REFERENCE_PAGE_SIZE = USE_AWS_BACKEND ? 250 : 100;
 export const REFERENCE_BOOTSTRAP_CAP = 2000;
 
 export async function getHospitalsPage(page: number, pageSize: number): Promise<Paginated<WorkerHospitalRow>> {
@@ -331,9 +346,11 @@ export async function getAppSettingsViaWorker(): Promise<Record<string, string>>
 
 export type WorkerPgRow = Record<string, unknown>;
 
-const OPERATIONS_PAGE_SIZE = 100;
+const OPERATIONS_PAGE_SIZE = USE_AWS_BACKEND ? 200 : 100;
 export const OPERATIONS_BOOTSTRAP_CAP = 2000;
 export const ATTENDANCE_BOOTSTRAP_CAP = 5000;
+/** Employee register bootstrap — enough history without maxing pagination. */
+export const EMPLOYEE_ATTENDANCE_BOOTSTRAP_CAP = USE_AWS_BACKEND ? 1200 : 5000;
 
 async function fetchPaginatedItems(
   path: string,
@@ -370,11 +387,12 @@ export async function getAllAttendanceRecordsViaWorker(params: {
 export async function getRecentEmployeeAttendanceViaWorker(
   employeeId: string,
   sinceIso: string,
+  cap = EMPLOYEE_ATTENDANCE_BOOTSTRAP_CAP,
 ): Promise<WorkerPgRow[]> {
   return fetchAllPaginated<WorkerPgRow>(
     (page, pageSize) =>
       getEmployeeAttendance(employeeId, { page, pageSize, since: sinceIso }).then((chunk) => chunk),
-    { cap: ATTENDANCE_BOOTSTRAP_CAP, pageSize: OPERATIONS_PAGE_SIZE },
+    { cap, pageSize: OPERATIONS_PAGE_SIZE },
   );
 }
 

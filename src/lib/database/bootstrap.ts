@@ -200,7 +200,6 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
   if (role === 'employee' && options?.employeeId) {
     const employeeId = options.employeeId;
     return [
-      employeeCasesTask(employeeId),
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, attendanceSinceIso) },
       { key: 'leaveRequests', run: () => sbLeaveRepo.getForEmployee(employeeId) },
       { key: 'petrolRequests', run: () => sbPetrolRepo.getForEmployee(employeeId) },
@@ -231,8 +230,8 @@ function shouldSkipEssentialFetch(
   return isSessionCacheFresh(options.employeeId, BOOTSTRAP_CACHE_TTL_MS);
 }
 
-/** Avoid dozens of simultaneous Worker/D1 calls during login. */
-const BOOTSTRAP_TASK_CONCURRENCY = 4;
+/** Avoid dozens of simultaneous API calls during login (RDS allows more than D1). */
+const BOOTSTRAP_TASK_CONCURRENCY = USE_CLOUDFLARE_BACKEND ? 8 : 4;
 
 async function runBootstrapTasks(tasks: BootstrapTask[], tier: string): Promise<void> {
   if (!supabaseStorage || tasks.length === 0) return;
@@ -378,21 +377,22 @@ export async function bootstrapEssential(
     if ((role === 'employee' || role === 'store_manager') && options?.employeeId) {
       const employeeId = options.employeeId;
       const { dateKey, dayStartIso } = todayBootstrapContext();
-      await runBootstrapTasks(
-        [
-          { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
-          { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, dayStartIso) },
-          {
-            key: 'foodSelections',
-            run: () => {
-              const { from, to } = foodLoadWindow(dateKey);
-              return sbFoodRepo.getForDateRange(from, to);
-            },
+      const refreshTasks: BootstrapTask[] = [
+        { key: 'locationTrips', run: () => sbLocationTripRepo.getForEmployee(employeeId) },
+        { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentForEmployee(employeeId, dayStartIso) },
+        {
+          key: 'foodSelections',
+          run: () => {
+            const { from, to } = foodLoadWindow(dateKey);
+            return sbFoodRepo.getForDateRange(from, to);
           },
-          employeeCasesTask(employeeId),
-        ],
-        'employee-refresh',
-      );
+        },
+      ];
+      const cachedCases = supabaseStorage?.getItem<unknown[]>('cases');
+      if (!Array.isArray(cachedCases) || cachedCases.length === 0) {
+        refreshTasks.push(employeeCasesTask(employeeId));
+      }
+      await runBootstrapTasks(refreshTasks, 'employee-refresh');
       return true;
     }
     if (role === 'admin') {
