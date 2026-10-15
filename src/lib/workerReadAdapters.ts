@@ -51,8 +51,8 @@ async function mapWorkerCaseList(details: Record<string, unknown>[]): Promise<Im
   return details.map((d) => caseRowToImplantCaseFn!(workerCaseDetailToPgRow(d)));
 }
 
-export async function fetchAllCasesFromWorker(): Promise<ImplantCase[]> {
-  return mapWorkerCaseList(await getAllCasesViaWorker());
+export async function fetchAllCasesFromWorker(options?: { cap?: number }): Promise<ImplantCase[]> {
+  return mapWorkerCaseList(await getAllCasesViaWorker(options));
 }
 
 export async function fetchBootstrapDayCasesFromWorker(dayKey: string): Promise<ImplantCase[]> {

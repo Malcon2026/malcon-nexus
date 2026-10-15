@@ -135,27 +135,53 @@ function MainApp() {
       console.info(`[perf] stage-1 hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
 
       setIsBackgroundSyncing(true);
-      void bootstrapDeferred(role, options).then(async () => {
+      const syncStartedAt = performance.now();
+      const syncTimeout = window.setTimeout(() => {
+        if (generation === hydrateGeneration.current) {
+          setIsBackgroundSyncing(false);
+          console.warn('[perf] stage-2 hydration timed out — UI unfrozen; sync may continue in background');
+        }
+      }, 90_000);
+
+      const finishBackgroundSync = () => {
+        window.clearTimeout(syncTimeout);
         if (generation !== hydrateGeneration.current) return;
-        reloadFromDatabase();
-        if (role === 'employee' || role === 'store_manager') {
-          await useStore.getState().repairStuckAssignmentsForCurrentUser();
-          reloadFromDatabase();
-        }
-        if (role === 'admin') {
-          await useStore.getState().repairPendingStageSubmissions();
-          await useStore.getState().repairStuckSelfSurgeryCases();
-          await useStore.getState().repairStuckPickupReturnOutcomes();
-          await useStore.getState().repairLegacyBillingCases();
-          await useStore.getState().repairCaseHeaderPointers();
-          reloadFromDatabase();
-        }
-        persistBootstrapCache(employee.id, role);
         setIsBackgroundSyncing(false);
-        console.info(`[perf] stage-2 hydration done in ${Math.round(performance.now() - startedAt)}ms`);
-      }).catch(() => {
-        if (generation === hydrateGeneration.current) setIsBackgroundSyncing(false);
-      });
+        console.info(
+          `[perf] stage-2 hydration visible done in ${Math.round(performance.now() - startedAt)}ms`,
+        );
+      };
+
+      void bootstrapDeferred(role, options)
+        .then(async () => {
+          if (generation !== hydrateGeneration.current) return;
+          reloadFromDatabase();
+          persistBootstrapCache(employee.id, role);
+          finishBackgroundSync();
+
+          // Repairs can touch hundreds of cases — never block the “Syncing full history” banner (especially on D1).
+          if (role === 'employee' || role === 'store_manager') {
+            void useStore.getState().repairStuckAssignmentsForCurrentUser().then(() => {
+              if (generation === hydrateGeneration.current) reloadFromDatabase();
+            });
+          } else if (role === 'admin' && !USE_CLOUDFLARE_BACKEND) {
+            void (async () => {
+              await useStore.getState().repairPendingStageSubmissions();
+              await useStore.getState().repairStuckSelfSurgeryCases();
+              await useStore.getState().repairStuckPickupReturnOutcomes();
+              await useStore.getState().repairLegacyBillingCases();
+              await useStore.getState().repairCaseHeaderPointers();
+              if (generation === hydrateGeneration.current) reloadFromDatabase();
+            })();
+          }
+          console.info(
+            `[perf] stage-2 fetch finished in ${Math.round(performance.now() - syncStartedAt)}ms`,
+          );
+        })
+        .catch((err) => {
+          console.warn('[bootstrap] stage-2 failed:', err);
+          finishBackgroundSync();
+        });
     } catch (err) {
       console.error('[App] Data hydrate failed:', err);
       if (generation === hydrateGeneration.current) {

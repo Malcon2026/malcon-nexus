@@ -653,8 +653,8 @@ export const sbCaseRepo = {
     return nextCaseNumberWithPrefix(rows, prefix);
   },
 
-  async getAll(): Promise<ImplantCase[]> {
-    if (useWorkerReads()) return fetchAllCasesFromWorker();
+  async getAll(options?: { cap?: number }): Promise<ImplantCase[]> {
+    if (useWorkerReads()) return fetchAllCasesFromWorker(options);
     const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map((row) => caseRowToImplantCase(row as Record<string, unknown>));

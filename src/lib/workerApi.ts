@@ -132,6 +132,10 @@ export async function getCase(id: string): Promise<WorkerCaseDetail | null> {
 }
 
 const CASE_BOOTSTRAP_PAGE_SIZE = 200;
+/** Smaller pages when each row includes full stages JSON (avoids mobile timeouts). */
+const CASE_FULL_PAGE_SIZE = 60;
+/** Background admin sync — enough for dashboards; open Case History to load more. */
+export const ADMIN_BACKGROUND_CASE_CAP = 280;
 /** Bounded parallel GET /api/cases/:id for employee-scoped id lists. */
 const CASE_DETAIL_CONCURRENCY = 6;
 
@@ -159,17 +163,17 @@ async function fetchAllPaginated<T>(
 }
 
 /** Full case rows from D1 — one paginated API call per chunk (`full=1`). */
-export async function getAllCasesViaWorker(): Promise<WorkerCaseDetail[]> {
+export async function getAllCasesViaWorker(options?: { cap?: number }): Promise<WorkerCaseDetail[]> {
   return fetchAllPaginated<WorkerCaseDetail>(
     (page, pageSize) => getCasesPage({ page, pageSize, full: true }),
-    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+    { pageSize: CASE_FULL_PAGE_SIZE, cap: options?.cap },
   );
 }
 
 export async function getBootstrapDayCasesViaWorker(dayKey: string): Promise<WorkerCaseDetail[]> {
   return fetchAllPaginated<WorkerCaseDetail>(
     (page, pageSize) => getCasesPage({ page, pageSize, dayKey, full: true }),
-    { pageSize: CASE_BOOTSTRAP_PAGE_SIZE },
+    { pageSize: CASE_FULL_PAGE_SIZE },
   );
 }
 

@@ -19,6 +19,8 @@ import {
   sbFoodRepo,
 } from './repositories/supabaseRepositories';
 import { FCFS_POOL_ENABLED } from '../caseWorkflow';
+import { USE_CLOUDFLARE_BACKEND } from '../cloudflareConfig';
+import { ADMIN_BACKGROUND_CASE_CAP } from '../workerApi';
 import { getISTDateKey, getISTDayStartIso } from '../attendance';
 import { foodLoadWindow } from '../food';
 import { NOTIFICATION_BOOTSTRAP_CAP_STAGE1 } from '../workerApi';
@@ -140,7 +142,13 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
 
   if (role === 'admin') {
     return [
-      { key: 'cases', run: () => sbCaseRepo.getAll() },
+      {
+        key: 'cases',
+        run: () =>
+          USE_CLOUDFLARE_BACKEND
+            ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
+            : sbCaseRepo.getAll(),
+      },
       { key: 'notifications', run: () => sbNotificationRepo.getAll() },
       { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
       { key: 'doctors', run: () => sbDoctorRepo.getAll() },
@@ -167,7 +175,13 @@ function stage2Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
   if (role === 'store_manager' && options?.employeeId) {
     const employeeId = options.employeeId;
     return [
-      { key: 'cases', run: () => sbCaseRepo.getAll() },
+      {
+        key: 'cases',
+        run: () =>
+          USE_CLOUDFLARE_BACKEND
+            ? sbCaseRepo.getAll({ cap: ADMIN_BACKGROUND_CASE_CAP })
+            : sbCaseRepo.getAll(),
+      },
       { key: 'notifications', run: () => sbNotificationRepo.getAll() },
       { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
       { key: 'doctors', run: () => sbDoctorRepo.getAll() },
