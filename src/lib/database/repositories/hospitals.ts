@@ -1,7 +1,15 @@
 import { Database } from '../database';
-import { USE_SUPABASE, setCache } from '../config';
+import { REMOTE_DATA, setCache } from '../config';
+import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
 import { sbHospitalRepo } from './supabaseRepositories';
 import type { Hospital } from '../../../types';
+
+function persistHospitalList(list: Hospital[]): void {
+  if (USE_CLOUDFLARE_BACKEND) {
+    Database.saveAll('hospitals', list);
+  }
+  setCache('hospitals', list);
+}
 
 export const hospitalRepository = {
   async getAll(): Promise<Hospital[]> {
@@ -9,10 +17,10 @@ export const hospitalRepository = {
   },
 
   async create(item: Hospital): Promise<Hospital> {
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       await sbHospitalRepo.create(item);
       const list = await this.getAll();
-      setCache('hospitals', [...list, item]);
+      persistHospitalList([...list.filter((h) => h.id !== item.id), item]);
       return item;
     }
 
@@ -23,16 +31,16 @@ export const hospitalRepository = {
   },
 
   async update(id: string, updates: Partial<Hospital>): Promise<Hospital> {
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       const updated = await sbHospitalRepo.update(id, updates);
       const list = await this.getAll();
-      setCache('hospitals', list.map(h => (h.id === id ? updated : h)));
+      persistHospitalList(list.map((h) => (h.id === id ? updated : h)));
       return updated;
     }
 
     const list = await this.getAll();
     let updatedItem: Hospital | null = null;
-    const updatedList = list.map(item => {
+    const updatedList = list.map((item) => {
       if (item.id === id) {
         updatedItem = { ...item, ...updates };
         return updatedItem;
@@ -47,14 +55,14 @@ export const hospitalRepository = {
   },
 
   async delete(id: string): Promise<void> {
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       await sbHospitalRepo.delete(id);
       const list = await this.getAll();
-      setCache('hospitals', list.filter(item => item.id !== id));
+      persistHospitalList(list.filter((item) => item.id !== id));
       return;
     }
 
     const list = await this.getAll();
-    Database.saveAll('hospitals', list.filter(item => item.id !== id));
+    Database.saveAll('hospitals', list.filter((item) => item.id !== id));
   },
 };

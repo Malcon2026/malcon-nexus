@@ -1,5 +1,6 @@
 import { Database } from '../database';
-import { USE_SUPABASE, setCache, newId } from '../config';
+import { REMOTE_DATA, setCache, newId } from '../config';
+import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
 import { sbDoctorRepo } from './supabaseRepositories';
 import type { Doctor } from '../../../types';
 
@@ -7,6 +8,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 function asUuid(value?: string | null): string | null {
   return value && UUID_RE.test(value) ? value : null;
+}
+
+function persistDoctorList(list: Doctor[]): void {
+  if (USE_CLOUDFLARE_BACKEND) {
+    Database.saveAll('doctors', list);
+  }
+  setCache('doctors', list);
 }
 
 export const doctorRepository = {
@@ -21,10 +29,10 @@ export const doctorRepository = {
       hospitalId: asUuid(item.hospitalId) ?? '',
     };
 
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       await sbDoctorRepo.create(doctor);
       const list = await this.getAll();
-      setCache('doctors', [...list, doctor]);
+      persistDoctorList([...list.filter((d) => d.id !== doctor.id), doctor]);
       return doctor;
     }
 
@@ -34,16 +42,16 @@ export const doctorRepository = {
   },
 
   async update(id: string, updates: Partial<Doctor>): Promise<Doctor> {
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       const updated = await sbDoctorRepo.update(id, updates);
       const list = await this.getAll();
-      setCache('doctors', list.map(d => (d.id === id ? updated : d)));
+      persistDoctorList(list.map((d) => (d.id === id ? updated : d)));
       return updated;
     }
 
     const list = await this.getAll();
     let updatedItem: Doctor | null = null;
-    const updatedList = list.map(item => {
+    const updatedList = list.map((item) => {
       if (item.id === id) {
         updatedItem = { ...item, ...updates };
         return updatedItem;
@@ -56,14 +64,14 @@ export const doctorRepository = {
   },
 
   async delete(id: string): Promise<void> {
-    if (USE_SUPABASE) {
+    if (REMOTE_DATA) {
       await sbDoctorRepo.delete(id);
       const list = await this.getAll();
-      setCache('doctors', list.filter(d => d.id !== id));
+      persistDoctorList(list.filter((d) => d.id !== id));
       return;
     }
 
     const list = await this.getAll();
-    Database.saveAll('doctors', list.filter(item => item.id !== id));
+    Database.saveAll('doctors', list.filter((item) => item.id !== id));
   },
 };

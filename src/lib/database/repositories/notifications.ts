@@ -1,7 +1,15 @@
 import { Database } from '../database';
-import { USE_SUPABASE, setCache } from '../config';
+import { REMOTE_DATA, setCache } from '../config';
+import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
 import { sbNotificationRepo } from './supabaseRepositories';
 import type { Notification } from '../../../types';
+
+function persistNotificationList(list: Notification[]): void {
+  if (USE_CLOUDFLARE_BACKEND) {
+    Database.saveAll('notifications', list);
+  }
+  setCache('notifications', list);
+}
 
 export const notificationRepository = {
   async getAll(): Promise<Notification[]> {
@@ -9,10 +17,10 @@ export const notificationRepository = {
   },
 
   async create(item: Notification): Promise<Notification> {
-    if (USE_SUPABASE) {
-      await sbNotificationRepo.create(item).catch((err) => console.error('[notifications] create failed:', err));
+    if (REMOTE_DATA) {
+      await sbNotificationRepo.create(item);
       const list = await this.getAll();
-      setCache('notifications', [item, ...list.filter(n => n.id !== item.id)]);
+      persistNotificationList([item, ...list.filter((n) => n.id !== item.id)]);
       return item;
     }
 
@@ -24,7 +32,7 @@ export const notificationRepository = {
   async update(id: string, updates: Partial<Notification>): Promise<Notification> {
     const list = await this.getAll();
     let updatedItem: Notification | null = null;
-    const updatedList = list.map(item => {
+    const updatedList = list.map((item) => {
       if (item.id === id) {
         updatedItem = { ...item, ...updates };
         return updatedItem;
@@ -33,17 +41,19 @@ export const notificationRepository = {
     });
     if (!updatedItem) throw new Error(`Notification with ID ${id} not found`);
 
-    if (USE_SUPABASE && updates.read !== undefined) {
-      if (updates.read) await sbNotificationRepo.markRead(id).catch(() => {});
+    if (REMOTE_DATA && updates.read !== undefined) {
+      if (updates.read) {
+        await sbNotificationRepo.markRead(id);
+      }
     }
 
-    setCache('notifications', updatedList);
-    if (!USE_SUPABASE) Database.saveAll('notifications', updatedList);
+    persistNotificationList(updatedList);
+    if (!REMOTE_DATA) Database.saveAll('notifications', updatedList);
     return updatedItem;
   },
 
   async delete(id: string): Promise<void> {
     const list = await this.getAll();
-    setCache('notifications', list.filter(item => item.id !== id));
+    persistNotificationList(list.filter((item) => item.id !== id));
   },
 };

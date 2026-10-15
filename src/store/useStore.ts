@@ -4282,10 +4282,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   markAllNotificationsRead: async () => {
-    const notifications = get().notifications;
-    for (const n of notifications) {
-      if (!n.read) {
-        await notificationRepository.update(n.id, { read: true });
+    const { notifications, currentUser } = get();
+    if (REMOTE_DATA && currentUser.id) {
+      await sbNotificationRepo.markAllRead(currentUser.id);
+    } else {
+      for (const n of notifications) {
+        if (!n.read) {
+          await notificationRepository.update(n.id, { read: true });
+        }
       }
     }
     set((s) => ({
@@ -5240,6 +5244,10 @@ export const useStore = create<AppState>((set, get) => ({
     const requestWithSelfie = { ...request, selfieUrl };
 
     if (REMOTE_DATA) {
+      const patchResult = await updateAttendanceApprovalRequest(request.id, { selfieUrl });
+      if (patchResult.error) {
+        return { error: patchResult.error };
+      }
       const list = Database.getAll<AttendanceApprovalRequest>('attendanceApprovalRequests');
       setCache(
         'attendanceApprovalRequests',
