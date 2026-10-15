@@ -20,6 +20,7 @@ const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
 const cutover = process.argv.includes('--cutover');
 const cloudflare = process.argv.includes('--cloudflare');
+const aws = process.argv.includes('--aws');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
@@ -44,7 +45,18 @@ function loadEnv() {
   for (const f of ['.env', '.env.local', '.env.production']) {
     loadEnvFile(f);
   }
-  if (cloudflare) {
+  if (aws) {
+    const path = '.env.production.aws';
+    if (!loadEnvFile(path, { override: true })) {
+      console.error(`Missing ${path}. Copy .env.production.aws.example → ${path} and set VITE_API_BASE_URL.`);
+      process.exit(1);
+    }
+    if (!process.env.VITE_API_BASE_URL && !process.env.VITE_WORKER_API_URL) {
+      console.error('AWS production build requires VITE_API_BASE_URL (HTTPS App Runner / ECS URL).');
+      process.exit(1);
+    }
+    console.info('[deploy] AWS-only — RDS API (no Supabase, no Cloudflare Worker)');
+  } else if (cloudflare) {
     const path = '.env.production.cloudflare';
     if (!loadEnvFile(path, { override: true })) {
       console.error(`Missing ${path}. Copy .env.production.cloudflare.example → ${path}.`);

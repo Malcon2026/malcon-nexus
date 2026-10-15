@@ -31,7 +31,7 @@ import {
   useWorkerReferenceReads,
   useWorkerRemainingReads,
 } from '../../workerReadConfig';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import {
   useWorkerWritesActivity,
   useWorkerWritesApprovals,
@@ -280,7 +280,7 @@ export const sbEmployeeRepo = {
   },
 
   async create(e: Employee): Promise<Employee> {
-    if (USE_CLOUDFLARE_BACKEND || useWorkerWritesEmployees()) return createEmployeeOnWorker(e);
+    if (USE_MANAGED_API_BACKEND || useWorkerWritesEmployees()) return createEmployeeOnWorker(e);
     const deptFields = {
       department: e.department,
       departments: getEmployeeDepartments(e),

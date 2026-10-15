@@ -1,4 +1,4 @@
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 
 export type CloudflareIntegrationId =
   | 'caseAlerts'
@@ -17,7 +17,7 @@ const SUPABASE_EDGE_ONLY =
   'This feature still uses Supabase Edge Functions and is not wired to the Cloudflare Worker yet.';
 
 export function integrationAvailability(id: CloudflareIntegrationId): IntegrationAvailability {
-  if (!USE_CLOUDFLARE_BACKEND) {
+  if (!USE_MANAGED_API_BACKEND) {
     return { available: true, reason: '' };
   }
   switch (id) {
@@ -55,7 +55,7 @@ export function integrationAvailability(id: CloudflareIntegrationId): Integratio
 const logged = new Set<CloudflareIntegrationId>();
 
 export function logIntegrationSkipped(id: CloudflareIntegrationId): void {
-  if (!USE_CLOUDFLARE_BACKEND) return;
+  if (!USE_MANAGED_API_BACKEND) return;
   const info = integrationAvailability(id);
   if (info.available) return;
   if (logged.has(id)) return;

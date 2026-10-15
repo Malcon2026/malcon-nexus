@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import { createDb } from '../db/client';
+import { createDb, usesPostgres } from '../db/client';
 import { apiData, apiError, isUuidLike } from '../lib/http';
 import { pageMeta, parsePagination } from '../lib/pagination';
 import type { RequestContext } from '../middleware/auth';
@@ -100,7 +100,7 @@ export async function handleEmployeeCaseIds(
     throw e;
   }
   const db = createDb(env);
-  const ids = await listCaseIdsForEmployee(db, employeeId);
+  const ids = await listCaseIdsForEmployee(db, employeeId, undefined, usesPostgres(env));
   return apiData({ ids });
 }
 
@@ -129,7 +129,7 @@ export async function handleEmployeeCasesFull(
     .filter(Boolean);
 
   const db = createDb(env);
-  const assignedIds = await listCaseIdsForEmployee(db, employeeId);
+  const assignedIds = await listCaseIdsForEmployee(db, employeeId, undefined, usesPostgres(env));
   let poolIds: string[] = [];
   if (poolStages.length > 0) {
     const pool = await listFcfsPoolCaseIds(db, poolStages);

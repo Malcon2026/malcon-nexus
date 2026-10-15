@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 import { stampPhotoForUpload } from './stagePhotos';
 import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
@@ -82,7 +82,7 @@ export async function uploadAttendanceSelfie(
     capturedAt: new Date(),
   });
 
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     return uploadSelfieToWorkerR2(target, stamped, employeeId);
   }
 

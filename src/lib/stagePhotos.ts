@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 import { USE_WORKER_STORAGE } from './workerStorageConfig';
 import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
@@ -419,7 +419,7 @@ export async function uploadStagePhoto(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     try {
       return await uploadStagePhotoToWorkerR2(caseId, stage, file, uploadedBy);
     } catch (err) {
@@ -494,7 +494,7 @@ export async function stagePhotoViewUrlForViewer(
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
   if (!doc.url) return null;
-  if (USE_CLOUDFLARE_BACKEND || doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
+  if (USE_MANAGED_API_BACKEND || doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
   if (!USE_SUPABASE) return doc.url;
 
   const path = stagePhotoObjectPath(doc.url);

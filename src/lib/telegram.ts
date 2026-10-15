@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 import { workerFetchJson } from './workerApi';
 
 type TelegramEvent = 'assignment' | 'postpone';
@@ -38,7 +38,7 @@ async function invokeTelegramSupabase(event: TelegramEvent, caseId: string, empl
 
 async function invokeTelegram(event: TelegramEvent, caseId: string, employeeId: string): Promise<void> {
   if (!employeeId) return;
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     await invokeTelegramWorker(event, caseId, employeeId);
     return;
   }

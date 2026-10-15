@@ -172,7 +172,7 @@ export class SupabaseStorageProvider implements StorageProvider {
 // ACTIVE PROVIDER — switch between localStorage and Supabase
 // Set to SupabaseStorageProvider() once your .env is configured
 // ──────────────────────────────────────────────────────────────
-import { USE_CLOUDFLARE_BACKEND } from '../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../cloudflareConfig';
 
 /** In-memory cache for Worker/D1 bootstrap (no Supabase persistence). */
 class WorkerCacheStorageProvider extends SupabaseStorageProvider {
@@ -186,17 +186,17 @@ class WorkerCacheStorageProvider extends SupabaseStorageProvider {
 }
 
 const USE_SUPABASE =
-  !USE_CLOUDFLARE_BACKEND &&
+  !USE_MANAGED_API_BACKEND &&
   !!import.meta.env.VITE_SUPABASE_URL &&
   import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
 
 export const storage: StorageProvider = USE_SUPABASE
   ? new SupabaseStorageProvider()
-  : USE_CLOUDFLARE_BACKEND
+  : USE_MANAGED_API_BACKEND
     ? new WorkerCacheStorageProvider()
     : new LocalStorageProvider();
 
 export const supabaseStorage =
-  USE_SUPABASE || USE_CLOUDFLARE_BACKEND
+  USE_SUPABASE || USE_MANAGED_API_BACKEND
     ? (storage as SupabaseStorageProvider)
     : null;

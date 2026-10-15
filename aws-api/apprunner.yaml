@@ -1,0 +1,18 @@
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Build via Dockerfile (repository root context)"
+run:
+  runtime-version: latest
+  command: node dist/server.js
+  network:
+    port: 8080
+  env:
+    - name: ENVIRONMENT
+      value: production
+    - name: API_CORS_ORIGIN
+      value: https://app.malconnexus.com
+    - name: API_REQUIRE_AUTH
+      value: "1"

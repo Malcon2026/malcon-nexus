@@ -1,7 +1,7 @@
 import { storage } from './storage';
 import { employees as seedEmployees, hospitals as seedHospitals, doctors as seedDoctors } from './seed';
 import type { Employee, Hospital, Doctor, ImplantCase, Notification, SurgicalKit, Approval, DepartmentInfo, ActivityEvent, AttendanceRecord } from '../../types';
-import { USE_CLOUDFLARE_BACKEND } from '../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../cloudflareConfig';
 
 const DB_VERSION_KEY = 'db_initialized_v5';
 
@@ -9,7 +9,7 @@ const USE_SUPABASE =
   !!import.meta.env.VITE_SUPABASE_URL &&
   import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
 
-const REMOTE_DATA = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+const REMOTE_DATA = USE_SUPABASE || USE_MANAGED_API_BACKEND;
 
 const isDbInitialized = (): boolean => !!localStorage.getItem(DB_VERSION_KEY);
 const markDbInitialized = (): void => localStorage.setItem(DB_VERSION_KEY, 'true');

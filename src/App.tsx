@@ -43,7 +43,7 @@ import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useStore } from './store/useStore';
 import { registerServiceWorker } from './lib/webPush';
 import { restoreBootstrapCacheForDisplay } from './lib/bootstrapSessionCache';
-import { USE_CLOUDFLARE_BACKEND } from './lib/cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './lib/cloudflareConfig';
 import { USE_SUPABASE } from './lib/database/config';
 import type { Employee } from './types';
 
@@ -62,7 +62,7 @@ function storeHasBootstrapData(): boolean {
 }
 
 /** Remote login + Worker/Supabase data bootstrap (not offline localStorage demo mode). */
-const REMOTE_AUTH = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+const REMOTE_AUTH = USE_SUPABASE || USE_MANAGED_API_BACKEND;
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },

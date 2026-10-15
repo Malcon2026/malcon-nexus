@@ -1,15 +1,15 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import { sbCaseRepo } from './supabaseRepositories';
 import { nextCaseNumberFromCases } from '../../../utils/helpers';
 import type { ImplantCase } from '../../../types';
 
 /** Worker/Supabase-backed cases — not browser-only localStorage. */
-const REMOTE_CASES = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+const REMOTE_CASES = USE_SUPABASE || USE_MANAGED_API_BACKEND;
 
 function persistCaseList(list: ImplantCase[]): void {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     Database.saveAll('cases', list);
   }
   setCache('cases', list);

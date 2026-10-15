@@ -1,11 +1,11 @@
 import { Database } from '../database';
 import { REMOTE_DATA, setCache } from '../config';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import { sbHospitalRepo } from './supabaseRepositories';
 import type { Hospital } from '../../../types';
 
 function persistHospitalList(list: Hospital[]): void {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     Database.saveAll('hospitals', list);
   }
   setCache('hospitals', list);

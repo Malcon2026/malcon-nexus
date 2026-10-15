@@ -7,7 +7,7 @@ import { sbEmployeeRepo } from './database/repositories/supabaseRepositories';
 import type { Employee } from '../types';
 import { isFullAdmin, usesEmployeeSignIn } from './roles';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 import { clearAccessToken, getAccessToken, setAccessToken } from './malconSession';
 import { workerFetchMe, workerLogin, workerRequestOtp, workerVerifyOtp } from './workerAuthClient';
 import { employeeRowToEmployee } from './database/repositories/supabaseRepositories';
@@ -88,7 +88,7 @@ async function employeeAfterCloudflareLogin(_employeeId: string): Promise<Employ
 export const authService = {
   /** Request a Telegram OTP for employee sign-in (non-admin). */
   async requestLoginOtp(employeeCode: string): Promise<{ error: string | null; message?: string }> {
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       const { data, error } = await workerRequestOtp(employeeCode);
       if (error) return { error };
       return { error: null, message: data?.message };
@@ -105,7 +105,7 @@ export const authService = {
   async signInWithTelegramOtp(employeeCode: string, otp: string): Promise<AuthResult> {
     pendingManualSignIn = true;
 
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       const { data, error } = await workerVerifyOtp(employeeCode, otp);
       if (error) {
         pendingManualSignIn = false;
@@ -186,7 +186,7 @@ export const authService = {
     const startedAt = performance.now();
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       pendingManualSignIn = true;
       const { data, error } = await workerLogin(normalizedEmail, password);
       if (error) {
@@ -293,7 +293,7 @@ export const authService = {
 
   /** Sign out the current user */
   async signOut(): Promise<void> {
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       clearAccessToken();
       return;
     }
@@ -302,7 +302,7 @@ export const authService = {
 
   /** Get the currently logged-in employee (on page refresh) */
   async getCurrentEmployee(): Promise<Employee | null> {
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       if (!getAccessToken()) return null;
       const { data, error } = await workerFetchMe();
       if (error || !data?.employee) return null;
@@ -314,7 +314,7 @@ export const authService = {
 
   /** Subscribe to auth state changes */
   onAuthStateChange(callback: (event: AuthChangeEvent, employee: Employee | null) => void) {
-    if (USE_CLOUDFLARE_BACKEND) {
+    if (USE_MANAGED_API_BACKEND) {
       const noop = { data: { subscription: { unsubscribe: () => {} } } };
       void (async () => {
         const emp = await authService.getCurrentEmployee();

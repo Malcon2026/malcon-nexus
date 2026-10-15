@@ -124,6 +124,7 @@ export async function lookupEmployeeForAuth(env: Env, subject: string): Promise<
   try {
     return await withD1Retry(() => lookupEmployeeForAuthDrizzle(env, subject));
   } catch {
+    if (!env.DB) throw new Error('Employee auth lookup failed');
     const byAuth = await findEmployeeByAuthUserIdRaw(env, subject);
     if (byAuth) return byAuth;
     return findEmployeeByIdRaw(env, subject);

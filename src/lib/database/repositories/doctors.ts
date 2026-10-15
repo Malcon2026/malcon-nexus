@@ -1,6 +1,6 @@
 import { Database } from '../database';
 import { REMOTE_DATA, setCache, newId } from '../config';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import { sbDoctorRepo } from './supabaseRepositories';
 import type { Doctor } from '../../../types';
 
@@ -11,7 +11,7 @@ function asUuid(value?: string | null): string | null {
 }
 
 function persistDoctorList(list: Doctor[]): void {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     Database.saveAll('doctors', list);
   }
   setCache('doctors', list);

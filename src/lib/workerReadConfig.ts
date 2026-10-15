@@ -1,28 +1,29 @@
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from './cloudflareConfig';
 
 /**
  * Phase 8 — opt-in local Worker reads (default off; Supabase remains default).
  */
 export const USE_WORKER_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_READS === 'true';
+  USE_MANAGED_API_BACKEND || import.meta.env.VITE_USE_WORKER_READS === 'true';
 
 /** Phase 9.1 — notification reads only (default off). */
 export const USE_WORKER_NOTIFICATION_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_NOTIFICATION_READS === 'true';
+  USE_MANAGED_API_BACKEND || import.meta.env.VITE_USE_WORKER_NOTIFICATION_READS === 'true';
 
 /** Phase 9.2 — hospitals, doctors, departments, kits, app_settings reads (default off). */
 export const USE_WORKER_REFERENCE_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_REFERENCE_READS === 'true';
+  USE_MANAGED_API_BACKEND || import.meta.env.VITE_USE_WORKER_REFERENCE_READS === 'true';
 
 /** Phase 9.3 — attendance + operational reads (default off). */
 export const USE_WORKER_OPERATIONS_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_OPERATIONS_READS === 'true';
+  USE_MANAGED_API_BACKEND || import.meta.env.VITE_USE_WORKER_OPERATIONS_READS === 'true';
 
 /** Phase 9.4 — approvals, activity, case-task reads + server-side case scope (default off). */
 export const USE_WORKER_REMAINING_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
+  USE_MANAGED_API_BACKEND || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
 
 export const WORKER_API_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
   (import.meta.env.VITE_WORKER_API_URL as string | undefined)?.replace(/\/+$/, '') ||
   'http://127.0.0.1:8787';
 

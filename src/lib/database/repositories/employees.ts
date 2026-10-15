@@ -1,6 +1,6 @@
 import { Database } from '../database';
 import { USE_SUPABASE, setCache } from '../config';
-import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { USE_MANAGED_API_BACKEND } from '../../cloudflareConfig';
 import {
   createEmployeeOnWorker,
   deleteEmployeeOnWorker,
@@ -11,7 +11,7 @@ import type { Employee } from '../../../types';
 import { normalizeDepartment, getEmployeeDepartments } from '../../../constants/departments';
 
 /** Worker/Supabase-backed employee rows — not browser-only localStorage. */
-const REMOTE_EMPLOYEES = USE_SUPABASE || USE_CLOUDFLARE_BACKEND;
+const REMOTE_EMPLOYEES = USE_SUPABASE || USE_MANAGED_API_BACKEND;
 
 function readEmployeeList(): Employee[] {
   const list = Database.getAll<Employee>('employees');
@@ -23,14 +23,14 @@ function readEmployeeList(): Employee[] {
 }
 
 function persistEmployeeList(list: Employee[]): void {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     Database.saveAll('employees', list);
   }
   setCache('employees', list);
 }
 
 async function persistEmployeeCreate(item: Employee): Promise<Employee> {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     await createEmployeeOnWorker(item);
   } else {
     await sbEmployeeRepo.create(item);
@@ -41,7 +41,7 @@ async function persistEmployeeCreate(item: Employee): Promise<Employee> {
 }
 
 async function persistEmployeeUpdate(id: string, updates: Partial<Employee>): Promise<Employee> {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     await updateEmployeeOnWorker(id, updates);
     const list = readEmployeeList();
     const merged = list.find((e) => e.id === id);
@@ -57,7 +57,7 @@ async function persistEmployeeUpdate(id: string, updates: Partial<Employee>): Pr
 }
 
 async function persistEmployeeDelete(id: string): Promise<void> {
-  if (USE_CLOUDFLARE_BACKEND) {
+  if (USE_MANAGED_API_BACKEND) {
     await deleteEmployeeOnWorker(id);
   } else {
     await sbEmployeeRepo.delete(id);
