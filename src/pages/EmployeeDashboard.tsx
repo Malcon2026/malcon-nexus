@@ -38,6 +38,7 @@ import { formatTimeIST, summarizeLiveAttendance } from '../lib/attendance';
 import { countPendingLeaveSubmissions } from '../lib/leave';
 import { openLocationTrip } from '../lib/locationTrip';
 import { useEmployeeLocationPrompt } from '../hooks/useEmployeeLocationPrompt';
+import { isSelfieOnlyAttendance } from '../lib/attendance';
 import { EmployeeLocationBanner } from '../components/EmployeeLocationBanner';
 import { NexusPage } from '../components/layout/NexusPageHeader';
 
@@ -696,7 +697,7 @@ const EmployeeAlertsPage: React.FC = () => {
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
-  const locationPrompt = useEmployeeLocationPrompt(true);
+  const locationPrompt = useEmployeeLocationPrompt(!isSelfieOnlyAttendance());
   const [page, setPage] = useState<EmployeePage>('home');
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
@@ -724,11 +725,13 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <NexusPage maxWidthClass="max-w-[1200px]">
-      <EmployeeLocationBanner
-        permission={locationPrompt.permission}
-        requesting={locationPrompt.requesting}
-        onRetry={locationPrompt.retryLocation}
-      />
+      {!isSelfieOnlyAttendance() && (
+        <EmployeeLocationBanner
+          permission={locationPrompt.permission}
+          requesting={locationPrompt.requesting}
+          onRetry={locationPrompt.retryLocation}
+        />
+      )}
       {submitCase && (
         <SubmitModal isOpen={true} onClose={() => setSubmitCase(null)} case={submitCase} />
       )}

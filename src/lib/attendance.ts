@@ -1,6 +1,7 @@
 import type { AttendanceApprovalRequest, AttendanceRecord, Employee, FieldTeamAttendanceApproval, PunchType } from '../types';
 import { requiresFieldTeamAttendanceApproval, getFieldTeamApprovalForDay } from './fieldTeamAttendance';
 import { filterAttendanceStaff } from './staff';
+import { USE_AWS_BACKEND } from './cloudflareConfig';
 
 /** Malcon Nexus office — CCWW+RJ, Hyderabad, Telangana (7J9WCCWW+RJ) */
 export const OFFICE_LOCATION = {
@@ -101,6 +102,33 @@ export function getDistanceMeters(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Selfie-only punch: no GPS permission, no off-site approval queue.
+ * Set `VITE_ATTENDANCE_SELFIE_ONLY=false` to restore geofence + off-site flow.
+ */
+export function isSelfieOnlyAttendance(): boolean {
+  const flag = import.meta.env.VITE_ATTENDANCE_SELFIE_ONLY;
+  if (flag === 'false') return false;
+  if (flag === 'true') return true;
+  return USE_AWS_BACKEND;
+}
+
+/** Stored on punch rows when GPS is not collected. */
+export function attendancePlaceholderGeo(): GeoPosition {
+  return {
+    latitude: OFFICE_LOCATION.latitude,
+    longitude: OFFICE_LOCATION.longitude,
+    accuracyM: 0,
+  };
+}
+
+export function resolveAttendanceGeofence(position: GeoPosition): GeofenceResult {
+  if (isSelfieOnlyAttendance()) {
+    return { distanceM: 0, withinOffice: true };
+  }
+  return checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
 }
 
 export function checkOfficeGeofence(

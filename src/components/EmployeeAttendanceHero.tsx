@@ -20,7 +20,9 @@ import {
   formatDateIST,
   formatDateShortIST,
   formatDuration,
+  attendancePlaceholderGeo,
   checkOfficeGeofence,
+  isSelfieOnlyAttendance,
   summarizeLiveAttendance,
   getPendingOffsitePunchRequest,
   getPriorDayPendingOffsiteOut,
@@ -56,6 +58,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
   const punchAttendance = useStore((s) => s.punchAttendance);
   const punchOut = useStore((s) => s.punchOut);
   const submitOffsitePunchRequest = useStore((s) => s.submitOffsitePunchRequest);
+  const selfieOnly = isSelfieOnlyAttendance();
 
   const summary = summarizeLiveAttendance(attendanceRecords, currentUser.id);
   const todayKey = getISTDateKey();
@@ -73,7 +76,8 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
   const loggedInToday = summary.isPunchedIn && !punchInFromPriorDay;
   const canPunchInDespiteOpenShift =
     summary.isPunchedIn && punchInFromPriorDay && !!priorDayPendingOut;
-  const punchInDisabled = (!!pendingOffsiteIn) || (summary.isPunchedIn && !canPunchInDespiteOpenShift);
+  const punchInDisabled =
+    (!selfieOnly && !!pendingOffsiteIn) || (summary.isPunchedIn && !canPunchInDespiteOpenShift);
   const punchOutDisabled = !summary.isPunchedIn;
 
   const punchInActive = !punchInDisabled && !priorDayOpenSession;
@@ -136,6 +140,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
     setOffsiteReason('');
     setPunchInSelfie(null);
     setLocationState({ status: 'idle' });
+    if (selfieOnly) return;
     if (type === 'in') {
       void refreshLocation();
     } else {
@@ -155,6 +160,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
   };
 
   const isOffsitePunch =
+    !selfieOnly &&
     confirmType !== null &&
     locationState.status === 'ready' &&
     !locationState.withinOffice;
@@ -176,48 +182,47 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
       return;
     }
 
-    let position: GeoPosition;
-    try {
-      position =
-        locationState.status === 'ready'
-          ? locationState.position
-          : await requestLocationAccess();
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : 'Location required to punch.';
-      setErrorFromMessage(raw);
-      setSubmitting(false);
-      return;
-    }
-
-    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
-    setLocationState({
-      status: 'ready',
-      position,
-      distanceM: geofence.distanceM,
-      withinOffice: geofence.withinOffice,
-    });
-
-    if (!geofence.withinOffice) {
-      if (!punchInSelfie) {
-        setErrorFromMessage('Please take a selfie before submitting.');
-        setSubmitting(false);
-        return;
-      }
-      const result = await submitOffsitePunchRequest('in', offsiteReason, position, punchInSelfie.file);
-      setSubmitting(false);
-      if (result.error) {
-        setErrorFromMessage(result.error);
-        return;
-      }
-      closeConfirm();
-      notifyPunchInSuccess();
-      return;
-    }
-
     if (!punchInSelfie) {
       setErrorFromMessage('Please take a selfie before punch in.');
       setSubmitting(false);
       return;
+    }
+
+    let position: GeoPosition;
+    if (selfieOnly) {
+      position = attendancePlaceholderGeo();
+    } else {
+      try {
+        position =
+          locationState.status === 'ready'
+            ? locationState.position
+            : await requestLocationAccess();
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : 'Location required to punch.';
+        setErrorFromMessage(raw);
+        setSubmitting(false);
+        return;
+      }
+
+      const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
+      setLocationState({
+        status: 'ready',
+        position,
+        distanceM: geofence.distanceM,
+        withinOffice: geofence.withinOffice,
+      });
+
+      if (!geofence.withinOffice) {
+        const result = await submitOffsitePunchRequest('in', offsiteReason, position, punchInSelfie.file);
+        setSubmitting(false);
+        if (result.error) {
+          setErrorFromMessage(result.error);
+          return;
+        }
+        closeConfirm();
+        notifyPunchInSuccess();
+        return;
+      }
     }
 
     const result = await punchAttendance('in', position, punchInSelfie.file);
@@ -395,14 +400,18 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
               {punchInDisabled && priorDayOpenSession
                 ? 'Punch Out yesterday first'
                 : punchInActive
-                  ? 'Tap here · GPS + selfie'
+                  ? selfieOnly
+                    ? 'Tap here · selfie only'
+                    : 'Tap here · GPS + selfie'
                   : 'Not available'}
             </span>
             <span className="attendance-punch-hint-te">
               {punchInDisabled && priorDayOpenSession
                 ? 'ముందు Punch Out cheyandi'
                 : punchInActive
-                  ? 'GPS + selfie · ikkada tap cheyandi'
+                  ? selfieOnly
+                    ? 'Selfie · ikkada tap cheyandi'
+                    : 'GPS + selfie · ikkada tap cheyandi'
                   : 'available ledu'}
             </span>
           </button>
@@ -512,17 +521,24 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
           </div>
         )}
 
-        <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
-          <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--color-accent)]" />
-          <div>
-            <p>
-              {OFFICE_LOCATION.address} · Punch In needs GPS + selfie · Out of office = reason + admin OK
-            </p>
-            <Te className="text-gray-400 mb-0">
-              Punch In ki GPS + selfie avasaram · Office bayata reason + admin OK · Punch Out simple ga
-            </Te>
+        {!selfieOnly && (
+          <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--color-accent)]" />
+            <div>
+              <p>
+                {OFFICE_LOCATION.address} · Punch In needs GPS + selfie · Out of office = reason + admin OK
+              </p>
+              <Te className="text-gray-400 mb-0">
+                Punch In ki GPS + selfie avasaram · Office bayata reason + admin OK · Punch Out simple ga
+              </Te>
+            </div>
           </div>
-        </div>
+        )}
+        {selfieOnly && (
+          <p className="text-[11px] text-gray-500">
+            Punch In needs a selfie only. Punch Out does not need location.
+          </p>
+        )}
       </section>
 
       <Modal
@@ -544,7 +560,9 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
               ? 'Tap Yes to finish your day.'
               : isOffsitePunch
                 ? 'Write reason + selfie. Admin must approve.'
-                : 'Take selfie + GPS. OK to Punch In?'
+                : selfieOnly
+                  ? 'Take a selfie to Punch In.'
+                  : 'Take selfie + GPS. OK to Punch In?'
         }
         size="md"
         footer={
@@ -557,7 +575,7 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
               onClick={() => void handleConfirm()}
               disabled={
                 submitting ||
-                (confirmType === 'in' && locationState.status === 'loading') ||
+                (!selfieOnly && confirmType === 'in' && locationState.status === 'loading') ||
                 (needsReason && !reasonValid) ||
                 (needsSelfie && !selfieValid)
               }
@@ -585,7 +603,9 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
                   ? 'Ready to Punch Out? Tap Yes.'
                   : isOffsitePunch
                     ? 'You are out of office. Selfie + reason sent to admin.'
-                    : 'You are at office. Selfie required to Punch In.'}
+                    : selfieOnly
+                      ? 'Take a selfie to confirm Punch In.'
+                      : 'You are at office. Selfie required to Punch In.'}
             </p>
             {closingPriorSession ? (
               <Te className="text-amber-800/90">
@@ -595,13 +615,15 @@ export const EmployeeAttendanceHero: React.FC<EmployeeAttendanceHeroProps> = ({ 
               <Te className="text-amber-800/90">Punch Out cheyadaniki Yes ani press cheyandi.</Te>
             ) : isOffsitePunch ? (
               <Te className="text-amber-800/90">Office bayata unnaru. Selfie + reason admin ki pothundi.</Te>
+            ) : selfieOnly ? (
+              <Te className="text-amber-800/90">Selfie teesukoni Punch In cheyandi.</Te>
             ) : (
               <Te className="text-amber-800/90">Office lo unnaru. Selfie teesukoni Punch In cheyandi.</Te>
             )}
             <p className="text-xs text-amber-700 mt-1 tabular-nums">Time now: {formatTimeIST(now)}</p>
           </div>
 
-          {confirmType === 'in' && (
+          {confirmType === 'in' && !selfieOnly && (
           <div className="rounded-xl border border-gray-200 p-4 space-y-3">
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-[var(--color-accent)] shrink-0 mt-0.5" />

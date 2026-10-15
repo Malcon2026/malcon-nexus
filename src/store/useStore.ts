@@ -61,7 +61,20 @@ import {
   viewModeForRole,
 } from '../lib/roles';
 import { foodLoadWindow } from '../lib/food';
-import { checkOfficeGeofence, OFFICE_LOCATION, summarizeLiveAttendance, hasOpenShift, getPendingOffsitePunchRequest, getPriorDayPendingOffsiteOut, getISTDateKey, normalizeDateKey, matchesSurgeryDateKey } from '../lib/attendance';
+import {
+  attendancePlaceholderGeo,
+  checkOfficeGeofence,
+  isSelfieOnlyAttendance,
+  OFFICE_LOCATION,
+  resolveAttendanceGeofence,
+  summarizeLiveAttendance,
+  hasOpenShift,
+  getPendingOffsitePunchRequest,
+  getPriorDayPendingOffsiteOut,
+  getISTDateKey,
+  normalizeDateKey,
+  matchesSurgeryDateKey,
+} from '../lib/attendance';
 import {
   findAttendanceRecordIdsForDayClear,
   planLeaveClearForDate,
@@ -4548,8 +4561,8 @@ export const useStore = create<AppState>((set, get) => ({
       return { error: 'You are not punched in yet. Punch in first.' };
     }
 
-    const geofence = checkOfficeGeofence(position.latitude, position.longitude, position.accuracyM);
-    if (!geofence.withinOffice) {
+    const geofence = resolveAttendanceGeofence(position);
+    if (!isSelfieOnlyAttendance() && !geofence.withinOffice) {
       return {
         error: `You must be at the office (${OFFICE_LOCATION.address}) to punch. You are ${geofence.distanceM}m away (max ${OFFICE_LOCATION.radiusM}m + GPS buffer).`,
       };
@@ -5183,6 +5196,10 @@ export const useStore = create<AppState>((set, get) => ({
   submitOffsitePunchRequest: async (punchType, reason, position, selfieFile = null) => {
     if (punchType === 'out') {
       return get().punchOut();
+    }
+
+    if (isSelfieOnlyAttendance()) {
+      return get().punchAttendance('in', attendancePlaceholderGeo(), selfieFile);
     }
 
     const { currentUser, attendanceRecords, attendanceApprovalRequests } = get();
