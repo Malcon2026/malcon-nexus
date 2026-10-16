@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { Calendar } from 'lucide-react';
 import { getISTDateKey } from '../lib/attendance';
 import { cn } from '../utils/cn';
 import { formatDate } from '../utils/helpers';
 import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 
-export type SurgeryDateMode = 'today' | 'tomorrow' | 'custom';
+export type SurgeryDateMode = 'yesterday' | 'today' | 'tomorrow' | 'custom';
 
 function addDaysToISTDateKey(dateKey: string, days: number): string {
   const [y, m, d] = dateKey.split('-').map(Number);
@@ -17,8 +18,18 @@ export function getTodaySurgeryDateKey(): string {
   return getISTDateKey();
 }
 
+export function getYesterdaySurgeryDateKey(): string {
+  return addDaysToISTDateKey(getISTDateKey(), -1);
+}
+
 export function getTomorrowSurgeryDateKey(): string {
   return addDaysToISTDateKey(getISTDateKey(), 1);
+}
+
+function quickPickLabel(mode: Exclude<SurgeryDateMode, 'custom'>): string {
+  if (mode === 'yesterday') return 'Yesterday';
+  if (mode === 'today') return 'Today';
+  return 'Tomorrow';
 }
 
 interface SurgeryDateQuickPickProps {
@@ -37,16 +48,31 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
   size = 'sm',
   customLabel = 'Custom',
 }) => {
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const todayKey = getTodaySurgeryDateKey();
+  const yesterdayKey = getYesterdaySurgeryDateKey();
   const tomorrowKey = getTomorrowSurgeryDateKey();
 
+  const pickYesterday = () => onChange(yesterdayKey, 'yesterday');
   const pickToday = () => onChange(todayKey, 'today');
   const pickTomorrow = () => onChange(tomorrowKey, 'tomorrow');
-  const pickCustom = () => onChange(value || todayKey, 'custom');
+  const pickCustom = () => {
+    onChange(value || todayKey, 'custom');
+    requestAnimationFrame(() => {
+      const el = dateInputRef.current;
+      if (!el) return;
+      el.focus();
+      try {
+        el.showPicker?.();
+      } catch {
+        /* showPicker unsupported — native control still tappable */
+      }
+    });
+  };
 
   const btnClass = (active: boolean) =>
     cn(
-      'flex-1 px-3 font-semibold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
+      'flex-1 min-w-0 px-2 sm:px-3 font-semibold border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
       size === 'lg' ? 'min-h-[48px] text-sm rounded-xl' : 'py-2 text-xs rounded-lg',
       active
         ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
@@ -55,7 +81,10 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        <button type="button" aria-pressed={mode === 'yesterday'} className={btnClass(mode === 'yesterday')} onClick={pickYesterday}>
+          Yesterday
+        </button>
         <button type="button" aria-pressed={mode === 'today'} className={btnClass(mode === 'today')} onClick={pickToday}>
           Today
         </button>
@@ -68,15 +97,30 @@ export const SurgeryDateQuickPick: React.FC<SurgeryDateQuickPickProps> = ({
       </div>
 
       {mode === 'custom' ? (
-        <input
-          type="date"
-          className={`${NEXUS_FORM_CONTROL} [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-0`}
-          value={value}
-          onChange={(e) => onChange(e.target.value, 'custom')}
-        />
+        <div className="relative">
+          <Calendar
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            aria-hidden
+          />
+          <input
+            ref={dateInputRef}
+            type="date"
+            aria-label="Choose surgery date"
+            className={`${NEXUS_FORM_CONTROL} pl-9 cursor-pointer`}
+            value={value}
+            onChange={(e) => onChange(e.target.value, 'custom')}
+            onClick={() => {
+              try {
+                dateInputRef.current?.showPicker?.();
+              } catch {
+                /* ignore */
+              }
+            }}
+          />
+        </div>
       ) : (
         <p className="text-xs text-gray-600 px-1">
-          {mode === 'today' ? 'Today' : 'Tomorrow'}
+          {quickPickLabel(mode)}
           {' — '}
           <span className="font-medium text-gray-900">{formatDate(value)}</span>
         </p>

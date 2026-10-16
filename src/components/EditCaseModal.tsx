@@ -18,7 +18,12 @@ import { NEXUS_FORM_CONTROL } from '../constants/formStyles';
 import { isStoreManager } from '../lib/roles';
 import { listEmployeesForCaseAssignment } from '../lib/assignableEmployees';
 import { normalizeSentenceText } from '../lib/textFormat';
-import { getTodaySurgeryDateKey, getTomorrowSurgeryDateKey, type SurgeryDateMode } from './SurgeryDateQuickPick';
+import {
+  getTodaySurgeryDateKey,
+  getYesterdaySurgeryDateKey,
+  getTomorrowSurgeryDateKey,
+  type SurgeryDateMode,
+} from './SurgeryDateQuickPick';
 import {
   CASE_DUTY_KINDS,
   CASE_DUTY_WORKFLOW_STAGE,
@@ -52,6 +57,7 @@ const emptyStageIds = (): Record<AssignableStage, string> =>
 function inferSurgeryDateMode(dateKey: string): SurgeryDateMode {
   const key = dateKey || getTodaySurgeryDateKey();
   if (key === getTodaySurgeryDateKey()) return 'today';
+  if (key === getYesterdaySurgeryDateKey()) return 'yesterday';
   if (key === getTomorrowSurgeryDateKey()) return 'tomorrow';
   return 'custom';
 }

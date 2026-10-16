@@ -25,6 +25,7 @@ export function formatSurgeryDateLabel(form: Pick<CreateCaseDraft, 'surgeryDate'
   if (!form.surgeryDate) return '—';
   const base = formatDate(form.surgeryDate);
   if (form.surgeryDateMode === 'today') return `Today · ${base}`;
+  if (form.surgeryDateMode === 'yesterday') return `Yesterday · ${base}`;
   if (form.surgeryDateMode === 'tomorrow') return `Tomorrow · ${base}`;
   return base;
 }

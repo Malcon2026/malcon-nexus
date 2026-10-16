@@ -71,9 +71,11 @@ export const WorkflowBoard: React.FC = () => {
   const dateLabel =
     surgeryDateMode === 'today'
       ? 'Today'
-      : surgeryDateMode === 'tomorrow'
-        ? 'Tomorrow'
-        : formatDate(surgeryDate);
+      : surgeryDateMode === 'yesterday'
+        ? 'Yesterday'
+        : surgeryDateMode === 'tomorrow'
+          ? 'Tomorrow'
+          : formatDate(surgeryDate);
 
   return (
     <NexusPage maxWidthClass="max-w-[1800px]" className="h-full flex flex-col">
