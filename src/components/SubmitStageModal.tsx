@@ -96,11 +96,10 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   const formReady = notes.trim().length > 0 && photos.length > 0 && !submitting;
   const surgeryPostponeReady =
     isSurgery &&
-    photos.length > 0 &&
     Boolean(normalizeDateKey(postponeDate)) &&
     normalizeDateKey(postponeDate) !== normalizeDateKey(c.surgeryDate) &&
     !submitting;
-  const surgeryCancelReady = isSurgery && photos.length > 0 && !submitting;
+  const surgeryCancelReady = isSurgery && !submitting;
 
   const notesPlaceholder = isRestock
     ? 'Restocked: what was refilled. No restock: why nothing needed. Ordered: items, supplier, ETA…'
@@ -128,10 +127,6 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
   const handleSurgeryPostpone = async () => {
     const nextDate = normalizeDateKey(postponeDate);
-    if (photos.length === 0) {
-      setError('Please add at least one photo before postponing.');
-      return;
-    }
     if (!nextDate) {
       setError('Pick the new surgery date.');
       return;
@@ -143,12 +138,15 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
     setSubmitting(true);
     setError(null);
-    setUploadProgress({ done: 0, total: photos.length });
+    const photoFiles = photos.map((p) => p.file);
+    if (photoFiles.length > 0) {
+      setUploadProgress({ done: 0, total: photoFiles.length });
+    }
 
     try {
       await postponeCase(c.id, nextDate, '', {
         fieldSurgery: true,
-        photos: photos.map((p) => p.file),
+        photos: photoFiles.length > 0 ? photoFiles : undefined,
         onUploadProgress: (done, total) => setUploadProgress({ done, total }),
       });
       resetForm();
@@ -162,19 +160,17 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   };
 
   const handleSurgeryCancelUnused = async () => {
-    if (photos.length === 0) {
-      setError('Please add at least one photo before submitting.');
-      return;
-    }
-
     setSubmitting(true);
     setError(null);
-    setUploadProgress({ done: 0, total: photos.length });
+    const photoFiles = photos.map((p) => p.file);
+    if (photoFiles.length > 0) {
+      setUploadProgress({ done: 0, total: photoFiles.length });
+    }
 
     try {
       await cancelCase(c.id, 'implants_not_used', undefined, {
         fieldSurgery: true,
-        photos: photos.map((p) => p.file),
+        photos: photoFiles.length > 0 ? photoFiles : undefined,
         onUploadProgress: (done, total) => setUploadProgress({ done, total }),
       });
       resetForm();
@@ -432,7 +428,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
                 Adjust date (postponed)
               </div>
               <p className="text-xs mt-1 text-sky-800/90">
-                Surgery delayed — kit stays at hospital. Add photos and pick the new date below.
+                Surgery delayed — kit stays at hospital. Pick the new date below (photos optional).
               </p>
               <label className="block text-xs font-medium text-sky-900 mt-3 mb-1">New surgery date *</label>
               <input
@@ -453,7 +449,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
                 Surgery cancelled — implant not used
               </div>
               <p className="text-xs mt-1 text-amber-800/90">
-                No surgery today. Add photos and use the red button below — kit returns for pickup. No notes needed.
+                No surgery today. Use the red button below — kit returns for pickup. Photos and notes not required.
               </p>
             </div>
           </div>
@@ -545,7 +541,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           </p>
         ) : isSurgery ? (
           <p className="text-xs text-gray-500">
-            Photos are required for every option. Postpone and cancel do not need written notes.
+            Photos and notes are required only when marking surgery completed. Postpone and cancel do not need photos.
           </p>
         ) : (
           <p className="text-xs text-gray-400">

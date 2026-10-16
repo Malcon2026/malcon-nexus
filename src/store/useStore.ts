@@ -3702,9 +3702,6 @@ export const useStore = create<AppState>((set, get) => ({
       if (normalizeWorkflowStageName(c.currentStage) !== 'Surgery') {
         throw new Error('This action is only available at the Surgery stage.');
       }
-      if (!options?.photos?.length) {
-        throw new Error('At least one photo is required.');
-      }
     }
 
     const performerRole: 'admin' | 'employee' = fieldSurgery ? 'employee' : 'admin';
@@ -3878,9 +3875,6 @@ export const useStore = create<AppState>((set, get) => ({
       }
       if (normalizeWorkflowStageName(c0.currentStage) !== 'Surgery') {
         throw new Error('This action is only available at the Surgery stage.');
-      }
-      if (!options?.photos?.length) {
-        throw new Error('At least one photo is required.');
       }
     } else if (isStoreManager(state.currentUser.role)) {
       throw new Error('Only full admins can postpone cases.');
