@@ -294,8 +294,26 @@ export function restoreBootstrapCache(employeeId: string): boolean {
   return restoreBootstrapCacheForDisplay(employeeId);
 }
 
+/** Load every case row into session cache (admin / store manager history). */
+export async function refreshFullCaseCatalog(): Promise<void> {
+  if (!supabaseStorage) return;
+  try {
+    const rows = await sbCaseRepo.getAll();
+    mergeCasesIntoCache(rows);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('malcon-bootstrap-updated'));
+    }
+  } catch (err) {
+    console.warn('[bootstrap] full case catalog refresh failed:', err);
+  }
+}
+
 /** Persist loaded collections for fast next open in the same browser session. */
-export function persistBootstrapCache(employeeId: string, role: BootstrapRole): void {
+export function persistBootstrapCache(
+  employeeId: string,
+  role: BootstrapRole,
+  options?: { omitCases?: boolean },
+): void {
   if (!supabaseStorage || typeof sessionStorage === 'undefined') return;
 
   const keys =
@@ -356,6 +374,7 @@ export function persistBootstrapCache(employeeId: string, role: BootstrapRole): 
 
   const data: Record<string, unknown[]> = {};
   for (const key of keys) {
+    if (options?.omitCases && key === 'cases') continue;
     const value = supabaseStorage.getItem<unknown[]>(key);
     if (value) data[key] = value;
   }
@@ -407,12 +426,13 @@ export async function bootstrapEssential(
       await runBootstrapTasks(refreshTasks, 'employee-refresh');
       return true;
     }
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'store_manager') {
       void refreshApprovalQueues().then(() => {
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('malcon-bootstrap-updated'));
         }
       });
+      void refreshFullCaseCatalog();
     }
     return false;
   }

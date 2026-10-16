@@ -146,7 +146,7 @@ export const CaseHistory: React.FC = () => {
     setRefreshing(true);
     try {
       const { bootstrapSupabaseData } = await import('../lib/database/bootstrap');
-      await bootstrapSupabaseData('admin');
+      await bootstrapSupabaseData('admin', undefined, { force: true });
       reloadFromDatabase();
     } finally {
       setRefreshing(false);

@@ -85,6 +85,9 @@ type SortDir = 'asc' | 'desc';
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low'];
 const STAGES: WorkflowStage[] = VISIBLE_WORKFLOW_STAGES;
 const STATUSES: CaseStatus[] = ['Draft', 'Active', 'Waiting For Approval', 'Approved', 'Rejected', 'Changes Requested', 'Completed', 'Cancelled'];
+const ALL_LIST_PAGE_SIZE = 50;
+
+type CaseListMode = 'byDay' | 'all';
 
 export const Cases: React.FC = () => {
   const {
@@ -98,7 +101,10 @@ export const Cases: React.FC = () => {
     openCreateCaseModal,
     caseListFocusSurgeryDate,
     focusCaseListOnSurgeryDate,
+    reloadFromDatabase,
   } = useStore();
+  const canSeeFullCatalog = viewMode === 'admin' || viewMode === 'store_manager';
+  const [listMode, setListMode] = useState<CaseListMode>(() => (canSeeFullCatalog ? 'all' : 'byDay'));
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('caseNumber');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -110,7 +116,17 @@ export const Cases: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editCaseId, setEditCaseId] = useState<string | null>(null);
   const lastCreateSignal = useRef(0);
+  const defaultDayPageSet = useRef(false);
+  const fullCatalogRequested = useRef(false);
   const todayKey = getTodaySurgeryDateKey();
+
+  useEffect(() => {
+    if (!canSeeFullCatalog || fullCatalogRequested.current) return;
+    fullCatalogRequested.current = true;
+    void import('../lib/database/bootstrap').then(({ refreshFullCaseCatalog }) =>
+      refreshFullCaseCatalog().then(() => reloadFromDatabase()),
+    );
+  }, [canSeeFullCatalog, reloadFromDatabase]);
 
   useEffect(() => {
     if (createCaseSignal > lastCreateSignal.current) {
@@ -164,6 +180,19 @@ export const Cases: React.FC = () => {
   const calendar = useMemo(() => caseListCalendarSpan(filtered, todayKey), [filtered, todayKey]);
 
   const { paginated, totalPages, pageLabel, calendarDayCount, hasUndatedPage } = useMemo(() => {
+    if (listMode === 'all') {
+      const total = Math.max(1, Math.ceil(filtered.length / ALL_LIST_PAGE_SIZE));
+      const safePage = Math.min(page, total - 1);
+      const start = safePage * ALL_LIST_PAGE_SIZE;
+      return {
+        paginated: filtered.slice(start, start + ALL_LIST_PAGE_SIZE),
+        totalPages: total,
+        pageLabel: 'All surgery dates',
+        calendarDayCount: calendar.calendarDayCount,
+        hasUndatedPage: false,
+      };
+    }
+
     const undated = filtered.filter((c) => !normalizeDateKey(c.surgeryDate));
     const { futureCount, calendarDayCount: dayCount } = calendar;
     const undatedPage = undated.length > 0;
@@ -189,9 +218,17 @@ export const Cases: React.FC = () => {
       calendarDayCount: dayCount,
       hasUndatedPage: undatedPage,
     };
-  }, [filtered, page, todayKey, calendar]);
+  }, [filtered, page, todayKey, calendar, listMode]);
+
+  useEffect(() => {
+    if (listMode !== 'byDay' || defaultDayPageSet.current) return;
+    const todayPage = caseListPageForDateKey(todayKey, todayKey, calendar.futureCount);
+    setPage(todayPage);
+    defaultDayPageSet.current = true;
+  }, [listMode, todayKey, calendar.futureCount]);
 
   const pageButtonTitle = (pageIndex: number) => {
+    if (listMode === 'all') return `Page ${pageIndex + 1}`;
     if (hasUndatedPage && pageIndex === calendarDayCount) return 'No surgery date';
     return dayPageTitle(caseListDateKeyForPage(pageIndex, todayKey, calendar.futureCount), todayKey);
   };
@@ -261,6 +298,24 @@ export const Cases: React.FC = () => {
               onChange={e => { setSearch(e.target.value); setPage(0); }}
             />
           </div>
+          {canSeeFullCatalog ? (
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden shrink-0">
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${listMode === 'all' ? 'bg-[var(--color-accent)] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => { setListMode('all'); setPage(0); }}
+              >
+                All cases
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 text-xs font-semibold border-l border-gray-200 transition-colors ${listMode === 'byDay' ? 'bg-[var(--color-accent)] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                onClick={() => { setListMode('byDay'); setPage(0); defaultDayPageSet.current = false; }}
+              >
+                By surgery date
+              </button>
+            </div>
+          ) : null}
           <Button
             variant={showFilters ? 'secondary' : 'outline'}
             size="sm"

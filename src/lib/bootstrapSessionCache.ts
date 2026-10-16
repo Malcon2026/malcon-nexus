@@ -2,7 +2,7 @@ import { USE_AWS_BACKEND } from './cloudflareConfig';
 import { supabaseStorage } from './database/storage';
 
 /** Must stay in sync with `bootstrap.ts` persist keys / version. */
-export const BOOTSTRAP_CACHE_PREFIX = 'malcon-nexus-bootstrap-v16';
+export const BOOTSTRAP_CACHE_PREFIX = 'malcon-nexus-bootstrap-v17';
 
 /** Skip network essential fetch when session cache is newer than this. */
 export const BOOTSTRAP_CACHE_TTL_MS = USE_AWS_BACKEND ? 15 * 60 * 1000 : 5 * 60 * 1000;

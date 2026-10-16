@@ -134,7 +134,7 @@ function MainApp() {
       if (generation !== hydrateGeneration.current) return;
       if (essentialFetched) {
         reloadFromDatabase();
-        persistBootstrapCache(employee.id, role);
+        persistBootstrapCache(employee.id, role, { omitCases: role === 'admin' || role === 'store_manager' });
       }
       setIsHydrating(false);
       console.info(`[perf] stage-1 hydration visible in ${Math.round(performance.now() - startedAt)}ms`);
