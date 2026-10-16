@@ -520,15 +520,31 @@ const persistActivity = async (event: ActivityEvent): Promise<void> => {
   Database.saveAll('activityLog', [event, ...list]);
 };
 
-const persistNotification = async (notif: Notification): Promise<void> => {
+const persistNotification = async (
+  notif: Notification,
+  options?: { recipientId?: string },
+): Promise<void> => {
+  const payload = options?.recipientId ? { ...notif, recipientId: options.recipientId } : notif;
   if (REMOTE_DATA) {
-    await sbNotificationRepo.create(notif);
+    await sbNotificationRepo.create(payload);
     const list = Database.getAll<Notification>('notifications');
-    setCache('notifications', [notif, ...list]);
+    setCache('notifications', [payload, ...list]);
     return;
   }
   const list = Database.getAll<Notification>('notifications');
-  Database.saveAll('notifications', [notif, ...list]);
+  Database.saveAll('notifications', [payload, ...list]);
+};
+
+/** Notifications must not block workflow writes (case stage already saved). */
+const persistNotificationBestEffort = async (
+  notif: Notification,
+  options?: { recipientId?: string },
+): Promise<void> => {
+  try {
+    await persistNotification(notif, options);
+  } catch (err) {
+    console.warn('[notification] persist skipped:', formatUnknownError(err));
+  }
 };
 
 const persistAttendance = async (record: AttendanceRecord): Promise<{ error: string | null }> => {
@@ -3454,13 +3470,9 @@ export const useStore = create<AppState>((set, get) => ({
           'success',
           caseId,
         );
-        try {
-          await persistNotification(successNotif);
-        } catch (err) {
-          return {
-            error: `Stage saved but notification failed: ${formatUnknownError(err)}`,
-          };
-        }
+        await persistNotificationBestEffort(successNotif, {
+          recipientId: state.currentUser.id || undefined,
+        });
         set((s) => ({ notifications: [successNotif, ...s.notifications] }));
         return { error: null };
       }
@@ -3551,13 +3563,7 @@ export const useStore = create<AppState>((set, get) => ({
         'warning',
         caseId,
       );
-      try {
-        await persistNotification(notif);
-      } catch (err) {
-        return {
-          error: `Approval saved but admin notification failed: ${formatUnknownError(err)}`,
-        };
-      }
+      await persistNotificationBestEffort(notif);
 
       set((s) => ({
         cases: s.cases.map((x) => (x.id === caseId ? updatedCase : x)),

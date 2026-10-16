@@ -57,6 +57,13 @@ export function assertNotificationCreate(
   if (skipAuthZ(ctx, relaxed)) return;
   if (ctx.role === 'admin') return;
   if (recipientId && ctx.employeeId === recipientId) return;
+  // Admin inbox alerts (null recipient) — e.g. employee stage submit → "Approval Required"
+  if (
+    !recipientId &&
+    (ctx.role === 'employee' || ctx.role === 'store_manager' || ctx.role === 'petrol')
+  ) {
+    return;
+  }
   if (!recipientId) {
     throw new AuthError('Forbidden');
   }
