@@ -1,17 +1,16 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  FolderOpen, Stethoscope, Calendar, ArrowRight, AlertTriangle, Activity,
+  FolderOpen, Stethoscope, ArrowRight, AlertTriangle, Activity,
   LayoutGrid, Users, ClipboardCheck,
 } from 'lucide-react';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { CardBody } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store/useStore';
-import { formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
+import { timeAgo, normalizeWorkflowStage } from '../utils/helpers';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
 import { getISTDateKey, matchesSurgeryDateKey } from '../lib/attendance';
@@ -21,6 +20,13 @@ import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
 import { buildDashboardAttendanceMetrics } from '../lib/dashboardAttendanceMetrics';
 import { buildDashboardStaffSnapshot } from '../lib/dashboardStaffSnapshot';
 import { NexusPage, NexusPageHeader } from '../components/layout/NexusPageHeader';
+import { NeedsAttention } from '../components/dashboard/NeedsAttention';
+import { PipelineToday } from '../components/dashboard/PipelineToday';
+import {
+  buildPendingRows,
+  summarizeAttention,
+  type AttentionScope,
+} from '../lib/dashboardOps';
 
 const WEEK_CHART = {
   cases: '#0071e3',
@@ -82,9 +88,12 @@ export const Dashboard: React.FC = () => {
     leaveRequests,
     setActiveTab,
     setSelectedCase,
+    focusCaseListOnSurgeryDate,
     getDailyData,
     getStageDistribution,
   } = useStore();
+
+  const [attentionScope, setAttentionScope] = useState<AttentionScope>('all');
 
   const dailyData = getDailyData();
   const weekCaseTotal = useMemo(() => dailyData.reduce((sum, row) => sum + row.cases, 0), [dailyData]);
@@ -95,8 +104,10 @@ export const Dashboard: React.FC = () => {
 
   const todaySurgeryDate = getTodaySurgeryDateKey();
   const stageDistribution = getStageDistribution(todaySurgeryDate);
-  const stageDistributionTotal = stageDistribution.reduce((sum, item) => sum + item.count, 0);
-  const stageMax = Math.max(...stageDistribution.map((s) => s.count), 1);
+
+  const opsTodayKey = getISTDateKey();
+  const pendingRows = useMemo(() => buildPendingRows(cases, opsTodayKey), [cases, opsTodayKey]);
+  const attentionSummary = useMemo(() => summarizeAttention(pendingRows), [pendingRows]);
 
   const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
 
@@ -133,11 +144,6 @@ export const Dashboard: React.FC = () => {
   const todayAssignments = cases.filter((c) => c.currentDepartment !== null && c.status === 'Active');
 
   const recentLogs = activityLog.slice(0, 6);
-
-  const upcomingCases = cases
-    .filter((c) => c.status !== 'Completed' && c.status !== 'Cancelled')
-    .sort((a, b) => new Date(a.surgeryDate).getTime() - new Date(b.surgeryDate).getTime())
-    .slice(0, 5);
 
   const staffSnapshot = useMemo(
     () =>
@@ -182,6 +188,14 @@ export const Dashboard: React.FC = () => {
   const goApprovals = () => setActiveTab('approvals');
   const goWorkflow = () => setActiveTab('workflow');
   const goAttendance = () => setActiveTab('attendance');
+  const openCase = (caseId: string) => {
+    setSelectedCase(caseId);
+    goCases();
+  };
+  const openCalendarOn = (dateKey: string) => {
+    focusCaseListOnSurgeryDate(dateKey);
+    goCases();
+  };
 
   return (
     <NexusPage maxWidthClass="max-w-[1280px]" className="dash-root space-y-8">
@@ -298,122 +312,25 @@ export const Dashboard: React.FC = () => {
         </section>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-w-0 dash-priority-row">
-        <div>
-          <div className="dash-panel h-full">
-            <div className="dash-panel__head">
-              <h2 className="dash-panel__title">Pipeline today</h2>
-              <p className="dash-panel__sub">
-                Where today&apos;s {stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'} sit in the
-                workflow
-              </p>
-            </div>
-            <div className="dash-panel__body">
-              {stageDistributionTotal === 0 ? (
-                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center">
-                  No cases scheduled for today
-                </p>
-              ) : (
-                <ul className="list-none m-0 p-0" aria-label="Stage counts for today's surgery date">
-                  {stageDistribution.map((item) => (
-                    <li key={item.stage} className="dash-pipeline-row">
-                      <span className="dash-pipeline-row__label" title={item.stage}>
-                        {item.stage}
-                      </span>
-                      <div
-                        className="dash-pipeline-row__track"
-                        role="img"
-                        aria-label={`${item.count} case${item.count === 1 ? '' : 's'}`}
-                      >
-                        <div
-                          className="dash-pipeline-row__fill"
-                          style={{
-                            width: `${(item.count / stageMax) * 100}%`,
-                            backgroundColor: item.color,
-                          }}
-                        />
-                      </div>
-                      <span className="dash-pipeline-row__count" aria-hidden>
-                        {item.count}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="dash-panel h-full flex flex-col">
-            <div className="dash-panel__head flex items-center justify-between gap-2">
-              <div>
-                <h2 className="dash-panel__title">Needs attention</h2>
-                <p className="dash-panel__sub">Nearest surgery dates · overdue flagged</p>
-              </div>
-              <button type="button" onClick={goCases} className="text-xs nexus-link flex items-center gap-1 shrink-0">
-                All cases <ArrowRight className="h-3 w-3" aria-hidden />
-              </button>
-            </div>
-            <CardBody className="p-0 flex-1 min-h-0">
-              {upcomingCases.length === 0 ? (
-                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center px-5">No open cases</p>
-              ) : (
-                upcomingCases.map((c) => {
-                  const sc = getStageStyle(c.currentStage);
-                  const pc = getPriorityStyle(c.priority);
-                  const overdue = new Date(c.surgeryDate) < new Date() && c.status !== 'Completed';
-                  return (
-                    <div
-                      key={c.id}
-                      role="button"
-                      tabIndex={0}
-                      className="dash-list-item dash-list-item--clickable"
-                      aria-label={`Open case ${c.caseNumber}, ${c.currentStage}${overdue ? ', surgery date passed' : ''}`}
-                      onClick={() => {
-                        setSelectedCase(c.id);
-                        goCases();
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setSelectedCase(c.id);
-                          goCases();
-                        }
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-[var(--color-label)]">{c.caseNumber}</span>
-                          <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
-                        </div>
-                        <p className="text-xs text-[var(--color-label-secondary)] truncate mt-0.5">
-                          {c.hospital?.name ?? 'Unknown hospital'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[10px]`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} aria-hidden />
-                            {c.currentStage}
-                          </Badge>
-                          <span className="text-[11px] text-[var(--color-label-tertiary)] inline-flex items-center gap-1">
-                            <Calendar className="h-3 w-3" aria-hidden />
-                            {formatDate(c.surgeryDate)}
-                          </span>
-                        </div>
-                        {overdue && (
-                          <p className="flex items-center gap-1 mt-1.5 text-[11px] text-red-600 font-medium">
-                            <AlertTriangle className="h-3 w-3" aria-hidden />
-                            Surgery date passed
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardBody>
-          </div>
-        </div>
+      <div className="ops-grid">
+        <NeedsAttention
+          rows={pendingRows}
+          summary={attentionSummary}
+          scope={attentionScope}
+          onScopeChange={setAttentionScope}
+          onOpenCase={openCase}
+          onOpenAllCases={goCases}
+          onOpenWorkflow={goWorkflow}
+        />
+        <PipelineToday
+          cases={cases}
+          todayKey={opsTodayKey}
+          pendingRows={pendingRows}
+          summary={attentionSummary}
+          onOpenCase={openCase}
+          onViewCalendar={openCalendarOn}
+          onJumpToAttention={setAttentionScope}
+        />
       </div>
 
       <div className="dash-quick hidden lg:flex">

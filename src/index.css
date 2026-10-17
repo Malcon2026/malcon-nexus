@@ -2,6 +2,7 @@
 @import "./styles/tokens.css";
 @import "./styles/nexus-theme.css";
 @import "./styles/admin-dashboard.css";
+@import "./styles/dashboard-ops.css";
 @import "./styles/employee-bottom-nav.css";
 
 @theme {

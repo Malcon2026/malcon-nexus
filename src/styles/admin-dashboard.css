@@ -230,56 +230,6 @@ button.dash-stat-cell:focus-visible {
   margin-right: 6px;
 }
 
-.dash-pipeline-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-}
-
-.dash-pipeline-row + .dash-pipeline-row {
-  border-top: 0.5px solid var(--color-separator);
-}
-
-.dash-pipeline-row__label {
-  flex: 0 0 38%;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--color-label-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (min-width: 640px) {
-  .dash-pipeline-row__label {
-    flex-basis: 42%;
-  }
-}
-
-.dash-pipeline-row__track {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--color-bg);
-  overflow: hidden;
-}
-
-.dash-pipeline-row__fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.5s ease;
-}
-
-.dash-pipeline-row__count {
-  flex: 0 0 2rem;
-  text-align: right;
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-label);
-}
-
 .dash-quick {
   display: flex;
   flex-wrap: wrap;
