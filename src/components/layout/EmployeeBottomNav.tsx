@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FolderOpen, Fuel, User, ScanFace } from 'lucide-react';
+import { Home, FolderOpen, Clock, Fuel, User } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
 import {
@@ -7,94 +7,42 @@ import {
   type EmployeeShellTab,
 } from '../../lib/employeeShell';
 
-const ICON = { size: 22, stroke: 2.25 } as const;
-
-type SideTab = {
-  id: Exclude<EmployeeShellTab, 'punch'>;
-  icon: React.ReactNode;
-};
-
-const LEFT: SideTab[] = [
-  { id: 'home', icon: <Home size={ICON.size} strokeWidth={ICON.stroke} /> },
-  { id: 'cases', icon: <FolderOpen size={ICON.size} strokeWidth={ICON.stroke} /> },
+const TABS: { id: EmployeeShellTab; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }[] = [
+  { id: 'home', icon: Home },
+  { id: 'cases', icon: FolderOpen },
+  { id: 'punch', icon: Clock },
+  { id: 'petrol', icon: Fuel },
+  { id: 'profile', icon: User },
 ];
-
-const RIGHT: SideTab[] = [
-  { id: 'petrol', icon: <Fuel size={ICON.size} strokeWidth={ICON.stroke} /> },
-  { id: 'profile', icon: <User size={ICON.size} strokeWidth={ICON.stroke} /> },
-];
-
-function SideTabButton({
-  tab,
-  icon,
-  active,
-  onSelect,
-}: {
-  tab: SideTab['id'];
-  icon: React.ReactNode;
-  active: boolean;
-  onSelect: (tab: EmployeeShellTab) => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn('employee-bottom-nav__tab', active && 'is-active')}
-      onClick={() => onSelect(tab)}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span className="employee-bottom-nav__icon-chip" aria-hidden>
-        {icon}
-      </span>
-      <span className="employee-bottom-nav__label">{EMPLOYEE_SHELL_TAB_LABELS[tab]}</span>
-    </button>
-  );
-}
 
 export const EmployeeBottomNav: React.FC = () => {
   const employeeShellTab = useStore((s) => s.employeeShellTab);
   const setEmployeeShellTab = useStore((s) => s.setEmployeeShellTab);
-  const punchActive = employeeShellTab === 'punch';
 
   return (
-    <div className="employee-bottom-nav-wrap" role="navigation" aria-label="Employee app">
-      <nav className="employee-bottom-nav">
-        {LEFT.map(({ id, icon }) => (
-          <SideTabButton
-            key={id}
-            tab={id}
-            icon={icon}
-            active={employeeShellTab === id}
-            onSelect={setEmployeeShellTab}
-          />
-        ))}
-
-        <div
-          className={cn('employee-bottom-nav__tab employee-bottom-nav__tab--center', punchActive && 'is-active')}
-        >
-          <div className="employee-bottom-nav__fab-mount">
+    <div className="employee-tab-bar" role="tablist" aria-label="Employee app">
+      <div className="employee-tab-bar__inner">
+        {TABS.map(({ id, icon: Icon }) => {
+          const active = employeeShellTab === id;
+          return (
             <button
+              key={id}
               type="button"
-              className="employee-bottom-nav__fab"
-              onClick={() => setEmployeeShellTab('punch')}
-              aria-label={EMPLOYEE_SHELL_TAB_LABELS.punch}
-              aria-current={punchActive ? 'page' : undefined}
+              role="tab"
+              aria-selected={active}
+              className={cn('employee-tab-bar__item', active && 'is-active')}
+              onClick={() => setEmployeeShellTab(id)}
             >
-              <ScanFace size={26} strokeWidth={1.85} />
+              <Icon
+                className="employee-tab-bar__icon"
+                strokeWidth={active ? 2.35 : 2}
+                aria-hidden
+              />
+              <span className="employee-tab-bar__label">{EMPLOYEE_SHELL_TAB_LABELS[id]}</span>
             </button>
-          </div>
-          <span className="employee-bottom-nav__label">{EMPLOYEE_SHELL_TAB_LABELS.punch}</span>
-        </div>
-
-        {RIGHT.map(({ id, icon }) => (
-          <SideTabButton
-            key={id}
-            tab={id}
-            icon={icon}
-            active={employeeShellTab === id}
-            onSelect={setEmployeeShellTab}
-          />
-        ))}
-      </nav>
+          );
+        })}
+      </div>
     </div>
   );
 };

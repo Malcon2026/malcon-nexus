@@ -72,7 +72,12 @@ export const TopBar: React.FC<{ onLogout?: () => void; employeeShell?: boolean }
     : pageTitle[activeTab] || 'Dashboard';
 
   return (
-    <header className="nexus-topbar flex items-center gap-2 sm:gap-3 shrink-0">
+    <header
+      className={cn(
+        'nexus-topbar flex items-center gap-2 sm:gap-3 shrink-0',
+        employeeShell && 'nexus-topbar--employee-ios',
+      )}
+    >
       {!employeeShell && (
         <button
           onClick={() => setMobileSidebarOpen(true)}
