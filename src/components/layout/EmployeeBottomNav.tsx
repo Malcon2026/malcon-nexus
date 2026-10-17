@@ -7,23 +7,30 @@ import {
   type EmployeeShellTab,
 } from '../../lib/employeeShell';
 
-const SIDE_TABS: { id: EmployeeShellTab; icon: React.ReactNode }[] = [
-  { id: 'home', icon: <Home className="h-[18px] w-[18px]" strokeWidth={2} /> },
-  { id: 'cases', icon: <FolderOpen className="h-[18px] w-[18px]" strokeWidth={2} /> },
+const ICON = { size: 22, stroke: 2.25 } as const;
+
+type SideTab = {
+  id: Exclude<EmployeeShellTab, 'punch'>;
+  icon: React.ReactNode;
+};
+
+const LEFT: SideTab[] = [
+  { id: 'home', icon: <Home size={ICON.size} strokeWidth={ICON.stroke} /> },
+  { id: 'cases', icon: <FolderOpen size={ICON.size} strokeWidth={ICON.stroke} /> },
 ];
 
-const SIDE_TABS_RIGHT: { id: EmployeeShellTab; icon: React.ReactNode }[] = [
-  { id: 'petrol', icon: <Fuel className="h-[18px] w-[18px]" strokeWidth={2} /> },
-  { id: 'profile', icon: <User className="h-[18px] w-[18px]" strokeWidth={2} /> },
+const RIGHT: SideTab[] = [
+  { id: 'petrol', icon: <Fuel size={ICON.size} strokeWidth={ICON.stroke} /> },
+  { id: 'profile', icon: <User size={ICON.size} strokeWidth={ICON.stroke} /> },
 ];
 
-function NavItem({
+function SideTabButton({
   tab,
   icon,
   active,
   onSelect,
 }: {
-  tab: EmployeeShellTab;
+  tab: SideTab['id'];
   icon: React.ReactNode;
   active: boolean;
   onSelect: (tab: EmployeeShellTab) => void;
@@ -31,11 +38,11 @@ function NavItem({
   return (
     <button
       type="button"
-      className={cn('employee-bottom-nav__item', active && 'is-active')}
+      className={cn('employee-bottom-nav__tab', active && 'is-active')}
       onClick={() => onSelect(tab)}
       aria-current={active ? 'page' : undefined}
     >
-      <span className="employee-bottom-nav__icon" aria-hidden>
+      <span className="employee-bottom-nav__icon-chip" aria-hidden>
         {icon}
       </span>
       <span className="employee-bottom-nav__label">{EMPLOYEE_SHELL_TAB_LABELS[tab]}</span>
@@ -46,12 +53,13 @@ function NavItem({
 export const EmployeeBottomNav: React.FC = () => {
   const employeeShellTab = useStore((s) => s.employeeShellTab);
   const setEmployeeShellTab = useStore((s) => s.setEmployeeShellTab);
+  const punchActive = employeeShellTab === 'punch';
 
   return (
     <div className="employee-bottom-nav-wrap" role="navigation" aria-label="Employee app">
-      <div className="employee-bottom-nav">
-        {SIDE_TABS.map(({ id, icon }) => (
-          <NavItem
+      <nav className="employee-bottom-nav">
+        {LEFT.map(({ id, icon }) => (
+          <SideTabButton
             key={id}
             tab={id}
             icon={icon}
@@ -60,33 +68,25 @@ export const EmployeeBottomNav: React.FC = () => {
           />
         ))}
 
-        <div className="employee-bottom-nav__center-slot">
-          <div className="flex flex-col items-center gap-1">
+        <div
+          className={cn('employee-bottom-nav__tab employee-bottom-nav__tab--center', punchActive && 'is-active')}
+        >
+          <div className="employee-bottom-nav__fab-mount">
             <button
               type="button"
-              className={cn(
-                'employee-bottom-nav__center-btn',
-                employeeShellTab === 'punch' && 'is-active',
-              )}
+              className="employee-bottom-nav__fab"
               onClick={() => setEmployeeShellTab('punch')}
               aria-label={EMPLOYEE_SHELL_TAB_LABELS.punch}
-              aria-current={employeeShellTab === 'punch' ? 'page' : undefined}
+              aria-current={punchActive ? 'page' : undefined}
             >
-              <ScanFace className="h-7 w-7" strokeWidth={1.75} />
+              <ScanFace size={26} strokeWidth={1.85} />
             </button>
-            <span
-              className={cn(
-                'employee-bottom-nav__label text-[10px]',
-                employeeShellTab === 'punch' && 'text-[var(--color-accent)] font-semibold',
-              )}
-            >
-              {EMPLOYEE_SHELL_TAB_LABELS.punch}
-            </span>
           </div>
+          <span className="employee-bottom-nav__label">{EMPLOYEE_SHELL_TAB_LABELS.punch}</span>
         </div>
 
-        {SIDE_TABS_RIGHT.map(({ id, icon }) => (
-          <NavItem
+        {RIGHT.map(({ id, icon }) => (
+          <SideTabButton
             key={id}
             tab={id}
             icon={icon}
@@ -94,7 +94,7 @@ export const EmployeeBottomNav: React.FC = () => {
             onSelect={setEmployeeShellTab}
           />
         ))}
-      </div>
+      </nav>
     </div>
   );
 };
