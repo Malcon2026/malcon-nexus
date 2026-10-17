@@ -1,18 +1,29 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { logIntegrationSkipped } from './cloudflareIntegrations';
+import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { workerFetchJson } from './workerApi';
 
 type AlertEvent = 'assignment' | 'postpone';
 
-async function invokeCaseAlerts(
+async function invokeCaseAlertsWorker(
+  path: '/api/case-alerts/start' | '/api/case-alerts/acknowledge',
+  body: Record<string, string>,
+): Promise<void> {
+  try {
+    await workerFetchJson<{ ok?: boolean }>(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error(`[caseAlerts] ${path} failed:`, err);
+  }
+}
+
+async function invokeCaseAlertsSupabase(
   fn: string,
   body: Record<string, string>,
 ): Promise<void> {
-  if (!USE_SUPABASE) {
-    logIntegrationSkipped('caseAlerts');
-    return;
-  }
-
   try {
     const { data, error } = await supabase.functions.invoke(fn, { body });
     if (error) {
@@ -34,21 +45,31 @@ async function invokeCaseAlerts(
   }
 }
 
-/** Start 3-step Telegram ladder: Alert 1 now, 2 at +15m, 3 at +30m (then stop). */
+/** Start Telegram ladder: Alert 1 now, reminder at +3h if stage not completed (then stop). */
 export function startCaseAlertEscalation(
   caseId: string,
   employeeId: string | undefined | null,
   event: AlertEvent,
 ): void {
   if (!employeeId) return;
-  void invokeCaseAlerts('start-case-alerts', { event, caseId, employeeId });
+  if (USE_CLOUDFLARE_BACKEND) {
+    void invokeCaseAlertsWorker('/api/case-alerts/start', { event, caseId, employeeId });
+    return;
+  }
+  if (!USE_SUPABASE) return;
+  void invokeCaseAlertsSupabase('start-case-alerts', { event, caseId, employeeId });
 }
 
-/** Stop pending Alert 2 / Alert 3 when employee acts on the case. */
+/** Stop pending reminders when the assignee completes their stage. */
 export function acknowledgeCaseAlerts(
   caseId: string,
   employeeId: string | undefined | null,
 ): void {
   if (!employeeId) return;
-  void invokeCaseAlerts('acknowledge-case-alerts', { caseId, employeeId });
+  if (USE_CLOUDFLARE_BACKEND) {
+    void invokeCaseAlertsWorker('/api/case-alerts/acknowledge', { caseId, employeeId });
+    return;
+  }
+  if (!USE_SUPABASE) return;
+  void invokeCaseAlertsSupabase('acknowledge-case-alerts', { caseId, employeeId });
 }

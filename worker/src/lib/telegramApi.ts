@@ -4,11 +4,17 @@ export async function telegramSendMessage(
   botToken: string,
   chatId: string | number,
   text: string,
+  options?: { parseMode?: 'HTML' | 'Markdown' },
 ): Promise<{ ok: true } | { ok: false; error: string; errorCode?: number }> {
   const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      disable_web_page_preview: true,
+      ...(options?.parseMode ? { parse_mode: options.parseMode } : {}),
+    }),
   });
   const body = (await res.json().catch(() => ({}))) as TelegramApiBody;
   if (!res.ok || !body.ok) {

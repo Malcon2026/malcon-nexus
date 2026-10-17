@@ -22,10 +22,7 @@ export function integrationAvailability(id: CloudflareIntegrationId): Integratio
   }
   switch (id) {
     case 'caseAlerts':
-      return {
-        available: false,
-        reason: `${SUPABASE_EDGE_ONLY} Case alert escalation (Telegram ladder) will not run.`,
-      };
+      return { available: true, reason: '' };
     case 'email':
       return {
         available: false,

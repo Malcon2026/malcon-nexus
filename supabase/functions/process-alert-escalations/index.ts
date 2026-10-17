@@ -1,8 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { deliverTelegramAlert } from '../_shared/alertDelivery.ts';
 
-const ALERT_2_DELAY_MS = 15 * 60 * 1000;
-const ALERT_3_DELAY_MS = 30 * 60 * 1000;
+const ALERT_2_DELAY_MS = 3 * 60 * 60 * 1000;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,14 +47,13 @@ Deno.serve(async (req) => {
       .from('case_alert_escalations')
       .select('id, case_id, employee_id, event_type, alert_1_sent_at, alert_2_sent_at, alert_3_sent_at, acknowledged_at')
       .is('acknowledged_at', null)
-      .is('alert_3_sent_at', null);
+      .is('alert_2_sent_at', null);
 
     if (error) {
       return jsonResponse({ error: error.message }, 502);
     }
 
     let alert2Sent = 0;
-    let alert3Sent = 0;
 
     for (const row of rows ?? []) {
       const t1 = new Date(row.alert_1_sent_at as string).getTime();
@@ -71,34 +69,17 @@ Deno.serve(async (req) => {
           2,
         );
         if (tg2.ok) {
+          const sentAt = new Date().toISOString();
           await supabase
             .from('case_alert_escalations')
-            .update({ alert_2_sent_at: new Date().toISOString() })
+            .update({ alert_2_sent_at: sentAt, alert_3_sent_at: sentAt })
             .eq('id', row.id);
           alert2Sent++;
         }
       }
-
-      if (!row.alert_3_sent_at && now - t1 >= ALERT_3_DELAY_MS) {
-        const tg3 = await deliverTelegramAlert(
-          supabase,
-          botToken,
-          row.case_id as string,
-          row.employee_id as string,
-          eventType,
-          3,
-        );
-        if (tg3.ok) {
-          await supabase
-            .from('case_alert_escalations')
-            .update({ alert_3_sent_at: new Date().toISOString() })
-            .eq('id', row.id);
-          alert3Sent++;
-        }
-      }
     }
 
-    return jsonResponse({ ok: true, checked: rows?.length ?? 0, alert2Sent, alert3Sent });
+    return jsonResponse({ ok: true, checked: rows?.length ?? 0, alert2Sent });
   } catch (err) {
     console.error('[process-alert-escalations]', err);
     return jsonResponse({ error: 'Unexpected server error' }, 500);

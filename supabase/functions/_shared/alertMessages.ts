@@ -72,7 +72,7 @@ export function buildTelegramAlertMessage(
       '',
       ...detailLines,
       '',
-      '<b>Action required:</b> Open Malcon Nexus on your phone now.',
+      '<b>Action required:</b> Open Malcon Nexus and complete your stage within 3 hours.',
     ].join('\n');
   }
 
@@ -90,11 +90,11 @@ export function buildTelegramAlertMessage(
       '',
       intro,
       '',
-      '<b>⏱ 15 minutes since Alert 1.</b>',
+      '<b>⏱ 3 hours since assignment.</b>',
       '',
       ...detailLines,
       '',
-      '<b>Still waiting for your response.</b> Open Malcon Nexus now.',
+      '<b>Please complete your stage in the app now.</b> No further reminders after this.',
     ].join('\n');
   }
 
