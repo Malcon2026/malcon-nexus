@@ -1,7 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1,
+  );
+}
 
 interface ModalProps {
   isOpen: boolean;
@@ -33,6 +42,12 @@ export const Modal: React.FC<ModalProps> = ({
   fixedHeight = false,
   dismissOnBackdrop = true,
 }) => {
+  const titleId = useId();
+  const subtitleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -46,6 +61,64 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previouslyFocused = document.activeElement;
+    previousFocusRef.current =
+      previouslyFocused instanceof HTMLElement ? previouslyFocused : null;
+
+    const focusDialog = () => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      if (titleRef.current) {
+        titleRef.current.focus({ preventScroll: true });
+        return;
+      }
+      const focusables = getFocusableElements(dialog);
+      focusables[0]?.focus({ preventScroll: true });
+    };
+
+    const raf = requestAnimationFrame(focusDialog);
+
+    const handleTabTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusables = getFocusableElements(dialog);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !dialog.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTabTrap, true);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', handleTabTrap, true);
+      const prev = previousFocusRef.current;
+      if (prev && document.contains(prev)) {
+        prev.focus({ preventScroll: true });
+      }
+    };
+  }, [isOpen]);
 
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -79,8 +152,14 @@ export const Modal: React.FC<ModalProps> = ({
               isScreen ? '' : 'backdrop-blur-sm',
             )}
             onClick={dismissOnBackdrop ? onClose : undefined}
+            aria-hidden
           />
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={subtitle ? subtitleId : undefined}
             initial={{ opacity: 0, y: isScreen ? 12 : 8, scale: isScreen ? 1 : 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: isScreen ? 12 : 8, scale: isScreen ? 1 : 0.96 }}
@@ -104,11 +183,22 @@ export const Modal: React.FC<ModalProps> = ({
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <h2 className={cn('font-semibold text-gray-900 truncate', isScreen ? 'text-lg' : 'text-base')}>
+                  <h2
+                    id={titleId}
+                    ref={titleRef}
+                    tabIndex={-1}
+                    className={cn(
+                      'font-semibold text-gray-900 truncate focus:outline-none',
+                      isScreen ? 'text-lg' : 'text-base',
+                    )}
+                  >
                     {title}
                   </h2>
                   {subtitle && (
-                    <p className={cn('text-gray-500 mt-0.5', isScreen ? 'text-sm' : 'text-xs sm:text-sm')}>
+                    <p
+                      id={subtitleId}
+                      className={cn('text-gray-500 mt-0.5', isScreen ? 'text-sm' : 'text-xs sm:text-sm')}
+                    >
                       {subtitle}
                     </p>
                   )}
@@ -119,7 +209,7 @@ export const Modal: React.FC<ModalProps> = ({
                     type="button"
                     onClick={onClose}
                     className={cn(
-                      'rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors',
+                      'rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]',
                       isScreen ? 'p-2.5 -mr-1' : 'p-1.5',
                     )}
                     aria-label="Close"

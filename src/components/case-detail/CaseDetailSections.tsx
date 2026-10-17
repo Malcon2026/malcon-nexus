@@ -150,7 +150,8 @@ export const CaseProgressTimeline: React.FC<{
   stages: StageRecord[];
   currentIndex: number;
   viewer: Employee;
-}> = ({ stages, currentIndex, viewer }) => {
+  caseNumber?: string;
+}> = ({ stages, currentIndex, viewer, caseNumber }) => {
   const photoUrls = useStagePhotoViewUrls(stages, viewer);
 
   return (
@@ -239,6 +240,7 @@ export const CaseProgressTimeline: React.FC<{
                 canView={photoUrls.canView}
                 viewUrls={photoUrls.viewUrls}
                 loading={photoUrls.loading}
+                caseNumber={caseNumber}
               />
             </div>
           </li>

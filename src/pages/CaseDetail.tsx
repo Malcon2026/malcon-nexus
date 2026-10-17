@@ -1168,7 +1168,12 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       <motion.div key={activeTabLocal} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
         {activeTabLocal === 'overview' && <CaseOverview case={c} onManageTeam={manageTeam} />}
         {activeTabLocal === 'stages' && (
-          <CaseProgressTimeline stages={c.stages} currentIndex={currentStageIdx} viewer={currentUser} />
+          <CaseProgressTimeline
+            stages={c.stages}
+            currentIndex={currentStageIdx}
+            viewer={currentUser}
+            caseNumber={c.caseNumber}
+          />
         )}
         {activeTabLocal === 'activity' && <CaseActivity logs={c.activityLogs} />}
         {activeTabLocal === 'comments' && <CaseComments comments={c.comments} />}

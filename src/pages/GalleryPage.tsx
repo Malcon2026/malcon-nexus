@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Camera, ChevronLeft, ChevronRight, FolderOpen, ImageOff, Loader2, X,
@@ -22,7 +22,26 @@ type OpenAlbum = {
   dateLabel: string;
 };
 
-function ThumbStack({ urls, emptyIcon }: { urls: string[]; emptyIcon: React.ReactNode }) {
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.hasAttribute('disabled') && el.tabIndex !== -1,
+  );
+}
+
+function ThumbStack({
+  urls,
+  emptyIcon,
+  albumTitle,
+  albumKind,
+}: {
+  urls: string[];
+  emptyIcon: React.ReactNode;
+  albumTitle: string;
+  albumKind: 'attendance' | 'cases';
+}) {
   if (!urls.length) {
     return (
       <div className="relative w-14 h-14 shrink-0">
@@ -40,7 +59,7 @@ function ThumbStack({ urls, emptyIcon }: { urls: string[]; emptyIcon: React.Reac
         <img
           key={url}
           src={url}
-          alt=""
+          alt={`${albumKind === 'attendance' ? 'Attendance' : 'Cases'} album ${albumTitle}, preview ${i + 1} of ${shown.length}`}
           loading="lazy"
           className="absolute w-11 h-11 rounded-[10px] object-cover border-2 border-[var(--color-bg)] shadow-md"
           style={{
@@ -90,6 +109,8 @@ function AlbumRow({
     >
       <ThumbStack
         urls={thumbs}
+        albumTitle={title}
+        albumKind={type === 'att' ? 'attendance' : 'cases'}
         emptyIcon={type === 'att' ? <Camera className="w-5 h-5" /> : <FolderOpen className="w-5 h-5" />}
       />
       <div className="flex-1 min-w-0">
@@ -127,6 +148,12 @@ export function GalleryPage() {
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const lightboxOpen = lightboxIndex !== null;
+  const lightboxTitleId = useId();
+  const lightboxDescId = useId();
+  const lightboxDialogRef = useRef<HTMLDivElement>(null);
+  const lightboxTitleRef = useRef<HTMLHeadingElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -196,7 +223,7 @@ export function GalleryPage() {
   );
 
   useEffect(() => {
-    if (lightboxIndex === null) return;
+    if (!lightboxOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setLightboxIndex(null);
       if (e.key === 'ArrowLeft') lbStep(-1);
@@ -204,7 +231,65 @@ export function GalleryPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxIndex, lbStep]);
+  }, [lightboxOpen, lbStep]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = 'hidden';
+
+    const focusDialog = () => {
+      const dialog = lightboxDialogRef.current;
+      if (!dialog) return;
+      if (lightboxTitleRef.current) {
+        lightboxTitleRef.current.focus({ preventScroll: true });
+        return;
+      }
+      getFocusableElements(dialog)[0]?.focus({ preventScroll: true });
+    };
+
+    const raf = requestAnimationFrame(focusDialog);
+
+    const handleTabTrap = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const dialog = lightboxDialogRef.current;
+      if (!dialog) return;
+
+      const focusables = getFocusableElements(dialog);
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey) {
+        if (active === first || !dialog.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !dialog.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTabTrap, true);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', handleTabTrap, true);
+      document.body.style.overflow = '';
+      const prev = previousFocusRef.current;
+      if (prev && document.contains(prev)) {
+        prev.focus({ preventScroll: true });
+      }
+    };
+  }, [lightboxOpen]);
 
   const attAlbums = useMemo(
     () => albums.filter((a) => a.attCount > 0 || a.dateKey === todayKey),
@@ -390,7 +475,10 @@ export function GalleryPage() {
                   >
                     <img
                       src={p.url}
-                      alt={p.cap}
+                      alt={
+                        p.cap?.trim() ||
+                        `${openAlbum.type === 'att' ? 'Attendance' : 'Cases'} photo ${i + 1} of ${photos.length}, ${openAlbum.title}`
+                      }
                       loading="lazy"
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -406,8 +494,13 @@ export function GalleryPage() {
         )}
       </main>
 
-      {currentPhoto && openAlbum && (
+      {currentPhoto && openAlbum && lightboxIndex !== null && (
         <div
+          ref={lightboxDialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={lightboxTitleId}
+          aria-describedby={lightboxDescId}
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center"
           onClick={(e) => {
             if (e.target === e.currentTarget) setLightboxIndex(null);
@@ -420,37 +513,50 @@ export function GalleryPage() {
             <button
               type="button"
               onClick={() => setLightboxIndex(null)}
-              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center transition-colors"
+              className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              aria-label="Close photo"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden />
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => lbStep(-1)}
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Previous photo"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-6 h-6" aria-hidden />
           </button>
 
           <img
             src={currentPhoto.url}
-            alt={currentPhoto.cap}
+            alt={
+              currentPhoto.cap?.trim() ||
+              `${openAlbum.type === 'att' ? 'Attendance' : 'Cases'} photo ${lightboxIndex + 1} of ${photos.length}, ${openAlbum.title}`
+            }
             className="max-w-[min(92vw,720px)] max-h-[62vh] object-contain rounded-lg shadow-2xl"
           />
 
           <button
             type="button"
             onClick={() => lbStep(+1)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Next photo"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-6 h-6" aria-hidden />
           </button>
 
           <div className="absolute bottom-0 inset-x-0 p-6 pb-[max(24px,env(safe-area-inset-bottom))] text-center bg-gradient-to-t from-black/80 to-transparent">
-            <h4 className="text-base font-semibold">{currentPhoto.cap}</h4>
-            <p className="text-sm text-[var(--color-label-secondary)] mt-1">
+            <h4
+              id={lightboxTitleId}
+              ref={lightboxTitleRef}
+              tabIndex={-1}
+              className="text-base font-semibold focus:outline-none"
+            >
+              {currentPhoto.cap}
+            </h4>
+            <p id={lightboxDescId} className="text-sm text-[var(--color-label-secondary)] mt-1">
               {currentPhoto.sub} · {formatPhotoTime(currentPhoto.at)}
             </p>
           </div>

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "src/pages/EmployeeDashboard.tsx"
+        ],
+        "createdAt": "2026-10-17T15:21:16.122Z",
+        "reason": "Checking pool FCFS uses intentional purple semantic styling per product; motion-only edits allowed"
+      }
+    ]
+  }
+}

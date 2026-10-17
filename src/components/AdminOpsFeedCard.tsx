@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { GeminiIcon } from './PoweredByAiBadge';
 import {
@@ -108,9 +107,7 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
   });
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+    <article
       className={cn(
         'dash-brief overflow-hidden flex flex-col min-h-0',
         className,
@@ -151,6 +148,6 @@ export const AdminOpsFeedCard: React.FC<Props> = ({ metrics, className }) => {
           </>
         )}
       </div>
-    </motion.article>
+    </article>
   );
 };

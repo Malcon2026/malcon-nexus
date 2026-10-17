@@ -52,12 +52,23 @@ export function useStagePhotoViewUrls(stages: StageRecord[], viewer: Employee) {
 }
 
 /** In-timeline photo grid (3-up, iPhone-style squares). Meta line once; no per-photo labels. */
+function stagePhotoAltText(
+  stageName: string,
+  index: number,
+  total: number,
+  caseNumber?: string,
+): string {
+  const prefix = caseNumber ? `Case ${caseNumber}, ` : '';
+  return `${prefix}${stageName} stage photo ${index + 1} of ${total}`;
+}
+
 export const CaseStageMiniGallery: React.FC<{
   stage: StageRecord;
   viewUrls: Record<string, string>;
   loading: boolean;
   canView: boolean;
-}> = ({ stage, viewUrls, loading, canView }) => {
+  caseNumber?: string;
+}> = ({ stage, viewUrls, loading, canView, caseNumber }) => {
   const docs = imageDocs(stage);
   if (docs.length === 0) return null;
 
@@ -79,8 +90,9 @@ export const CaseStageMiniGallery: React.FC<{
         className="grid w-3/4 max-w-full grid-cols-3 gap-[2px] sm:gap-[3px]"
         aria-label={`${stage.stage} photos`}
       >
-        {docs.map((doc) => {
+        {docs.map((doc, index) => {
           const src = viewUrls[doc.id];
+          const alt = stagePhotoAltText(stage.stage, index, docs.length, caseNumber);
           return (
             <li key={doc.id} className="aspect-square min-h-0 bg-gray-100">
               <a
@@ -90,7 +102,7 @@ export const CaseStageMiniGallery: React.FC<{
                 className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent)]"
               >
                 {src ? (
-                  <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <img src={src} alt={alt} loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <span className="flex h-full min-h-[21vw] items-center justify-center text-sm text-gray-400 sm:min-h-[90px]">
                     {loading ? '…' : '—'}

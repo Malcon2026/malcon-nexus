@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Calendar, User, AlertTriangle, ArrowRight, Eye } from 'lucide-react';
 import { Badge } from '../components/ui/Badge';
 import { Avatar } from '../components/ui/Avatar';
@@ -141,13 +140,19 @@ export const WorkflowBoard: React.FC = () => {
                   const inPool = isFcfsPoolCase(c);
 
                   return (
-                    <motion.div
+                    <div
                       key={c.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: cardIdx * 0.05 }}
                       className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group"
                       onClick={() => { setSelectedCase(c.id); setActiveTab('cases'); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedCase(c.id);
+                          setActiveTab('cases');
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className="p-3">
                         {/* Top row */}
@@ -224,7 +229,7 @@ export const WorkflowBoard: React.FC = () => {
                           <ArrowRight className="h-3 w-3" />
                         </div>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
 

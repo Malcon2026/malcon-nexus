@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import {
   CheckCircle2, AlertCircle, Send, FileText, Bell,
   CalendarDays, ClipboardList, ChevronLeft, ChevronRight, Briefcase, Fuel, LogIn, MapPin,
@@ -373,12 +372,7 @@ const EmployeeCasesPanel: React.FC<{
               const pc = getPriorityStyle(c.priority);
               const claiming = claimingId === c.id;
               return (
-                <motion.div
-                  key={c.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                >
+                <div key={c.id}>
                   <Card className="border-purple-200 bg-purple-50/20 shadow-sm">
                     <CardBody>
                       <div className="flex items-start justify-between gap-4">
@@ -427,7 +421,7 @@ const EmployeeCasesPanel: React.FC<{
                       </div>
                     </CardBody>
                   </Card>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -473,12 +467,7 @@ const EmployeeCasesPanel: React.FC<{
               const pc = getPriorityStyle(c.priority);
               const requesting = requestingId === c.id;
               return (
-                <motion.div
-                  key={c.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                >
+                <div key={c.id}>
                   <Card className="border-amber-200 bg-amber-50/30">
                     <CardBody>
                       <div className="flex items-start justify-between gap-4">
@@ -518,7 +507,7 @@ const EmployeeCasesPanel: React.FC<{
                       </div>
                     </CardBody>
                   </Card>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -555,12 +544,7 @@ const EmployeeCasesPanel: React.FC<{
                   const isExtraPerson = isCaseAssistantOnCurrentStage(c, currentUser) && !canSubmit;
 
                   return (
-                    <motion.div
-                      key={c.id}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                    >
+                    <div key={c.id}>
                       <Card>
                         <CardBody>
                           <div className="flex items-start justify-between gap-4">
@@ -634,7 +618,7 @@ const EmployeeCasesPanel: React.FC<{
                           </div>
                         </CardBody>
                       </Card>
-                    </motion.div>
+                    </div>
                   );
                 })
               )}
@@ -654,12 +638,7 @@ const EmployeeCasesPanel: React.FC<{
                   const doneLabel =
                     c.status === 'Cancelled' ? 'Cancelled' : c.status === 'Completed' ? 'Completed' : 'Your stage done';
                   return (
-                    <motion.div
-                      key={c.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.03 }}
-                    >
+                    <div key={c.id}>
                       <Card className="border-gray-200 bg-gray-50/40">
                         <CardBody className="py-3">
                           <div className="flex items-start justify-between gap-4">
@@ -688,7 +667,7 @@ const EmployeeCasesPanel: React.FC<{
                           </div>
                         </CardBody>
                       </Card>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </section>

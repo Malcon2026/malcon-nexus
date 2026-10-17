@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import {
   FolderOpen, Stethoscope, Calendar, ArrowRight, AlertTriangle, Activity,
   LayoutGrid, Users, ClipboardCheck,
@@ -15,7 +14,7 @@ import { useStore } from '../store/useStore';
 import { formatDate, timeAgo, getStageStyle, getPriorityStyle, normalizeWorkflowStage } from '../utils/helpers';
 import { mapCaseToVisibleStage, countFcfsPoolCases } from '../lib/caseWorkflow';
 import { getTodaySurgeryDateKey } from '../components/SurgeryDateQuickPick';
-import { getISTDateKey } from '../lib/attendance';
+import { getISTDateKey, matchesSurgeryDateKey } from '../lib/attendance';
 import { AdminOpsFeedCard } from '../components/AdminOpsFeedCard';
 import { DashboardAttendanceSection } from '../components/DashboardAttendanceSection';
 import { buildAdminDashboardMetrics } from '../lib/dashboardInsights';
@@ -100,13 +99,37 @@ export const Dashboard: React.FC = () => {
   const stageMax = Math.max(...stageDistribution.map((s) => s.count), 1);
 
   const pendingApprovals = cases.filter((c) => c.status === 'Waiting For Approval');
-  const surgeryCases = cases.filter((c) => c.currentStage === 'Surgery');
-  const cleaningQueue = cases.filter((c) => normalizeWorkflowStage(c.currentStage) === 'Checking & Audit');
-  const restockPending = cases.filter(
-    (c) => mapCaseToVisibleStage(c.currentStage) === 'Restock' && c.status !== 'Completed' && c.status !== 'Cancelled',
+
+  const isTodayBoardCase = (c: (typeof cases)[number]) =>
+    matchesSurgeryDateKey(c.surgeryDate, todaySurgeryDate);
+  const isNonTerminalCase = (c: (typeof cases)[number]) =>
+    c.status !== 'Completed' && c.status !== 'Cancelled';
+
+  const surgeryCases = cases.filter(
+    (c) =>
+      isTodayBoardCase(c) &&
+      isNonTerminalCase(c) &&
+      c.currentStage === 'Surgery',
+  );
+  const deliveryQueue = cases.filter(
+    (c) =>
+      isTodayBoardCase(c) &&
+      isNonTerminalCase(c) &&
+      mapCaseToVisibleStage(c.currentStage) === 'Delivery',
+  );
+  const pickupQueue = cases.filter(
+    (c) =>
+      isTodayBoardCase(c) &&
+      isNonTerminalCase(c) &&
+      normalizeWorkflowStage(c.currentStage) === 'Pickup from Hospital',
+  );
+  const cleaningQueue = cases.filter(
+    (c) =>
+      isTodayBoardCase(c) &&
+      isNonTerminalCase(c) &&
+      normalizeWorkflowStage(c.currentStage) === 'Checking & Audit',
   );
   const fcfsPoolTotal = countFcfsPoolCases(cases);
-  const completedCases = cases.filter((c) => c.status === 'Completed');
   const todayAssignments = cases.filter((c) => c.currentDepartment !== null && c.status === 'Active');
 
   const recentLogs = activityLog.slice(0, 6);
@@ -163,8 +186,8 @@ export const Dashboard: React.FC = () => {
   return (
     <NexusPage maxWidthClass="max-w-[1280px]" className="dash-root space-y-8">
       <NexusPageHeader
-        title={greeting}
-        description={dateLabel}
+        title="Operations dashboard"
+        description={`${greeting} · ${dateLabel}`}
         actions={
           <Button
             variant="primary"
@@ -178,13 +201,7 @@ export const Dashboard: React.FC = () => {
         }
       />
 
-      <motion.section
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="dash-hero"
-        aria-label="Today at a glance"
-      >
+      <section className="dash-hero" aria-label="Today at a glance">
         <div className="dash-hero__inner">
           <div className="min-w-0">
             <p className="dash-hero__kicker">Today&apos;s surgery board</p>
@@ -207,30 +224,199 @@ export const Dashboard: React.FC = () => {
             </p>
           </div>
 
-          <div className="dash-stat-grid w-full md:w-auto" role="group" aria-label="Live queue">
-            <button type="button" className="dash-stat-cell" onClick={goApprovals}>
+          <div
+            className="dash-stat-grid w-full md:w-auto"
+            role="group"
+            aria-label="Approvals all pending; other counts are today's surgery board by stage"
+          >
+            <button
+              type="button"
+              className="dash-stat-cell"
+              onClick={goApprovals}
+              aria-label={`${pendingApprovals.length} submissions awaiting approval, all dates`}
+            >
               <p className={`dash-stat-cell__value ${pendingApprovals.length ? 'dash-stat-cell__value--warn' : ''}`}>
                 {pendingApprovals.length}
               </p>
               <p className="dash-stat-cell__label">Approvals</p>
+              <p className="dash-stat-cell__scope">All pending</p>
             </button>
-            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
+            <button
+              type="button"
+              className="dash-stat-cell"
+              onClick={goWorkflow}
+              aria-label={`${deliveryQueue.length} cases in delivery on today's surgery board`}
+            >
+              <p className="dash-stat-cell__value">{deliveryQueue.length}</p>
+              <p className="dash-stat-cell__label">Delivery</p>
+            </button>
+            <button
+              type="button"
+              className="dash-stat-cell"
+              onClick={goWorkflow}
+              aria-label={`${surgeryCases.length} cases in surgery on today's surgery board`}
+            >
               <p className="dash-stat-cell__value">{surgeryCases.length}</p>
-              <p className="dash-stat-cell__label">In surgery</p>
+              <p className="dash-stat-cell__label">Surgery</p>
             </button>
-            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
+            <button
+              type="button"
+              className="dash-stat-cell"
+              onClick={goWorkflow}
+              aria-label={`${pickupQueue.length} cases in pickup from hospital on today's surgery board`}
+            >
+              <p className="dash-stat-cell__value">{pickupQueue.length}</p>
+              <p className="dash-stat-cell__label">Pickup</p>
+            </button>
+            <button
+              type="button"
+              className="dash-stat-cell"
+              onClick={goWorkflow}
+              aria-label={`${cleaningQueue.length} cases in checking and audit on today's surgery board`}
+            >
               <p className="dash-stat-cell__value">{cleaningQueue.length}</p>
               <p className="dash-stat-cell__label">Checking</p>
             </button>
-            <button type="button" className="dash-stat-cell" onClick={goWorkflow}>
-              <p className="dash-stat-cell__value">{restockPending.length}</p>
-              <p className="dash-stat-cell__label">Restock</p>
-            </button>
           </div>
         </div>
-      </motion.section>
+      </section>
 
-      <div className="dash-quick">
+      {pendingApprovals.length > 0 && (
+        <section className="dash-attention" aria-labelledby="dash-attention-heading">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <h2 id="dash-attention-heading" className="text-sm font-semibold text-amber-950">
+              {pendingApprovals.length} submission{pendingApprovals.length === 1 ? '' : 's'} need approval
+            </h2>
+            <p className="text-xs text-amber-900/80 mt-0.5">
+              Employees have submitted stage work — review photos and notes in the approval queue.
+            </p>
+          </div>
+          <Button variant="primary" size="sm" onClick={goApprovals} className="shrink-0 w-full sm:w-auto">
+            Open queue
+          </Button>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-w-0 dash-priority-row">
+        <div>
+          <div className="dash-panel h-full">
+            <div className="dash-panel__head">
+              <h2 className="dash-panel__title">Pipeline today</h2>
+              <p className="dash-panel__sub">
+                Where today&apos;s {stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'} sit in the
+                workflow
+              </p>
+            </div>
+            <div className="dash-panel__body">
+              {stageDistributionTotal === 0 ? (
+                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center">
+                  No cases scheduled for today
+                </p>
+              ) : (
+                <ul className="list-none m-0 p-0" aria-label="Stage counts for today's surgery date">
+                  {stageDistribution.map((item) => (
+                    <li key={item.stage} className="dash-pipeline-row">
+                      <span className="dash-pipeline-row__label" title={item.stage}>
+                        {item.stage}
+                      </span>
+                      <div
+                        className="dash-pipeline-row__track"
+                        role="img"
+                        aria-label={`${item.count} case${item.count === 1 ? '' : 's'}`}
+                      >
+                        <div
+                          className="dash-pipeline-row__fill"
+                          style={{
+                            width: `${(item.count / stageMax) * 100}%`,
+                            backgroundColor: item.color,
+                          }}
+                        />
+                      </div>
+                      <span className="dash-pipeline-row__count" aria-hidden>
+                        {item.count}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="dash-panel h-full flex flex-col">
+            <div className="dash-panel__head flex items-center justify-between gap-2">
+              <div>
+                <h2 className="dash-panel__title">Needs attention</h2>
+                <p className="dash-panel__sub">Nearest surgery dates · overdue flagged</p>
+              </div>
+              <button type="button" onClick={goCases} className="text-xs nexus-link flex items-center gap-1 shrink-0">
+                All cases <ArrowRight className="h-3 w-3" aria-hidden />
+              </button>
+            </div>
+            <CardBody className="p-0 flex-1 min-h-0">
+              {upcomingCases.length === 0 ? (
+                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center px-5">No open cases</p>
+              ) : (
+                upcomingCases.map((c) => {
+                  const sc = getStageStyle(c.currentStage);
+                  const pc = getPriorityStyle(c.priority);
+                  const overdue = new Date(c.surgeryDate) < new Date() && c.status !== 'Completed';
+                  return (
+                    <div
+                      key={c.id}
+                      role="button"
+                      tabIndex={0}
+                      className="dash-list-item dash-list-item--clickable"
+                      aria-label={`Open case ${c.caseNumber}, ${c.currentStage}${overdue ? ', surgery date passed' : ''}`}
+                      onClick={() => {
+                        setSelectedCase(c.id);
+                        goCases();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedCase(c.id);
+                          goCases();
+                        }
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-[var(--color-label)]">{c.caseNumber}</span>
+                          <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
+                        </div>
+                        <p className="text-xs text-[var(--color-label-secondary)] truncate mt-0.5">
+                          {c.hospital?.name ?? 'Unknown hospital'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[10px]`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} aria-hidden />
+                            {c.currentStage}
+                          </Badge>
+                          <span className="text-[11px] text-[var(--color-label-tertiary)] inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3" aria-hidden />
+                            {formatDate(c.surgeryDate)}
+                          </span>
+                        </div>
+                        {overdue && (
+                          <p className="flex items-center gap-1 mt-1.5 text-[11px] text-red-600 font-medium">
+                            <AlertTriangle className="h-3 w-3" aria-hidden />
+                            Surgery date passed
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardBody>
+          </div>
+        </div>
+      </div>
+
+      <div className="dash-quick hidden lg:flex">
         <button type="button" className="dash-quick__btn" onClick={goWorkflow}>
           <LayoutGrid className="h-4 w-4" aria-hidden />
           Workflow
@@ -249,13 +435,8 @@ export const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-w-0 items-stretch">
-        <motion.div
-          className="lg:col-span-7 min-w-0"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.35 }}
-        >
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-w-0 items-stretch dash-secondary-row">
+        <div className="lg:col-span-7 min-w-0">
           <div className="dash-panel h-full">
             <div className="dash-panel__head flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
@@ -329,160 +510,24 @@ export const Dashboard: React.FC = () => {
                 <span>
                   Active tasks today: <strong>{todayAssignments.length}</strong>
                 </span>
-                <span>
-                  All-time completed: <strong>{completedCases.length}</strong>
-                </span>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="lg:col-span-5 min-w-0 min-h-[320px] lg:min-h-[360px]"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.35 }}
-        >
+        <div className="lg:col-span-5 min-w-0 min-h-[320px] lg:min-h-[360px]">
           <AdminOpsFeedCard metrics={insightMetrics} className="h-full min-h-[320px]" />
-        </motion.div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 min-w-0">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.35 }}
-        >
-          <div className="dash-panel h-full">
-            <div className="dash-panel__head">
-              <h2 className="dash-panel__title">Pipeline today</h2>
-              <p className="dash-panel__sub">
-                {stageDistributionTotal} case{stageDistributionTotal === 1 ? '' : 's'} on today&apos;s board
-              </p>
-            </div>
-            <div className="dash-panel__body">
-              {stageDistributionTotal === 0 ? (
-                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center">
-                  No cases scheduled for today
-                </p>
-              ) : (
-                <ul className="list-none m-0 p-0">
-                  {stageDistribution.map((item) => (
-                    <li key={item.stage} className="dash-pipeline-row">
-                      <span className="dash-pipeline-row__label" title={item.stage}>
-                        {item.stage}
-                      </span>
-                      <div className="dash-pipeline-row__track" aria-hidden>
-                        <div
-                          className="dash-pipeline-row__fill"
-                          style={{
-                            width: `${(item.count / stageMax) * 100}%`,
-                            backgroundColor: item.color,
-                          }}
-                        />
-                      </div>
-                      <span className="dash-pipeline-row__count">{item.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14, duration: 0.35 }}
-        >
-          <div className="dash-panel h-full flex flex-col">
-            <div className="dash-panel__head flex items-center justify-between gap-2">
-              <div>
-                <h2 className="dash-panel__title">Up next</h2>
-                <p className="dash-panel__sub">Nearest surgery dates</p>
-              </div>
-              <button type="button" onClick={goCases} className="text-xs nexus-link flex items-center gap-1 shrink-0">
-                All <ArrowRight className="h-3 w-3" />
-              </button>
-            </div>
-            <CardBody className="p-0 flex-1 min-h-0">
-              {upcomingCases.length === 0 ? (
-                <p className="text-sm text-[var(--color-label-tertiary)] py-8 text-center px-5">No open cases</p>
-              ) : (
-                upcomingCases.map((c) => {
-                  const sc = getStageStyle(c.currentStage);
-                  const pc = getPriorityStyle(c.priority);
-                  const overdue = new Date(c.surgeryDate) < new Date() && c.status !== 'Completed';
-                  return (
-                    <div
-                      key={c.id}
-                      role="button"
-                      tabIndex={0}
-                      className="dash-list-item dash-list-item--clickable"
-                      onClick={() => {
-                        setSelectedCase(c.id);
-                        goCases();
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setSelectedCase(c.id);
-                          goCases();
-                        }
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-[var(--color-label)]">{c.caseNumber}</span>
-                          <Badge className={`${pc} text-[10px]`}>{c.priority}</Badge>
-                        </div>
-                        <p className="text-xs text-[var(--color-label-secondary)] truncate mt-0.5">
-                          {c.hospital?.name ?? 'Unknown hospital'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <Badge className={`${sc.bg} ${sc.text} ${sc.border} text-[10px]`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />
-                            {c.currentStage}
-                          </Badge>
-                          <span className="text-[11px] text-[var(--color-label-tertiary)] inline-flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(c.surgeryDate)}
-                          </span>
-                        </div>
-                        {overdue && (
-                          <p className="flex items-center gap-1 mt-1.5 text-[11px] text-red-600">
-                            <AlertTriangle className="h-3 w-3" />
-                            Surgery date passed
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardBody>
-          </div>
-        </motion.div>
-      </div>
-
-      <motion.div
-        className="dash-attendance-wrap"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.16, duration: 0.35 }}
-      >
+      <div className="dash-attendance-wrap">
         <DashboardAttendanceSection
           metrics={attendanceMetrics}
           onOpenAttendance={goAttendance}
         />
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18, duration: 0.35 }}
-      >
-        <div className="dash-panel">
+      <div className="dash-panel">
           <div className="dash-panel__head flex items-center justify-between gap-2">
             <div>
               <h2 className="dash-panel__title">Recent activity</h2>
@@ -539,7 +584,6 @@ export const Dashboard: React.FC = () => {
             )}
           </CardBody>
         </div>
-      </motion.div>
     </NexusPage>
   );
 };

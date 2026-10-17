@@ -378,10 +378,8 @@ export const Cases: React.FC = () => {
           const pc = priorityColors[c.priority];
           const stc = statusColors[c.status];
           return (
-            <motion.div
+            <div
               key={c.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
               className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
             >
               <div className="flex items-start justify-between gap-3 mb-3">
@@ -417,37 +415,43 @@ export const Cases: React.FC = () => {
                 </Badge>
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
                     onClick={() => setSelectedCase(c.id)}
-                    className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-100 text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                     title="View"
+                    aria-label={`View case ${c.caseNumber}`}
                   >
                     <Eye className="h-4 w-4" />
                   </button>
                   {canEdit(c) && (
                     <button
+                      type="button"
                       onClick={() => setEditCaseId(c.id)}
-                      className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-gray-100 text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                       title="Edit"
+                      aria-label={`Edit case ${c.caseNumber}`}
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
                   )}
                   {(viewMode === 'admin' || viewMode === 'store_manager') && (
                     <button
+                      type="button"
                       onClick={() => {
                         if (confirm(`Are you sure you want to delete case ${c.caseNumber}?`)) {
                           deleteCase(c.id);
                         }
                       }}
-                      className="p-2 rounded-lg hover:bg-red-50 text-red-500"
+                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-red-50 text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                       title="Delete"
+                      aria-label={`Delete case ${c.caseNumber}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
               </div>
-            </motion.div>
+            </div>
           );
         })}
         {paginated.length === 0 && (
@@ -494,10 +498,8 @@ export const Cases: React.FC = () => {
                 const pc = priorityColors[c.priority];
                 const stc = statusColors[c.status];
                 return (
-                  <motion.tr
+                  <tr
                     key={c.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
                     className="group hover:bg-gray-50/70 transition-colors"
                   >
                     <td className="px-4 py-3.5">
@@ -586,40 +588,50 @@ export const Cases: React.FC = () => {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={() => setSelectedCase(c.id)}
-                          className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                           title="View Details"
+                          aria-label={`View case ${c.caseNumber}`}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         {canEdit(c) && (
                           <button
+                            type="button"
                             onClick={() => setEditCaseId(c.id)}
-                            className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                             title="Edit Case"
+                            aria-label={`Edit case ${c.caseNumber}`}
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
                         )}
                         {(viewMode === 'admin' || viewMode === 'store_manager') && (
                           <button
+                            type="button"
                             onClick={() => {
                               if (confirm(`Are you sure you want to delete case ${c.caseNumber}?`)) {
                                 deleteCase(c.id);
                               }
                             }}
-                            className="p-1.5 rounded-md hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-1.5 rounded-md hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
                             title="Delete Case"
+                            aria-label={`Delete case ${c.caseNumber}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        <button className="p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] lg:min-h-0 lg:min-w-0 lg:p-1.5 rounded-md hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                          aria-label="More actions"
+                        >
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
-                  </motion.tr>
+                  </tr>
                 );
               })}
             </tbody>
@@ -645,7 +657,7 @@ export const Cases: React.FC = () => {
                 key={i}
                 onClick={() => setPage(i)}
                 title={pageButtonTitle(i)}
-                className={`h-7 min-w-7 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`hidden lg:inline-flex items-center justify-center h-7 min-w-7 px-1.5 text-xs rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>
@@ -666,7 +678,7 @@ export const Cases: React.FC = () => {
                 key={i}
                 onClick={() => setPage(i)}
                 title={pageButtonTitle(i)}
-                className={`h-8 min-w-8 px-1.5 text-xs rounded-md transition-colors ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-xs rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${page === i ? 'bg-[var(--color-accent)] text-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 {i + 1}
               </button>

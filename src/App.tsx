@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
@@ -7,7 +7,7 @@ import { Cases } from './pages/Cases';
 import { CaseDutiesPage } from './pages/CaseDutiesPage';
 import { isCaseDutyTab } from './lib/caseDuties';
 import { LiveCases } from './pages/LiveCases';
-import { TvBoard } from './pages/TvBoard';
+const TvBoard = React.lazy(() => import('./pages/TvBoard').then((m) => ({ default: m.TvBoard })));
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { TaskRequestQueue } from './pages/TaskRequestQueue';
@@ -369,7 +369,9 @@ function MainApp() {
   if (activeTab === 'tv-board') {
     return (
       <AppErrorBoundary>
-        <TvBoard />
+        <Suspense fallback={<AppBootScreen />}>
+          <TvBoard />
+        </Suspense>
       </AppErrorBoundary>
     );
   }

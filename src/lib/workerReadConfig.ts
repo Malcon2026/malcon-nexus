@@ -1,30 +1,33 @@
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_REMOTE_API } from './cloudflareConfig';
 
 /**
  * Phase 8 — opt-in local Worker reads (default off; Supabase remains default).
  */
 export const USE_WORKER_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_READS === 'true';
+  USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_READS === 'true';
 
 /** Phase 9.1 — notification reads only (default off). */
 export const USE_WORKER_NOTIFICATION_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_NOTIFICATION_READS === 'true';
+  USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_NOTIFICATION_READS === 'true';
 
 /** Phase 9.2 — hospitals, doctors, departments, kits, app_settings reads (default off). */
 export const USE_WORKER_REFERENCE_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_REFERENCE_READS === 'true';
+  USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_REFERENCE_READS === 'true';
 
 /** Phase 9.3 — attendance + operational reads (default off). */
 export const USE_WORKER_OPERATIONS_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_OPERATIONS_READS === 'true';
+  USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_OPERATIONS_READS === 'true';
 
 /** Phase 9.4 — approvals, activity, case-task reads + server-side case scope (default off). */
 export const USE_WORKER_REMAINING_READS =
-  USE_CLOUDFLARE_BACKEND || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
+  USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
 
+/** AWS / Worker API base (no trailing slash). `VITE_API_BASE_URL` is an alias. */
 export const WORKER_API_URL =
-  (import.meta.env.VITE_WORKER_API_URL as string | undefined)?.replace(/\/+$/, '') ||
-  'http://127.0.0.1:8787';
+  (
+    (import.meta.env.VITE_WORKER_API_URL as string | undefined) ||
+    (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  )?.replace(/\/+$/, '') || 'http://127.0.0.1:8787';
 
 export function useWorkerReads(): boolean {
   return USE_WORKER_READS;

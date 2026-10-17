@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Send, Loader2, Package, ShoppingCart, Ban, ParkingCircle, CalendarClock } from 'lucide-react';
 import { normalizeDateKey } from '../lib/attendance';
 import { RESTOCK_SUBMIT_OPTIONS, type RestockOutcomeTone } from '../lib/restock';
@@ -63,6 +63,8 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [postponeDate, setPostponeDate] = useState('');
   const [selectedRestock, setSelectedRestock] = useState<RestockOutcome | null>(null);
+  const postponeDateFieldId = useId();
+  const completionNotesFieldId = useId();
 
   useEffect(() => {
     if (isOpen) {
@@ -430,8 +432,14 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               <p className="text-xs mt-1 text-sky-800/90">
                 Surgery delayed — kit stays at hospital. Pick the new date below (photos optional).
               </p>
-              <label className="block text-xs font-medium text-sky-900 mt-3 mb-1">New surgery date *</label>
+              <label
+                htmlFor={postponeDateFieldId}
+                className="block text-xs font-medium text-sky-900 mt-3 mb-1"
+              >
+                New surgery date *
+              </label>
               <input
+                id={postponeDateFieldId}
                 type="date"
                 className="nexus-field-input nexus-field-input--plain w-full text-sm"
                 value={postponeDate}
@@ -498,8 +506,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
         {!isSurgery && !isRestock && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">Completion Notes *</label>
+            <label htmlFor={completionNotesFieldId} className="block text-xs font-medium text-gray-700 mb-1.5">
+              Completion Notes *
+            </label>
             <textarea
+              id={completionNotesFieldId}
               className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
               rows={4}
               placeholder={notesPlaceholder}
@@ -512,10 +523,11 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
         {isSurgery && (
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+            <label htmlFor={completionNotesFieldId} className="block text-xs font-medium text-gray-700 mb-1.5">
               Completion notes <span className="text-gray-400 font-normal">(only if surgery completed)</span>
             </label>
             <textarea
+              id={completionNotesFieldId}
               className="nexus-field-input nexus-field-input--plain w-full min-h-[72px] py-2 text-sm resize-y"
               rows={3}
               placeholder={notesPlaceholder}
