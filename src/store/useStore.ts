@@ -151,6 +151,8 @@ interface AppState {
   sidebarCollapsed: boolean;
   mobileSidebarOpen: boolean;
   activeTab: string;
+  /** Employee mobile shell — bottom bar (Home, Cases, Punch, Petrol, Profile). */
+  employeeShellTab: import('../lib/employeeShell').EmployeeShellTab;
   /** Admin Attendance → Register tab (wide grid; sidebar auto-collapse on desktop). */
   attendanceRegisterViewActive: boolean;
 
@@ -160,6 +162,7 @@ interface AppState {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
+  setEmployeeShellTab: (tab: import('../lib/employeeShell').EmployeeShellTab) => void;
   setAttendanceRegisterViewActive: (active: boolean) => void;
   /** Incremented to open Create Case from keyboard shortcuts. */
   createCaseSignal: number;
@@ -1341,6 +1344,7 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   mobileSidebarOpen: false,
   activeTab: 'dashboard',
+  employeeShellTab: 'home',
   attendanceRegisterViewActive: false,
   createCaseSignal: 0,
   createCaseModalOpen: false,
@@ -1358,6 +1362,12 @@ export const useStore = create<AppState>((set, get) => ({
       activeTab: tab,
       mobileSidebarOpen: false,
       ...(tab !== 'attendance' ? { attendanceRegisterViewActive: false } : {}),
+    }),
+  setEmployeeShellTab: (tab) =>
+    set({
+      employeeShellTab: tab,
+      activeTab: tab === 'profile' ? 'settings' : 'dashboard',
+      mobileSidebarOpen: false,
     }),
   setAttendanceRegisterViewActive: (active) => set({ attendanceRegisterViewActive: active }),
   openCreateCaseModal: () => set({ createCaseModalOpen: true }),

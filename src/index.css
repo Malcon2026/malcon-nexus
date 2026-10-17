@@ -2,6 +2,7 @@
 @import "./styles/tokens.css";
 @import "./styles/nexus-theme.css";
 @import "./styles/admin-dashboard.css";
+@import "./styles/employee-bottom-nav.css";
 
 @theme {
   --font-sans: var(--font-sans);

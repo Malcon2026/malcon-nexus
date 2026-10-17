@@ -6,14 +6,19 @@ import { useStore } from '../../store/useStore';
 import { Avatar } from '../ui/Avatar';
 import { timeAgo } from '../../utils/helpers';
 import { formatEmployeeDepartments } from '../../constants/departments';
+import { EMPLOYEE_SHELL_TAB_LABELS } from '../../lib/employeeShell';
 
-export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
+export const TopBar: React.FC<{ onLogout?: () => void; employeeShell?: boolean }> = ({
+  onLogout,
+  employeeShell = false,
+}) => {
   const {
     notifications,
     markNotificationRead,
     markAllNotificationsRead,
     currentUser,
     activeTab,
+    employeeShellTab,
     setMobileSidebarOpen,
   } = useStore();
   const [showNotifs, setShowNotifs] = useState(false);
@@ -62,29 +67,37 @@ export const TopBar: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     onLogout?.();
   };
 
+  const headerTitle = employeeShell
+    ? EMPLOYEE_SHELL_TAB_LABELS[employeeShellTab]
+    : pageTitle[activeTab] || 'Dashboard';
+
   return (
     <header className="nexus-topbar flex items-center gap-2 sm:gap-3 shrink-0">
-      <button
-        onClick={() => setMobileSidebarOpen(true)}
-        className="nexus-topbar-icon-btn lg:hidden shrink-0"
-        aria-label="Open menu"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
+      {!employeeShell && (
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="nexus-topbar-icon-btn lg:hidden shrink-0"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
 
       <div className="flex-1 min-w-0">
         <h1 className="nexus-topbar-title truncate">
-          {pageTitle[activeTab] || 'Dashboard'}
+          {headerTitle}
         </h1>
       </div>
 
       <div className="relative hidden md:block shrink-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-label-tertiary)]" />
-        <input
-          type="text"
-          placeholder="Search cases, hospitals..."
-          className="nexus-topbar-search"
-        />
+        {!employeeShell && (
+          <input
+            type="text"
+            placeholder="Search cases, hospitals..."
+            className="nexus-topbar-search"
+          />
+        )}
       </div>
 
       <span className="nexus-topbar-chip hidden sm:inline-flex shrink-0 capitalize">

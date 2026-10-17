@@ -40,8 +40,24 @@ import { useEmployeeLocationPrompt } from '../hooks/useEmployeeLocationPrompt';
 import { isSelfieOnlyAttendance } from '../lib/attendance';
 import { EmployeeLocationBanner } from '../components/EmployeeLocationBanner';
 import { NexusPage } from '../components/layout/NexusPageHeader';
+import type { EmployeeShellTab } from '../lib/employeeShell';
 
 type EmployeePage = 'home' | 'attendance' | 'cases' | 'leaves' | 'register' | 'alerts' | 'petrol' | 'food' | 'location';
+
+function shellTabToPage(tab: EmployeeShellTab): EmployeePage {
+  switch (tab) {
+    case 'home':
+      return 'home';
+    case 'cases':
+      return 'cases';
+    case 'punch':
+      return 'attendance';
+    case 'petrol':
+      return 'petrol';
+    default:
+      return 'home';
+  }
+}
 
 const SubmitModal: React.FC<{ isOpen: boolean; onClose: () => void; case: ImplantCase }> = ({ isOpen, onClose, case: c }) => (
   <SubmitStageModal isOpen={isOpen} onClose={onClose} implantCase={c} />
@@ -741,11 +757,29 @@ const EmployeeAlertsPage: React.FC = () => {
 
 export const EmployeeDashboard: React.FC = () => {
   const currentUser = useStore((s) => s.currentUser);
+  const employeeShellTab = useStore((s) => s.employeeShellTab);
+  const setEmployeeShellTab = useStore((s) => s.setEmployeeShellTab);
   const reloadFromDatabase = useStore((s) => s.reloadFromDatabase);
   const locationPrompt = useEmployeeLocationPrompt(!isSelfieOnlyAttendance());
-  const [page, setPage] = useState<EmployeePage>('home');
+  const [subPage, setSubPage] = useState<EmployeePage | null>(null);
   const [submitCase, setSubmitCase] = useState<ImplantCase | null>(null);
   const [viewCase, setViewCase] = useState<ImplantCase | null>(null);
+
+  const page = subPage ?? shellTabToPage(employeeShellTab);
+
+  useEffect(() => {
+    setSubPage(null);
+  }, [employeeShellTab]);
+
+  const openSubPage = (p: EmployeePage) => setSubPage(p);
+  const backToShell = () => {
+    if (subPage) {
+      setSubPage(null);
+      return;
+    }
+    setEmployeeShellTab('home');
+  };
+  const showSectionBack = subPage !== null;
 
   useEffect(() => {
     if (page !== 'cases') return;
@@ -803,20 +837,24 @@ export const EmployeeDashboard: React.FC = () => {
               </p>
             )}
           </header>
-          <HomeNavTiles employee={currentUser} onOpen={setPage} />
+          <HomeNavTiles employee={currentUser} onOpen={openSubPage} />
         </>
       )}
 
       {page === 'attendance' && (
         <>
-          <PageHeader title="Punch in / out" titleTe="Attendance" onBack={() => setPage('home')} />
-          <EmployeeAttendanceHero onPunchInSuccess={() => setPage('food')} />
+          {showSectionBack && (
+            <PageHeader title="Punch in / out" titleTe="Attendance" onBack={backToShell} />
+          )}
+          <EmployeeAttendanceHero onPunchInSuccess={() => openSubPage('food')} />
         </>
       )}
 
       {page === 'cases' && (
         <>
-          <PageHeader title="Cases" titleTe="Naa cases" onBack={() => setPage('home')} />
+          {showSectionBack && (
+            <PageHeader title="Cases" titleTe="Naa cases" onBack={backToShell} />
+          )}
           <EmployeeCasesPanel
             employee={currentUser}
             onViewCase={setViewCase}
@@ -827,7 +865,7 @@ export const EmployeeDashboard: React.FC = () => {
 
       {page === 'leaves' && (
         <>
-          <PageHeader title="Leaves" titleTe="Leave apply" onBack={() => setPage('home')} />
+          <PageHeader title="Leaves" titleTe="Leave apply" onBack={backToShell} />
           <LeaveApplySection />
         </>
       )}
@@ -837,7 +875,7 @@ export const EmployeeDashboard: React.FC = () => {
           <PageHeader
             title={isStoreManager(currentUser.role) ? 'Team register' : 'Register'}
             titleTe="Attendance register"
-            onBack={() => setPage('home')}
+            onBack={backToShell}
           />
           <EmployeeRegisterPage
             employeeId={currentUser.id}
@@ -848,28 +886,30 @@ export const EmployeeDashboard: React.FC = () => {
 
       {page === 'petrol' && (
         <>
-          <PageHeader title="Petrol" titleTe="Petrol token" onBack={() => setPage('home')} />
+          {showSectionBack && (
+            <PageHeader title="Petrol" titleTe="Petrol token" onBack={backToShell} />
+          )}
           <EmployeePetrolSection />
         </>
       )}
 
       {page === 'food' && (
         <>
-          <PageHeader title="Food" titleTe="Meals" onBack={() => setPage('home')} />
+          <PageHeader title="Food" titleTe="Meals" onBack={backToShell} />
           <EmployeeFoodSection />
         </>
       )}
 
       {page === 'location' && (
         <>
-          <PageHeader title="Location punchin" titleTe="Location punch" onBack={() => setPage('home')} />
+          <PageHeader title="Location punchin" titleTe="Location punch" onBack={backToShell} />
           <LocationPunchSection />
         </>
       )}
 
       {page === 'alerts' && (
         <>
-          <PageHeader title="Alerts" titleTe="Notifications" onBack={() => setPage('home')} />
+          <PageHeader title="Alerts" titleTe="Notifications" onBack={backToShell} />
           <EmployeeAlertsPage />
         </>
       )}

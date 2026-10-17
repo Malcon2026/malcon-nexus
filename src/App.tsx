@@ -39,6 +39,8 @@ import {
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ShortcutsHelpModal } from './components/ShortcutsHelpModal';
 import { GlobalAddCaseFab } from './components/layout/GlobalAddCaseFab';
+import { EmployeeBottomNav } from './components/layout/EmployeeBottomNav';
+import { isEmployeeAppShell } from './lib/employeeShell';
 import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useLiveDataSync } from './hooks/useLiveDataSync';
 import { useStore } from './store/useStore';
@@ -78,7 +80,8 @@ function App() {
 }
 
 function MainApp() {
-  const { activeTab, viewMode, setCurrentUser, reloadFromDatabase } = useStore();
+  const { activeTab, viewMode, employeeShellTab, setCurrentUser, reloadFromDatabase } = useStore();
+  const employeeShell = isEmployeeAppShell(viewMode);
 
   const [authChecked, setAuthChecked] = useState(!REMOTE_AUTH);
   const [isAuthenticated, setIsAuthenticated] = useState(!REMOTE_AUTH);
@@ -304,13 +307,14 @@ function MainApp() {
       }
     }
 
-    if (viewMode === 'employee' || viewMode === 'store_manager') {
+    if (viewMode === 'employee') {
+      if (employeeShellTab === 'profile') return <Settings />;
+      return <EmployeeDashboard />;
+    }
+
+    if (viewMode === 'store_manager') {
       if (isCaseDutyTab(activeTab)) {
-        return viewMode === 'store_manager' ? (
-          <CaseDutiesPage />
-        ) : (
-          <EmployeeDashboard />
-        );
+        return <CaseDutiesPage />;
       }
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
@@ -379,17 +383,19 @@ function MainApp() {
   return (
     <AppErrorBoundary>
     <div className="nexus-app-shell flex h-[100dvh] w-full max-w-full min-w-0 overflow-hidden">
-      <Sidebar />
+      {!employeeShell && <Sidebar />}
 
-      <div className="nexus-app-main flex-1 min-w-0 flex flex-col overflow-hidden">
-        <TopBar onLogout={handleLogout} />
+      <div
+        className={`nexus-app-main flex-1 min-w-0 flex flex-col overflow-hidden${employeeShell ? ' nexus-app-main--employee-shell' : ''}`}
+      >
+        <TopBar onLogout={handleLogout} employeeShell={employeeShell} />
         <DataHydrationBanner phase={hydrationPhase} />
 
         <main className="relative flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
           <DataHydrationMainOverlay active={isHydrating} />
           <AnimatePresence mode="wait">
             <motion.div
-              key={`${activeTab}-${viewMode}`}
+              key={`${activeTab}-${viewMode}-${employeeShellTab}`}
               variants={pageVariants}
               initial="initial"
               animate="animate"
@@ -404,7 +410,8 @@ function MainApp() {
       </div>
 
       <ShortcutsHelpModal isOpen={shortcutsHelpOpen} onClose={() => setShortcutsHelpOpen(false)} />
-      <GlobalAddCaseFab />
+      {!employeeShell && <GlobalAddCaseFab />}
+      {employeeShell && <EmployeeBottomNav />}
     </div>
     </AppErrorBoundary>
   );
