@@ -12,6 +12,10 @@ import {
   type GalleryAlbumSummary,
   type GalleryPhoto,
 } from '../lib/galleryFeed';
+import {
+  GALLERY_TV_TOKEN_FEED_DEFERRED,
+  isGalleryTvTokenFeedAvailable,
+} from '../lib/publicFeedAvailability';
 
 type AlbumType = 'att' | 'case';
 
@@ -156,6 +160,11 @@ export function GalleryPage() {
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    if (!isGalleryTvTokenFeedAvailable()) {
+      setError(GALLERY_TV_TOKEN_FEED_DEFERRED);
+      setLoading(false);
+      return;
+    }
     if (!token) {
       setError('Add ?token=YOUR_SECRET to the URL');
       setLoading(false);

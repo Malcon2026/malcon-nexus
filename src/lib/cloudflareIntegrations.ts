@@ -14,7 +14,7 @@ export type IntegrationAvailability = {
 };
 
 const SUPABASE_EDGE_ONLY =
-  'This feature still uses Supabase Edge Functions and is not wired to the Cloudflare Worker yet.';
+  'This feature still uses Supabase Edge Functions and is not wired to the AWS / Worker API yet.';
 
 export function integrationAvailability(id: CloudflareIntegrationId): IntegrationAvailability {
   if (!USE_CLOUDFLARE_BACKEND) {

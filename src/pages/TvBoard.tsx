@@ -6,6 +6,7 @@ import { formatTimeIST, formatDateIST, getISTDateKey, matchesSurgeryDateKey } fr
 import { TvNoticeTicker } from '../components/TvNoticeTicker';
 import { isPostSurgeryStage, isTvBoardVisibleCase, isFcfsPoolCase, getCurrentStageTeamDisplay } from '../lib/caseWorkflow';
 import { fetchTvBoardFeed } from '../lib/tvBoardFeed';
+import { isGalleryTvTokenFeedAvailable } from '../lib/publicFeedAvailability';
 
 /*
  * NOTE: this page intentionally avoids Tailwind's `white` / `gray-*` / `slate-100/200`
@@ -430,6 +431,7 @@ export const TvBoard: React.FC<TvBoardProps> = ({ kioskMode = false, kioskToken 
   useEffect(() => {
     const refreshFromFeed = async () => {
       if (!kioskToken) return;
+      if (!isGalleryTvTokenFeedAvailable()) return;
       try {
         const data = await fetchTvBoardFeed(kioskToken);
         useStore.setState((s) => ({

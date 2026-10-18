@@ -22,12 +22,27 @@ export const USE_WORKER_OPERATIONS_READS =
 export const USE_WORKER_REMAINING_READS =
   USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
 
-/** AWS / Worker API base (no trailing slash). `VITE_API_BASE_URL` is an alias. */
-export const WORKER_API_URL =
-  (
+function resolveWorkerApiUrl(): string {
+  const raw =
     (import.meta.env.VITE_WORKER_API_URL as string | undefined) ||
-    (import.meta.env.VITE_API_BASE_URL as string | undefined)
-  )?.replace(/\/+$/, '') || 'http://127.0.0.1:8787';
+    (import.meta.env.VITE_API_BASE_URL as string | undefined);
+  const trimmed = raw?.replace(/\/+$/, '');
+  if (trimmed) return trimmed;
+
+  const awsProd =
+    import.meta.env.PROD &&
+    (import.meta.env.VITE_USE_AWS_BACKEND === 'true' ||
+      import.meta.env.VITE_USE_CLOUDFLARE_BACKEND === 'true');
+  if (awsProd) {
+    throw new Error(
+      'Production build requires VITE_WORKER_API_URL (or VITE_API_BASE_URL) when using AWS/Cloudflare backend.',
+    );
+  }
+  return 'http://127.0.0.1:8787';
+}
+
+/** AWS / Worker API base (no trailing slash). `VITE_API_BASE_URL` is an alias. */
+export const WORKER_API_URL = resolveWorkerApiUrl();
 
 export function useWorkerReads(): boolean {
   return USE_WORKER_READS;

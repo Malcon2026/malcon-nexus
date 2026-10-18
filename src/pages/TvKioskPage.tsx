@@ -4,6 +4,10 @@ import { Loader2 } from 'lucide-react';
 import { TvBoard } from './TvBoard';
 import { fetchTvBoardFeed } from '../lib/tvBoardFeed';
 import { useStore } from '../store/useStore';
+import {
+  GALLERY_TV_TOKEN_FEED_DEFERRED,
+  isGalleryTvTokenFeedAvailable,
+} from '../lib/publicFeedAvailability';
 
 const INK = '#f4f6fb';
 const INK_MUTED = '#9aa5b8';
@@ -17,6 +21,11 @@ export function TvKioskPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isGalleryTvTokenFeedAvailable()) {
+      setError(GALLERY_TV_TOKEN_FEED_DEFERRED);
+      setReady(false);
+      return;
+    }
     if (!token) {
       setError('Add ?token=YOUR_SECRET to the URL (same token as TV_BOARD_TOKEN in Supabase).');
       setReady(false);
