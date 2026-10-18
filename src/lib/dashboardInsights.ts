@@ -15,6 +15,7 @@ import {
 } from './caseWorkflow';
 import { normalizeWorkflowStage } from '../utils/helpers';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { USE_SUPABASE } from './database/config';
 import { supabase } from './supabase';
 
 /** Set true to call Gemini via dashboard-insights edge function on admin dashboard. */
@@ -453,6 +454,13 @@ async function fetchDashboardInsight(
   options?: { refresh?: boolean },
 ): Promise<DashboardInsightResult> {
   const generatedAt = new Date().toISOString();
+  if (!USE_SUPABASE || !ADMIN_DASHBOARD_AI_ENABLED) {
+    return {
+      summary: formatDemo(metrics),
+      source: 'demo',
+      generatedAt,
+    };
+  }
   const { data, error } = await supabase.functions.invoke('dashboard-insights', {
     body: { scope, metrics, refresh: options?.refresh === true },
   });

@@ -138,7 +138,7 @@ function parseJsonField(raw: string | null, fallback: unknown) {
   }
 }
 
-function mapCaseDetail(r: CaseDetailRow) {
+export function mapCaseDetail(r: CaseDetailRow) {
   return {
     id: r.id,
     case_number: r.caseNumber,

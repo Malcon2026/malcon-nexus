@@ -32,6 +32,7 @@ import {
   handleListApprovals,
   handleListCaseTaskRequests,
 } from './routes/workflowReads';
+import { handleGalleryFeed } from './routes/galleryFeed';
 import { handleStorageDelete, handleStorageStatus, handleStorageUpload } from './routes/storage';
 import {
   handleDeleteCase,
@@ -139,6 +140,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
             (path === '/api/auth/login' ||
               path === '/api/auth/request-otp' ||
               path === '/api/auth/verify-otp')) ||
+          (request.method === 'GET' && path === '/api/gallery-feed') ||
           false;
 
         if (!publicAuth) {
@@ -174,6 +176,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         }
         if (request.method === 'POST' && path === '/api/case-alerts/acknowledge') {
           return withCors(await handleCaseAlertsAcknowledge(request, env, auth), env);
+        }
+
+        if (request.method === 'GET' && path === '/api/gallery-feed') {
+          return withCors(await handleGalleryFeed(request, env), env);
         }
 
         if (request.method === 'GET' && path === '/api/storage/status') {

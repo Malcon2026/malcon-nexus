@@ -1,16 +1,14 @@
 import { formatTimeIST, getISTDateKey } from './attendance';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
+import { galleryFeedEndpoint, galleryFeedRequestHeaders } from './galleryFeedEndpoint';
 
 function galleryUrl(params: Record<string, string>): string {
   const q = new URLSearchParams(params);
-  return `${SUPABASE_URL}/functions/v1/gallery-feed?${q.toString()}`;
+  return `${galleryFeedEndpoint()}?${q.toString()}`;
 }
 
 async function galleryFetch<T>(params: Record<string, string>): Promise<T> {
   const res = await fetch(galleryUrl(params), {
-    headers: ANON_KEY ? { apikey: ANON_KEY } : {},
+    headers: galleryFeedRequestHeaders(),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {

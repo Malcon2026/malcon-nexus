@@ -2,15 +2,16 @@
 /**
  * Build and deploy static dist to https://app.malconnexus.com (Hostinger).
  *
- * Prerequisites: `hostinger` CLI authenticated; .env with VITE_SUPABASE_*.
+ * Prerequisites: `hostinger` CLI authenticated; `.env.production.aws` for AWS deploy (no Supabase).
  *
  *   node scripts/deploy-hostinger-app.mjs
  *   node scripts/deploy-hostinger-app.mjs --dry-run
  *   node scripts/deploy-hostinger-app.mjs --cutover   # loads .env.production.cutover (Worker/D1 data; Supabase Auth only)
  *   node scripts/deploy-hostinger-app.mjs --cloudflare # loads .env.production.cloudflare (no Supabase)
+ *   node scripts/deploy-hostinger-app.mjs --aws          # loads .env.production.aws (PostgreSQL API)
  */
 
-import { readFileSync, existsSync, rmSync, mkdirSync, cpSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, cpSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -20,6 +21,7 @@ const root = resolve(__dirname, '..');
 const dryRun = process.argv.includes('--dry-run');
 const cutover = process.argv.includes('--cutover');
 const cloudflare = process.argv.includes('--cloudflare');
+const aws = process.argv.includes('--aws');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
@@ -40,16 +42,31 @@ function loadEnvFile(relativePath, { override = false } = {}) {
   return true;
 }
 
+/** Production remote backends must not embed Supabase URLs/keys from .env.local. */
+function stripSupabaseViteEnv() {
+  delete process.env.VITE_SUPABASE_URL;
+  delete process.env.VITE_SUPABASE_ANON_KEY;
+}
+
 function loadEnv() {
   for (const f of ['.env', '.env.local', '.env.production']) {
     loadEnvFile(f);
   }
-  if (cloudflare) {
+  if (aws) {
+    const path = '.env.production.aws';
+    if (!loadEnvFile(path, { override: true })) {
+      console.error(`Missing ${path}. Copy .env.production.aws.example → ${path}.`);
+      process.exit(1);
+    }
+    stripSupabaseViteEnv();
+    console.info('[deploy] AWS backend — PostgreSQL API + S3 (no Supabase)');
+  } else if (cloudflare) {
     const path = '.env.production.cloudflare';
     if (!loadEnvFile(path, { override: true })) {
       console.error(`Missing ${path}. Copy .env.production.cloudflare.example → ${path}.`);
       process.exit(1);
     }
+    stripSupabaseViteEnv();
     console.info('[deploy] Cloudflare-only — Worker auth + D1 (no Supabase)');
   } else if (cutover) {
     const cutoverPath = '.env.production.cutover';
@@ -101,18 +118,23 @@ async function tusUpload(baseUrl, authKey, restAuthKey, relativePath, filePath) 
 
 loadEnv();
 
-if (!cloudflare && (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY)) {
+if (!cloudflare && !aws && (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY)) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
   process.exit(1);
 }
 
-if ((cutover || cloudflare) && !process.env.VITE_WORKER_API_URL) {
-  console.error('Cutover/Cloudflare deploy requires VITE_WORKER_API_URL');
+if ((cutover || cloudflare || aws) && !process.env.VITE_WORKER_API_URL) {
+  console.error('Cutover/Cloudflare/AWS deploy requires VITE_WORKER_API_URL');
   process.exit(1);
 }
 
 if (cloudflare && process.env.VITE_USE_CLOUDFLARE_BACKEND !== 'true') {
   console.error('Cloudflare deploy requires VITE_USE_CLOUDFLARE_BACKEND=true');
+  process.exit(1);
+}
+
+if (aws && process.env.VITE_USE_AWS_BACKEND !== 'true') {
+  console.error('AWS deploy requires VITE_USE_AWS_BACKEND=true');
   process.exit(1);
 }
 
@@ -123,6 +145,27 @@ const dist = resolve(root, 'dist');
 if (!existsSync(resolve(dist, 'index.html'))) {
   console.error('[deploy] dist/index.html missing');
   process.exit(1);
+}
+
+if (aws || cloudflare) {
+  patchGalleryStaticApiBase(dist, process.env.VITE_WORKER_API_URL);
+  execSync('node scripts/verify-production-bundle-no-supabase.mjs', {
+    cwd: root,
+    stdio: 'inherit',
+    env: process.env,
+  });
+}
+
+function patchGalleryStaticApiBase(distDir, apiBase) {
+  const base = (apiBase || '').trim().replace(/\/+$/, '');
+  if (!base) return;
+  const galleryHtml = resolve(distDir, 'gallery/index.html');
+  if (!existsSync(galleryHtml)) return;
+  const raw = readFileSync(galleryHtml, 'utf8');
+  const next = raw.replaceAll('__MALCON_API_BASE__', base);
+  if (next === raw) return;
+  writeFileSync(galleryHtml, next);
+  console.info('[deploy] gallery/index.html → Malcon API base set');
 }
 
 const htaccess = resolve(root, 'public/.htaccess');
@@ -164,7 +207,9 @@ execSync(
 );
 
 console.info('\nLive at https://app.malconnexus.com/');
-if (cloudflare) {
+if (aws) {
+  console.info('AWS backend — ensure RDS, S3, and API secrets are set; see .env.production.aws.example');
+} else if (cloudflare) {
   console.info('Cloudflare backend — ensure Worker secrets (JWT, TELEGRAM_BOT_TOKEN) are set; see .env.production.cloudflare.example');
 } else {
   console.info('Update Supabase → Authentication → URL Configuration: Site URL + redirect https://app.malconnexus.com');

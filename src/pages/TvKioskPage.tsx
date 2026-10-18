@@ -27,7 +27,7 @@ export function TvKioskPage() {
       return;
     }
     if (!token) {
-      setError('Add ?token=YOUR_SECRET to the URL (same token as TV_BOARD_TOKEN in Supabase).');
+      setError('Add ?token=YOUR_SECRET to the URL (same value as TV_BOARD_TOKEN / GALLERY_TOKEN in API secrets).');
       setReady(false);
       return;
     }

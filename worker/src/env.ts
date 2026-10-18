@@ -16,6 +16,8 @@ export interface Env {
   /** Supabase project JWT secret (Settings → API → JWT Secret). Alias: JWT_SECRET. */
   SUPABASE_JWT_SECRET?: string;
   JWT_SECRET?: string;
+  /** Previous JWT signing secret(s) during rotation (comma-separated allowed). */
+  JWT_SECRET_PREVIOUS?: string;
   /** Expected JWT `aud` (Supabase default: authenticated). */
   SUPABASE_JWT_AUD?: string;
   STAGE_PHOTOS?: R2Bucket;
@@ -38,4 +40,8 @@ export interface Env {
   ALERT_CRON_SECRET?: string;
   /** Pepper for login OTP hashing (falls back to JWT secret). */
   LOGIN_OTP_SECRET?: string;
+  /** Shared secret for public gallery album URLs (?token=). */
+  GALLERY_TOKEN?: string;
+  /** Shared secret for TV kiosk JSON feed (?token=&mode=tv). */
+  TV_BOARD_TOKEN?: string;
 }

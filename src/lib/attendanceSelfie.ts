@@ -43,7 +43,7 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-async function uploadSelfieToWorkerR2(
+async function uploadSelfieToRemoteStorage(
   target: AttendanceSelfieTarget,
   file: File,
   employeeId: string,
@@ -54,7 +54,7 @@ async function uploadSelfieToWorkerR2(
     const { publicUrl } = await uploadViaWorkerStorage('attendance-selfies', key, file);
     if (!publicUrl) {
       throw new Error(
-        'Selfie uploaded but public URL is not configured. Ask admin to set R2_PUBLIC_BASE_URL on the Worker.',
+        'Selfie uploaded but view URL is not configured. Ask admin to set S3_PUBLIC_BASE_URL on the API.',
       );
     }
     return publicUrl;
@@ -62,7 +62,7 @@ async function uploadSelfieToWorkerR2(
     const msg = formatUnknownError(err);
     if (/not configured|501|NOT_CONFIGURED/i.test(msg)) {
       throw new Error(
-        'Attendance selfie storage (R2) is not configured on the server. Ask admin to bind the attendance-selfies bucket.',
+        'Attendance selfie storage is not configured on the server. Ask admin to configure the attendance-selfies S3 bucket.',
       );
     }
     throw err instanceof Error ? err : new Error(msg);
@@ -83,7 +83,7 @@ export async function uploadAttendanceSelfie(
   });
 
   if (USE_CLOUDFLARE_BACKEND) {
-    return uploadSelfieToWorkerR2(target, stamped, employeeId);
+    return uploadSelfieToRemoteStorage(target, stamped, employeeId);
   }
 
   if (!USE_SUPABASE) {

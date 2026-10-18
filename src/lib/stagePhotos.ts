@@ -290,8 +290,8 @@ function mapStorageUploadError(message: string): string {
   return message || 'Photo upload failed';
 }
 
-/** Cloudflare Worker → R2 (production D1 backend). */
-async function uploadStagePhotoToWorkerR2(
+/** Malcon API → S3 (AWS) or R2 (Cloudflare). Metadata URL is saved on the case in PostgreSQL/D1. */
+async function uploadStagePhotoToRemoteStorage(
   caseId: string,
   stage: WorkflowStage,
   file: File,
@@ -321,7 +321,7 @@ async function uploadStagePhotoToWorkerR2(
     const url = thumbUp.publicUrl;
     if (!url) {
       throw new Error(
-        'Photo uploaded but public URL is not configured. Ask admin to set R2_PUBLIC_BASE_URL on the Worker.',
+        'Photo uploaded but view URL is not configured. Ask admin to set S3_PUBLIC_BASE_URL (or R2_PUBLIC_BASE_URL) on the API.',
       );
     }
     return {
@@ -337,7 +337,7 @@ async function uploadStagePhotoToWorkerR2(
     const msg = formatUnknownError(err);
     if (/not configured|501|NOT_CONFIGURED/i.test(msg)) {
       throw new Error(
-        'Stage photo storage (R2) is not configured on the server. Ask admin to bind the stage-photos bucket on Cloudflare.',
+        'Stage photo storage is not configured on the server. Ask admin to configure the stage-photos S3 bucket on the API.',
       );
     }
     throw err instanceof Error ? err : new Error(msg);
@@ -351,8 +351,8 @@ async function uploadStagePhotoToStorage(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
-  if (USE_WORKER_STORAGE) {
-    return uploadStagePhotoToWorkerR2(caseId, stage, file, uploadedBy);
+  if (USE_CLOUDFLARE_BACKEND || USE_WORKER_STORAGE) {
+    return uploadStagePhotoToRemoteStorage(caseId, stage, file, uploadedBy);
   }
 
   if (file.size === 0) {
@@ -421,7 +421,7 @@ export async function uploadStagePhoto(
 ): Promise<Document> {
   if (USE_CLOUDFLARE_BACKEND) {
     try {
-      return await uploadStagePhotoToWorkerR2(caseId, stage, file, uploadedBy);
+      return await uploadStagePhotoToRemoteStorage(caseId, stage, file, uploadedBy);
     } catch (err) {
       throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
     }

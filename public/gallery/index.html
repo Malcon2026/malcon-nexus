@@ -78,10 +78,11 @@
     <div class="lb-info"><h4 id="lbCap"></h4><p id="lbSub" style="color:var(--muted);font-size:13px;margin-top:4px"></p></div>
   </div>
   <script>
-    const SUPABASE_URL = 'https://urupxpfydfrvjlkpqlvi.supabase.co';
-    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVydXB4cGZ5ZGZydmpsa3BxbHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjAxODMsImV4cCI6MjA5ODk5NjE4M30.VJqgfvRvvb-HOc5uPZ8G1s2KPNigAFE7jGKMBy8w4lY';
+    /** Replaced on deploy:hostinger:aws with VITE_WORKER_API_URL (Malcon API). */
+    const API_BASE = '__MALCON_API_BASE__';
     const TOKEN = new URLSearchParams(location.search).get('token') || '';
-    const FEED = SUPABASE_URL + '/functions/v1/gallery-feed';
+    const FEED =
+      (API_BASE.startsWith('__') ? '' : API_BASE.replace(/\/+$/, '')) + '/api/gallery-feed';
 
     let todayKey = '', albums = [], photos = [], open = null, lbIdx = 0;
 
@@ -111,7 +112,10 @@
       return '<article class="album ' + type + '" data-type="' + type + '" data-date="' + a.dateKey + '"><div class="thumbs">' + thumbHtml + '</div><div style="flex:1;min-width:0"><h3>' + t + (isToday ? '<span class="chip">Today</span>' : '') + '</h3><p>' + labelFor(a.dateKey) + ' · ' + (type === 'att' ? 'Punch-in selfies' : 'Stage photos') + '</p></div><span class="badge">' + n + '</span></article>';
     }
     async function api(path) {
-      const res = await fetch(FEED + path, { headers: { apikey: ANON_KEY } });
+      if (!FEED.startsWith('http')) {
+        throw new Error('Gallery API is not configured. Redeploy with deploy:hostinger:aws.');
+      }
+      const res = await fetch(FEED + path);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load');
       return data;
