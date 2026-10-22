@@ -1,6 +1,6 @@
 import type { ActionCtx } from '../_generated/server';
 import { internal } from '../_generated/api';
-import { JwtVerificationError, parseBearerToken, verifySupabaseAccessToken } from './jwt';
+import { JwtVerificationError, parseBearerToken, verifySupabaseJwt } from './jwt';
 
 export type AppRole = 'admin' | 'employee' | 'petrol' | 'store_manager';
 
@@ -24,22 +24,22 @@ export async function authenticateRequest(ctx: ActionCtx, request: Request): Pro
   }
 
   const secrets = jwtSecrets();
-  if (!secrets.length) {
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  if (!secrets.length && !supabaseUrl) {
     return { identity: null, employeeId: null, role: null, authFailure: 'invalid_jwt' };
   }
 
   let identity: { authUserId: string; email?: string | null } | null = null;
-  for (const secret of secrets) {
-    try {
-      const verified = await verifySupabaseAccessToken(token, secret, {
-        audience: process.env.SUPABASE_JWT_AUD || 'authenticated',
-      });
-      identity = { authUserId: verified.authUserId, email: verified.email };
-      break;
-    } catch (e) {
-      if (e instanceof JwtVerificationError && e.message === 'Token expired') {
-        return { identity: null, employeeId: null, role: null, authFailure: 'invalid_jwt' };
-      }
+  try {
+    const verified = await verifySupabaseJwt(token, {
+      audience: process.env.SUPABASE_JWT_AUD || 'authenticated',
+      secrets,
+      supabaseUrl,
+    });
+    identity = { authUserId: verified.authUserId, email: verified.email };
+  } catch (e) {
+    if (e instanceof JwtVerificationError && e.message === 'Token expired') {
+      return { identity: null, employeeId: null, role: null, authFailure: 'invalid_jwt' };
     }
   }
 
