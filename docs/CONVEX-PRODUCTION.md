@@ -75,3 +75,18 @@ Folders are created on demand via the Drive API (`files.create`, `application/vn
 Optional: `SUPER_ADMIN_EMAILS` — comma-separated emails allowed to load thumbnails / open Drive links (defaults match `VITE_SUPER_ADMIN_EMAILS` in the SPA).
 
 After rotating a leaked service-account key, revoke the old key in **GCP Console → IAM → Service accounts → Keys**, update `GOOGLE_SERVICE_ACCOUNT_JSON` on Convex prod, and delete local copies you no longer need.
+
+## Telegram (not on Convex prod yet)
+
+With **`VITE_USE_CONVEX_BACKEND=true`**, the SPA posts Telegram/case-alert actions to **`VITE_CONVEX_SITE_URL`**, but **`convex/http.ts` does not implement** `/api/telegram/*` or `/api/case-alerts/*` yet. Those calls return **404**.
+
+| Feature | Convex prod today |
+|---------|-------------------|
+| Admin email/password login | Works (Supabase Auth) |
+| Employee OTP login (Telegram code) | **Broken** — Supabase Edge Functions `request-login-otp` / `verify-login-otp` return **404** on malcon-dms |
+| Case notify / broadcast / alert ladder from app | **Broken** — missing Convex routes |
+| Bot `/start` linking | Worker webhook may still hit **Cloudflare Worker + D1**; app reads `telegram_chat_id` from **Convex** — new links may not appear |
+
+**Legacy Worker** (`malcon-nexus-api.malcon-nexus.workers.dev`) still has Telegram routes if `TELEGRAM_*` secrets are set there; it is **not** the Hostinger default data plane.
+
+**To enable on Convex:** port `worker/src/routes/telegram.ts` (+ case-alert services) into Convex HTTP; set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` on prod; point BotFather webhook to `https://fleet-dinosaur-954.convex.site/api/telegram/webhook` (see `scripts/setup-telegram.mjs`). For OTP, either deploy Supabase functions **and** sync employee/OTP data (not recommended) or add Convex HTTP OTP using Convex `employees` / `login_otps` rows.
