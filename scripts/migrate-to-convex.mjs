@@ -29,6 +29,7 @@ function argValue(flag) {
 }
 
 const tableArg = argValue('--table');
+const fromTable = argValue('--from-table');
 const dir = resolve(argValue('--dir') ?? join(root, 'backups/d1-production-jsonl'));
 const batchSize = Number(process.env.CONVEX_IMPORT_BATCH_SIZE || 50);
 
@@ -67,7 +68,15 @@ async function countLines(table) {
 
 loadEnvLocal();
 
-const tables = tableArg ? [tableArg] : IMPORT_TABLE_ORDER;
+let tables = tableArg ? [tableArg] : [...IMPORT_TABLE_ORDER];
+if (fromTable && !tableArg) {
+  const start = tables.indexOf(fromTable);
+  if (start < 0) {
+    console.error(`Unknown --from-table: ${fromTable}`);
+    process.exit(1);
+  }
+  tables = tables.slice(start);
+}
 const manifest = existsSync(join(dir, 'manifest.json'))
   ? JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'))
   : null;
@@ -93,6 +102,28 @@ if (!convexUrl) {
 const migrationKey = process.env.CONVEX_MIGRATION_KEY || 'local-dev-migrate';
 const client = new ConvexHttpClient(convexUrl);
 
+async function importBatch(table, rows) {
+  const maxAttempts = Number(process.env.CONVEX_IMPORT_RETRIES || 8);
+  let delayMs = 1500;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await client.mutation(api.migration.importBatchPublic, {
+        table,
+        rows,
+        migrationKey,
+      });
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const retryable = /502|503|504|Bad Gateway|ECONNRESET|fetch failed/i.test(msg);
+      if (!retryable || attempt === maxAttempts) throw e;
+      console.warn(`[convex-import] ${table} batch retry ${attempt}/${maxAttempts} in ${delayMs}ms…`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 2, 30000);
+    }
+  }
+}
+
 const totals = {};
 
 for (const table of tables) {
@@ -101,22 +132,14 @@ for (const table of tables) {
   for await (const row of lines(table)) {
     batch.push(row);
     if (batch.length >= batchSize) {
-      await client.mutation(api.migration.importBatchPublic, {
-        table,
-        rows: batch,
-        migrationKey,
-      });
+      await importBatch(table, batch);
       imported += batch.length;
       batch = [];
       if (imported % 500 === 0) console.info(`  ${table}: ${imported}…`);
     }
   }
   if (batch.length) {
-    await client.mutation(api.migration.importBatchPublic, {
-      table,
-      rows: batch,
-      migrationKey,
-    });
+    await importBatch(table, batch);
     imported += batch.length;
   }
   totals[table] = imported;
