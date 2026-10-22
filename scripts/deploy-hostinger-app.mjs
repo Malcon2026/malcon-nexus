@@ -2,13 +2,13 @@
 /**
  * Build and deploy static dist to https://app.malconnexus.com (Hostinger).
  *
- * Prerequisites: `hostinger` CLI authenticated; `.env.production.aws` for AWS deploy (no Supabase).
+ * Prerequisites: `hostinger` CLI authenticated; `.env.production.convex` for production (Convex + Supabase Auth).
  *
- *   node scripts/deploy-hostinger-app.mjs
- *   node scripts/deploy-hostinger-app.mjs --dry-run
- *   node scripts/deploy-hostinger-app.mjs --cutover   # loads .env.production.cutover (Worker/D1 data; Supabase Auth only)
- *   node scripts/deploy-hostinger-app.mjs --cloudflare # loads .env.production.cloudflare (no Supabase)
- *   node scripts/deploy-hostinger-app.mjs --aws          # loads .env.production.aws (PostgreSQL API)
+ *   node scripts/deploy-hostinger-app.mjs --convex       # default production path
+ *   node scripts/deploy-hostinger-app.mjs --dry-run --convex
+ *   node scripts/deploy-hostinger-app.mjs --cutover      # legacy Worker/D1 + Supabase Auth
+ *   node scripts/deploy-hostinger-app.mjs --cloudflare   # legacy Worker-only auth
+ *   node scripts/deploy-hostinger-app.mjs --aws          # deprecated AWS path
  */
 
 import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, cpSync, statSync } from 'node:fs';
@@ -22,6 +22,7 @@ const dryRun = process.argv.includes('--dry-run');
 const cutover = process.argv.includes('--cutover');
 const cloudflare = process.argv.includes('--cloudflare');
 const aws = process.argv.includes('--aws');
+const convex = process.argv.includes('--convex');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
@@ -52,14 +53,21 @@ function loadEnv() {
   for (const f of ['.env', '.env.local', '.env.production']) {
     loadEnvFile(f);
   }
-  if (aws) {
+  if (convex) {
+    const path = '.env.production.convex';
+    if (!loadEnvFile(path, { override: true })) {
+      console.error(`Missing ${path}. Copy .env.production.convex.example → ${path}.`);
+      process.exit(1);
+    }
+    console.info('[deploy] Convex data plane + Supabase Auth (no AWS/Worker required)');
+  } else if (aws) {
     const path = '.env.production.aws';
     if (!loadEnvFile(path, { override: true })) {
       console.error(`Missing ${path}. Copy .env.production.aws.example → ${path}.`);
       process.exit(1);
     }
     stripSupabaseViteEnv();
-    console.info('[deploy] AWS backend — PostgreSQL API + S3 (no Supabase)');
+    console.info('[deploy] AWS backend — deprecated; use --convex');
   } else if (cloudflare) {
     const path = '.env.production.cloudflare';
     if (!loadEnvFile(path, { override: true })) {
@@ -118,9 +126,24 @@ async function tusUpload(baseUrl, authKey, restAuthKey, relativePath, filePath) 
 
 loadEnv();
 
-if (!cloudflare && !aws && (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY)) {
+if (!convex && !cloudflare && !aws && (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY)) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
   process.exit(1);
+}
+
+if (convex) {
+  if (process.env.VITE_USE_CONVEX_BACKEND !== 'true') {
+    console.error('Convex deploy requires VITE_USE_CONVEX_BACKEND=true');
+    process.exit(1);
+  }
+  if (!process.env.VITE_CONVEX_URL || !process.env.VITE_CONVEX_SITE_URL) {
+    console.error('Convex deploy requires VITE_CONVEX_URL and VITE_CONVEX_SITE_URL');
+    process.exit(1);
+  }
+  if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
+    console.error('Convex deploy requires VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (auth only)');
+    process.exit(1);
+  }
 }
 
 if ((cutover || cloudflare || aws) && !process.env.VITE_WORKER_API_URL) {
@@ -147,8 +170,12 @@ if (!existsSync(resolve(dist, 'index.html'))) {
   process.exit(1);
 }
 
+const galleryApiBase =
+  convex ? process.env.VITE_CONVEX_SITE_URL : process.env.VITE_WORKER_API_URL;
+if (aws || cloudflare || convex) {
+  patchGalleryStaticApiBase(dist, galleryApiBase);
+}
 if (aws || cloudflare) {
-  patchGalleryStaticApiBase(dist, process.env.VITE_WORKER_API_URL);
   execSync('node scripts/verify-production-bundle-no-supabase.mjs', {
     cwd: root,
     stdio: 'inherit',
@@ -207,10 +234,12 @@ execSync(
 );
 
 console.info('\nLive at https://app.malconnexus.com/');
-if (aws) {
-  console.info('AWS backend — ensure RDS, S3, and API secrets are set; see .env.production.aws.example');
+if (convex) {
+  console.info('Convex — set SUPABASE_JWT_SECRET on Convex deployment; see .env.production.convex.example');
+} else if (aws) {
+  console.info('AWS backend is deprecated — migrate to --convex');
 } else if (cloudflare) {
-  console.info('Cloudflare backend — ensure Worker secrets (JWT, TELEGRAM_BOT_TOKEN) are set; see .env.production.cloudflare.example');
+  console.info('Cloudflare backend — see .env.production.cloudflare.example');
 } else {
   console.info('Update Supabase → Authentication → URL Configuration: Site URL + redirect https://app.malconnexus.com');
   console.info('Set Supabase secret APP_URL=https://app.malconnexus.com for assignment emails/alerts.');

@@ -22,10 +22,25 @@ EMP ATTENDANCE*.xlsx
 !.env.example
 !.env.production.cutover.example
 !.env.production.cloudflare.example
+.env.production.aws
+!.env.production.aws.example
+!.env.production.convex.example
+.env.production.convex
+.ecs-task-def.json
+.ecs-task-def-register.json
+.cloudfront-api.json
+.aws-api-env-merge.json
+.aws-lambda-case-alerts-process/
+.aws-lambda-case-alerts-process.zip
+.aws-lambda-case-alerts-env.json
+.lightsail-deployment.json
 !.env.telegram.local.example
 
 # Emergency DB/storage exports (never commit)
 backups/
+
+# AWS provision artifacts (may contain generated passwords)
+aws/provision-output/
 
 # WhatsApp Web.js local cache
 .wwebjs_cache/

@@ -1,4 +1,4 @@
-import { USE_REMOTE_API } from './cloudflareConfig';
+import { USE_CONVEX_BACKEND, USE_REMOTE_API } from './cloudflareConfig';
 
 /**
  * Phase 8 — opt-in local Worker reads (default off; Supabase remains default).
@@ -23,19 +23,30 @@ export const USE_WORKER_REMAINING_READS =
   USE_REMOTE_API || import.meta.env.VITE_USE_WORKER_REMAINING_READS === 'true';
 
 function resolveWorkerApiUrl(): string {
+  if (USE_CONVEX_BACKEND) {
+    const convexSite =
+      (import.meta.env.VITE_CONVEX_SITE_URL as string | undefined)?.replace(/\/+$/, '') ||
+      (import.meta.env.VITE_WORKER_API_URL as string | undefined)?.replace(/\/+$/, '');
+    if (convexSite) return convexSite;
+    if (import.meta.env.PROD) {
+      throw new Error('Production Convex build requires VITE_CONVEX_SITE_URL (HTTP actions URL).');
+    }
+  }
+
   const raw =
     (import.meta.env.VITE_WORKER_API_URL as string | undefined) ||
     (import.meta.env.VITE_API_BASE_URL as string | undefined);
   const trimmed = raw?.replace(/\/+$/, '');
   if (trimmed) return trimmed;
 
-  const awsProd =
+  const remoteProd =
     import.meta.env.PROD &&
     (import.meta.env.VITE_USE_AWS_BACKEND === 'true' ||
-      import.meta.env.VITE_USE_CLOUDFLARE_BACKEND === 'true');
-  if (awsProd) {
+      import.meta.env.VITE_USE_CLOUDFLARE_BACKEND === 'true' ||
+      USE_CONVEX_BACKEND);
+  if (remoteProd) {
     throw new Error(
-      'Production build requires VITE_WORKER_API_URL (or VITE_API_BASE_URL) when using AWS/Cloudflare backend.',
+      'Production build requires VITE_CONVEX_SITE_URL or VITE_WORKER_API_URL for remote API.',
     );
   }
   return 'http://127.0.0.1:8787';
