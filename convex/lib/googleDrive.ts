@@ -1,6 +1,11 @@
 /** Google Drive API (service account JWT) for stage photo storage. */
 
+import type { ActionCtx } from '../_generated/server';
+import { internal } from '../_generated/api';
+
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const IST = 'Asia/Kolkata';
+const CASES_ROOT_FOLDER = 'Cases';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 
@@ -156,6 +161,196 @@ export async function getDriveFileMeta(fileId: string): Promise<DriveFileMeta> {
   return data;
 }
 
+function escapeDriveQueryLiteral(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+/** Folder names safe for Drive (no path separators). */
+export function sanitizeDriveFolderSegment(name: string): string {
+  return name
+    .replace(/[/\\]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
+/** Match app WorkflowStage naming for folder labels. */
+export function normalizeWorkflowStageForDrive(stage: string | null | undefined): string {
+  if (!stage) return 'Set Preparation';
+  if (stage === 'Kit Preparation') return 'Set Preparation';
+  if (stage === 'Collection' || stage === 'Bill Submission') return 'Bill Submission';
+  if (stage === 'Billing') return 'Billing';
+  if (
+    stage === 'Cleaning' ||
+    stage === 'Audit' ||
+    stage === 'Cleaning & Audit' ||
+    stage === 'Checking & Audit' ||
+    stage === 'Checking and Audit'
+  ) {
+    return 'Checking & Audit';
+  }
+  const known = [
+    'Set Preparation',
+    'Delivery',
+    'Surgery',
+    'Pickup from Hospital',
+    'Checking & Audit',
+    'Restock',
+    'Completed',
+    'Billing',
+    'Bill Submission',
+  ];
+  if (known.includes(stage)) return stage;
+  return 'Set Preparation';
+}
+
+function istDatePartsFromMs(ms: number): { year: string; month: string; dateKey: string } {
+  const dateKey = new Date(ms).toLocaleDateString('en-CA', { timeZone: IST });
+  const [year, month] = dateKey.split('-');
+  return { year: year!, month: month!, dateKey };
+}
+
+function resolveCaseDateParts(
+  caseRow: Record<string, unknown> | null,
+  capturedAtMs: number,
+): { year: string; month: string; dateKey: string } {
+  const surgery =
+    typeof caseRow?.surgery_date === 'string' ? caseRow.surgery_date.trim().slice(0, 10) : '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(surgery)) {
+    const [year, month] = surgery.split('-');
+    return { year: year!, month: month!, dateKey: surgery };
+  }
+  const created =
+    typeof caseRow?.created_at === 'string' ? Date.parse(caseRow.created_at) : Number.NaN;
+  const ms = Number.isFinite(created) ? created : capturedAtMs;
+  return istDatePartsFromMs(ms);
+}
+
+export function caseFolderSegment(caseRow: Record<string, unknown> | null, caseId: string): string {
+  const raw = caseRow?.case_number;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return sanitizeDriveFolderSegment(`CASE-${raw}`);
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    const trimmed = raw.trim();
+    const withPrefix = /^case-/i.test(trimmed) ? trimmed : `CASE-${trimmed}`;
+    return sanitizeDriveFolderSegment(withPrefix);
+  }
+  return sanitizeDriveFolderSegment(caseId.slice(0, 8));
+}
+
+async function findFolderByName(parentId: string, name: string): Promise<string | null> {
+  const token = await getGoogleAccessToken();
+  const url = new URL(`${DRIVE_API}/files`);
+  url.searchParams.set(
+    'q',
+    [
+      `'${escapeDriveQueryLiteral(parentId)}' in parents`,
+      "mimeType = 'application/vnd.google-apps.folder'",
+      'trashed = false',
+      `name = '${escapeDriveQueryLiteral(name)}'`,
+    ].join(' and '),
+  );
+  url.searchParams.set('pageSize', '1');
+  url.searchParams.set('fields', 'files(id,name)');
+  url.searchParams.set('supportsAllDrives', 'true');
+  url.searchParams.set('includeItemsFromAllDrives', 'true');
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = (await res.json()) as { files?: { id: string }[]; error?: { message?: string } };
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? `Drive folder lookup failed (${res.status})`);
+  }
+  return data.files?.[0]?.id ?? null;
+}
+
+export async function getOrCreateFolder(parentId: string, name: string): Promise<string> {
+  const safeName = sanitizeDriveFolderSegment(name);
+  const existing = await findFolderByName(parentId, safeName);
+  if (existing) return existing;
+
+  const token = await getGoogleAccessToken();
+  const res = await fetch(`${DRIVE_API}/files?supportsAllDrives=true`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: safeName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentId],
+    }),
+  });
+  const data = (await res.json()) as { id?: string; error?: { message?: string } };
+  if (!res.ok || !data.id) {
+    throw new Error(data.error?.message ?? `Drive folder create failed (${res.status})`);
+  }
+  return data.id;
+}
+
+async function ensureCasePhotoFolderChain(options: {
+  rootFolderId: string;
+  year: string;
+  month: string;
+  dateKey: string;
+  caseFolder: string;
+  stageFolder: string;
+}): Promise<string> {
+  const casesRoot = await getOrCreateFolder(options.rootFolderId, CASES_ROOT_FOLDER);
+  const yearFolder = await getOrCreateFolder(casesRoot, options.year);
+  const monthFolder = await getOrCreateFolder(yearFolder, options.month);
+  const dayFolder = await getOrCreateFolder(monthFolder, options.dateKey);
+  const caseIdFolder = await getOrCreateFolder(dayFolder, options.caseFolder);
+  return getOrCreateFolder(caseIdFolder, options.stageFolder);
+}
+
+export type CasePhotoPath = {
+  folderId: string;
+  fileName: string;
+  photoId: string;
+  /** Relative path under shared root (for logging / docs). */
+  logicalPath: string;
+  stage: string;
+};
+
+export async function buildCasePhotoPath(
+  ctx: Pick<ActionCtx, 'runQuery'>,
+  caseId: string,
+  stage: string,
+  capturedAt?: number,
+): Promise<CasePhotoPath> {
+  const rootFolderId = requireDriveFolderId();
+  const caseRow = await ctx.runQuery(internal.dataQueries.getRow, {
+    table: 'cases',
+    legacyId: caseId,
+  });
+  const capturedAtMs = capturedAt ?? Date.now();
+  const { year, month, dateKey } = resolveCaseDateParts(caseRow, capturedAtMs);
+  const caseFolder = caseFolderSegment(caseRow, caseId);
+  const stageLabel = sanitizeDriveFolderSegment(normalizeWorkflowStageForDrive(stage));
+  const folderId = await ensureCasePhotoFolderChain({
+    rootFolderId,
+    year,
+    month,
+    dateKey,
+    caseFolder,
+    stageFolder: stageLabel,
+  });
+  const photoId = crypto.randomUUID();
+  const fileName = `${capturedAtMs}-${photoId}.jpg`;
+  const logicalPath = `${CASES_ROOT_FOLDER}/${year}/${month}/${dateKey}/${caseFolder}/${stageLabel}/${fileName}`;
+  return {
+    folderId,
+    fileName,
+    photoId,
+    logicalPath,
+    stage: normalizeWorkflowStageForDrive(stage),
+  };
+}
+
 export async function uploadDriveFile(options: {
   name: string;
   mimeType: string;
@@ -209,17 +404,16 @@ export async function listDriveFilesByCase(options: {
   stage?: string;
   pageSize?: number;
 }): Promise<DriveFileMeta[]> {
-  const folderId = requireDriveFolderId();
   const token = await getGoogleAccessToken();
-  const casePrefix = `${options.caseId}/`;
   const qParts = [
-    `'${folderId}' in parents`,
     'trashed = false',
-    `name contains '${casePrefix.replace(/'/g, "\\'")}'`,
+    `appProperties has { key='caseId' and value='${escapeDriveQueryLiteral(options.caseId)}' }`,
   ];
   if (options.stage) {
-    const stageSeg = `${casePrefix}${options.stage.toLowerCase().replace(/\s+/g, '-')}/`;
-    qParts.push(`name contains '${stageSeg.replace(/'/g, "\\'")}'`);
+    const stageVal = normalizeWorkflowStageForDrive(options.stage);
+    qParts.push(
+      `appProperties has { key='stage' and value='${escapeDriveQueryLiteral(stageVal)}' }`,
+    );
   }
   const url = new URL(`${DRIVE_API}/files`);
   url.searchParams.set('q', qParts.join(' and '));

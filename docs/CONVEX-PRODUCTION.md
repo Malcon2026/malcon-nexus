@@ -56,6 +56,22 @@ Google often **rejects service-account uploads** into a folder on **personal My 
 
 Until then, stage photo **upload** may fail; existing photo URLs from the D1 import still work.
 
+### Drive folder layout (stage photos)
+
+Under the shared root folder (`GOOGLE_DRIVE_FOLDER_ID`, e.g. **Malcon Nexus**), uploads create:
+
+```
+Cases/
+  {YYYY}/                 # IST calendar year
+    {MM}/                 # IST month 01–12
+      {YYYY-MM-DD}/       # IST date (surgery_date, else case created_at)
+        {caseFolder}/     # CASE-{case_number} when present, else first 8 chars of case id
+          {Stage}/        # Workflow stage label (e.g. Set Preparation, Delivery)
+            {timestamp}-{photoId}.jpg
+```
+
+Folders are created on demand via the Drive API (`files.create`, `application/vnd.google-apps.folder`, `supportsAllDrives=true`). Each file stores `appProperties.caseId` and `appProperties.stage` (normalized workflow name) for listing.
+
 Optional: `SUPER_ADMIN_EMAILS` — comma-separated emails allowed to load thumbnails / open Drive links (defaults match `VITE_SUPER_ADMIN_EMAILS` in the SPA).
 
 After rotating a leaked service-account key, revoke the old key in **GCP Console → IAM → Service accounts → Keys**, update `GOOGLE_SERVICE_ACCOUNT_JSON` on Convex prod, and delete local copies you no longer need.

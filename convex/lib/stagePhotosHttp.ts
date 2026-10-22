@@ -3,6 +3,7 @@ import { authenticateRequest, requireIdentity } from './authContext';
 import { apiData, apiError, isUuidLike } from './httpUtil';
 import {
   GoogleDriveConfigError,
+  buildCasePhotoPath,
   getDriveFileMeta,
   listDriveFilesByCase,
   requireDriveFolderId,
@@ -29,10 +30,6 @@ function mapDriveConfigError(err: unknown): Response {
   return apiError('INTERNAL', message, 500);
 }
 
-function sanitizeStage(stage: string): string {
-  return stage.toLowerCase().replace(/\s+/g, '-');
-}
-
 export async function handleStagePhotoUpload(
   ctx: ActionCtx,
   request: Request,
@@ -44,9 +41,8 @@ export async function handleStagePhotoUpload(
     return apiError('FORBIDDEN', 'Employee profile required to upload photos', 403);
   }
 
-  let folderId: string;
   try {
-    folderId = requireDriveFolderId();
+    requireDriveFolderId();
   } catch (e) {
     return mapDriveConfigError(e);
   }
@@ -70,25 +66,26 @@ export async function handleStagePhotoUpload(
     return apiError('BAD_REQUEST', 'Photo is too large (max 5 MB)', 400);
   }
 
-  const photoId = crypto.randomUUID();
   const mimeType = file.type || 'image/jpeg';
-  const name = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}.jpg`;
   const bytes = new Uint8Array(await file.arrayBuffer());
+  const capturedAt = Date.now();
 
   try {
+    const path = await buildCasePhotoPath(ctx, caseId, stage, capturedAt);
     const uploaded = await uploadDriveFile({
-      name,
+      name: path.fileName,
       mimeType,
       bytes,
-      folderId,
-      appProperties: { caseId, stage },
+      folderId: path.folderId,
+      appProperties: { caseId, stage: path.stage },
     });
     return apiData(
       {
-        id: photoId,
+        id: path.photoId,
         driveFileId: uploaded.id,
         type: mimeType,
         sizeBytes: file.size,
+        drivePath: path.logicalPath,
       },
       201,
     );
