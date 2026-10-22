@@ -19,6 +19,13 @@ function mapDriveConfigError(err: unknown): Response {
     return apiError('NOT_CONFIGURED', err.message, 501);
   }
   const message = err instanceof Error ? err.message : 'Google Drive request failed';
+  if (/storage quota|storageQuotaExceeded|Service Accounts do not have storage/i.test(message)) {
+    return apiError(
+      'DRIVE_STORAGE_POLICY',
+      'Google blocked service-account uploads to this folder (personal My Drive). Move photos to a Google Workspace Shared drive and add the service account as Content manager, then update GOOGLE_DRIVE_FOLDER_ID.',
+      503,
+    );
+  }
   return apiError('INTERNAL', message, 500);
 }
 

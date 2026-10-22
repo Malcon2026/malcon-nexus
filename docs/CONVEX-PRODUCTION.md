@@ -39,7 +39,22 @@ npx convex env set --prod GOOGLE_DRIVE_FOLDER_ID "<folder-id-from-drive-url>"
 ```
 
 **Folder sharing (required):** In Google Drive, create or choose a folder for stage photos. Share it with  
-`malcon-drive-uploader@malcon-nexus.iam.gserviceaccount.com` as **Editor**. Paste the folder id from the URL (`.../folders/<id>`) into `GOOGLE_DRIVE_FOLDER_ID`.
+`malcon-drive-uploader@malcon-nexus.iam.gserviceaccount.com` as **Editor**. Paste the folder id from the URL (`.../folders/<id>`) into `GOOGLE_DRIVE_FOLDER_ID`.  
+**Prod folder (confirmed):** shared folder **Malcon Nexus** — id `1SzuHi4vB0Q6lmuULESHPWDyZcihEO2gY` (Editor on the service account).
+
+### My Drive vs Shared drive (important)
+
+Google often **rejects service-account uploads** into a folder on **personal My Drive** (`403` / “Service Accounts do not have storage quota”), even when the folder is shared with Editor.
+
+**Fix for production uploads:**
+
+1. Use **Google Workspace** and create a **Shared drive** (e.g. “Malcon Nexus”).
+2. Add **`malcon-drive-uploader@malcon-nexus.iam.gserviceaccount.com`** as **Content manager** on that Shared drive.
+3. Create **`stage-photos`** inside the Shared drive (or use the drive root).
+4. Update Convex:  
+   `npx convex env set --prod GOOGLE_DRIVE_FOLDER_ID "<shared-drive-folder-id>"`
+
+Until then, stage photo **upload** may fail; existing photo URLs from the D1 import still work.
 
 Optional: `SUPER_ADMIN_EMAILS` — comma-separated emails allowed to load thumbnails / open Drive links (defaults match `VITE_SUPER_ADMIN_EMAILS` in the SPA).
 
