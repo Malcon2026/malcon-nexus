@@ -7,6 +7,7 @@ import {
   apiError,
   corsHeaders,
   isUuidLike,
+  jsonResponse,
   mapEmployeePublic,
   mapEmployeeRoster,
   pageMeta,
@@ -68,6 +69,103 @@ http.route({
   path: '/api/health',
   method: 'GET',
   handler: httpAction(async () => withCors(apiData({ ok: true, backend: 'convex' }))),
+});
+
+type HttpCtx = Parameters<Parameters<typeof httpAction>[0]>[0];
+
+/** Resolve the employee row for the current JWT (auth_user_id, then JWT email). */
+async function resolveSessionEmployee(
+  ctx: HttpCtx,
+  auth: RequestContext,
+): Promise<Record<string, unknown> | null> {
+  if (!auth.identity) return null;
+  if (auth.employeeId) {
+    const byId = await ctx.runQuery(internal.dataQueries.getRow, {
+      table: 'employees',
+      legacyId: auth.employeeId,
+    });
+    if (byId) return byId;
+  }
+  const byAuth = await ctx.runQuery(internal.dataQueries.employeeByAuthUserId, {
+    authUserId: auth.identity.authUserId,
+  });
+  if (byAuth) return byAuth;
+  const email = auth.identity.email?.trim();
+  if (!email) return null;
+  return ctx.runQuery(internal.dataQueries.employeeByEmail, { email });
+}
+
+async function handleSessionMe(ctx: HttpCtx, request: Request): Promise<Response> {
+  const auth = await authenticateRequest(ctx, request);
+  const denied = requireIdentity(auth);
+  if (denied) return denied;
+  const row = await resolveSessionEmployee(ctx, auth);
+  if (!row) return apiError('NOT_FOUND', 'Employee not found', 404);
+  const employeeId = String(row.id ?? '');
+  const includeTelegram = auth.role === 'admin' || auth.employeeId === employeeId;
+  return apiData(mapEmployeePublic(row, includeTelegram));
+}
+
+http.route({
+  path: '/api/me',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => withCors(await handleSessionMe(ctx, request))),
+});
+
+/** Worker-compatible shape: `{ employee }` (no `data` wrapper). */
+http.route({
+  path: '/api/auth/me',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    const row = await resolveSessionEmployee(ctx, auth);
+    if (!row) return withCors(apiError('NOT_FOUND', 'Employee not found', 404));
+    const employeeId = String(row.id ?? '');
+    const includeTelegram = auth.role === 'admin' || auth.employeeId === employeeId;
+    return withCors(jsonResponse({ employee: mapEmployeePublic(row, includeTelegram) }));
+  }),
+});
+
+http.route({
+  path: '/api/employees/link-auth',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    const body = await readJson<{ employeeId?: string }>(request);
+    if (body instanceof Response) return withCors(body);
+    const employeeId = body.employeeId?.trim();
+    if (!employeeId || !isUuidLike(employeeId)) {
+      return withCors(apiError('BAD_REQUEST', 'Invalid employeeId', 400));
+    }
+    if (auth.employeeId && auth.employeeId !== employeeId) {
+      return withCors(apiError('FORBIDDEN', 'Forbidden', 403));
+    }
+    const row = await ctx.runQuery(internal.dataQueries.getRow, { table: 'employees', legacyId: employeeId });
+    if (!row) return withCors(apiError('NOT_FOUND', 'Employee not found', 404));
+    const existingAuth = row.auth_user_id ? String(row.auth_user_id) : '';
+    const authUserId = auth.identity!.authUserId;
+    if (existingAuth && existingAuth !== authUserId) {
+      return withCors(apiError('FORBIDDEN', 'Forbidden', 403));
+    }
+    const jwtEmail = auth.identity!.email?.trim().toLowerCase();
+    const rowEmail = String(row.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (!jwtEmail || !rowEmail || jwtEmail !== rowEmail) {
+      return withCors(apiError('FORBIDDEN', 'Forbidden', 403));
+    }
+    if (existingAuth === authUserId) return withCors(apiData({ ok: true }));
+    await ctx.runMutation(internal.dataMutations.mergeTableRow, {
+      table: 'employees',
+      legacyId: employeeId,
+      patch: { auth_user_id: authUserId, updated_at: new Date().toISOString() },
+    });
+    return withCors(apiData({ ok: true }));
+  }),
 });
 
 http.route({

@@ -89,6 +89,17 @@ export async function getEmployee(id: string): Promise<WorkerEmployeeRow | null>
   }
 }
 
+/** Current session employee (JWT auth_user_id / email lookup on Convex). */
+export async function getCurrentEmployee(): Promise<WorkerEmployeeRow | null> {
+  try {
+    const body = await workerFetchJson<{ data: WorkerEmployeeRow }>('/api/me');
+    return body.data ?? null;
+  } catch (e) {
+    if (e instanceof WorkerApiError && (e.status === 404 || e.status === 401)) return null;
+    throw e;
+  }
+}
+
 export async function getEmployeeAttendance(
   id: string,
   params: { page?: number; pageSize?: number; since?: string; until?: string } = {},

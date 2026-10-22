@@ -125,6 +125,7 @@ import {
   fetchCaseByIdFromWorker,
   fetchDepartmentsFromWorker,
   fetchDoctorsFromWorker,
+  fetchCurrentEmployeeFromWorker,
   fetchEmployeeByIdFromWorker,
   fetchEmployeesFromWorker,
   fetchFieldTeamAttendanceForDateFromWorker,
@@ -265,10 +266,8 @@ export const sbEmployeeRepo = {
    *  separate "find id" query followed by a "fetch full row" query. */
   async getByAuthUserId(authUserId: string): Promise<Employee | null> {
     if (useWorkerReads()) {
-      const byId = await fetchEmployeeByIdFromWorker(authUserId);
-      if (byId) return byId;
-      const all = await fetchEmployeesFromWorker();
-      return all.find((e) => e.id === authUserId) ?? null;
+      void authUserId;
+      return fetchCurrentEmployeeFromWorker();
     }
     const { data, error } = await supabase
       .from('employees')

@@ -8,6 +8,7 @@ import {
   getAppSettingsViaWorker,
   getCase,
   getDepartmentsViaWorker,
+  getCurrentEmployee,
   getEmployee,
   getEmployees,
   getSurgicalKitsViaWorker,
@@ -39,6 +40,12 @@ export async function fetchEmployeesFromWorker(): Promise<Employee[]> {
 
 export async function fetchEmployeeByIdFromWorker(id: string): Promise<Employee | null> {
   const row = await getEmployee(id);
+  return row ? workerEmployeeToApp(row) : null;
+}
+
+/** Post-login lookup — uses `/api/me`, not employee id (≠ Supabase auth user id). */
+export async function fetchCurrentEmployeeFromWorker(): Promise<Employee | null> {
+  const row = await getCurrentEmployee();
   return row ? workerEmployeeToApp(row) : null;
 }
 

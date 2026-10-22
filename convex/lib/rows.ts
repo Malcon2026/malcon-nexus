@@ -96,3 +96,23 @@ export async function lookupEmployeeByAuthUserId(
   }
   return null;
 }
+
+export async function lookupEmployeeByEmail(
+  db: DbReader,
+  email: string,
+): Promise<Record<string, unknown> | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const all = await db
+    .query('malconRows')
+    .withIndex('by_table', (q) => q.eq('table', 'employees'))
+    .collect();
+  for (const doc of all) {
+    const row = doc.row as Record<string, unknown>;
+    const rowEmail = String(row.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (rowEmail === normalized) return row;
+  }
+  return null;
+}

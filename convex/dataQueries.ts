@@ -1,6 +1,11 @@
 import { internalQuery } from './_generated/server';
 import { v } from 'convex/values';
-import { getRowByLegacyId, listTableRows, lookupEmployeeByAuthUserId } from './lib/rows';
+import {
+  getRowByLegacyId,
+  listTableRows,
+  lookupEmployeeByAuthUserId,
+  lookupEmployeeByEmail,
+} from './lib/rows';
 
 export const listRows = internalQuery({
   args: {
@@ -19,4 +24,9 @@ export const getRow = internalQuery({
 export const employeeByAuthUserId = internalQuery({
   args: { authUserId: v.string() },
   handler: async (ctx, { authUserId }) => lookupEmployeeByAuthUserId(ctx.db, authUserId),
+});
+
+export const employeeByEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => lookupEmployeeByEmail(ctx.db, email),
 });
