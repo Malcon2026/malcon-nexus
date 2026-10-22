@@ -141,9 +141,12 @@ import {
   fetchRecentAttendanceForEmployeeFromWorker,
   fetchSettingsFromWorker,
 } from '../../workerReadAdapters';
+import { USE_CONVEX_BACKEND } from '../../cloudflareConfig';
 import { normalizeCaseStages, normalizeWorkflowStageName, isFcfsStage, STAGE_DEPARTMENT_MAP, fcfsStagesForEmployee } from '../../caseWorkflow';
 import { normalizePostSurgeryDuties } from '../../caseDuties';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from '../../caseNumber';
+import { parseJsonArray, parseJsonObject } from '../../caseJsonFields';
+import { getAllCaseNumbersViaWorker, getNextCaseNumberViaConvexHttp } from '../../workerApi';
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -590,9 +593,9 @@ export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase 
     updatedAt: row.updated_at as string,
     dueDate: normalizeDateKey(row.due_date as string),
     remarks: row.remarks as string,
-    stages: normalizeCaseStages((row.stages as ImplantCase['stages']) ?? []),
-    activityLogs: (row.activity_logs as ImplantCase['activityLogs']) ?? [],
-    comments: (row.comments as ImplantCase['comments']) ?? [],
+    stages: normalizeCaseStages(parseJsonArray<ImplantCase['stages'][number]>(row.stages)),
+    activityLogs: parseJsonArray<ImplantCase['activityLogs'][number]>(row.activity_logs),
+    comments: parseJsonArray<ImplantCase['comments'][number]>(row.comments),
     invoiceAmount: row.invoice_amount as number | undefined,
     collectedAmount: row.collected_amount as number | undefined,
     paymentStatus: row.payment_status as ImplantCase['paymentStatus'],
@@ -601,7 +604,7 @@ export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase 
     surgeryOutcomeDetail: (row.surgery_outcome_detail as string) ?? '',
     postponeReason: (row.postpone_reason as string) ?? '',
     postponedFrom: normalizeDateKey(row.postponed_from as string),
-    postSurgeryDuties: normalizePostSurgeryDuties(row.post_surgery_duties),
+    postSurgeryDuties: normalizePostSurgeryDuties(parseJsonObject(row.post_surgery_duties)),
   };
 }
 
@@ -645,10 +648,13 @@ export const sbCaseRepo = {
   async getNextCaseNumber(surgeryDate?: string): Promise<string> {
     const prefix = caseNumberPrefixForDate(surgeryDate ?? new Date());
     if (useWorkerReads()) {
-      const all = await fetchAllCasesFromWorker();
-      const rows = all
-        .filter((c) => c.caseNumber.startsWith(prefix))
-        .map((c) => ({ caseNumber: c.caseNumber }));
+      if (USE_CONVEX_BACKEND) {
+        return getNextCaseNumberViaConvexHttp(surgeryDate);
+      }
+      const numbers = await getAllCaseNumbersViaWorker();
+      const rows = numbers
+        .filter((cn) => cn.startsWith(prefix))
+        .map((caseNumber) => ({ caseNumber }));
       return nextCaseNumberWithPrefix(rows, prefix);
     }
     const { data, error } = await supabase

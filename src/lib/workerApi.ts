@@ -219,6 +219,27 @@ export async function getAllCasesViaWorker(options?: { cap?: number }): Promise<
   );
 }
 
+/** Case numbers only — avoids parsing stages when allocating MLS-MM-YY-NNN. */
+export async function getAllCaseNumbersViaWorker(options?: { cap?: number }): Promise<string[]> {
+  const rows = await fetchAllPaginated<WorkerCaseDetail>(
+    (page, pageSize) => getCasesPage({ page, pageSize, full: false }),
+    { pageSize: 200, cap: options?.cap },
+  );
+  return rows.map((r) => String(r.case_number ?? '')).filter(Boolean);
+}
+
+export async function getNextCaseNumberViaConvexHttp(surgeryDate?: string): Promise<string> {
+  const q = new URLSearchParams();
+  if (surgeryDate?.trim()) q.set('surgeryDate', surgeryDate.trim().slice(0, 10));
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  const body = await workerFetchJson<{ data: { caseNumber: string } }>(
+    `/api/cases/next-number${suffix}`,
+  );
+  const cn = body.data?.caseNumber?.trim();
+  if (!cn) throw new WorkerApiError('Invalid next case number response', 500, 'INTERNAL');
+  return cn;
+}
+
 export async function getBootstrapDayCasesViaWorker(dayKey: string): Promise<WorkerCaseDetail[]> {
   return fetchAllPaginated<WorkerCaseDetail>(
     (page, pageSize) => getCasesPage({ page, pageSize, dayKey, full: true }),

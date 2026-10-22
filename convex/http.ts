@@ -20,6 +20,7 @@ import {
   handleStagePhotoUpload,
   handleStagePhotoView,
 } from './lib/stagePhotosHttp';
+import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from './lib/caseNumber';
 
 const http = httpRouter();
 const corsOrigin = process.env.API_CORS_ORIGIN || 'https://app.malconnexus.com';
@@ -205,6 +206,32 @@ http.route({
     if (!row) return withCors(apiError('NOT_FOUND', 'Employee not found', 404));
     const includeTelegram = auth.role === 'admin' || auth.employeeId === id;
     return withCors(apiData(mapEmployeePublic(row, includeTelegram)));
+  }),
+});
+
+http.route({
+  path: '/api/cases/next-number',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    if (auth.role !== 'admin' && auth.role !== 'store_manager') {
+      return withCors(apiError('FORBIDDEN', 'Forbidden', 403));
+    }
+    const url = new URL(request.url);
+    const surgeryDate = url.searchParams.get('surgeryDate')?.trim() || undefined;
+    const prefix = caseNumberPrefixForDate(surgeryDate ?? new Date());
+    const { items } = await ctx.runQuery(internal.dataQueries.listRows, {
+      table: 'cases',
+      offset: 0,
+      limit: 100000,
+    });
+    const numbers = items
+      .map((row) => String(row.case_number ?? ''))
+      .filter((cn) => cn.startsWith(prefix));
+    const caseNumber = nextCaseNumberWithPrefix(numbers, prefix);
+    return withCors(apiData({ caseNumber }));
   }),
 });
 

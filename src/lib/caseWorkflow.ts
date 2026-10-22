@@ -295,8 +295,8 @@ function preferStageRecord(a: StageRecord, b: StageRecord): StageRecord {
     assignedAt: primary.assignedAt ?? secondary.assignedAt,
     submittedAt: primary.submittedAt ?? secondary.submittedAt,
     approvedAt: primary.approvedAt ?? secondary.approvedAt,
-    notes: primary.notes || secondary.notes,
-    adminNotes: primary.adminNotes || secondary.adminNotes,
+    notes: primary.notes || secondary.notes || '',
+    adminNotes: primary.adminNotes || secondary.adminNotes || '',
     documents:
       (primary.documents?.length ?? 0) > 0
         ? (primary.documents ?? [])
@@ -313,7 +313,9 @@ export function normalizeCaseStages(stages: StageRecord[] | null | undefined): S
     const next: StageRecord = {
       ...raw,
       stage,
-      documents: raw.documents ?? [],
+      notes: raw.notes ?? '',
+      adminNotes: raw.adminNotes ?? '',
+      documents: Array.isArray(raw.documents) ? raw.documents : [],
       department: (normalizeDepartment(raw.department) ?? STAGE_DEPARTMENT_MAP[stage] ?? raw.department) as Department,
       assignedEmployee: raw.assignedEmployee
         ? {

@@ -451,7 +451,7 @@ async function mergeSurgeryFieldPhotos(
   const stages =
     stageIdx >= 0
       ? normalizedStages.map((s, i) =>
-          i === stageIdx ? { ...s, documents: [...s.documents, ...stageDocuments] } : s,
+          i === stageIdx ? { ...s, documents: [...(s.documents ?? []), ...stageDocuments] } : s,
         )
       : normalizedStages;
   return { stageDocuments, stages };
@@ -1151,7 +1151,7 @@ function buildAutoAdvanceFromSubmit(
             approvedAt: opts.now,
             notes: opts.notes,
             adminNotes: opts.autoNotes,
-            documents: [...s.documents, ...opts.stageDocuments],
+            documents: [...(s.documents ?? []), ...opts.stageDocuments],
             ...(opts.atRestock && opts.restockOutcome ? { restockOutcome: opts.restockOutcome } : {}),
             ...(opts.atPickup
               ? opts.returnOutcome
@@ -3503,7 +3503,7 @@ export const useStore = create<AppState>((set, get) => ({
                     ? { returnOutcome }
                     : { returnOutcome: undefined }
                   : {}),
-                documents: [...s.documents, ...stageDocuments],
+                documents: [...(s.documents ?? []), ...stageDocuments],
               }
             : s,
         ),

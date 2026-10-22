@@ -5,7 +5,7 @@ import { isImageDocument, openStagePhotoForViewer, stagePhotoViewUrlForViewer } 
 import { canViewCaseStagePhotos } from '../../lib/superAdmin';
 
 function imageDocs(stage: StageRecord): Document[] {
-  return stage.documents.filter(isImageDocument);
+  return (stage.documents ?? []).filter(isImageDocument);
 }
 
 function galleryMeta(docs: Document[]): string | null {
