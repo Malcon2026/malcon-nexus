@@ -30,6 +30,7 @@
     "convex:dev": "npx convex dev",
     "convex:deploy": "npx convex deploy",
     "migrate:convex": "node scripts/migrate-to-convex.mjs --apply",
+    "migrate:convex:prod": "node scripts/migrate-to-convex.mjs --apply --prod",
     "migrate:convex:dry-run": "node scripts/migrate-to-convex.mjs --dry-run",
     "deploy:hostinger:cutover": "node scripts/deploy-hostinger-app.mjs --cutover",
     "deploy:hostinger:cloudflare": "node scripts/deploy-hostinger-app.mjs --cloudflare",

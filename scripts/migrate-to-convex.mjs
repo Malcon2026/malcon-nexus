@@ -6,6 +6,7 @@
  *   node scripts/migrate-to-convex.mjs --dry-run
  *   node scripts/migrate-to-convex.mjs --apply
  *   node scripts/migrate-to-convex.mjs --apply --table employees
+ *   node scripts/migrate-to-convex.mjs --apply --prod   # Hostinger prod Convex (not dev)
  */
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
@@ -19,6 +20,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const apply = args.includes('--apply');
+const useProd = args.includes('--prod');
 
 function argValue(flag) {
   const eq = args.find((a) => a.startsWith(`${flag}=`));
@@ -38,16 +40,35 @@ if (!dryRun && !apply) {
   process.exit(1);
 }
 
-function loadEnvLocal() {
-  const p = join(root, '.env.local');
-  if (!existsSync(p)) return;
+const PROD_CONVEX_HOST = 'fleet-dinosaur-954.convex.cloud';
+
+/** Set env from file without clobbering variables already set (e.g. CLI overrides). */
+function loadEnvFile(relPath, { skipKeys = [] } = {}) {
+  const skip = new Set(skipKeys);
+  const p = join(root, relPath);
+  if (!existsSync(p)) return false;
   for (const line of readFileSync(p, 'utf8').split('\n')) {
     const t = line.trim();
     if (!t || t.startsWith('#')) continue;
     const i = t.indexOf('=');
     if (i <= 0) continue;
     const key = t.slice(0, i).trim();
+    if (skip.has(key)) continue;
+    if (process.env[key] !== undefined && process.env[key] !== '') continue;
     process.env[key] = t.slice(i + 1).trim();
+  }
+  return true;
+}
+
+function loadEnvLocal() {
+  if (useProd) {
+    if (!loadEnvFile('.env.production.convex')) {
+      console.error('Missing .env.production.convex — copy .env.production.convex.example');
+      process.exit(1);
+    }
+    loadEnvFile('.env.local', { skipKeys: ['VITE_CONVEX_URL', 'VITE_CONVEX_SITE_URL'] });
+  } else {
+    loadEnvFile('.env.local');
   }
 }
 
@@ -99,7 +120,25 @@ if (!convexUrl) {
   process.exit(1);
 }
 
+const isProdConvexUrl = convexUrl.includes('fleet-dinosaur-954');
+if (apply) {
+  if (useProd && !isProdConvexUrl) {
+    console.error(
+      `--prod requires VITE_CONVEX_URL for ${PROD_CONVEX_HOST} (got ${convexUrl}). Check .env.production.convex.`,
+    );
+    process.exit(1);
+  }
+  if (!useProd && isProdConvexUrl) {
+    console.error('Refusing prod Convex import without --prod. Use: npm run migrate:convex:prod');
+    process.exit(1);
+  }
+  if (!useProd) {
+    console.warn(`[convex-import] dev target ${convexUrl} — Hostinger prod: npm run migrate:convex:prod`);
+  }
+}
+
 const migrationKey = process.env.CONVEX_MIGRATION_KEY || 'local-dev-migrate';
+console.info(`[convex-import] target=${convexUrl}${useProd ? ' (--prod)' : ''}`);
 const client = new ConvexHttpClient(convexUrl);
 
 async function importBatch(table, rows) {
