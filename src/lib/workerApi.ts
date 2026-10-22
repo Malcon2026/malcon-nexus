@@ -29,9 +29,13 @@ async function parseJson(res: Response): Promise<unknown> {
 
 const WORKER_FETCH_TIMEOUT_MS = 60_000;
 
-export async function workerFetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+export async function workerFetchJson<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { accessToken?: string },
+): Promise<T> {
   const url = `${WORKER_API_URL}${path.startsWith('/') ? path : `/${path}`}`;
-  const authHeaders = await getWorkerAuthHeaders();
+  const authHeaders = await getWorkerAuthHeaders(options?.accessToken);
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), WORKER_FETCH_TIMEOUT_MS);
   let res: Response;
@@ -105,9 +109,13 @@ export async function getEmployee(id: string): Promise<WorkerEmployeeRow | null>
 }
 
 /** Current session employee (JWT auth_user_id / email lookup on Convex). */
-export async function getCurrentEmployee(): Promise<WorkerEmployeeRow | null> {
+export async function getCurrentEmployee(accessToken?: string): Promise<WorkerEmployeeRow | null> {
   try {
-    const body = await workerFetchJson<{ data: WorkerEmployeeRow }>('/api/me');
+    const body = await workerFetchJson<{ data: WorkerEmployeeRow }>(
+      '/api/me',
+      undefined,
+      accessToken ? { accessToken } : undefined,
+    );
     return body.data ?? null;
   } catch (e) {
     if (e instanceof WorkerApiError && (e.status === 404 || e.status === 401)) return null;

@@ -44,8 +44,8 @@ export async function fetchEmployeeByIdFromWorker(id: string): Promise<Employee 
 }
 
 /** Post-login lookup — uses `/api/me`, not employee id (≠ Supabase auth user id). */
-export async function fetchCurrentEmployeeFromWorker(): Promise<Employee | null> {
-  const row = await getCurrentEmployee();
+export async function fetchCurrentEmployeeFromWorker(accessToken?: string): Promise<Employee | null> {
+  const row = await getCurrentEmployee(accessToken);
   return row ? workerEmployeeToApp(row) : null;
 }
 

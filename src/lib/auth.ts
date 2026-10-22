@@ -26,6 +26,26 @@ export interface AuthResult {
  */
 let pendingManualSignIn = false;
 
+const SIGN_IN_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out. Check your connection and try again.`));
+    }, ms);
+    promise.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 async function employeeFromSession(session: Session | null): Promise<Employee | null> {
   if (!session?.user) return null;
 
@@ -231,23 +251,42 @@ export const authService = {
       return { employee, error: null };
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-    if (error) return { employee: null, error: error.message };
+    // Must be set before signInWithPassword — Supabase emits SIGNED_IN while
+    // that call is still in flight; without this, onAuthStateChange runs
+    // employeeFromSession → getSession and can deadlock the auth lock.
+    pendingManualSignIn = true;
+
+    let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'];
+    let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'];
+    try {
+      ({ data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
+        SIGN_IN_TIMEOUT_MS,
+        'Sign in',
+      ));
+    } catch (e) {
+      pendingManualSignIn = false;
+      return {
+        employee: null,
+        error: e instanceof Error ? e.message : 'Sign in failed. Please try again.',
+      };
+    }
+
+    if (error) {
+      pendingManualSignIn = false;
+      return { employee: null, error: error.message };
+    }
 
     const authUserId = data.user?.id;
-    if (!authUserId) return { employee: null, error: 'Authentication failed' };
-
-    // Set this *before* the further awaits below — the SIGNED_IN event can
-    // fire concurrently with them, and the listener needs to see the flag
-    // in time to skip its own redundant employee lookup + hydration.
-    pendingManualSignIn = true;
+    const accessToken = data.session?.access_token;
+    if (!authUserId) {
+      pendingManualSignIn = false;
+      return { employee: null, error: 'Authentication failed' };
+    }
 
     // Single round-trip when the auth user is already linked (the common
     // case) instead of a "find id" query followed by a "fetch full row" one.
-    let employee = await sbEmployeeRepo.getByAuthUserId(authUserId);
+    let employee = await sbEmployeeRepo.getByAuthUserId(authUserId, accessToken);
 
     if (!employee) {
       // First login before auth_user_id has been linked yet — fall back to
@@ -287,6 +326,7 @@ export const authService = {
       };
     }
 
+    pendingManualSignIn = false;
     console.info(`[perf] auth.signIn resolved in ${Math.round(performance.now() - startedAt)}ms`);
     return { employee, error: null };
   },

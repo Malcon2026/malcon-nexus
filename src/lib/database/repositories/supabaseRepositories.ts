@@ -272,10 +272,10 @@ export const sbEmployeeRepo = {
 
   /** Single round-trip lookup used on login/session-restore — avoids a
    *  separate "find id" query followed by a "fetch full row" query. */
-  async getByAuthUserId(authUserId: string): Promise<Employee | null> {
+  async getByAuthUserId(authUserId: string, accessToken?: string): Promise<Employee | null> {
     if (useWorkerReads()) {
       void authUserId;
-      return fetchCurrentEmployeeFromWorker();
+      return fetchCurrentEmployeeFromWorker(accessToken);
     }
     const { data, error } = await supabase
       .from('employees')
