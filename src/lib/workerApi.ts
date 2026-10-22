@@ -53,6 +53,14 @@ export async function workerFetchJson<T>(
     if (e instanceof DOMException && e.name === 'AbortError') {
       throw new WorkerApiError('Request timed out. Check your connection and try again.', 408, 'TIMEOUT');
     }
+    if (e instanceof TypeError) {
+      const detail = e.message?.trim();
+      const hint =
+        detail && detail !== 'Failed to fetch' && detail !== 'Load failed'
+          ? detail
+          : 'Could not reach the Malcon API (network or CORS). Try again or refresh the page.';
+      throw new WorkerApiError(hint, 0, 'NETWORK_ERROR');
+    }
     throw e;
   } finally {
     window.clearTimeout(timeoutId);

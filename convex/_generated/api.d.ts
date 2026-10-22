@@ -12,6 +12,7 @@ import type * as dataMutations from "../dataMutations.js";
 import type * as dataQueries from "../dataQueries.js";
 import type * as http from "../http.js";
 import type * as lib_authContext from "../lib/authContext.js";
+import type * as lib_caseNumber from "../lib/caseNumber.js";
 import type * as lib_googleDrive from "../lib/googleDrive.js";
 import type * as lib_httpUtil from "../lib/httpUtil.js";
 import type * as lib_jwt from "../lib/jwt.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   dataQueries: typeof dataQueries;
   http: typeof http;
   "lib/authContext": typeof lib_authContext;
+  "lib/caseNumber": typeof lib_caseNumber;
   "lib/googleDrive": typeof lib_googleDrive;
   "lib/httpUtil": typeof lib_httpUtil;
   "lib/jwt": typeof lib_jwt;

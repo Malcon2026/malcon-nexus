@@ -539,6 +539,75 @@ http.route({
 });
 
 http.route({
+  path: '/api/hospitals',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const body = await readJson<Record<string, unknown>>(request);
+    if (body instanceof Response) return withCors(body);
+    return withCors(await handleWrite(ctx, request, 'hospitals', body));
+  }),
+});
+
+http.route({
+  path: '/api/doctors',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const body = await readJson<Record<string, unknown>>(request);
+    if (body instanceof Response) return withCors(body);
+    if (!body.createdAt && !body.created_at) {
+      body.createdAt = new Date().toISOString();
+    }
+    return withCors(await handleWrite(ctx, request, 'doctors', body));
+  }),
+});
+
+http.route({
+  pathPrefix: '/api/doctors/',
+  method: 'PUT',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    const id = decodeURIComponent(new URL(request.url).pathname.slice('/api/doctors/'.length));
+    if (!isUuidLike(id)) return withCors(apiError('BAD_REQUEST', 'Invalid doctor id', 400));
+    const body = await readJson<Record<string, unknown>>(request);
+    if (body instanceof Response) return withCors(body);
+    const patch = camelToSnake(body);
+    await ctx.runMutation(internal.dataMutations.mergeTableRow, {
+      table: 'doctors',
+      legacyId: id,
+      patch,
+    });
+    return withCors(apiData({ ok: true }));
+  }),
+});
+
+http.route({
+  pathPrefix: '/api/employees/',
+  method: 'PUT',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    const id = decodeURIComponent(new URL(request.url).pathname.slice('/api/employees/'.length));
+    if (!isUuidLike(id)) return withCors(apiError('BAD_REQUEST', 'Invalid employee id', 400));
+    const body = await readJson<Record<string, unknown>>(request);
+    if (body instanceof Response) return withCors(body);
+    const patch = camelToSnake(body);
+    if (Array.isArray(patch.departments)) {
+      patch.departments = JSON.stringify(patch.departments);
+    }
+    patch.updated_at = new Date().toISOString();
+    await ctx.runMutation(internal.dataMutations.mergeTableRow, {
+      table: 'employees',
+      legacyId: id,
+      patch,
+    });
+    return withCors(apiData({ ok: true }));
+  }),
+});
+
+http.route({
   path: '/api/stage-photos/upload',
   method: 'POST',
   handler: httpAction(async (ctx, request) => withCors(await handleStagePhotoUpload(ctx, request))),
