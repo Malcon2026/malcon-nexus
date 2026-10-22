@@ -133,7 +133,19 @@ function MainApp() {
         reloadFromDatabase();
       }
 
-      const essentialFetched = await bootstrapEssential(role, options);
+      const stage1Timeout = window.setTimeout(() => {
+        if (generation === hydrateGeneration.current) {
+          setIsHydrating(false);
+          console.warn('[App] stage-1 hydration timed out — showing shell; retry refresh if data is missing');
+        }
+      }, 45_000);
+
+      let essentialFetched = false;
+      try {
+        essentialFetched = await bootstrapEssential(role, options);
+      } finally {
+        window.clearTimeout(stage1Timeout);
+      }
       if (generation !== hydrateGeneration.current) return;
       if (essentialFetched) {
         reloadFromDatabase();

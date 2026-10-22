@@ -81,11 +81,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     clearMessages();
 
-    const { employee, error: authError } = await authService.signInWithTelegramOtp(
-      employeeCode,
-      otp,
-    );
-    setLoading(false);
+    let employee: Employee | null = null;
+    let authError: string | null = null;
+    try {
+      const result = await authService.signInWithTelegramOtp(employeeCode, otp);
+      employee = result.employee;
+      authError = result.error;
+    } catch (err) {
+      authError = err instanceof Error ? err.message : 'Login failed. Please try again.';
+    } finally {
+      setLoading(false);
+    }
 
     if (authError || !employee) {
       setError(authError ?? 'Login failed. Please try again.');
@@ -103,8 +109,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     clearMessages();
 
-    const { employee, error: authError } = await authService.signIn(adminEmail, password);
-    setLoading(false);
+    let employee: Employee | null = null;
+    let authError: string | null = null;
+    try {
+      const result = await authService.signIn(adminEmail, password);
+      employee = result.employee;
+      authError = result.error;
+    } catch (err) {
+      authError = err instanceof Error ? err.message : 'Login failed. Please try again.';
+    } finally {
+      setLoading(false);
+    }
 
     if (authError || !employee) {
       setError(authError ?? 'Login failed. Please try again.');

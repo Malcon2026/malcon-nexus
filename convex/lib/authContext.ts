@@ -47,12 +47,37 @@ export async function authenticateRequest(ctx: ActionCtx, request: Request): Pro
     return { identity: null, employeeId: null, role: null, authFailure: 'invalid_jwt' };
   }
 
-  const employee = await ctx.runQuery(internal.dataQueries.employeeByAuthUserId, {
+  let employee = await ctx.runQuery(internal.dataQueries.employeeByAuthUserId, {
     authUserId: identity.authUserId,
   });
 
+  if (!employee && identity.email?.trim()) {
+    employee = await ctx.runQuery(internal.dataQueries.employeeByEmail, {
+      email: identity.email,
+    });
+  }
+
   if (!employee) {
     return { identity, employeeId: null, role: null };
+  }
+
+  const existingAuth = employee.auth_user_id ? String(employee.auth_user_id) : '';
+  const jwtEmail = identity.email?.trim().toLowerCase();
+  const rowEmail = String(employee.email ?? '')
+    .trim()
+    .toLowerCase();
+  if (
+    (!existingAuth || existingAuth !== identity.authUserId) &&
+    jwtEmail &&
+    rowEmail &&
+    jwtEmail === rowEmail
+  ) {
+    await ctx.runMutation(internal.dataMutations.mergeTableRow, {
+      table: 'employees',
+      legacyId: String(employee.id),
+      patch: { auth_user_id: identity.authUserId, updated_at: new Date().toISOString() },
+    });
+    employee = { ...employee, auth_user_id: identity.authUserId };
   }
 
   const role = String(employee.role ?? 'employee') as AppRole;

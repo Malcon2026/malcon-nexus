@@ -32,6 +32,7 @@ import {
   useWorkerRemainingReads,
 } from '../../workerReadConfig';
 import { USE_CLOUDFLARE_BACKEND } from '../../cloudflareConfig';
+import { WorkerApiError } from '../../workerApi';
 import {
   useWorkerWritesActivity,
   useWorkerWritesApprovals,
@@ -252,8 +253,15 @@ export const sbEmployeeRepo = {
   async getByEmail(email: string): Promise<Employee | null> {
     if (useWorkerReads()) {
       const normalized = email.trim().toLowerCase();
-      const all = await fetchEmployeesFromWorker();
-      return all.find((e) => e.email.trim().toLowerCase() === normalized) ?? null;
+      const me = await fetchCurrentEmployeeFromWorker();
+      if (me && me.email.trim().toLowerCase() === normalized) return me;
+      try {
+        const all = await fetchEmployeesFromWorker();
+        return all.find((e) => e.email.trim().toLowerCase() === normalized) ?? null;
+      } catch (e) {
+        if (e instanceof WorkerApiError && e.status === 403) return null;
+        throw e;
+      }
     }
     const { data, error } = await supabase.from('employees').select('*').eq('email', email).single();
     if (error || !data) return null;

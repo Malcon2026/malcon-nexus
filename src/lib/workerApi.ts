@@ -27,17 +27,32 @@ async function parseJson(res: Response): Promise<unknown> {
   }
 }
 
+const WORKER_FETCH_TIMEOUT_MS = 60_000;
+
 export async function workerFetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${WORKER_API_URL}${path.startsWith('/') ? path : `/${path}`}`;
   const authHeaders = await getWorkerAuthHeaders();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      ...authHeaders,
-      ...(init?.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), WORKER_FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...authHeaders,
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new WorkerApiError('Request timed out. Check your connection and try again.', 408, 'TIMEOUT');
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   const body = (await parseJson(res)) as T & ApiErrorBody;
   if (!res.ok) {
     const code = body?.error?.code ?? 'HTTP_ERROR';
