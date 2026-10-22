@@ -14,7 +14,7 @@ Malcon Nexus production uses **Convex** for operational data and **Supabase Auth
    - `SUPABASE_JWT_AUD=authenticated`
    - `CONVEX_MIGRATION_KEY` — matches local value used by `npm run migrate:convex`
    - `API_CORS_ORIGIN=https://app.malconnexus.com`
-4. Import data to **prod** (uses `.env.production.convex`; does **not** overwrite with dev `.env.local`):  
+4. Import data to **prod** (one-time; see **[CONVEX-MIGRATION-RUNBOOK.md](./CONVEX-MIGRATION-RUNBOOK.md)** — verify counts before any re-import):  
    `npm run migrate:convex:prod`
 5. Deploy SPA: `npm run deploy:hostinger` (uses `--convex` by default; needs `.env.production.convex` with real Supabase keys)
 
