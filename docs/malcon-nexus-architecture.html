@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Malcon Nexus — System Architecture</title>
+  <meta name="description" content="Production architecture for Malcon Nexus: Hostinger SPA, AWS API Gateway, ECS, encrypted RDS, and S3." />
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #424245;
+      --border: rgba(0, 0, 0, 0.08);
+      --accent: #0071e3;
+      --accent-soft: rgba(0, 113, 227, 0.08);
+      --prod: #1e6b32;
+      --prod-bg: rgba(36, 138, 61, 0.14);
+      --local: #9a3412;
+      --local-bg: rgba(191, 72, 0, 0.12);
+      --legacy: #424245;
+      --legacy-bg: rgba(66, 66, 69, 0.1);
+      --defer: #6b5344;
+      --defer-bg: rgba(107, 83, 68, 0.14);
+      --warn: #9a3412;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --max: 980px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 17px;
+      line-height: 1.55;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px 80px; }
+
+    .hero {
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 16px;
+      line-height: 1.1;
+    }
+    .hero-lede {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      max-width: 36em;
+      margin: 0 auto 28px;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .hero-meta span {
+      padding: 10px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(245, 245, 247, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      margin: 0 -24px 32px;
+      padding: 14px 24px;
+      overflow-x: auto;
+    }
+    .toc-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+      min-width: min-content;
+    }
+    .toc a {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 10px 14px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .toc a:hover {
+      background: var(--surface);
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    section {
+      margin-bottom: 48px;
+      scroll-margin-top: 80px;
+    }
+    .section-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 16px;
+    }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 24px 0 10px;
+    }
+    p { margin: 0 0 14px; }
+    ul, ol { margin: 0 0 16px; padding-left: 1.25em; }
+    li { margin-bottom: 6px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+    }
+    .card-grid {
+      display: grid;
+      gap: 16px;
+    }
+    @media (min-width: 720px) {
+      .card-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      border-radius: 6px;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+    .badge-prod { background: var(--prod-bg); color: var(--prod); }
+    .badge-local { background: var(--local-bg); color: var(--local); }
+    .badge-legacy { background: var(--legacy-bg); color: var(--legacy); }
+    .badge-defer { background: var(--defer-bg); color: var(--defer); }
+    .badge-nv { background: rgba(154, 52, 18, 0.12); color: var(--warn); }
+
+    .one-liner {
+      font-size: 1.2rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      padding: 24px 28px;
+      background: var(--accent-soft);
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+    }
+
+    .diagram {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 12px 0;
+    }
+    @media (min-width: 800px) {
+      .diagram.flow-h {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+      }
+    }
+    .node {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px 22px;
+      text-align: center;
+      min-width: 120px;
+      flex: 1 1 auto;
+    }
+    .node-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .node-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+    .connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 10px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    @media (min-width: 800px) {
+      .connector {
+        padding: 12px 8px;
+        flex: 0 0 auto;
+      }
+      .connector::after {
+        content: "";
+        width: 28px;
+        height: 2px;
+        background: var(--border);
+        margin-left: 6px;
+      }
+      .connector.arrow::before {
+        content: "→";
+        font-size: 14px;
+        margin-right: 2px;
+      }
+    }
+    .diagram-stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    @media (min-width: 640px) {
+      .diagram-stack { grid-template-columns: 1fr 1fr; }
+    }
+    .layer-card {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 20px 22px;
+      background: #fafafa;
+    }
+    .layer-label {
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      background: #fafafa;
+    }
+    tr:last-child td { border-bottom: none; }
+    code {
+      font-family: var(--font);
+      font-size: 0.88em;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 4px 8px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    .footnote {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    footer {
+      text-align: center;
+      font-size: 14px;
+      color: var(--text-secondary);
+      padding: 32px 24px;
+    }
+
+    .card--table {
+      padding: 28px 32px;
+    }
+    .card--table table {
+      margin: 0 -8px;
+      width: calc(100% + 16px);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero" id="top">
+      <p class="hero-eyebrow">Internal architecture reference</p>
+      <h1>Malcon Nexus</h1>
+      <p class="hero-lede">
+        Hospital case workflow, attendance, and operations — progressive web app with hardened AWS API in <strong>ap-south-1</strong>.
+      </p>
+      <div class="hero-meta">
+        <span>Doc from repo analysis · 2026-10-18</span>
+        <span>No secrets in this page</span>
+        <span>Standalone HTML</span>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Sections">
+      <div class="toc-inner">
+        <a href="#glance">At a glance</a>
+        <a href="#environments">Environments</a>
+        <a href="#flow">Request flow</a>
+        <a href="#frontend">Frontend</a>
+        <a href="#edge">Edge &amp; API GW</a>
+        <a href="#compute">Compute</a>
+        <a href="#database">Database</a>
+        <a href="#storage">Storage</a>
+        <a href="#auth">Auth</a>
+        <a href="#api">API routes</a>
+        <a href="#client">Client layer</a>
+        <a href="#legacy">Legacy paths</a>
+        <a href="#security">Security</a>
+        <a href="#deferred">Deferred</a>
+        <a href="#observability">Observability</a>
+        <a href="#summary">Summary table</a>
+      </div>
+    </nav>
+
+    <section id="glance">
+      <p class="section-label">Section 1</p>
+      <h2>Hero and architecture at a glance</h2>
+      <div class="one-liner">
+        Browser loads the Vite/React SPA from Hostinger → HTTPS JSON to API Gateway → WAF on ALB → private ECS (port 8080) → encrypted PostgreSQL RDS and scoped S3 buckets.
+      </div>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Production URLs</h3>
+          <ul>
+            <li><strong>SPA:</strong> <a href="https://app.malconnexus.com">https://app.malconnexus.com</a></li>
+            <li><strong>API:</strong> <code>https://njbtfquxeh.execute-api.ap-south-1.amazonaws.com</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Release posture</h3>
+          <p>
+            <span class="badge badge-prod">Production ready</span>
+            <span class="badge badge-defer">Deferred items</span>
+          </p>
+          <p style="font-size: 15px; color: var(--text-secondary); margin: 0;">
+            Per frontend release notes and Phase 4I: certified with accepted deferrals (TLS hop, SNS subscribe, JWT cleanup window).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="environments">
+      <p class="section-label">Section 2</p>
+      <h2>Environment classification</h2>
+      <p>Only one path serves production browser traffic today.</p>
+      <div class="card card--table">
+        <table>
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>What it is</th>
+              <th>Deploy / run</th>
+              <th>Prod browser?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-prod">Current production</span></td>
+              <td>Hostinger SPA + AWS HTTP API + ECS + RDS <code>malcon-nexus-db-encrypted</code> + S3</td>
+              <td><code>npm run deploy:hostinger:aws</code> + <code>.env.production.aws</code></td>
+              <td><strong>Yes</strong></td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-local">Local dev</span></td>
+              <td>Vite (<code>npm run dev</code>); API often <code>127.0.0.1:8787</code></td>
+              <td>Wrangler <code>worker/</code> or local <code>aws-api/</code></td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-legacy">Legacy</span></td>
+              <td>Supabase; Cloudflare Worker + D1; cutover / Vercel scripts</td>
+              <td><code>deploy:hostinger</code>, <code>--cloudflare</code>, <code>--cutover</code></td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-defer">Deferred on AWS</span></td>
+              <td>Gallery/TV token feeds; APIGW→ALB TLS; JWT SM cleanup; SNS subscribers</td>
+              <td>Phases 4G, 4H, 4E; frontend release doc</td>
+              <td>Partial</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="flow">
+      <p class="section-label">Section 3</p>
+      <h2>Production request path</h2>
+      <div class="card">
+        <div class="diagram flow-h" role="img" aria-label="Production request flow">
+          <div class="node">
+            <div class="node-title">Browser</div>
+            <div class="node-sub">Staff PWA · JWT storage</div>
+          </div>
+          <div class="connector arrow">HTTPS</div>
+          <div class="node">
+            <div class="node-title">Hostinger</div>
+            <div class="node-sub">Static dist · SPA routing</div>
+          </div>
+          <div class="connector arrow">HTTPS</div>
+          <div class="node">
+            <div class="node-title">API Gateway</div>
+            <div class="node-sub">Throttle · client TLS here</div>
+          </div>
+          <div class="connector arrow">HTTP <span class="badge badge-defer">4G</span></div>
+          <div class="node">
+            <div class="node-title">ALB + WAF</div>
+            <div class="node-sub">malcon-nexus-api-edge</div>
+          </div>
+          <div class="connector arrow">8080</div>
+          <div class="node">
+            <div class="node-title">ECS Fargate</div>
+            <div class="node-sub">malcon-nexus-api:6 · private</div>
+          </div>
+        </div>
+        <h3>Backing services</h3>
+        <div class="diagram-stack">
+          <div class="layer-card">
+            <p class="layer-label">Data</p>
+            <p style="margin:0;font-size:14px;">RDS <strong>malcon-nexus-db-encrypted</strong> (encrypted, private). Rollback <code>malcon-nexus-pg</code> retained.</p>
+          </div>
+          <div class="layer-card">
+            <p class="layer-label">Objects</p>
+            <p style="margin:0;font-size:14px;">S3: stage photos, attendance selfies, HR/KYC — API-mediated upload/delete.</p>
+          </div>
+          <div class="layer-card">
+            <p class="layer-label">Secrets</p>
+            <p style="margin:0;font-size:14px;">Secrets Manager <code>malcon-nexus/api-env</code> at ECS launch.</p>
+          </div>
+          <div class="layer-card">
+            <p class="layer-label">Egress</p>
+            <p style="margin:0;font-size:14px;">NAT + VPC endpoints (S3, ECR, SM, Logs) — Phase 4B.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="frontend">
+      <p class="section-label">Section 4</p>
+      <h2>Frontend (Hostinger SPA)</h2>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Stack</h3>
+          <ul>
+            <li>React 19, TypeScript, Vite 7, Tailwind 4</li>
+            <li>Zustand · Framer Motion · Recharts</li>
+            <li>PWA service worker (<code>webPush.ts</code>)</li>
+            <li><code>vite-plugin-singlefile</code>; gallery/TV separate Vite configs</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Production env</h3>
+          <ul>
+            <li><code>VITE_USE_AWS_BACKEND=true</code></li>
+            <li><code>VITE_USE_CLOUDFLARE_BACKEND=false</code></li>
+            <li><code>VITE_WORKER_API_URL</code> → API Gateway</li>
+          </ul>
+          <p style="font-size:14px;color:var(--text-secondary);margin:0;">Dev may use <code>127.0.0.1:8787</code> via <code>workerReadConfig.ts</code>.</p>
+        </div>
+      </div>
+      <h3>Product surfaces</h3>
+      <div class="card">
+        <p style="font-size:15px;margin:0;">Cases, workflow, attendance, HR, expenses, petrol, food, KMS, hospitals, doctors, Telegram, reports, settings. Employee shell with bottom nav. Bundles: <code>/gallery</code>, <code>/tv</code> kiosk; in-app <code>TvBoard</code> for logged-in admins.</p>
+      </div>
+    </section>
+
+    <section id="edge">
+      <p class="section-label">Section 5</p>
+      <h2>Edge and API Gateway</h2>
+      <div class="card">
+        <ul>
+          <li>HTTP API public HTTPS; throttle ~50 r/s, burst 100 (4F).</li>
+          <li>HTTP proxy to ALB — cleartext hop until ACM + DNS (4G deferred).</li>
+          <li>WAF <code>malcon-nexus-api-edge</code> on ALB (managed rules + IP rate limit).</li>
+          <li>WAF not on HTTP API stage (REST ARN limitation); ALB covers proxied traffic.</li>
+        </ul>
+        <p style="font-size:14px;margin-top:16px;margin-bottom:0;"><span class="badge badge-nv">Not verified live</span> Listener details if changed after Phase 4I capture.</p>
+      </div>
+    </section>
+
+    <section id="compute">
+      <p class="section-label">Section 6</p>
+      <h2>Compute (ECS)</h2>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Service</h3>
+          <ul>
+            <li>Service <code>malcon-nexus-api</code>, task <code>malcon-nexus-api:6</code></li>
+            <li>Private subnets, no public task IP</li>
+            <li>Image from <code>aws-api/</code> wrapping <code>worker/src/app.ts</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Runtime</h3>
+          <ul>
+            <li>PostgreSQL via <code>clientPg.ts</code> when <code>DATABASE_URL</code> set</li>
+            <li>S3 via <code>s3Storage.ts</code> with three bucket env vars</li>
+            <li>CORS from <code>API_CORS_ORIGIN</code> in SM</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="database">
+      <p class="section-label">Section 7</p>
+      <h2>Database (RDS)</h2>
+      <div class="card">
+        <ul>
+          <li>Production: <code>malcon-nexus-db-encrypted</code> (4D-2 cutover).</li>
+          <li>Private; SG chain ECS → RDS on 5432; TLS with regional CA bundle in repo.</li>
+          <li>Schema/migration from D1 via <code>scripts/aws/migrate-d1-to-postgres.mjs</code>.</li>
+        </ul>
+        <p style="font-size:14px;color:var(--text-secondary);margin-bottom:0;">No hostnames or credentials in this document.</p>
+      </div>
+    </section>
+
+    <section id="storage">
+      <p class="section-label">Section 8</p>
+      <h2>Object storage (S3)</h2>
+      <div class="card card--table">
+        <table>
+          <thead>
+            <tr><th>Env key</th><th>Bucket (pattern)</th><th>Access</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>S3_BUCKET_STAGE_PHOTOS</code></td>
+              <td><code>malcon-nexus-stage-photos-353728888679</code></td>
+              <td><code>/api/storage/…/upload</code></td>
+            </tr>
+            <tr>
+              <td><code>S3_BUCKET_ATTENDANCE_SELFIES</code></td>
+              <td><code>malcon-nexus-attendance-selfies-353728888679</code></td>
+              <td>Attendance flows</td>
+            </tr>
+            <tr>
+              <td><code>S3_BUCKET_HR_KYC_UPLOADS</code></td>
+              <td><code>malcon-nexus-hr-kyc-353728888679</code></td>
+              <td>HR/KYC intake</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="auth">
+      <p class="section-label">Section 9</p>
+      <h2>Authentication and authorization</h2>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Browser</h3>
+          <ul>
+            <li><code>workerAuthClient.ts</code> — login, OTP, me</li>
+            <li>Token: <code>malcon_nexus_access_token</code></li>
+            <li><code>workerApi.ts</code> Bearer headers</li>
+            <li>Supabase stubbed on AWS path</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>API</h3>
+          <ul>
+            <li>JWT from SM; dual-verify window (4H) until legacy segment removed</li>
+            <li>Public: health, auth login/OTP, webhook with secret</li>
+            <li>401 fail-closed; dev identity header blocked in prod</li>
+            <li>Role checks in middleware/routes (4H IDOR fixes)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="api">
+      <p class="section-label">Section 10</p>
+      <h2>API route surface</h2>
+      <div class="card">
+        <div class="card-grid cols-2">
+          <div>
+            <h3>Reads</h3>
+            <ul style="font-size:14px;">
+              <li>Employees, cases, notifications, reference data</li>
+              <li>Attendance, leave, petrol, food, expenses, trips</li>
+              <li>Approvals, activity log, case tasks</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Writes</h3>
+            <ul style="font-size:14px;">
+              <li>Case CRUD, claim, sessions</li>
+              <li>HR/ops medium-risk writes</li>
+              <li>Storage, Telegram, case alerts</li>
+            </ul>
+          </div>
+        </div>
+        <p style="font-size:14px;color:var(--text-secondary);margin:0;">Router: <code>worker/src/app.ts</code>.</p>
+      </div>
+    </section>
+
+    <section id="client">
+      <p class="section-label">Section 11</p>
+      <h2>Client data layer</h2>
+      <div class="card">
+        <ul>
+          <li><code>cloudflareConfig.ts</code> — AWS flag enables remote API path</li>
+          <li><code>workerReadAdapters*</code>, <code>workerWriteApi*</code>, <code>workerStorageClient</code></li>
+          <li><code>database/bootstrap.ts</code> + Zustand hydration</li>
+          <li><code>liveDataSync.ts</code> — polling caps</li>
+          <li><code>cloudflareIntegrations.ts</code> — skipped on AWS with reasons</li>
+          <li>Repositories under <code>src/lib/database/repositories/</code> — Supabase when legacy</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="legacy">
+      <p class="section-label">Section 12</p>
+      <h2>Legacy and local backends</h2>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Worker + D1</h3>
+          <p style="font-size:15px;margin:0;">Not production browser path when AWS Hostinger build is live. Wrangler and D1 export scripts remain for migration tooling.</p>
+        </div>
+        <div class="card">
+          <h3>Supabase</h3>
+          <p style="font-size:15px;margin:0;">Default deploy without <code>--aws</code>. Gallery/TV <code>?token=</code> feeds use Edge (<code>gallery-feed</code>) — unavailable on AWS (<code>publicFeedAvailability.ts</code>).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="security">
+      <p class="section-label">Section 13</p>
+      <h2>Security hardening</h2>
+      <div class="card card--table">
+        <p>Phases 4B–4I · Phase 4I score <strong>91/100</strong> — certified with deferrals.</p>
+        <table>
+          <thead><tr><th>Phase</th><th>Outcome</th></tr></thead>
+          <tbody>
+            <tr><td>4B</td><td>Private ECS, NAT, endpoints, SG chain, IAM scope</td></tr>
+            <tr><td>4C</td><td>ECS secrets[] from SM</td></tr>
+            <tr><td>4D-2</td><td>Encrypted RDS cutover</td></tr>
+            <tr><td>4E–4F</td><td>7 alarms → SNS malcon-nexus-ops-alerts; WAF + throttle</td></tr>
+            <tr><td>4G</td><td>TLS APIGW→ALB deferred</td></tr>
+            <tr><td>4H</td><td>JWT rotation, ECS :6, authZ</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:14px;margin-top:16px;margin-bottom:0;">Alarms: ALB 5xx/unhealthy, ECS CPU, APIGW 5xx, RDS CPU/connections/storage.</p>
+      </div>
+    </section>
+
+    <section id="deferred">
+      <p class="section-label">Section 14</p>
+      <h2>Deferred and roadmap</h2>
+      <div class="card card--table">
+        <table>
+          <thead><tr><th>Item</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>APIGW→ALB HTTPS</td><td>ACM + DNS (4G)</td></tr>
+            <tr><td>JWT legacy segment in SM</td><td>Remove after 4H TTL (~8h post-rotation)</td></tr>
+            <tr><td>SNS subscribers</td><td>0 at 4I capture</td></tr>
+            <tr><td>Gallery / TV token URLs</td><td>Port gallery-feed to AWS API</td></tr>
+            <tr><td>RDS backup / Multi-AZ</td><td>1-day backup, single-AZ</td></tr>
+            <tr><td>Edge access logs</td><td>ALB/WAF/APIGW not configured</td></tr>
+            <tr><td>Supabase integrations</td><td>Email, push, maps on AWS path</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="observability">
+      <p class="section-label">Section 15</p>
+      <h2>Observability and deploy</h2>
+      <div class="card-grid cols-2">
+        <div class="card">
+          <h3>Operations</h3>
+          <ul>
+            <li>CloudWatch log group <code>/ecs/malcon-nexus-api</code></li>
+            <li>7 metric alarms → SNS (subscribe pending)</li>
+            <li><code>npm run test:ecs-task-def</code> — task def gates</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Release</h3>
+          <ul>
+            <li><code>npm run deploy:hostinger:aws</code></li>
+            <li>Gitignored <code>.env.production.aws</code></li>
+            <li>Production: GitHub main → Hostinger</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="summary">
+      <p class="section-label">Section 16</p>
+      <h2>Technical summary table</h2>
+      <div class="card card--table">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Technology</th><th>Production ID / URL</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SPA</td>
+              <td>Hostinger · Vite React PWA</td>
+              <td><a href="https://app.malconnexus.com">app.malconnexus.com</a></td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>API</td>
+              <td>API Gateway HTTP</td>
+              <td><code>njbtfquxeh.execute-api.ap-south-1.amazonaws.com</code></td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>Edge</td>
+              <td>WAF + ALB</td>
+              <td>malcon-nexus-api-edge</td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>Compute</td>
+              <td>ECS Fargate</td>
+              <td>malcon-nexus-api:6</td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>DB</td>
+              <td>RDS PostgreSQL encrypted</td>
+              <td>malcon-nexus-db-encrypted</td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>Storage</td>
+              <td>S3 ×3</td>
+              <td>malcon-nexus-*-353728888679</td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>Secrets</td>
+              <td>Secrets Manager</td>
+              <td>malcon-nexus/api-env</td>
+              <td><span class="badge badge-prod">Live</span></td>
+            </tr>
+            <tr>
+              <td>Alerts</td>
+              <td>CloudWatch → SNS</td>
+              <td>malcon-nexus-ops-alerts (7 alarms)</td>
+              <td><span class="badge badge-defer">No subscribers</span></td>
+            </tr>
+            <tr>
+              <td>East-west TLS</td>
+              <td>APIGW → ALB</td>
+              <td>HTTP</td>
+              <td><span class="badge badge-defer">4G</span></td>
+            </tr>
+            <tr>
+              <td>Gallery/TV tokens</td>
+              <td>Supabase Edge</td>
+              <td>/gallery · /tv</td>
+              <td><span class="badge badge-defer">Deferred</span></td>
+            </tr>
+            <tr>
+              <td>Worker/D1</td>
+              <td>Cloudflare</td>
+              <td>Legacy</td>
+              <td><span class="badge badge-legacy">Not prod path</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footnote">Sources: repo + security-hardening phase reports. Open file directly — no external assets. <span class="badge badge-nv">NOT VERIFIED</span> = not re-checked live after 4I.</p>
+    </section>
+  </div>
+  <footer>Malcon Nexus architecture · Internal engineering reference</footer>
+</body>
+</html>

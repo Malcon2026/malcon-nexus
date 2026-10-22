@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Malcon Nexus — Architecture Slides</title>
+  <meta name="description" content="Slide deck: Malcon Nexus production architecture (Hostinger SPA, AWS API, ECS, RDS, S3)." />
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --text-secondary: #424245;
+      --border: rgba(0, 0, 0, 0.08);
+      --accent: #0071e3;
+      --accent-soft: rgba(0, 113, 227, 0.08);
+      --prod: #1e6b32;
+      --prod-bg: rgba(36, 138, 61, 0.14);
+      --local: #9a3412;
+      --local-bg: rgba(191, 72, 0, 0.12);
+      --legacy: #424245;
+      --legacy-bg: rgba(66, 66, 69, 0.1);
+      --defer: #6b5344;
+      --defer-bg: rgba(107, 83, 68, 0.14);
+      --warn: #9a3412;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --slide-pad: clamp(24px, 5vw, 56px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .deck { scroll-behavior: auto; }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font);
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .deck {
+      height: 100vh;
+      height: 100dvh;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+
+    .slide {
+      min-height: 100vh;
+      min-height: 100dvh;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      display: flex;
+      flex-direction: column;
+      padding: var(--slide-pad);
+      padding-bottom: calc(var(--slide-pad) + 88px);
+    }
+
+    .slide-inner {
+      flex: 1;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .slide-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin: 0 0 10px;
+    }
+
+    .slide h1 {
+      font-size: clamp(2rem, 6vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 16px;
+      line-height: 1.08;
+    }
+
+    .slide h2 {
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 20px;
+      line-height: 1.15;
+    }
+
+    .slide h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0 0 10px;
+    }
+
+    .slide p { margin: 0 0 12px; }
+    .slide ul, .slide ol {
+      margin: 0 0 14px;
+      padding-left: 1.25em;
+    }
+    .slide li { margin-bottom: 6px; }
+    .lede {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      max-width: 36em;
+    }
+
+    .one-liner {
+      font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      padding: 22px 26px;
+      background: var(--accent-soft);
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+      line-height: 1.45;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 14px;
+    }
+    @media (min-width: 640px) {
+      .card-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 5px 9px;
+      border-radius: 6px;
+      vertical-align: middle;
+    }
+    .badge-prod { background: var(--prod-bg); color: var(--prod); }
+    .badge-local { background: var(--local-bg); color: var(--local); }
+    .badge-legacy { background: var(--legacy-bg); color: var(--legacy); }
+    .badge-defer { background: var(--defer-bg); color: var(--defer); }
+    .badge-nv { background: rgba(154, 52, 18, 0.12); color: var(--warn); }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .meta-row span {
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .diagram-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    @media (min-width: 720px) {
+      .diagram-row.h {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+    }
+    .node {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      text-align: center;
+      flex: 1 1 100px;
+    }
+    .node-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .node-sub { font-size: 12px; color: var(--text-secondary); line-height: 1.35; }
+    .conn {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 4px;
+    }
+    @media (min-width: 720px) {
+      .conn.h::before { content: "→ "; }
+    }
+
+    .stack-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    @media (min-width: 560px) {
+      .stack-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .layer {
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      background: #fafafa;
+      font-size: 14px;
+    }
+    .layer-k {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin: 0 0 6px;
+    }
+
+    .big-diagram {
+      display: grid;
+      gap: 12px;
+      text-align: center;
+    }
+    .big-diagram .tier {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .big-diagram .tier-label {
+      width: 100%;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+    .big-diagram .v-conn {
+      font-size: 18px;
+      color: var(--text-secondary);
+      line-height: 1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      background: #fafafa;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    code {
+      font-family: var(--font);
+      font-size: 0.85em;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      word-break: break-all;
+    }
+
+    .compact { font-size: 15px; }
+    .two-col-list {
+      display: grid;
+      gap: 12px;
+    }
+    @media (min-width: 560px) {
+      .two-col-list { grid-template-columns: 1fr 1fr; }
+    }
+
+    .chrome {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      background: rgba(245, 245, 247, 0.94);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dots {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      max-width: 100%;
+    }
+    .dots button {
+      width: 12px;
+      height: 12px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .dots button:hover { background: rgba(0, 0, 0, 0.28); }
+    .dots button[aria-current="true"] {
+      background: var(--accent);
+      transform: scale(1.2);
+    }
+
+    .nav-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 480px;
+      justify-content: center;
+    }
+    .nav-row button {
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      min-width: 88px;
+    }
+    .nav-row button:hover { border-color: rgba(0, 0, 0, 0.15); }
+    .nav-row button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nav-row .counter {
+      font-size: 14px;
+      color: var(--text-secondary);
+      min-width: 4.5em;
+      text-align: center;
+    }
+
+    .hints {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .hints kbd {
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .title-slide {
+      text-align: center;
+      align-items: center;
+    }
+    .title-slide .slide-inner { align-items: center; }
+    .title-slide .lede { margin-left: auto; margin-right: auto; }
+
+    .summary-bullets {
+      font-size: clamp(1rem, 2.2vw, 1.15rem);
+      line-height: 1.6;
+    }
+    .summary-bullets li { margin-bottom: 10px; }
+
+    .table-slide .card { padding: 16px 18px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck" tabindex="0" aria-label="Malcon Nexus architecture slide deck">
+
+    <section class="slide title-slide" data-slide="1">
+      <div class="slide-inner">
+        <p class="slide-label">Architecture overview</p>
+        <h1>Malcon Nexus</h1>
+        <p class="lede">
+          Hospital case workflow, attendance, and operations — progressive web app with hardened AWS API in <strong>ap-south-1</strong>.
+        </p>
+        <div class="meta-row">
+          <span>2026-10-18</span>
+          <span>No secrets in this deck</span>
+          <span><span class="badge badge-prod">Production ready</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="2">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 2</p>
+        <h2>Big picture</h2>
+        <div class="one-liner">
+          Browser loads the Vite/React SPA from Hostinger → HTTPS JSON to API Gateway → WAF on ALB → private ECS (port 8080) → encrypted PostgreSQL RDS and scoped S3 buckets.
+        </div>
+        <div class="card-grid cols-2">
+          <div class="card compact">
+            <h3>Production URLs</h3>
+            <ul>
+              <li><strong>SPA:</strong> <a href="https://app.malconnexus.com">app.malconnexus.com</a></li>
+              <li><strong>API:</strong> <code>njbtfquxeh.execute-api.ap-south-1.amazonaws.com</code></li>
+            </ul>
+          </div>
+          <div class="card compact">
+            <h3>Posture</h3>
+            <p>Phase 4I: <strong>91/100</strong> — certified with accepted deferrals (TLS hop, SNS subscribe, JWT cleanup window).</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="3">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 3</p>
+        <h2>System diagram (simplified)</h2>
+        <div class="card">
+          <div class="big-diagram" role="img" aria-label="Layered architecture">
+            <div class="tier">
+              <span class="tier-label">Users</span>
+              <div class="node"><div class="node-title">Staff browsers</div><div class="node-sub">PWA · JWT</div></div>
+            </div>
+            <div class="v-conn">↓</div>
+            <div class="tier">
+              <span class="tier-label">Static</span>
+              <div class="node"><div class="node-title">Hostinger</div><div class="node-sub">Vite dist · SPA routes</div></div>
+            </div>
+            <div class="v-conn">↓ HTTPS</div>
+            <div class="tier">
+              <span class="tier-label">Edge</span>
+              <div class="node"><div class="node-title">API Gateway</div><div class="node-sub">Throttle · TLS to client</div></div>
+              <div class="node"><div class="node-title">ALB + WAF</div><div class="node-sub">malcon-nexus-api-edge</div></div>
+            </div>
+            <div class="v-conn">↓ :8080</div>
+            <div class="tier">
+              <span class="tier-label">Compute</span>
+              <div class="node"><div class="node-title">ECS Fargate</div><div class="node-sub">malcon-nexus-api:6 · private</div></div>
+            </div>
+            <div class="v-conn">↓</div>
+            <div class="tier">
+              <span class="tier-label">Data</span>
+              <div class="node"><div class="node-title">RDS PostgreSQL</div><div class="node-sub">malcon-nexus-db-encrypted</div></div>
+              <div class="node"><div class="node-title">S3 ×3</div><div class="node-sub">API-mediated objects</div></div>
+              <div class="node"><div class="node-title">Secrets Manager</div><div class="node-sub">malcon-nexus/api-env</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="4">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 4</p>
+        <h2>Production request path</h2>
+        <div class="card">
+          <div class="diagram-row h">
+            <div class="node"><div class="node-title">Browser</div><div class="node-sub">Bearer JWT</div></div>
+            <div class="conn h">HTTPS</div>
+            <div class="node"><div class="node-title">Hostinger</div><div class="node-sub">Static SPA</div></div>
+            <div class="conn h">HTTPS</div>
+            <div class="node"><div class="node-title">API Gateway</div><div class="node-sub">~50 r/s</div></div>
+            <div class="conn h">HTTP <span class="badge badge-defer">4G</span></div>
+            <div class="node"><div class="node-title">ALB + WAF</div></div>
+            <div class="conn h">8080</div>
+            <div class="node"><div class="node-title">ECS</div><div class="node-sub">aws-api / worker app</div></div>
+          </div>
+          <div class="stack-grid">
+            <div class="layer"><p class="layer-k">Egress</p>NAT + VPC endpoints (S3, ECR, SM, Logs) — Phase 4B</div>
+            <div class="layer"><p class="layer-k">Rollback DB</p><code>malcon-nexus-pg</code> retained after 4D-2 cutover</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="5">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 5</p>
+        <h2>Frontend stack</h2>
+        <div class="card-grid cols-2">
+          <div class="card compact">
+            <h3>Technology</h3>
+            <ul>
+              <li>React 19, TypeScript, Vite 7, Tailwind 4</li>
+              <li>Zustand · Framer Motion · Recharts</li>
+              <li>PWA service worker (<code>webPush.ts</code>)</li>
+              <li><code>vite-plugin-singlefile</code>; gallery/TV configs</li>
+            </ul>
+          </div>
+          <div class="card compact">
+            <h3>Production env</h3>
+            <ul>
+              <li><code>VITE_USE_AWS_BACKEND=true</code></li>
+              <li><code>VITE_USE_CLOUDFLARE_BACKEND=false</code></li>
+              <li><code>VITE_WORKER_API_URL</code> → API Gateway</li>
+            </ul>
+            <p class="compact" style="color:var(--text-secondary);margin:0;">Dev: <code>127.0.0.1:8787</code> via <code>workerReadConfig.ts</code></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="6">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 6</p>
+        <h2>Backend layers</h2>
+        <div class="card-grid cols-2">
+          <div class="card compact">
+            <h3>Edge &amp; API Gateway</h3>
+            <ul>
+              <li>HTTP API public HTTPS; throttle ~50 r/s, burst 100</li>
+              <li>HTTP proxy to ALB — cleartext hop until ACM + DNS (4G)</li>
+              <li>WAF managed rules + IP rate limit on ALB</li>
+            </ul>
+          </div>
+          <div class="card compact">
+            <h3>ECS Fargate</h3>
+            <ul>
+              <li>Service <code>malcon-nexus-api</code>, task <code>malcon-nexus-api:6</code></li>
+              <li>Private subnets, no public task IP</li>
+              <li>Image: <code>aws-api/</code> wraps <code>worker/src/app.ts</code></li>
+              <li>PG via <code>clientPg.ts</code>; S3 via <code>s3Storage.ts</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="7">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 7</p>
+        <h2>Database (RDS)</h2>
+        <div class="card compact">
+          <ul>
+            <li>Production instance: <code>malcon-nexus-db-encrypted</code> (Phase 4D-2 cutover)</li>
+            <li>Private network; security group chain ECS → RDS on port 5432</li>
+            <li>TLS with regional CA bundle in repo (<code>aws/certs/</code>)</li>
+            <li>Schema migrated from Cloudflare D1 via <code>scripts/aws/migrate-d1-to-postgres.mjs</code></li>
+          </ul>
+          <p style="color:var(--text-secondary);margin:0;">No hostnames or credentials in this deck.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="8">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 8</p>
+        <h2>Object storage (S3)</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>Env key</th><th>Bucket pattern</th><th>Access</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>S3_BUCKET_STAGE_PHOTOS</code></td>
+                <td><code>malcon-nexus-stage-photos-353728888679</code></td>
+                <td><code>/api/storage/…/upload</code></td>
+              </tr>
+              <tr>
+                <td><code>S3_BUCKET_ATTENDANCE_SELFIES</code></td>
+                <td><code>malcon-nexus-attendance-selfies-353728888679</code></td>
+                <td>Attendance flows</td>
+              </tr>
+              <tr>
+                <td><code>S3_BUCKET_HR_KYC_UPLOADS</code></td>
+                <td><code>malcon-nexus-hr-kyc-353728888679</code></td>
+                <td>HR/KYC intake</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="compact" style="margin:12px 0 0;color:var(--text-secondary);">All uploads/deletes are API-mediated — buckets are not public web roots.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="9">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 9</p>
+        <h2>Authentication &amp; authorization</h2>
+        <div class="card-grid cols-2">
+          <div class="card compact">
+            <h3>Browser</h3>
+            <ul>
+              <li><code>workerAuthClient.ts</code> — login, OTP, me</li>
+              <li>Token key: <code>malcon_nexus_access_token</code></li>
+              <li><code>workerApi.ts</code> sends Bearer headers</li>
+              <li>Supabase stubbed on AWS path</li>
+            </ul>
+          </div>
+          <div class="card compact">
+            <h3>API</h3>
+            <ul>
+              <li>JWT from Secrets Manager; dual-verify window (4H)</li>
+              <li>Public: health, auth login/OTP, webhook + secret</li>
+              <li>401 fail-closed; dev identity header blocked in prod</li>
+              <li>Role checks in middleware (4H IDOR fixes)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="10">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 10</p>
+        <h2>Security hardening</h2>
+        <div class="card compact">
+          <p>Phases 4B–4I · Score <strong>91/100</strong> — certified with deferrals</p>
+          <table>
+            <thead><tr><th>Phase</th><th>Outcome</th></tr></thead>
+            <tbody>
+              <tr><td>4B</td><td>Private ECS, NAT, VPC endpoints, SG chain, IAM scope</td></tr>
+              <tr><td>4C</td><td>ECS <code>secrets[]</code> from Secrets Manager</td></tr>
+              <tr><td>4D-2</td><td>Encrypted RDS cutover</td></tr>
+              <tr><td>4E–4F</td><td>7 alarms → SNS <code>malcon-nexus-ops-alerts</code>; WAF + throttle</td></tr>
+              <tr><td>4G</td><td>APIGW→ALB TLS — deferred</td></tr>
+              <tr><td>4H</td><td>JWT rotation, ECS :6, authZ hardening</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="11">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 11</p>
+        <h2>Product surface (condensed)</h2>
+        <div class="card compact">
+          <p><strong>Core domains:</strong> Cases &amp; workflow · Attendance · HR · Expenses · Petrol · Food · KMS · Hospitals &amp; doctors · Telegram · Reports · Settings</p>
+          <div class="two-col-list" style="margin-top:14px;">
+            <div>
+              <h3>API reads/writes</h3>
+              <ul>
+                <li>Employees, cases, notifications, reference data</li>
+                <li>Attendance, leave, petrol, food, expenses, trips</li>
+                <li>Case CRUD, storage, Telegram, case alerts</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Client layer</h3>
+              <ul>
+                <li><code>workerReadAdapters*</code>, <code>workerWriteApi*</code></li>
+                <li><code>liveDataSync.ts</code> polling caps</li>
+                <li>Router: <code>worker/src/app.ts</code></li>
+              </ul>
+            </div>
+          </div>
+          <p style="color:var(--text-secondary);margin:0;">Employee shell with bottom nav; in-app <code>TvBoard</code> for logged-in admins.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="12">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 12</p>
+        <h2>Live vs deferred</h2>
+        <div class="card">
+          <table>
+            <thead><tr><th>Item</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>SPA + API Gateway + ECS + encrypted RDS + S3</td><td><span class="badge badge-prod">Live</span></td></tr>
+              <tr><td>Gallery <code>/gallery?token=</code> · TV <code>/tv?token=</code></td><td><span class="badge badge-defer">Deferred</span> — port gallery-feed to AWS</td></tr>
+              <tr><td>APIGW→ALB HTTPS (4G)</td><td><span class="badge badge-defer">Deferred</span></td></tr>
+              <tr><td>JWT legacy segment in SM</td><td><span class="badge badge-defer">Cleanup window</span> post-4H</td></tr>
+              <tr><td>SNS alarm subscribers</td><td><span class="badge badge-defer">0 at 4I capture</span></td></tr>
+              <tr><td>Supabase integrations (email, push, maps)</td><td><span class="badge badge-defer">Skipped on AWS</span> with UI reasons</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="13">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 13</p>
+        <h2>Local vs production</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>Class</th><th>What</th><th>Prod browser?</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-prod">Production</span></td>
+                <td>Hostinger SPA + AWS HTTP API + ECS + RDS + S3 · <code>deploy:hostinger:aws</code></td>
+                <td><strong>Yes</strong></td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-local">Local dev</span></td>
+                <td>Vite <code>npm run dev</code>; API often <code>127.0.0.1:8787</code> (Wrangler or <code>aws-api/</code>)</td>
+                <td>No</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-legacy">Legacy</span></td>
+                <td>Supabase; Cloudflare Worker + D1; <code>deploy:hostinger</code> without <code>--aws</code></td>
+                <td>No</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="14">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 14</p>
+        <h2>Deploy flow</h2>
+        <div class="card">
+          <div class="diagram-row h" style="margin-bottom:16px;">
+            <div class="node"><div class="node-title">GitHub main</div></div>
+            <div class="conn h">build</div>
+            <div class="node"><div class="node-title">Vite production</div><div class="node-sub">.env.production.aws</div></div>
+            <div class="conn h">deploy</div>
+            <div class="node"><div class="node-title">Hostinger</div><div class="node-sub">app.malconnexus.com</div></div>
+          </div>
+          <ul class="compact">
+            <li><code>npm run deploy:hostinger:aws</code> — AWS flags + API URL from gitignored env</li>
+            <li>Build verified: no dev API URL in <code>dist/</code>; no force-advance password in bundle</li>
+            <li>API side: ECR image + ECS task updates via repo <code>scripts/aws/</code> (separate from SPA deploy)</li>
+            <li>CloudWatch log group <code>/ecs/malcon-nexus-api</code>; 7 metric alarms → SNS</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-slide="15">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 15</p>
+        <h2>One-minute summary</h2>
+        <ul class="summary-bullets">
+          <li>Staff use a <strong>Hostinger-hosted React PWA</strong> that talks only to the <strong>AWS HTTP API</strong> in Mumbai.</li>
+          <li>Traffic passes <strong>API Gateway</strong> and <strong>WAF-protected ALB</strong> into <strong>private ECS</strong> running the shared Worker app codebase.</li>
+          <li>Data lives in <strong>encrypted RDS PostgreSQL</strong>; files in <strong>three private S3 buckets</strong> via authenticated API routes.</li>
+          <li><strong>JWT auth</strong> is fail-closed; secrets load from <strong>Secrets Manager</strong> at task start.</li>
+          <li>Release is <strong>production ready</strong> with documented deferrals (gallery/TV tokens, east-west TLS, SNS subscribers).</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="slide table-slide" data-slide="16">
+      <div class="slide-inner">
+        <p class="slide-label">Slide 16</p>
+        <h2>Technology summary</h2>
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>Layer</th><th>Technology</th><th>Production ID / URL</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>SPA</td>
+                <td>Hostinger · Vite React PWA</td>
+                <td><a href="https://app.malconnexus.com">app.malconnexus.com</a></td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>API</td>
+                <td>API Gateway HTTP</td>
+                <td><code>njbtfquxeh.execute-api.ap-south-1.amazonaws.com</code></td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>Edge</td>
+                <td>WAF + ALB</td>
+                <td>malcon-nexus-api-edge</td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>Compute</td>
+                <td>ECS Fargate</td>
+                <td>malcon-nexus-api:6</td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>DB</td>
+                <td>RDS PostgreSQL</td>
+                <td>malcon-nexus-db-encrypted</td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>Storage</td>
+                <td>S3 ×3</td>
+                <td>malcon-nexus-*-353728888679</td>
+                <td><span class="badge badge-prod">Live</span></td>
+              </tr>
+              <tr>
+                <td>Alerts</td>
+                <td>CloudWatch → SNS</td>
+                <td>7 alarms · malcon-nexus-ops-alerts</td>
+                <td><span class="badge badge-defer">No subscribers</span></td>
+              </tr>
+              <tr>
+                <td>Gallery/TV</td>
+                <td>Supabase Edge (legacy)</td>
+                <td>/gallery · /tv</td>
+                <td><span class="badge badge-defer">Deferred</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="color:var(--text-secondary);margin:12px 0 0;font-size:14px;">Sources: repo, FRONTEND-PRODUCTION-RELEASE.md, security-hardening Phase 4I. Open file locally — no external assets.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="chrome" role="toolbar" aria-label="Slide controls">
+    <div class="dots" id="dots" aria-label="Slide progress"></div>
+    <div class="nav-row">
+      <button type="button" id="prevBtn" aria-label="Previous slide">Previous</button>
+      <span class="counter" id="counter" aria-live="polite">1 / 16</span>
+      <button type="button" id="nextBtn" aria-label="Next slide">Next</button>
+    </div>
+    <p class="hints">
+      <kbd>←</kbd> <kbd>→</kbd> or <kbd>Space</kbd> navigate ·
+      <kbd>Home</kbd> <kbd>End</kbd> first/last ·
+      <kbd>F</kbd> fullscreen · click left/right third of slide
+    </p>
+  </div>
+
+  <script>
+    (function () {
+      var deck = document.getElementById("deck");
+      var slides = Array.prototype.slice.call(deck.querySelectorAll(".slide"));
+      var total = slides.length;
+      var dotsEl = document.getElementById("dots");
+      var counterEl = document.getElementById("counter");
+      var prevBtn = document.getElementById("prevBtn");
+      var nextBtn = document.getElementById("nextBtn");
+      var current = 0;
+      var scrolling = false;
+
+      slides.forEach(function (_, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-label", "Go to slide " + (i + 1));
+        b.addEventListener("click", function () { goTo(i); });
+        dotsEl.appendChild(b);
+      });
+
+      var dotButtons = dotsEl.querySelectorAll("button");
+
+      function updateUI() {
+        counterEl.textContent = (current + 1) + " / " + total;
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+        dotButtons.forEach(function (d, i) {
+          d.setAttribute("aria-current", i === current ? "true" : "false");
+        });
+      }
+
+      function slideTop(index) {
+        return slides[index].offsetTop;
+      }
+
+      function indexFromScroll() {
+        var y = deck.scrollTop;
+        var idx = 0;
+        for (var i = 0; i < slides.length; i++) {
+          if (slides[i].offsetTop <= y + deck.clientHeight * 0.35) idx = i;
+        }
+        return idx;
+      }
+
+      function goTo(index) {
+        index = Math.max(0, Math.min(total - 1, index));
+        if (index === current && !scrolling) return;
+        current = index;
+        scrolling = true;
+        deck.scrollTo({ top: slideTop(index), behavior: "smooth" });
+        updateUI();
+        window.setTimeout(function () { scrolling = false; }, 400);
+      }
+
+      function step(delta) {
+        goTo(current + delta);
+      }
+
+      deck.addEventListener("scroll", function () {
+        if (scrolling) return;
+        var idx = indexFromScroll();
+        if (idx !== current) {
+          current = idx;
+          updateUI();
+        }
+      }, { passive: true });
+
+      prevBtn.addEventListener("click", function () { step(-1); });
+      nextBtn.addEventListener("click", function () { step(1); });
+
+      deck.addEventListener("click", function (e) {
+        if (e.target.closest("a, button, .chrome, .dots")) return;
+        var rect = deck.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        if (x < rect.width * 0.28) step(-1);
+        else if (x > rect.width * 0.72) step(1);
+      });
+
+      document.addEventListener("keydown", function (e) {
+        var tag = e.target && e.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+        switch (e.key) {
+          case "ArrowRight":
+          case "ArrowDown":
+          case " ":
+          case "PageDown":
+            e.preventDefault();
+            step(1);
+            break;
+          case "ArrowLeft":
+          case "ArrowUp":
+          case "PageUp":
+            e.preventDefault();
+            step(-1);
+            break;
+          case "Home":
+            e.preventDefault();
+            goTo(0);
+            break;
+          case "End":
+            e.preventDefault();
+            goTo(total - 1);
+            break;
+          case "f":
+          case "F":
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+        }
+      });
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(function () {});
+        } else {
+          document.exitFullscreen();
+        }
+      }
+
+      updateUI();
+      deck.focus();
+    })();
+  </script>
+</body>
+</html>
