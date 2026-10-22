@@ -36,6 +36,9 @@ EMP ATTENDANCE*.xlsx
 .lightsail-deployment.json
 !.env.telegram.local.example
 
+# Local credentials (never commit)
+.secrets/
+
 # Emergency DB/storage exports (never commit)
 backups/
 

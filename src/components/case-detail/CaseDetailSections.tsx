@@ -240,6 +240,7 @@ export const CaseProgressTimeline: React.FC<{
                 canView={photoUrls.canView}
                 viewUrls={photoUrls.viewUrls}
                 loading={photoUrls.loading}
+                viewer={viewer}
                 caseNumber={caseNumber}
               />
             </div>

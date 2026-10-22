@@ -24,6 +24,23 @@ Malcon Nexus production uses **Convex** for operational data and **Supabase Auth
 - `npm run deploy:hostinger:cutover` — Cloudflare Worker + D1 (legacy)
 - `aws-api/`, `scripts/aws/` — kept for reference; not on default deploy path
 
-## Photos / Google Drive
+## Photos / Google Drive (stage completion)
 
-Photo URLs and storage behavior from the D1 export are preserved in row data. Google Drive integration remains deferred.
+Stage photos on Convex upload to **Google Drive** via Convex HTTP routes (`/api/stage-photos/*`). Each case `Document` in row JSON can include `driveFileId` (lazy thumbnail + Drive view on tap).
+
+### Convex production env
+
+```bash
+# Service account JSON (single line) — never commit the file
+npx convex env set --prod GOOGLE_SERVICE_ACCOUNT_JSON "$(jq -c . .secrets/malcon-drive-sa.json)"
+
+# Shared folder id (required before uploads work)
+npx convex env set --prod GOOGLE_DRIVE_FOLDER_ID "<folder-id-from-drive-url>"
+```
+
+**Folder sharing (required):** In Google Drive, create or choose a folder for stage photos. Share it with  
+`malcon-drive-uploader@malcon-nexus.iam.gserviceaccount.com` as **Editor**. Paste the folder id from the URL (`.../folders/<id>`) into `GOOGLE_DRIVE_FOLDER_ID`.
+
+Optional: `SUPER_ADMIN_EMAILS` — comma-separated emails allowed to load thumbnails / open Drive links (defaults match `VITE_SUPER_ADMIN_EMAILS` in the SPA).
+
+After rotating a leaked service-account key, revoke the old key in **GCP Console → IAM → Service accounts → Keys**, update `GOOGLE_SERVICE_ACCOUNT_JSON` on Convex prod, and delete local copies you no longer need.

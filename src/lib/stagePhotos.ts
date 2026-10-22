@@ -1,6 +1,11 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND } from './cloudflareConfig';
+import { USE_CLOUDFLARE_BACKEND, USE_CONVEX_BACKEND } from './cloudflareConfig';
+import {
+  fetchStagePhotoThumbnailUrl,
+  fetchStagePhotoViewUrl,
+  uploadStagePhotoViaConvex,
+} from './convexStagePhotosClient';
 import { USE_WORKER_STORAGE } from './workerStorageConfig';
 import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
@@ -290,6 +295,43 @@ function mapStorageUploadError(message: string): string {
   return message || 'Photo upload failed';
 }
 
+/** Convex HTTP → Google Drive (single full JPEG; lazy thumbnail in gallery). */
+async function uploadStagePhotoToConvexDrive(
+  caseId: string,
+  stage: WorkflowStage,
+  file: File,
+  uploadedBy: string,
+): Promise<Document> {
+  if (file.size === 0) {
+    throw new Error('Photo file is empty. Please retake the photo and try again.');
+  }
+  if (file.size > MAX_UPLOAD_PHOTO_BYTES) {
+    throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
+  }
+
+  try {
+    const uploaded = await uploadStagePhotoViaConvex(caseId, stage, file);
+    return {
+      id: uploaded.id,
+      name: `${stage} photo`,
+      type: uploaded.type,
+      size: formatFileSize(uploaded.sizeBytes),
+      uploadedBy,
+      uploadedAt: new Date().toISOString(),
+      url: '',
+      driveFileId: uploaded.driveFileId,
+    };
+  } catch (err) {
+    const msg = formatUnknownError(err);
+    if (/not configured|501|NOT_CONFIGURED|GOOGLE_DRIVE_FOLDER_ID/i.test(msg)) {
+      throw new Error(
+        'Stage photo storage is not configured yet. Ask admin to set GOOGLE_DRIVE_FOLDER_ID on Convex and share the Drive folder with the uploader service account.',
+      );
+    }
+    throw err instanceof Error ? err : new Error(msg);
+  }
+}
+
 /** Malcon API → S3 (AWS) or R2 (Cloudflare). Metadata URL is saved on the case in PostgreSQL/D1. */
 async function uploadStagePhotoToRemoteStorage(
   caseId: string,
@@ -419,6 +461,14 @@ export async function uploadStagePhoto(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
+  if (USE_CONVEX_BACKEND) {
+    try {
+      return await uploadStagePhotoToConvexDrive(caseId, stage, file, uploadedBy);
+    } catch (err) {
+      throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
+    }
+  }
+
   if (USE_CLOUDFLARE_BACKEND) {
     try {
       return await uploadStagePhotoToRemoteStorage(caseId, stage, file, uploadedBy);
@@ -487,12 +537,15 @@ export function stagePhotoObjectPath(url: string): string | null {
   return null;
 }
 
-/** Super-admin-only view URL (signed when bucket is private). */
+/** Super-admin-only preview URL (thumbnail when using Google Drive). */
 export async function stagePhotoViewUrlForViewer(
   doc: Document,
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
+  if (doc.driveFileId && USE_CONVEX_BACKEND) {
+    return fetchStagePhotoThumbnailUrl(doc.driveFileId);
+  }
   if (!doc.url) return null;
   if (USE_CLOUDFLARE_BACKEND || doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
   if (!USE_SUPABASE) return doc.url;
@@ -507,6 +560,28 @@ export async function stagePhotoViewUrlForViewer(
 
 export function stagePhotoDisplayUrl(doc: Document): string {
   return doc.url;
+}
+
+/** Open full image in Google Drive (super-admin, Convex + driveFileId). */
+export async function stagePhotoOpenUrlForViewer(
+  doc: Document,
+  viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
+): Promise<string | null> {
+  if (!canViewCaseStagePhotos(viewer)) return null;
+  if (doc.driveFileId && USE_CONVEX_BACKEND) {
+    return fetchStagePhotoViewUrl(doc.driveFileId);
+  }
+  if (doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
+  const signed = await stagePhotoViewUrlForViewer(doc, viewer);
+  return signed;
+}
+
+export async function openStagePhotoForViewer(
+  doc: Document,
+  viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
+): Promise<void> {
+  const url = await stagePhotoOpenUrlForViewer(doc, viewer);
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 /** Derive full-res public URL from thumb URL (same path, -full.jpg). */

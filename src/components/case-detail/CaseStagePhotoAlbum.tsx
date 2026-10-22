@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Lock } from 'lucide-react';
 import type { Document, Employee, StageRecord } from '../../types';
-import { isImageDocument, stagePhotoViewUrlForViewer } from '../../lib/stagePhotos';
+import { isImageDocument, openStagePhotoForViewer, stagePhotoViewUrlForViewer } from '../../lib/stagePhotos';
 import { canViewCaseStagePhotos } from '../../lib/superAdmin';
 
 function imageDocs(stage: StageRecord): Document[] {
@@ -67,8 +67,9 @@ export const CaseStageMiniGallery: React.FC<{
   viewUrls: Record<string, string>;
   loading: boolean;
   canView: boolean;
+  viewer: Employee;
   caseNumber?: string;
-}> = ({ stage, viewUrls, loading, canView, caseNumber }) => {
+}> = ({ stage, viewUrls, loading, canView, viewer, caseNumber }) => {
   const docs = imageDocs(stage);
   if (docs.length === 0) return null;
 
@@ -95,11 +96,10 @@ export const CaseStageMiniGallery: React.FC<{
           const alt = stagePhotoAltText(stage.stage, index, docs.length, caseNumber);
           return (
             <li key={doc.id} className="aspect-square min-h-0 bg-gray-100">
-              <a
-                href={src || doc.url}
-                target="_blank"
-                rel="noreferrer"
-                className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent)]"
+              <button
+                type="button"
+                onClick={() => void openStagePhotoForViewer(doc, viewer)}
+                className="block h-full w-full cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent)]"
               >
                 {src ? (
                   <img src={src} alt={alt} loading="lazy" className="h-full w-full object-cover" />
@@ -108,7 +108,7 @@ export const CaseStageMiniGallery: React.FC<{
                     {loading ? '…' : '—'}
                   </span>
                 )}
-              </a>
+              </button>
             </li>
           );
         })}

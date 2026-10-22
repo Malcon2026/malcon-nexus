@@ -13,6 +13,12 @@ import {
   parsePagination,
   camelToSnake,
 } from './lib/httpUtil';
+import {
+  handleStagePhotoList,
+  handleStagePhotoThumbnail,
+  handleStagePhotoUpload,
+  handleStagePhotoView,
+} from './lib/stagePhotosHttp';
 
 const http = httpRouter();
 const corsOrigin = process.env.API_CORS_ORIGIN || 'https://app.malconnexus.com';
@@ -405,6 +411,32 @@ http.route({
     if (body instanceof Response) return withCors(body);
     return withCors(await handleWrite(ctx, request, 'cases', body));
   }),
+});
+
+http.route({
+  path: '/api/stage-photos/upload',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleStagePhotoUpload(ctx, request))),
+});
+
+http.route({
+  path: '/api/stage-photos/thumbnail',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) =>
+    withCors(await handleStagePhotoThumbnail(ctx, request)),
+  ),
+});
+
+http.route({
+  path: '/api/stage-photos/view',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => withCors(await handleStagePhotoView(ctx, request))),
+});
+
+http.route({
+  path: '/api/stage-photos/list',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => withCors(await handleStagePhotoList(ctx, request))),
 });
 
 http.route({

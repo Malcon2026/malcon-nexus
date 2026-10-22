@@ -115,6 +115,8 @@ export interface Document {
   uploadedAt: string;
   /** Cloud thumbnail URL (in-app + PC sync). Full originals: office Drive / file share. */
   url: string;
+  /** Google Drive file id (Convex backend — lazy thumbnail + view link). */
+  driveFileId?: string;
   /** Legacy: second cloud file from brief dual-upload period; purge removes if present. */
   archiveUrl?: string;
 }

@@ -4,6 +4,7 @@ export type ApiErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'NOT_CONFIGURED'
   | 'INTERNAL';
 
 export function jsonResponse(body: unknown, status = 200, extraHeaders?: Record<string, string>): Response {
