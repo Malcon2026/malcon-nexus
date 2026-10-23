@@ -9,6 +9,7 @@ import {
 import { USE_WORKER_STORAGE } from './workerStorageConfig';
 import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
+import { WorkerApiError } from './workerApi';
 import type { Document, Employee, WorkflowStage } from '../types';
 import { canViewCaseStagePhotos } from './superAdmin';
 
@@ -295,6 +296,40 @@ function mapStorageUploadError(message: string): string {
   return message || 'Photo upload failed';
 }
 
+function mapConvexStagePhotoUploadError(err: unknown): Error {
+  const msg = formatUnknownError(err);
+  const code = err instanceof WorkerApiError ? err.code : undefined;
+
+  if (code === 'UPLOAD_TIMEOUT' || /UPLOAD_TIMEOUT|timed out/i.test(msg)) {
+    return new Error(
+      'Photo upload timed out. Check your connection and try again — first upload for a case can take longer while folders are created in Google Drive.',
+    );
+  }
+  if (
+    code === 'DRIVE_STORAGE_POLICY' ||
+    /DRIVE_STORAGE_POLICY|storage quota|Service Accounts do not have storage/i.test(msg)
+  ) {
+    return new Error(
+      'Google Drive blocked this upload. Ask admin to use a Workspace Shared drive (not personal My Drive), add the Convex service account as Content manager, and set GOOGLE_DRIVE_FOLDER_ID to that shared folder.',
+    );
+  }
+  if (code === 'DRIVE_FORBIDDEN') {
+    return new Error(
+      'Google Drive denied this upload. Ask admin to share the Shared drive folder with the upload service account (Content manager) and set GOOGLE_DRIVE_FOLDER_ID to that folder.',
+    );
+  }
+  if (
+    code === 'NOT_CONFIGURED' ||
+    (/not configured|NOT_CONFIGURED|\b501\b/i.test(msg) &&
+      /GOOGLE_(DRIVE_FOLDER_ID|SERVICE_ACCOUNT_JSON)|not set on the Convex/i.test(msg))
+  ) {
+    return new Error(
+      'Stage photo storage is not configured yet. Ask admin to set GOOGLE_DRIVE_FOLDER_ID on Convex and share the Drive folder with the uploader service account.',
+    );
+  }
+  return err instanceof Error ? err : new Error(msg);
+}
+
 /** Convex HTTP → Google Drive (single full JPEG; lazy thumbnail in gallery). */
 async function uploadStagePhotoToConvexDrive(
   caseId: string,
@@ -322,23 +357,7 @@ async function uploadStagePhotoToConvexDrive(
       driveFileId: uploaded.driveFileId,
     };
   } catch (err) {
-    const msg = formatUnknownError(err);
-    if (/UPLOAD_TIMEOUT|timed out/i.test(msg)) {
-      throw new Error(
-        'Photo upload timed out. Check your connection and try again — first upload for a case can take longer while folders are created in Google Drive.',
-      );
-    }
-    if (/DRIVE_STORAGE_POLICY|Shared drive|storage quota|Service Accounts do not have storage/i.test(msg)) {
-      throw new Error(
-        'Google Drive blocked this upload. Ask admin to use a Workspace Shared drive (not personal My Drive), add the Convex service account as Content manager, and set GOOGLE_DRIVE_FOLDER_ID to that shared folder.',
-      );
-    }
-    if (/not configured|501|NOT_CONFIGURED|GOOGLE_DRIVE_FOLDER_ID/i.test(msg)) {
-      throw new Error(
-        'Stage photo storage is not configured yet. Ask admin to set GOOGLE_DRIVE_FOLDER_ID on Convex and share the Drive folder with the uploader service account.',
-      );
-    }
-    throw err instanceof Error ? err : new Error(msg);
+    throw mapConvexStagePhotoUploadError(err);
   }
 }
 

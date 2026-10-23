@@ -20,6 +20,14 @@ export class GoogleDriveConfigError extends Error {
   }
 }
 
+/** Service account cannot store files in personal My Drive (needs Shared drive). */
+export class GoogleDriveStoragePolicyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GoogleDriveStoragePolicyError';
+  }
+}
+
 type ServiceAccountJson = {
   client_email: string;
   private_key: string;
@@ -494,7 +502,11 @@ export async function uploadDriveFile(options: {
   });
   const data = (await res.json()) as DriveFileMeta & { error?: { message?: string } };
   if (!res.ok || !data.id) {
-    throw new Error(data.error?.message ?? `Drive upload failed (${res.status})`);
+    const message = data.error?.message ?? `Drive upload failed (${res.status})`;
+    if (/storage quota|storageQuotaExceeded|Service Accounts do not have storage/i.test(message)) {
+      throw new GoogleDriveStoragePolicyError(message);
+    }
+    throw new Error(message);
   }
   return data;
 }

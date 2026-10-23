@@ -3,6 +3,7 @@ import { authenticateRequest, requireIdentity } from './authContext';
 import { apiData, apiError, isUuidLike } from './httpUtil';
 import {
   GoogleDriveConfigError,
+  GoogleDriveStoragePolicyError,
   buildCasePhotoPath,
   getDriveFileMeta,
   listDriveFilesByCase,
@@ -19,11 +20,18 @@ function mapDriveConfigError(err: unknown): Response {
   if (err instanceof GoogleDriveConfigError) {
     return apiError('NOT_CONFIGURED', err.message, 501);
   }
+  if (err instanceof GoogleDriveStoragePolicyError) {
+    return apiError(
+      'DRIVE_STORAGE_POLICY',
+      'Google blocked service-account uploads to this folder (personal My Drive). Move photos to a Google Workspace Shared drive and add the service account as Content manager, then set the Convex Drive folder id to that shared folder.',
+      503,
+    );
+  }
   const message = err instanceof Error ? err.message : 'Google Drive request failed';
   if (/storage quota|storageQuotaExceeded|Service Accounts do not have storage/i.test(message)) {
     return apiError(
       'DRIVE_STORAGE_POLICY',
-      'Google blocked service-account uploads to this folder (personal My Drive). Move photos to a Google Workspace Shared drive and add the service account as Content manager, then update GOOGLE_DRIVE_FOLDER_ID.',
+      'Google blocked service-account uploads to this folder (personal My Drive). Move photos to a Google Workspace Shared drive and add the service account as Content manager, then set the Convex Drive folder id to that shared folder.',
       503,
     );
   }
@@ -33,7 +41,7 @@ function mapDriveConfigError(err: unknown): Response {
   ) {
     return apiError(
       'DRIVE_FORBIDDEN',
-      'Google Drive denied upload. Share the target Shared drive folder with the service account (Content manager) and confirm GOOGLE_DRIVE_FOLDER_ID points at that folder.',
+      'Google Drive denied upload. Share the target Shared drive folder with the upload service account (Content manager) and confirm the Convex Drive folder id points at that folder.',
       403,
     );
   }
