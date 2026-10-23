@@ -125,6 +125,10 @@ Errors return `{ "error": "message" }` with appropriate HTTP status (400/401/429
 ```bash
 npx convex env set --prod TELEGRAM_BOT_TOKEN "<from @BotFather>"
 npx convex env set --prod TELEGRAM_WEBHOOK_SECRET "<random secret; must match Telegram setWebhook>"
+# Required for employee OTP verify (Supabase Admin magic link → token_hash):
+npx convex env set --prod SUPABASE_SERVICE_ROLE_KEY "<service_role from Supabase → Project Settings → API>"
+# Optional — OTP HMAC pepper if not using service role as pepper:
+# npx convex env set --prod LOGIN_OTP_SECRET "<random>"
 # Optional — required for Alert 2 cron:
 npx convex env set --prod ALERT_CRON_SECRET "<random secret>"
 ```
