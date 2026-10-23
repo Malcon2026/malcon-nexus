@@ -32,6 +32,8 @@
     "migrate:convex": "node scripts/migrate-to-convex.mjs --apply",
     "migrate:convex:prod": "node scripts/migrate-to-convex.mjs --apply --prod",
     "migrate:convex:dry-run": "node scripts/migrate-to-convex.mjs --dry-run",
+    "purge:convex:prod:dry-run": "node scripts/purge-convex-operational-data.mjs --dry-run --prod",
+    "purge:convex:prod": "node scripts/purge-convex-operational-data.mjs --apply --prod",
     "deploy:hostinger:cutover": "node scripts/deploy-hostinger-app.mjs --cutover",
     "deploy:hostinger:cloudflare": "node scripts/deploy-hostinger-app.mjs --cloudflare",
     "deploy:hostinger:aws": "node scripts/deploy-hostinger-app.mjs --aws",
