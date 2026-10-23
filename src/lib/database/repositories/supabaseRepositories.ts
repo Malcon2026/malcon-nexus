@@ -633,6 +633,8 @@ function caseToRow(c: ImplantCase): Record<string, unknown> {
     assigned_employee_id: asUuid(c.assignedEmployee?.id),
     assigned_employee_snapshot: c.assignedEmployee ?? null,
     created_by: c.createdBy,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
     due_date: c.dueDate || null,
     remarks: c.remarks,
     stages: c.stages,

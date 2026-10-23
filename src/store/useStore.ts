@@ -21,6 +21,7 @@ import { hospitalRepository } from '../lib/database/repositories/hospitals';
 import { approvalRepository } from '../lib/database/repositories/approvals';
 import { doctorRepository } from '../lib/database/repositories/doctors';
 import { newId, USE_SUPABASE, REMOTE_DATA, setCache } from '../lib/database/config';
+import { mergeCasesIntoCache } from '../lib/liveDataSync';
 import {
   notifyCaseAssignmentToEmployee,
   notifyCaseAssignmentsToEmployees,
@@ -1566,6 +1567,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     try {
       await taskRepository.create(newCase);
+      mergeCasesIntoCache([newCase]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('duplicate key') || message.includes('cases_case_number_key')) {

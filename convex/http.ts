@@ -33,6 +33,7 @@ import {
 import { handleAuthRequestOtp, handleAuthVerifyOtp } from './lib/loginOtpHttp';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from './lib/caseNumber';
 import {
+  handleCreateCase,
   handleEmployeeCaseIds,
   handleEmployeeCasesFull,
   handleFcfsPoolCases,
@@ -572,9 +573,12 @@ http.route({
   path: '/api/cases',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
     const body = await readJson<Record<string, unknown>>(request);
     if (body instanceof Response) return withCors(body);
-    return withCors(await handleWrite(ctx, request, 'cases', body));
+    return withCors(await handleCreateCase(ctx, auth, body));
   }),
 });
 

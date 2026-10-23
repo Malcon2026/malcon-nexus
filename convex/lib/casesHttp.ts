@@ -4,10 +4,12 @@ import type { RequestContext } from './authContext';
 import {
   apiData,
   apiError,
+  camelToSnake,
   isUuidLike,
   pageMeta,
   parsePagination,
 } from './httpUtil';
+import { requireAdminOrStoreManager } from './httpAuthHelpers';
 import {
   canReadCaseRow,
   caseRowToReadShape,
@@ -118,6 +120,25 @@ function sortCasesByUpdatedDesc(rows: Record<string, unknown>[]): Record<string,
       String(a.updated_at ?? a.created_at ?? ''),
     ),
   );
+}
+
+export async function handleCreateCase(
+  ctx: ActionCtx,
+  auth: RequestContext,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const denied = requireAdminOrStoreManager(auth);
+  if (denied) return denied;
+  const row = camelToSnake(body);
+  if (!row.id && typeof row.key === 'string') row.id = row.key;
+  if (typeof row.id !== 'string' || !isUuidLike(row.id)) {
+    return apiError('BAD_REQUEST', 'Invalid case id', 400);
+  }
+  const now = new Date().toISOString();
+  if (!row.created_at) row.created_at = now;
+  row.updated_at = typeof row.updated_at === 'string' && row.updated_at ? row.updated_at : now;
+  await ctx.runMutation(internal.dataMutations.upsertTableRow, { table: 'cases', row });
+  return apiData({ ok: true, id: row.id }, 201);
 }
 
 export async function handleListCases(ctx: ActionCtx, auth: RequestContext, request: Request) {
