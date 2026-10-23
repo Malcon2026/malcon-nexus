@@ -78,6 +78,17 @@ Do **not** use `npm run migrate:convex` (no `--prod`) for Hostinger — that tar
 
 Historical footgun (fixed in commit `5aead75`): older script overwrote CLI `VITE_CONVEX_URL` with dev from `.env.local`, so a ~21 min “prod” import could land entirely on **dev** while prod stayed at ~1 employee.
 
+### Trim prod (cases, attendance, logs) — not a re-import
+
+To drop operational/historical rows and **keep** reference data only (`employees`, `hospitals`, `doctors`, `departments`, `app_settings`, `surgical_kits`):
+
+```bash
+npm run purge:convex:prod:dry-run   # counts only
+npm run purge:convex:prod           # batched deletes, ~15+ min on large logs
+```
+
+Requires `CONVEX_MIGRATION_KEY` in `.env.production.convex`. **Irreversible.** Prefer this over a full JSONL import when the goal is smaller storage/I/O, not restoring from backup.
+
 ## One-time prod import (reference)
 
 See [CONVEX-PRODUCTION.md](./CONVEX-PRODUCTION.md) for env setup (`CONVEX_MIGRATION_KEY`, Supabase JWT, deploy). After counts verify, deploy SPA only if env/API changed — import alone does not require Hostinger redeploy.
