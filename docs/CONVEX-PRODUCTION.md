@@ -11,6 +11,8 @@ Malcon Nexus production uses **Convex** for operational data and **Supabase Auth
 3. Convex **production** env (`npx convex env set --prod NAME value` or Dashboard):
    - `SUPABASE_URL` — e.g. `https://ipometuqzcvdqeyvhcgg.supabase.co` (**required** for ES256 user sessions via JWKS)
    - `SUPABASE_JWT_SECRET` — optional HS256 legacy tokens (anon/service_role JWT)
+   - `SUPABASE_SERVICE_ROLE_KEY` — **required for employee OTP verify** (`auth/v1/admin/generate_link` → Supabase session)
+   - `LOGIN_OTP_SECRET` — optional pepper for OTP hashes (defaults to service role key)
    - `SUPABASE_JWT_AUD=authenticated`
    - `CONVEX_MIGRATION_KEY` — matches local value used by `npm run migrate:convex`
    - `API_CORS_ORIGIN=https://app.malconnexus.com`
@@ -89,6 +91,35 @@ With **`VITE_USE_CONVEX_BACKEND=true`**, the SPA posts to **`VITE_CONVEX_SITE_UR
 | `POST /api/case-alerts/acknowledge` | Stop reminders when stage completed |
 | `POST /api/case-alerts/process` | Cron: Alert 2 after 3h (`x-cron-secret` header) |
 
+## Employee OTP login (Convex HTTP)
+
+With **`VITE_USE_CONVEX_BACKEND=true`**, staff OTP uses **`VITE_CONVEX_SITE_URL`** (same base as other API routes), not Supabase Edge Functions.
+
+| Route | Body | Success response |
+|-------|------|------------------|
+| `POST /api/auth/request-otp` | `{ "employeeCode": "0143" }` | `{ "ok": true, "message": "..." }` |
+| `POST /api/auth/verify-otp` | `{ "employeeCode": "0143", "otp": "123456" }` | `{ "ok": true, "token_hash": "..." }` → SPA `supabase.auth.verifyOtp({ token_hash, type: 'email' })` |
+
+Data: `employees` + `login_otps` rows in Convex `malconRows`. OTP is sent via **`TELEGRAM_BOT_TOKEN`** to `employees.telegram_chat_id`.
+
+**Prerequisites for an employee:** `status=Active`, non-admin role, `auth_user_id` set, Telegram linked (`/start CODE` on @Malcon_Nexus_bot).
+
+### Smoke test (curl)
+
+```bash
+SITE=https://fleet-dinosaur-954.convex.site
+
+curl -sS -X POST "$SITE/api/auth/request-otp" \
+  -H 'Content-Type: application/json' \
+  -d '{"employeeCode":"YOUR_CODE"}'
+
+curl -sS -X POST "$SITE/api/auth/verify-otp" \
+  -H 'Content-Type: application/json' \
+  -d '{"employeeCode":"YOUR_CODE","otp":"123456"}'
+```
+
+Errors return `{ "error": "message" }` with appropriate HTTP status (400/401/429/502).
+
 ### Convex production env
 
 ```bash
@@ -111,7 +142,7 @@ Local Convex dev only: `ALLOW_INSECURE_TELEGRAM_WEBHOOK=1` if `TELEGRAM_WEBHOOK_
 | Feature | Convex prod |
 |---------|-------------|
 | Admin email/password login | Works (Supabase Auth) |
-| Employee OTP login (Telegram code) | **Phase 2** — still uses Supabase Edge Functions (404 on malcon-dms); needs Convex `/api/auth/request-otp` + `login_otps` rows |
+| Employee OTP login (Telegram code) | Convex `/api/auth/request-otp` + `/api/auth/verify-otp` (needs `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`) |
 | Case notify / broadcast / alert ladder | Works when `TELEGRAM_BOT_TOKEN` is set |
 | Bot `/start` linking | Works when webhook points at Convex site above |
 

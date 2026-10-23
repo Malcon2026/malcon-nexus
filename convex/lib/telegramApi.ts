@@ -24,6 +24,17 @@ export async function telegramSendMessage(
 }
 
 /** True when Telegram can reach the chat (user has not blocked the bot / chat id is valid). */
+export function isStaleTelegramChatError(description: string | undefined): boolean {
+  const d = (description ?? '').toLowerCase();
+  return (
+    d.includes('chat not found') ||
+    d.includes('user is deactivated') ||
+    d.includes('bot was blocked') ||
+    d.includes('peer_id_invalid') ||
+    d.includes("can't initiate conversation")
+  );
+}
+
 export async function telegramChatReachable(
   botToken: string,
   chatId: string | number,

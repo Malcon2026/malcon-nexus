@@ -7,7 +7,8 @@ import { sbEmployeeRepo } from './database/repositories/supabaseRepositories';
 import type { Employee } from '../types';
 import { isFullAdmin, usesEmployeeSignIn } from './roles';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { USE_WORKER_NATIVE_AUTH } from './cloudflareConfig';
+import { USE_CONVEX_BACKEND, USE_WORKER_NATIVE_AUTH } from './cloudflareConfig';
+import { WORKER_API_URL } from './workerReadConfig';
 import { clearAccessToken, getAccessToken, setAccessToken } from './malconSession';
 import { workerFetchMe, workerLogin, workerRequestOtp, workerVerifyOtp } from './workerAuthClient';
 import { employeeRowToEmployee } from './database/repositories/supabaseRepositories';
@@ -68,24 +69,31 @@ async function employeeFromSession(session: Session | null): Promise<Employee | 
   return found;
 }
 
-/** Invoke login edge functions via fetch so 4xx bodies surface real error messages. */
-async function invokeLoginFunction<T extends Record<string, unknown>>(
-  name: 'request-login-otp' | 'verify-login-otp',
+/** Public OTP endpoints — Convex HTTP (prod) or Supabase Edge Functions (legacy). */
+async function invokeLoginOtpApi<T extends Record<string, unknown>>(
+  route: 'request-otp' | 'verify-otp',
   body: Record<string, unknown>,
 ): Promise<{ data: T | null; error: string | null }> {
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-  if (!baseUrl || !anonKey) {
-    return { data: null, error: 'App is not configured for Supabase.' };
+  const url = USE_CONVEX_BACKEND
+    ? `${WORKER_API_URL}/api/auth/${route}`
+    : `${import.meta.env.VITE_SUPABASE_URL as string}/functions/v1/${route === 'request-otp' ? 'request-login-otp' : 'verify-login-otp'}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (!USE_CONVEX_BACKEND) {
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!anonKey) {
+      return { data: null, error: 'App is not configured for Supabase.' };
+    }
+    headers.Authorization = `Bearer ${anonKey}`;
+    headers.apikey = anonKey;
   }
 
-  const res = await fetch(`${baseUrl}/functions/v1/${name}`, {
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
@@ -113,8 +121,8 @@ export const authService = {
       if (error) return { error };
       return { error: null, message: data?.message };
     }
-    const { data, error } = await invokeLoginFunction<{ message?: string; ok?: boolean }>(
-      'request-login-otp',
+    const { data, error } = await invokeLoginOtpApi<{ message?: string; ok?: boolean }>(
+      'request-otp',
       { employeeCode: employeeCode.trim() },
     );
     if (error) return { error };
@@ -151,7 +159,7 @@ export const authService = {
       return { employee, error: null };
     }
 
-    const { data, error } = await invokeLoginFunction<{ token_hash?: string }>('verify-login-otp', {
+    const { data, error } = await invokeLoginOtpApi<{ token_hash?: string }>('verify-otp', {
       employeeCode: employeeCode.trim(),
       otp: otp.trim(),
     });

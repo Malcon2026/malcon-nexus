@@ -30,6 +30,7 @@ import {
   handleCaseAlertsProcess,
   handleCaseAlertsStart,
 } from './lib/caseAlertsHttp';
+import { handleAuthRequestOtp, handleAuthVerifyOtp } from './lib/loginOtpHttp';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from './lib/caseNumber';
 
 const http = httpRouter();
@@ -124,6 +125,22 @@ http.route({
 });
 
 /** Worker-compatible shape: `{ employee }` (no `data` wrapper). */
+http.route({
+  path: '/api/auth/request-otp',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) =>
+    withCors(await handleAuthRequestOtp(ctx, request)),
+  ),
+});
+
+http.route({
+  path: '/api/auth/verify-otp',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) =>
+    withCors(await handleAuthVerifyOtp(ctx, request)),
+  ),
+});
+
 http.route({
   path: '/api/auth/me',
   method: 'GET',
