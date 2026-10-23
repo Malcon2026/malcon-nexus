@@ -32,6 +32,14 @@ import {
 } from './lib/caseAlertsHttp';
 import { handleAuthRequestOtp, handleAuthVerifyOtp } from './lib/loginOtpHttp';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from './lib/caseNumber';
+import {
+  handleEmployeeCaseIds,
+  handleEmployeeCasesFull,
+  handleFcfsPoolCases,
+  handleGetCase,
+  handleListCases,
+  parseForEmployeeCasePath,
+} from './lib/casesHttp';
 
 const http = httpRouter();
 const corsOrigin = process.env.API_CORS_ORIGIN || 'https://app.malconnexus.com';
@@ -269,26 +277,34 @@ http.route({
     const auth = await authenticateRequest(ctx, request);
     const denied = requireIdentity(auth);
     if (denied) return withCors(denied);
-    if (auth.role !== 'admin' && auth.role !== 'store_manager') {
-      return withCors(apiError('FORBIDDEN', 'Forbidden', 403));
+    return withCors(await handleListCases(ctx, auth, request));
+  }),
+});
+
+http.route({
+  path: '/api/cases/fcfs-pool',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    return withCors(await handleFcfsPoolCases(ctx, auth, request));
+  }),
+});
+
+http.route({
+  pathPrefix: '/api/cases/for-employee/',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const auth = await authenticateRequest(ctx, request);
+    const denied = requireIdentity(auth);
+    if (denied) return withCors(denied);
+    const parsed = parseForEmployeeCasePath(new URL(request.url).pathname);
+    if (!parsed) return withCors(apiError('NOT_FOUND', 'Not found', 404));
+    if (parsed.full) {
+      return withCors(await handleEmployeeCasesFull(ctx, auth, request, parsed.employeeId));
     }
-    const url = new URL(request.url);
-    const parsed = parsePagination(url);
-    if ('error' in parsed) return withCors(apiError('BAD_REQUEST', parsed.error, 400));
-    const dayKey = url.searchParams.get('dayKey')?.trim();
-    let { items, total } = await ctx.runQuery(internal.dataQueries.listRows, {
-      table: 'cases',
-      offset: 0,
-      limit: 100000,
-    });
-    if (dayKey) {
-      items = items.filter((c) => String(c.surgery_date ?? '').startsWith(dayKey));
-      total = items.length;
-    }
-    const pageItems = items.slice(parsed.offset, parsed.offset + parsed.limit);
-    return withCors(
-      apiData({ items: pageItems, pagination: pageMeta(parsed.page, parsed.pageSize, total) }),
-    );
+    return withCors(await handleEmployeeCaseIds(ctx, auth, parsed.employeeId));
   }),
 });
 
@@ -303,10 +319,7 @@ http.route({
     const suffix = path.slice('/api/cases/'.length);
     if (suffix.includes('/')) return withCors(apiError('NOT_FOUND', 'Not found', 404));
     const id = decodeURIComponent(suffix);
-    if (!isUuidLike(id)) return withCors(apiError('BAD_REQUEST', 'Invalid case id', 400));
-    const row = await ctx.runQuery(internal.dataQueries.getRow, { table: 'cases', legacyId: id });
-    if (!row) return withCors(apiError('NOT_FOUND', 'Case not found', 404));
-    return withCors(apiData(row));
+    return withCors(await handleGetCase(ctx, auth, id));
   }),
 });
 
