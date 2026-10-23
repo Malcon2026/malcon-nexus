@@ -8,6 +8,8 @@ const IST = 'Asia/Kolkata';
 const CASES_ROOT_FOLDER = 'Cases';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
+/** Multipart / resumable uploads must use the upload host, not drive/v3. */
+const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 /** Persisted under malconRows.table — maps parent folder + name → Drive folder id. */
 const DRIVE_FOLDER_CACHE_TABLE = 'drive_folder_cache';
 
@@ -458,6 +460,7 @@ export async function uploadDriveFile(options: {
   const token = await getGoogleAccessToken();
   const metadata: Record<string, unknown> = {
     name: options.name,
+    mimeType: options.mimeType,
     parents: [options.folderId],
   };
   if (options.appProperties && Object.keys(options.appProperties).length > 0) {
@@ -481,7 +484,7 @@ export async function uploadDriveFile(options: {
   body.set(options.bytes, preBytes.length);
   body.set(closeBytes, preBytes.length + options.bytes.length);
 
-  const res = await fetch(`${DRIVE_API}/files?uploadType=multipart&supportsAllDrives=true`, {
+  const res = await fetch(`${DRIVE_UPLOAD_API}/files?uploadType=multipart&supportsAllDrives=true`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
