@@ -123,6 +123,29 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
     if (isOpen) resetAll();
   }, [isOpen, resetAll]);
 
+  // Stage-1 bootstrap omits doctors on older builds; load master list when opening case entry.
+  useEffect(() => {
+    if (!isOpen || doctors.length > 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { sbDoctorRepo } = await import('../lib/database/repositories/supabaseRepositories');
+        const remote = await sbDoctorRepo.getAll();
+        if (cancelled || remote.length === 0) return;
+        const sorted = [...remote].sort(
+          (a, b) =>
+            (a.doctorCode ?? '').localeCompare(b.doctorCode ?? '') || a.name.localeCompare(b.name),
+        );
+        useStore.setState({ doctors: sorted });
+      } catch (err) {
+        console.warn('[QuickCreateCaseModal] doctor list load failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, doctors.length]);
+
   // New step → start at the top and let screen readers hear the question.
   useEffect(() => {
     if (!isOpen) return;

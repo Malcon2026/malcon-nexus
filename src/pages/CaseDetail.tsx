@@ -988,7 +988,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
     actions.push({ key: 'reassign-prep', label: 'Reassign set prep', icon: <User className="h-4 w-4" />, onClick: () => setAssignStage(c.currentStage) });
   }
 
-  const ownerFirst = c.assignedEmployee?.name.split(' ')[0];
+  const ownerFirst = c.assignedEmployee?.name?.split(' ')[0];
   const statusLine =
     c.status === 'Completed'
       ? 'This case is completed.'

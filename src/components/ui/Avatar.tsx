@@ -9,7 +9,8 @@ interface AvatarProps {
 }
 
 export const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', className }) => {
-  const initials = name
+  const safeName = (name ?? '').trim() || '?';
+  const initials = safeName
     .split(' ')
     .map((n) => n[0])
     .slice(0, 2)
@@ -28,7 +29,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, size = 'md', className }) 
       className={cn(
         'rounded-full flex items-center justify-center font-semibold shrink-0',
         sizes[size],
-        getAvatarColor(name),
+        getAvatarColor(safeName),
         className
       )}
     >

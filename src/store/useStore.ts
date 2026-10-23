@@ -49,7 +49,8 @@ import {
 } from '../lib/petrol';
 import { parseDashboardNotes, serializeDashboardNotes, type DashboardNote } from '../lib/dashboardNotes';
 import { parseTvNotice, serializeTvNotice, type TvNoticeConfig } from '../lib/tvNotice';
-import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbFieldTeamAttendanceRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo } from '../lib/database/repositories/supabaseRepositories';
+import { sbActivityRepo, sbNotificationRepo, sbAttendanceRepo, sbAttendanceApprovalRepo, sbFieldTeamAttendanceRepo, sbLeaveRepo, sbExpenseRepo, sbSettingsRepo, sbPetrolRepo, sbLocationTripRepo, sbCaseRepo, sbCaseTaskRequestRepo, sbFoodRepo, sbDoctorRepo } from '../lib/database/repositories/supabaseRepositories';
+import { USE_CLOUDFLARE_BACKEND } from '../lib/cloudflareConfig';
 import { requiresFieldTeamAttendanceApproval } from '../lib/fieldTeamAttendance';
 import {
   bootstrapRoleForEmployee,
@@ -4306,8 +4307,19 @@ export const useStore = create<AppState>((set, get) => ({
   ensureDoctorForCase: async (rawName) => {
     const name = normalizeTitleCaseWords(rawName.trim());
     if (!name) throw new Error('Doctor name is required.');
-    const state = get();
-    const hit = findDoctorByName(state.doctors, name);
+    const tryFind = () => findDoctorByName(get().doctors, name);
+    let hit = tryFind();
+    if (!hit) {
+      const remote = await sbDoctorRepo.getAll();
+      const sorted = [...remote].sort(
+        (a, b) =>
+          (a.doctorCode ?? '').localeCompare(b.doctorCode ?? '') || a.name.localeCompare(b.name),
+      );
+      if (USE_CLOUDFLARE_BACKEND) Database.saveAll('doctors', sorted);
+      setCache('doctors', sorted);
+      set({ doctors: sorted });
+      hit = tryFind();
+    }
     if (hit) return hit;
     return get().createDoctor({ name });
   },

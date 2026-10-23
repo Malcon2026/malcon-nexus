@@ -554,8 +554,10 @@ function parseAssignedEmployee(row: Record<string, unknown>): ImplantCase['assig
   if (!snapshot && !assignedId) return null;
   const base = snapshot && assignedId ? { ...snapshot, id: assignedId } : (snapshot ?? null);
   if (!base) return null;
+  const name = (base.name ?? '').trim();
+  if (!name) return null;
   const dept = normalizeDepartment(base.department) ?? base.department;
-  return { ...base, department: dept };
+  return { ...base, name, department: dept };
 }
 
 export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase {
@@ -565,19 +567,23 @@ export function caseRowToImplantCase(row: Record<string, unknown>): ImplantCase 
     caseNumber: row.case_number as string,
     hospital: (row.hospital_snapshot as ImplantCase['hospital']) ?? FALLBACK_HOSPITAL,
     doctor: (() => {
-      const snap = (row.doctor_snapshot as ImplantCase['doctor']) ?? {
-        id: '',
-        name: 'Unknown Doctor',
-        specialization: '',
-        hospitalId: '',
-        phone: '',
+      const rawSnap = row.doctor_snapshot as ImplantCase['doctor'] | null | undefined;
+      const snap: ImplantCase['doctor'] = {
+        id: rawSnap?.id ?? (row.doctor_id as string) ?? '',
+        name: (rawSnap?.name ?? '').trim() || 'Unknown Doctor',
+        specialization: rawSnap?.specialization ?? '',
+        hospitalId: rawSnap?.hospitalId ?? '',
+        phone: rawSnap?.phone ?? '',
+        doctorCode: rawSnap?.doctorCode,
       };
       const raw = row.doctor_snapshot as { doctorCode?: string; doctor_code?: string } | null;
       const fromSnap = doctorCodeFromRow({
         doctor_code: raw?.doctorCode ?? raw?.doctor_code,
         phone: snap.phone,
       });
-      return fromSnap ? { ...snap, doctorCode: fromSnap, phone: fromSnap === snap.phone?.toUpperCase() ? '' : snap.phone } : snap;
+      return fromSnap
+        ? { ...snap, doctorCode: fromSnap, phone: fromSnap === snap.phone?.toUpperCase() ? '' : snap.phone }
+        : snap;
     })(),
     surgeryDate: normalizeDateKey(row.surgery_date as string),
     implantRequired: (row.implant_required as string) ?? '',

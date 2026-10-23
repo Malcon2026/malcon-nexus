@@ -90,6 +90,8 @@ function stage1Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
     return [
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
       { key: 'departments', run: () => sbDepartmentRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'doctors', run: () => sbDoctorRepo.getAll() },
       { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
       { key: 'cases', casesSeed: 'merge', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },
@@ -107,6 +109,8 @@ function stage1Tasks(role: BootstrapRole, options?: BootstrapOptions): Bootstrap
   if (role === 'store_manager' && options?.employeeId) {
     return [
       { key: 'employees', run: () => sbEmployeeRepo.getAll() },
+      { key: 'hospitals', run: () => sbHospitalRepo.getAll() },
+      { key: 'doctors', run: () => sbDoctorRepo.getAll() },
       { key: 'notifications', run: () => sbNotificationRepo.getAll(undefined, notifyCap) },
       { key: 'cases', casesSeed: 'merge', run: () => sbCaseRepo.getForBootstrapDay(dateKey, dayStartIso) },
       { key: 'attendanceRecords', run: () => sbAttendanceRepo.getRecentSince(dayStartIso) },

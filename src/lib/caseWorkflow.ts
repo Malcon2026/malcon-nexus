@@ -810,8 +810,8 @@ export function formatAssigneeDisplay(
   primary: Employee | null | undefined,
   assistant: Employee | null | undefined,
 ): string {
-  const p = primary?.name.split(' ')[0];
-  const a = assistant?.name.split(' ')[0];
+  const p = primary?.name?.split(' ')[0];
+  const a = assistant?.name?.split(' ')[0];
   if (p && a) return `${p} + ${a}`;
   if (p) return p;
   if (a) return `${a} (extra)`;
