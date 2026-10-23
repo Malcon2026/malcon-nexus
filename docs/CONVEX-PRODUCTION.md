@@ -76,17 +76,43 @@ Optional: `SUPER_ADMIN_EMAILS` — comma-separated emails allowed to load thumbn
 
 After rotating a leaked service-account key, revoke the old key in **GCP Console → IAM → Service accounts → Keys**, update `GOOGLE_SERVICE_ACCOUNT_JSON` on Convex prod, and delete local copies you no longer need.
 
-## Telegram (not on Convex prod yet)
+## Telegram (Convex HTTP)
 
-With **`VITE_USE_CONVEX_BACKEND=true`**, the SPA posts Telegram/case-alert actions to **`VITE_CONVEX_SITE_URL`**, but **`convex/http.ts` does not implement** `/api/telegram/*` or `/api/case-alerts/*` yet. Those calls return **404**.
+With **`VITE_USE_CONVEX_BACKEND=true`**, the SPA posts to **`VITE_CONVEX_SITE_URL`**:
 
-| Feature | Convex prod today |
-|---------|-------------------|
+| Route | Purpose |
+|-------|---------|
+| `POST /api/telegram/webhook` | Bot `/start`, `/status` — updates `employees.telegram_chat_id` in Convex |
+| `POST /api/telegram/notify` | Case assignment / postpone messages (admin or store manager) |
+| `POST /api/telegram/broadcast` | Admin broadcast to linked staff |
+| `POST /api/case-alerts/start` | Alert 1 + escalation row |
+| `POST /api/case-alerts/acknowledge` | Stop reminders when stage completed |
+| `POST /api/case-alerts/process` | Cron: Alert 2 after 3h (`x-cron-secret` header) |
+
+### Convex production env
+
+```bash
+npx convex env set --prod TELEGRAM_BOT_TOKEN "<from @BotFather>"
+npx convex env set --prod TELEGRAM_WEBHOOK_SECRET "<random secret; must match Telegram setWebhook>"
+# Optional — required for Alert 2 cron:
+npx convex env set --prod ALERT_CRON_SECRET "<random secret>"
+```
+
+Register the webhook (reads token from `.env.local` / `worker/.dev.vars`):
+
+```bash
+node scripts/setup-telegram.mjs --convex-site https://fleet-dinosaur-954.convex.site
+```
+
+**Webhook URL:** `https://fleet-dinosaur-954.convex.site/api/telegram/webhook`
+
+Local Convex dev only: `ALLOW_INSECURE_TELEGRAM_WEBHOOK=1` if `TELEGRAM_WEBHOOK_SECRET` is unset.
+
+| Feature | Convex prod |
+|---------|-------------|
 | Admin email/password login | Works (Supabase Auth) |
-| Employee OTP login (Telegram code) | **Broken** — Supabase Edge Functions `request-login-otp` / `verify-login-otp` return **404** on malcon-dms |
-| Case notify / broadcast / alert ladder from app | **Broken** — missing Convex routes |
-| Bot `/start` linking | Worker webhook may still hit **Cloudflare Worker + D1**; app reads `telegram_chat_id` from **Convex** — new links may not appear |
+| Employee OTP login (Telegram code) | **Phase 2** — still uses Supabase Edge Functions (404 on malcon-dms); needs Convex `/api/auth/request-otp` + `login_otps` rows |
+| Case notify / broadcast / alert ladder | Works when `TELEGRAM_BOT_TOKEN` is set |
+| Bot `/start` linking | Works when webhook points at Convex site above |
 
-**Legacy Worker** (`malcon-nexus-api.malcon-nexus.workers.dev`) still has Telegram routes if `TELEGRAM_*` secrets are set there; it is **not** the Hostinger default data plane.
-
-**To enable on Convex:** port `worker/src/routes/telegram.ts` (+ case-alert services) into Convex HTTP; set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` on prod; point BotFather webhook to `https://fleet-dinosaur-954.convex.site/api/telegram/webhook` (see `scripts/setup-telegram.mjs`). For OTP, either deploy Supabase functions **and** sync employee/OTP data (not recommended) or add Convex HTTP OTP using Convex `employees` / `login_otps` rows.
+**Legacy Worker** Telegram routes remain on Cloudflare but are not the Hostinger data plane; use Convex site webhook so `telegram_chat_id` writes land in the same DB as the app.

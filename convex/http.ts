@@ -20,6 +20,16 @@ import {
   handleStagePhotoUpload,
   handleStagePhotoView,
 } from './lib/stagePhotosHttp';
+import {
+  handleTelegramBroadcast,
+  handleTelegramNotify,
+  handleTelegramWebhook,
+} from './lib/telegramHttp';
+import {
+  handleCaseAlertsAcknowledge,
+  handleCaseAlertsProcess,
+  handleCaseAlertsStart,
+} from './lib/caseAlertsHttp';
 import { caseNumberPrefixForDate, nextCaseNumberWithPrefix } from './lib/caseNumber';
 
 const http = httpRouter();
@@ -631,6 +641,42 @@ http.route({
   path: '/api/stage-photos/list',
   method: 'GET',
   handler: httpAction(async (ctx, request) => withCors(await handleStagePhotoList(ctx, request))),
+});
+
+http.route({
+  path: '/api/telegram/webhook',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleTelegramWebhook(ctx, request))),
+});
+
+http.route({
+  path: '/api/telegram/notify',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleTelegramNotify(ctx, request))),
+});
+
+http.route({
+  path: '/api/telegram/broadcast',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleTelegramBroadcast(ctx, request))),
+});
+
+http.route({
+  path: '/api/case-alerts/start',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleCaseAlertsStart(ctx, request))),
+});
+
+http.route({
+  path: '/api/case-alerts/acknowledge',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleCaseAlertsAcknowledge(ctx, request))),
+});
+
+http.route({
+  path: '/api/case-alerts/process',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => withCors(await handleCaseAlertsProcess(ctx, request))),
 });
 
 http.route({
