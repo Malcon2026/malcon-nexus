@@ -2,6 +2,9 @@ import { WorkerApiError } from './workerApi';
 import { WORKER_API_URL } from './workerReadConfig';
 import { getWorkerAuthHeaders } from './workerAuthHeaders';
 
+/** Stage photo upload includes Drive folder resolution — allow extra time on first case/stage. */
+export const STAGE_PHOTO_UPLOAD_TIMEOUT_MS = 120_000;
+
 type UploadResponse = {
   data?: {
     id?: string;
@@ -20,12 +23,30 @@ type UrlResponse = {
 async function convexStagePhotoFetch<T extends UrlResponse | UploadResponse>(
   path: string,
   init?: RequestInit,
+  timeoutMs = STAGE_PHOTO_UPLOAD_TIMEOUT_MS,
 ): Promise<T> {
   const authHeaders = await getWorkerAuthHeaders();
-  const res = await fetch(`${WORKER_API_URL}${path}`, {
-    ...init,
-    headers: { ...authHeaders, ...(init?.headers ?? {}) },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(`${WORKER_API_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: { ...authHeaders, ...(init?.headers ?? {}) },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new WorkerApiError(
+        'Photo upload timed out. Check your connection and try again — if this keeps happening, ask admin to confirm the Google Shared drive folder is shared with the upload service account.',
+        408,
+        'UPLOAD_TIMEOUT',
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await res.text();
   let parsed: T;
   try {

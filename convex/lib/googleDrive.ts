@@ -8,6 +8,8 @@ const IST = 'Asia/Kolkata';
 const CASES_ROOT_FOLDER = 'Cases';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
+/** Persisted under malconRows.table — maps parent folder + name → Drive folder id. */
+const DRIVE_FOLDER_CACHE_TABLE = 'drive_folder_cache';
 
 export class GoogleDriveConfigError extends Error {
   constructor(message: string) {
@@ -23,6 +25,66 @@ type ServiceAccountJson = {
 };
 
 let cachedAccessToken: { token: string; expiresAtMs: number } | null = null;
+const memoryFolderCache = new Map<string, string>();
+
+export type DriveFolderCacheCtx = Pick<ActionCtx, 'runQuery' | 'runMutation'>;
+
+function driveFolderCacheKey(parentId: string, name: string): string {
+  return `${parentId}::${sanitizeDriveFolderSegment(name)}`;
+}
+
+async function readPersistedFolderId(
+  ctx: DriveFolderCacheCtx,
+  parentId: string,
+  name: string,
+): Promise<string | null> {
+  const legacyId = driveFolderCacheKey(parentId, name);
+  const row = await ctx.runQuery(internal.dataQueries.getRow, {
+    table: DRIVE_FOLDER_CACHE_TABLE,
+    legacyId,
+  });
+  const folderId = row?.folder_id;
+  return typeof folderId === 'string' && folderId.trim() ? folderId.trim() : null;
+}
+
+async function writePersistedFolderId(
+  ctx: DriveFolderCacheCtx,
+  parentId: string,
+  name: string,
+  folderId: string,
+): Promise<void> {
+  const safeName = sanitizeDriveFolderSegment(name);
+  const legacyId = driveFolderCacheKey(parentId, safeName);
+  await ctx.runMutation(internal.dataMutations.mergeTableRow, {
+    table: DRIVE_FOLDER_CACHE_TABLE,
+    legacyId,
+    patch: {
+      id: legacyId,
+      parent_id: parentId,
+      name: safeName,
+      folder_id: folderId,
+      updated_at: new Date().toISOString(),
+    },
+  });
+}
+
+function rememberFolderId(parentId: string, name: string, folderId: string): void {
+  memoryFolderCache.set(driveFolderCacheKey(parentId, name), folderId);
+}
+
+async function cachedFolderId(
+  parentId: string,
+  name: string,
+  ctx?: DriveFolderCacheCtx,
+): Promise<string | null> {
+  const key = driveFolderCacheKey(parentId, name);
+  const mem = memoryFolderCache.get(key);
+  if (mem) return mem;
+  if (!ctx) return null;
+  const persisted = await readPersistedFolderId(ctx, parentId, name);
+  if (persisted) rememberFolderId(parentId, name, persisted);
+  return persisted;
+}
 
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
@@ -266,10 +328,23 @@ async function findFolderByName(parentId: string, name: string): Promise<string 
   return data.files?.[0]?.id ?? null;
 }
 
-export async function getOrCreateFolder(parentId: string, name: string): Promise<string> {
+export async function getOrCreateFolder(
+  parentId: string,
+  name: string,
+  ctx?: DriveFolderCacheCtx,
+): Promise<string> {
   const safeName = sanitizeDriveFolderSegment(name);
+  const cached = await cachedFolderId(parentId, safeName, ctx);
+  if (cached) return cached;
+
   const existing = await findFolderByName(parentId, safeName);
-  if (existing) return existing;
+  if (existing) {
+    rememberFolderId(parentId, safeName, existing);
+    if (ctx) {
+      await writePersistedFolderId(ctx, parentId, safeName, existing);
+    }
+    return existing;
+  }
 
   const token = await getGoogleAccessToken();
   const res = await fetch(`${DRIVE_API}/files?supportsAllDrives=true`, {
@@ -286,25 +361,37 @@ export async function getOrCreateFolder(parentId: string, name: string): Promise
   });
   const data = (await res.json()) as { id?: string; error?: { message?: string } };
   if (!res.ok || !data.id) {
+    // Another upload may have created the folder between list and create.
+    const raced = await findFolderByName(parentId, safeName);
+    if (raced) {
+      rememberFolderId(parentId, safeName, raced);
+      if (ctx) await writePersistedFolderId(ctx, parentId, safeName, raced);
+      return raced;
+    }
     throw new Error(data.error?.message ?? `Drive folder create failed (${res.status})`);
   }
+  rememberFolderId(parentId, safeName, data.id);
+  if (ctx) await writePersistedFolderId(ctx, parentId, safeName, data.id);
   return data.id;
 }
 
-async function ensureCasePhotoFolderChain(options: {
-  rootFolderId: string;
-  year: string;
-  month: string;
-  dateKey: string;
-  caseFolder: string;
-  stageFolder: string;
-}): Promise<string> {
-  const casesRoot = await getOrCreateFolder(options.rootFolderId, CASES_ROOT_FOLDER);
-  const yearFolder = await getOrCreateFolder(casesRoot, options.year);
-  const monthFolder = await getOrCreateFolder(yearFolder, options.month);
-  const dayFolder = await getOrCreateFolder(monthFolder, options.dateKey);
-  const caseIdFolder = await getOrCreateFolder(dayFolder, options.caseFolder);
-  return getOrCreateFolder(caseIdFolder, options.stageFolder);
+async function ensureCasePhotoFolderChain(
+  ctx: DriveFolderCacheCtx,
+  options: {
+    rootFolderId: string;
+    year: string;
+    month: string;
+    dateKey: string;
+    caseFolder: string;
+    stageFolder: string;
+  },
+): Promise<string> {
+  const casesRoot = await getOrCreateFolder(options.rootFolderId, CASES_ROOT_FOLDER, ctx);
+  const yearFolder = await getOrCreateFolder(casesRoot, options.year, ctx);
+  const monthFolder = await getOrCreateFolder(yearFolder, options.month, ctx);
+  const dayFolder = await getOrCreateFolder(monthFolder, options.dateKey, ctx);
+  const caseIdFolder = await getOrCreateFolder(dayFolder, options.caseFolder, ctx);
+  return getOrCreateFolder(caseIdFolder, options.stageFolder, ctx);
 }
 
 export type CasePhotoPath = {
@@ -317,21 +404,25 @@ export type CasePhotoPath = {
 };
 
 export async function buildCasePhotoPath(
-  ctx: Pick<ActionCtx, 'runQuery'>,
+  ctx: DriveFolderCacheCtx,
   caseId: string,
   stage: string,
   capturedAt?: number,
 ): Promise<CasePhotoPath> {
   const rootFolderId = requireDriveFolderId();
-  const caseRow = await ctx.runQuery(internal.dataQueries.getRow, {
-    table: 'cases',
-    legacyId: caseId,
-  });
   const capturedAtMs = capturedAt ?? Date.now();
+  const [caseRow] = await Promise.all([
+    ctx.runQuery(internal.dataQueries.getRow, {
+      table: 'cases',
+      legacyId: caseId,
+    }),
+    getGoogleAccessToken(),
+  ]);
   const { year, month, dateKey } = resolveCaseDateParts(caseRow, capturedAtMs);
   const caseFolder = caseFolderSegment(caseRow, caseId);
   const stageLabel = sanitizeDriveFolderSegment(normalizeWorkflowStageForDrive(stage));
-  const folderId = await ensureCasePhotoFolderChain({
+  const folderStarted = Date.now();
+  const folderId = await ensureCasePhotoFolderChain(ctx, {
     rootFolderId,
     year,
     month,
@@ -339,6 +430,12 @@ export async function buildCasePhotoPath(
     caseFolder,
     stageFolder: stageLabel,
   });
+  const folderMs = Date.now() - folderStarted;
+  if (folderMs > 2_000) {
+    console.log(
+      `[stage-photo] drive folder chain ${folderMs}ms case=${caseId.slice(0, 8)} stage=${stageLabel}`,
+    );
+  }
   const photoId = crypto.randomUUID();
   const fileName = `${capturedAtMs}-${photoId}.jpg`;
   const logicalPath = `${CASES_ROOT_FOLDER}/${year}/${month}/${dateKey}/${caseFolder}/${stageLabel}/${fileName}`;

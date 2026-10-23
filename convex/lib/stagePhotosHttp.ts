@@ -27,6 +27,16 @@ function mapDriveConfigError(err: unknown): Response {
       503,
     );
   }
+  if (
+    /insufficientFilePermissions|not authorized|403|permission/i.test(message) &&
+    /drive|file|folder/i.test(message)
+  ) {
+    return apiError(
+      'DRIVE_FORBIDDEN',
+      'Google Drive denied upload. Share the target Shared drive folder with the service account (Content manager) and confirm GOOGLE_DRIVE_FOLDER_ID points at that folder.',
+      403,
+    );
+  }
   return apiError('INTERNAL', message, 500);
 }
 
@@ -71,6 +81,7 @@ export async function handleStagePhotoUpload(
   const capturedAt = Date.now();
 
   try {
+    const started = Date.now();
     const path = await buildCasePhotoPath(ctx, caseId, stage, capturedAt);
     const uploaded = await uploadDriveFile({
       name: path.fileName,
@@ -79,6 +90,12 @@ export async function handleStagePhotoUpload(
       folderId: path.folderId,
       appProperties: { caseId, stage: path.stage },
     });
+    const elapsedMs = Date.now() - started;
+    if (elapsedMs > 3_000) {
+      console.log(
+        `[stage-photo] upload ok ${elapsedMs}ms case=${caseId.slice(0, 8)} bytes=${file.size} path=${path.logicalPath}`,
+      );
+    }
     return apiData(
       {
         id: path.photoId,
