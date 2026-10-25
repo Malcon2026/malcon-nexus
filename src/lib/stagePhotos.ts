@@ -10,9 +10,6 @@ const MAX_PHOTOS_PER_SUBMISSION = 10;
 export const MAX_RAW_PHOTO_BYTES = 25 * 1024 * 1024;
 /** After compress, keep under storage limit. */
 export const MAX_UPLOAD_PHOTO_BYTES = 5 * 1024 * 1024;
-/** Stamped photo for upload — single cloud copy (thumbnail) to limit storage & egress. */
-const CLOUD_PHOTO_MAX_EDGE = 640;
-const CLOUD_PHOTO_TARGET_BYTES = 180 * 1024;
 const MAX_IMAGE_EDGE = 1600;
 const TARGET_UPLOAD_BYTES = 550 * 1024;
 
@@ -245,50 +242,8 @@ export async function stampPhotoForUpload(
   }
 }
 
-function sanitizeStage(stage: string): string {
-  return stage.toLowerCase().replace(/\s+/g, '-');
-}
 
-async function ensureUploadSession() {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) {
-    throw new Error('You must be logged in to upload a photo');
-  }
-
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session?.access_token) {
-    throw new Error('Session expired. Please sign in again.');
-  }
-
-  // Refresh if token expires within 2 minutes (common on mobile after camera opens).
-  const expiresAtMs = (session.expires_at ?? 0) * 1000;
-  if (expiresAtMs > 0 && expiresAtMs - Date.now() < 120_000) {
-    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError || !refreshed.session?.access_token) {
-      throw new Error('Session expired. Please sign in again.');
-    }
-    return refreshed.session;
-  }
-
-  return session;
-}
-
-function mapStorageUploadError(message: string): string {
-  const lower = message.toLowerCase();
-  if (lower.includes('bucket') || lower.includes('not found')) {
-    return 'Stage photo storage is not set up yet. Ask admin to run add-stage-photos-storage.sql in Supabase.';
-  }
-  if (lower.includes('row-level security') || lower.includes('policy') || lower.includes('permission')) {
-    return 'Photo upload blocked by storage permissions. Contact admin.';
-  }
-  if (lower.includes('payload too large') || lower.includes('file size')) {
-    return 'Photo is too large (max 5 MB). Retake or use a simpler photo.';
-  }
-  return message || 'Photo upload failed';
-}
-
-
-/** Upload directly to Supabase Storage (same pattern as petrol receipts — reliable on mobile). */
+/** Send the photo to the upload-stage-photo Edge Function, which stores it in Google Drive. */
 async function uploadStagePhotoToStorage(
   caseId: string,
   stage: WorkflowStage,
@@ -302,54 +257,24 @@ async function uploadStagePhotoToStorage(
     throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
   }
 
-  await ensureUploadSession();
+  const form = new FormData();
+  form.append('caseId', caseId);
+  form.append('stage', stage);
+  form.append('uploadedBy', uploadedBy);
+  form.append('photo', file);
 
-  const thumbFile = await compressImageForUpload(file, {
-    maxEdge: CLOUD_PHOTO_MAX_EDGE,
-    targetBytes: CLOUD_PHOTO_TARGET_BYTES,
-  });
-
-  const photoId = crypto.randomUUID();
-  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
-  const fullPath = `${basePath}-full.jpg`;
-  const thumbPath = `${basePath}-thumb.jpg`;
-
-  const contentType = 'image/jpeg';
-
-  const bucket = supabase.storage.from('stage-photos');
-
-  const { error: fullError } = await bucket.upload(fullPath, file, {
-    contentType: file.type || contentType,
-    upsert: false,
-  });
-  if (fullError) {
-    throw new Error(mapStorageUploadError(fullError.message));
+  const { data, error } = await supabase.functions.invoke<{ document?: Document; error?: string }>(
+    'upload-stage-photo',
+    { body: form },
+  );
+  if (error) {
+    const detail = (await (error as { context?: Response }).context?.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+    throw new Error(detail?.error || 'Photo upload failed. Check your connection and try again.');
   }
-
-  const { error: thumbError } = await bucket.upload(thumbPath, thumbFile, {
-    contentType,
-    upsert: false,
-  });
-  if (thumbError) {
-    await bucket.remove([fullPath]);
-    throw new Error(mapStorageUploadError(thumbError.message));
-  }
-
-  const { data: thumbPublic } = bucket.getPublicUrl(thumbPath);
-  if (!thumbPublic.publicUrl) {
-    throw new Error('Photo uploaded but the URL could not be created.');
-  }
-
-  // Case record stores thumb URL only — full stays in storage briefly for office PC sync, not linked in app.
-  return {
-    id: photoId,
-    name: `${stage} photo`,
-    type: contentType,
-    size: formatFileSize(thumbFile.size),
-    uploadedBy,
-    uploadedAt: new Date().toISOString(),
-    url: thumbPublic.publicUrl,
-  };
+  if (!data?.document) throw new Error(data?.error || 'Photo upload failed. Try again.');
+  return data.document;
 }
 
 /** Upload a stage completion photo and return a Document record for the case stage. */
@@ -419,12 +344,23 @@ export function stagePhotoObjectPath(url: string): string | null {
   return null;
 }
 
+/** Full photo in Google Drive (opens in a new tab). Public via the file link. */
+function drivePhotoViewUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
+/** Small Google-generated preview, so galleries never download the full photo. */
+function drivePhotoThumbUrl(fileId: string): string {
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+}
+
 /** Super-admin-only preview URL (thumbnail when using Google Drive). */
 export async function stagePhotoViewUrlForViewer(
   doc: Document,
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
+  if (doc.driveFileId) return drivePhotoViewUrl(doc.driveFileId);
   if (!doc.url) return null;
   if (doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
   if (!USE_SUPABASE) return doc.url;
@@ -449,6 +385,7 @@ export async function stagePhotoThumbUrlForViewer(
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
+  if (doc.driveFileId) return drivePhotoThumbUrl(doc.driveFileId);
   if (!doc.url) return null;
   if (doc.url.startsWith('data:')) return doc.url;
   if (!USE_SUPABASE) return doc.url;
@@ -471,6 +408,7 @@ export async function stagePhotoOpenUrlForViewer(
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
+  if (doc.driveFileId) return drivePhotoViewUrl(doc.driveFileId);
   if (doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
   const signed = await stagePhotoViewUrlForViewer(doc, viewer);
   return signed;
