@@ -169,8 +169,8 @@ export const Modal: React.FC<ModalProps> = ({
               isScreen
                 ? 'h-full'
                 : cn(
-                    'mx-2 sm:mx-auto rounded-t-[var(--radius-lg)] sm:rounded-[var(--radius-lg)] shadow-[var(--shadow-modal)] border border-[var(--color-separator)]',
-                    fixedHeight ? 'h-[min(88vh,720px)] max-h-[88vh]' : 'max-h-[92vh] sm:max-h-[90vh]',
+                    'mx-0 sm:mx-auto rounded-t-[var(--radius-lg)] sm:rounded-[var(--radius-lg)] shadow-[var(--shadow-modal)] border border-[var(--color-separator)]',
+                    fixedHeight ? 'h-[min(88vh,720px)] max-h-[88vh]' : 'max-h-[92dvh] sm:max-h-[90vh]',
                     sizeClasses[size],
                   ),
             )}

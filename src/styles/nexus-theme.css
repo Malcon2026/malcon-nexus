@@ -310,6 +310,14 @@
   padding-left: 0.875rem;
 }
 
+/* Keep sheets clear of the iPhone notch and home bar. */
+.safe-area-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+.safe-area-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
 /* iPhone zooms in on any text box under 16px. Keep form controls at 16px on phones. */
 @media (max-width: 767px) {
   input:not([type='checkbox']):not([type='radio']):not([type='range']),

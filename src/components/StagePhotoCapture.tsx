@@ -114,9 +114,16 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
 
   return (
     <div className="space-y-3">
-      <label className="block text-xs font-medium text-gray-700">{label}</label>
+      <div className="flex items-baseline justify-between gap-3">
+        <label className="block text-sm font-semibold text-gray-900">{label}</label>
+        {photos.length > 0 ? (
+          <span className="text-xs font-medium text-gray-500">
+            {photos.length}/{maxPhotos}
+          </span>
+        ) : null}
+      </div>
       <p className="text-xs text-gray-500 -mt-1">
-        Take a photo or pick from gallery (up to {maxPhotos}). Large iPhone photos are compressed automatically.
+        Up to {maxPhotos} photos. Your name, ID and time are stamped on each one.
       </p>
 
       {/* Camera — capture forces the rear camera on phones */}
@@ -146,21 +153,19 @@ export const StagePhotoCapture: React.FC<StagePhotoCaptureProps> = ({
             type="button"
             disabled={disabled}
             onClick={openCamera}
-            className="nexus-upload-zone flex-1 px-3 py-7 disabled:opacity-50"
+            className="nexus-upload-zone flex-1 px-3 py-6 disabled:opacity-50"
           >
-            <Camera className="h-9 w-9" />
-            <span className="text-sm font-semibold">Take Photo</span>
-            <span className="text-[11px] text-[var(--color-accent)]">Open camera</span>
+            <Camera className="h-8 w-8" />
+            <span className="text-sm font-semibold">Take photo</span>
           </button>
           <button
             type="button"
             disabled={disabled}
             onClick={openGallery}
-            className="nexus-upload-zone flex-1 px-3 py-7 opacity-90 disabled:opacity-50"
+            className="nexus-upload-zone flex-1 px-3 py-6 opacity-90 disabled:opacity-50"
           >
-            <ImageIcon className="h-9 w-9" />
-            <span className="text-sm font-semibold">Pick from Gallery</span>
-            <span className="text-[11px] text-[var(--color-label-secondary)]">Choose existing photos</span>
+            <ImageIcon className="h-8 w-8" />
+            <span className="text-sm font-semibold">From gallery</span>
           </button>
         </div>
       ) : (

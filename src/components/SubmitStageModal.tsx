@@ -278,7 +278,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       size={isRestock || isPickup || isSurgery ? 'lg' : 'md'}
       footer={
         <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-          <Button variant="outline" size="sm" onClick={handleClose} disabled={submitting}>
+          <Button variant="ghost" size="md" onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
           {isRestock ? (
@@ -296,7 +296,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             <>
               <Button
                 variant="primary"
-                size="sm"
+                size="md"
                 onClick={() => void handleSubmit(undefined, undefined)}
                 disabled={!formReady}
                 icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -305,7 +305,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                size="md"
                 onClick={() => void handleSubmit(undefined, 'used_no_return')}
                 disabled={!formReady}
                 icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
@@ -314,7 +314,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                size="md"
                 onClick={() => void handleSubmit(undefined, 'parked')}
                 disabled={!formReady}
                 icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ParkingCircle className="h-4 w-4" />}
@@ -326,7 +326,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             <div className="flex flex-col gap-2 w-full sm:min-w-[280px]">
               <Button
                 variant="primary"
-                size="sm"
+                size="md"
                 className="w-full"
                 onClick={() => void handleSubmit()}
                 disabled={!formReady}
@@ -336,7 +336,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                size="md"
                 className="w-full"
                 onClick={() => void handleSurgeryPostpone()}
                 disabled={!surgeryPostponeReady}
@@ -360,7 +360,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
           ) : (
             <Button
               variant="primary"
-              size="sm"
+              size="md"
               onClick={() => void handleSubmit()}
               disabled={!formReady}
               icon={submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -372,18 +372,15 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
       }
     >
       <div className="p-4 sm:p-6 space-y-5">
-        <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">Case</span>
-            <span className="font-semibold text-gray-900">{c.caseNumber}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">Hospital</span>
-            <span className="font-medium text-gray-800">{c.hospital.name}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">Stage</span>
-            <span className="font-medium text-gray-800">{stage}</span>
+        <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-lg font-semibold leading-tight text-gray-900">{c.caseNumber}</p>
+              <p className="mt-0.5 truncate text-sm text-gray-600">{c.hospital.name}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-[var(--color-accent-muted)] px-3 py-1 text-xs font-semibold text-[var(--color-accent)]">
+              {stage}
+            </span>
           </div>
         </div>
 
@@ -441,7 +438,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
               <input
                 id={postponeDateFieldId}
                 type="date"
-                className="nexus-field-input nexus-field-input--plain w-full text-sm"
+                className="nexus-field-input nexus-field-input--plain w-full text-base"
                 value={postponeDate}
                 min={c.surgeryDate || undefined}
                 disabled={submitting}
@@ -506,12 +503,12 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
         {!isSurgery && !isRestock && (
           <div>
-            <label htmlFor={completionNotesFieldId} className="block text-xs font-medium text-gray-700 mb-1.5">
-              Completion Notes *
+            <label htmlFor={completionNotesFieldId} className="block text-sm font-semibold text-gray-900 mb-2">
+              Completion notes <span className="text-red-500">*</span>
             </label>
             <textarea
               id={completionNotesFieldId}
-              className="nexus-field-input nexus-field-input--plain w-full min-h-[80px] py-2 text-sm resize-y"
+              className="nexus-field-input nexus-field-input--plain w-full min-h-[112px] py-3 text-base resize-y rounded-xl"
               rows={4}
               placeholder={notesPlaceholder}
               value={notes}
@@ -523,12 +520,12 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
 
         {isSurgery && (
           <div>
-            <label htmlFor={completionNotesFieldId} className="block text-xs font-medium text-gray-700 mb-1.5">
+            <label htmlFor={completionNotesFieldId} className="block text-sm font-semibold text-gray-900 mb-2">
               Completion notes <span className="text-gray-400 font-normal">(only if surgery completed)</span>
             </label>
             <textarea
               id={completionNotesFieldId}
-              className="nexus-field-input nexus-field-input--plain w-full min-h-[72px] py-2 text-sm resize-y"
+              className="nexus-field-input nexus-field-input--plain w-full min-h-[96px] py-3 text-base resize-y rounded-xl"
               rows={3}
               placeholder={notesPlaceholder}
               value={notes}
@@ -556,7 +553,7 @@ export const SubmitStageModal: React.FC<SubmitStageModalProps> = ({
             Photos and notes are required only when marking surgery completed. Postpone and cancel do not need photos.
           </p>
         ) : (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             Your photos and notes are saved and the case moves to the next stage automatically.
           </p>
         )}
