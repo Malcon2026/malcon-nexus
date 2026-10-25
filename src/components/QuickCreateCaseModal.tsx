@@ -28,7 +28,7 @@ type Props = {
   onClose: () => void;
 };
 
-type ProblemField = 'hospital' | SurgeryField | 'punch';
+type ProblemField = 'hospital' | 'procedure' | SurgeryField | 'punch';
 interface Problem {
   step: number;
   field: ProblemField;
@@ -203,10 +203,10 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   /** First thing that's missing in steps 0..upTo — one guiding message at a time. */
   const findProblem = (upTo: number): Problem | null => {
     const checks: Problem[] = [];
+    if (!form.surgeryDate) checks.push({ step: 0, field: 'date', message: 'Choose the surgery date to continue.' });
     if (!form.implantRequired.trim()) checks.push({ step: 0, field: 'procedure', message: 'Enter the case name to continue.' });
     if (!form.hospitalId) checks.push({ step: 1, field: 'hospital', message: 'Select a hospital to continue.' });
-    if (!form.doctorName.trim()) checks.push({ step: 2, field: 'doctor', message: 'Select or add the doctor to continue.' });
-    if (!form.surgeryDate) checks.push({ step: 2, field: 'date', message: 'Choose the surgery date to continue.' });
+    if (!form.doctorName.trim()) checks.push({ step: 1, field: 'doctor', message: 'Select or add the doctor to continue.' });
     if (isFullAdmin && !form.punchedInByEmployeeId.trim()) {
       checks.push({ step: 3, field: 'punch', message: 'Choose who punched in this case.' });
     }
@@ -318,7 +318,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const meta = CASE_CREATE_STEPS[step];
   const errorFor = (field: ProblemField) => (visibleProblem?.field === field ? visibleProblem.message : null);
   const surgeryError =
-    visibleProblem && (visibleProblem.field === 'doctor' || visibleProblem.field === 'procedure' || visibleProblem.field === 'date')
+    visibleProblem && (visibleProblem.field === 'doctor' || visibleProblem.field === 'date')
       ? { field: visibleProblem.field, message: visibleProblem.message }
       : null;
 
@@ -443,35 +443,64 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                 <div className="animate-in fade-in duration-200" key={step}>
                   {step === 0 && (
-                    <CaseNameStep
-                      form={form}
-                      patch={patch}
-                      cases={cases}
-                      error={errorFor('procedure')}
-                      procedureRef={procedureRef}
-                      onSubmitFromKeyboard={goNext}
-                    />
+                    <div className="space-y-7">
+                      <SurgeryStep
+                        part="when"
+                        form={form}
+                        patch={patch}
+                        hospital={hospital}
+                        cases={cases}
+                        doctors={doctors}
+                        showImplantDetails={isCaseOps}
+                        error={surgeryError}
+                        openDoctorSignal={doctorSignal}
+                        onAddDoctor={(name) => createDoctor({ name })}
+                      />
+                      <CaseNameStep
+                        form={form}
+                        patch={patch}
+                        cases={cases}
+                        error={errorFor('procedure')}
+                        procedureRef={procedureRef}
+                        onSubmitFromKeyboard={goNext}
+                      />
+                    </div>
                   )}
                   {step === 1 && (
-                    <HospitalStep
-                      hospitals={hospitals}
-                      cases={cases}
-                      value={form.hospitalId}
-                      onSelect={selectHospital}
-                      error={errorFor('hospital')}
-                    />
+                    <div className="space-y-7">
+                      <HospitalStep
+                        hospitals={hospitals}
+                        cases={cases}
+                        value={form.hospitalId}
+                        onSelect={selectHospital}
+                        error={errorFor('hospital')}
+                      />
+                      <SurgeryStep
+                        part="doctor"
+                        form={form}
+                        patch={patch}
+                        hospital={hospital}
+                        cases={cases}
+                        doctors={doctors}
+                        showImplantDetails={isCaseOps}
+                        error={surgeryError}
+                        openDoctorSignal={doctorSignal}
+                        onAddDoctor={(name) => createDoctor({ name })}
+                      />
+                    </div>
                   )}
                   {step === 2 && (
                     <SurgeryStep
+                      part="details"
                       form={form}
-                      patch={patch}
-                      hospital={hospital}
-                      cases={cases}
-                      doctors={doctors}
-                      showImplantDetails={isCaseOps}
-                      error={surgeryError}
-                      openDoctorSignal={doctorSignal}
-                      onAddDoctor={(name) => createDoctor({ name })}
+                        patch={patch}
+                        hospital={hospital}
+                        cases={cases}
+                        doctors={doctors}
+                        showImplantDetails={isCaseOps}
+                        error={surgeryError}
+                        openDoctorSignal={doctorSignal}
+                        onAddDoctor={(name) => createDoctor({ name })}
                     />
                   )}
                   {step === 3 && (

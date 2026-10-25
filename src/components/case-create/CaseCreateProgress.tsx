@@ -3,9 +3,9 @@ import { Building2, Check, CheckCircle2, FileText, Stethoscope, Users } from 'lu
 import { cn } from '../../utils/cn';
 
 export const CASE_CREATE_STEPS = [
-  { key: 'case', label: 'Case', title: 'What is the case name?', icon: FileText },
-  { key: 'hospital', label: 'Hospital', title: 'Where is the surgery?', icon: Building2 },
-  { key: 'surgery', label: 'Surgery', title: 'When and who?', icon: Stethoscope },
+  { key: 'case', label: 'Case', title: 'Date and case name', icon: FileText },
+  { key: 'hospital', label: 'Hospital', title: 'Hospital and doctor', icon: Building2 },
+  { key: 'details', label: 'Details', title: 'Company, implant and priority', icon: Stethoscope },
   { key: 'team', label: 'Team', title: 'Who is on the team?', icon: Users },
   { key: 'review', label: 'Review', title: 'Ready to create?', icon: CheckCircle2 },
 ] as const;

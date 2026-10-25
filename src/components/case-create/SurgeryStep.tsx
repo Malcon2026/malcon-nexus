@@ -13,15 +13,19 @@ import { PickerSheet } from './PickerSheet';
 import type { DoctorOption } from './caseCreateHelpers';
 import { masterDoctorPickerOptions, recentDoctorNames } from './caseCreateHelpers';
 
-export type SurgeryField = 'doctor' | 'procedure' | 'date';
+export type SurgeryField = 'doctor' | 'date';
 
 /** The slice of the draft the surgery UI needs (Add Case and Edit Case both provide it). */
 export type SurgeryFormFields = Pick<
   CreateCaseDraft,
-  'hospitalId' | 'doctorName' | 'surgeryDate' | 'surgeryDateMode' | 'implantRequired' | 'implantType' | 'implantCompany' | 'priority'
+  'hospitalId' | 'doctorName' | 'surgeryDate' | 'surgeryDateMode' | 'implantType' | 'implantCompany' | 'priority'
 >;
 
+/** Which part of the surgery form to show: the date, the doctor, or the implant and priority. */
+export type SurgeryStepPart = 'when' | 'doctor' | 'details';
+
 interface SurgeryStepProps {
+  part: SurgeryStepPart;
   form: SurgeryFormFields;
   patch: (partial: Partial<SurgeryFormFields>) => void;
   hospital: Hospital | undefined;
@@ -52,11 +56,16 @@ export const DoctorSheet: React.FC<{
 }> = ({ isOpen, onClose, options, value, onSelect, onAddDoctor }) => {
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
+  /** null = automatic (first match, or the add row when nothing matches). */
+  const [highlight, setHighlight] = useState<number | null>(null);
   const isTouchPhone =
     typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
   useEffect(() => {
-    if (isOpen) setQuery('');
+    if (isOpen) {
+      setQuery('');
+      setHighlight(null);
+    }
   }, [isOpen]);
 
   const q = query.trim().toLowerCase();
@@ -69,6 +78,14 @@ export const DoctorSheet: React.FC<{
     : options;
   const exact = options.some((o) => o.name.toLowerCase() === q);
   const newName = normalizeTitleCaseWords(query.trim());
+  const showAdd = Boolean(newName && !exact && onAddDoctor);
+  const addOffset = showAdd ? 1 : 0;
+  const total = filtered.length + addOffset;
+  const current = highlight ?? (filtered.length > 0 ? addOffset : 0);
+
+  useEffect(() => {
+    if (total > 0) document.getElementById(`doctor-option-${current}`)?.scrollIntoView({ block: 'nearest' });
+  }, [current, total]);
 
   const pick = (name: string) => {
     onSelect(name);
@@ -89,6 +106,25 @@ export const DoctorSheet: React.FC<{
     }
   };
 
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlight(Math.min(current + 1, total - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlight(Math.max(current - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (total === 0) return;
+      e.preventDefault();
+      if (showAdd && current === 0) {
+        void addNew();
+        return;
+      }
+      const doctor = filtered[current - addOffset];
+      if (doctor) pick(doctor.name);
+    }
+  };
+
   return (
     <PickerSheet isOpen={isOpen} onClose={onClose} title="Select doctor">
       <div className="px-4 sm:px-5 pb-2 sticky top-0 bg-white z-10">
@@ -104,28 +140,31 @@ export const DoctorSheet: React.FC<{
             autoCapitalize="words"
             autoFocus={!isTouchPhone}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newName && !exact && onAddDoctor) {
-                e.preventDefault();
-                void addNew();
-              }
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setHighlight(null);
             }}
+            onKeyDown={onSearchKeyDown}
             placeholder="Search master list or add new doctor"
             aria-label="Search or add doctor"
             className="nexus-field-input !min-h-[48px] !text-base"
           />
         </div>
+        {total > 0 ? <p className="mt-1.5 px-1 text-xs text-gray-500">Use ↑ ↓ to choose, Enter to select.</p> : null}
       </div>
 
       <ul className="pb-3">
-        {newName && !exact && onAddDoctor ? (
+        {showAdd ? (
           <li>
             <button
               type="button"
+              id="doctor-option-0"
               disabled={adding}
               onClick={() => void addNew()}
-              className="flex w-full items-center gap-3 px-4 sm:px-5 min-h-[56px] py-2 text-left text-[var(--color-accent)] hover:bg-gray-50 focus:outline-none focus-visible:bg-[var(--color-accent-muted)] disabled:opacity-60"
+              className={cn(
+                'flex w-full items-center gap-3 px-4 sm:px-5 min-h-[56px] py-2 text-left text-[var(--color-accent)] hover:bg-gray-50 focus:outline-none focus-visible:bg-[var(--color-accent-muted)] disabled:opacity-60',
+                current === 0 && 'bg-[var(--color-accent-muted)]',
+              )}
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-muted)]">
                 <Plus className="h-5 w-5" />
@@ -137,17 +176,20 @@ export const DoctorSheet: React.FC<{
           </li>
         ) : null}
 
-        {filtered.map((o) => {
+        {filtered.map((o, i) => {
+          const index = i + addOffset;
           const selected = o.name.toLowerCase() === value.trim().toLowerCase();
           return (
             <li key={o.id}>
               <button
                 type="button"
+                id={`doctor-option-${index}`}
                 onClick={() => pick(o.name)}
                 aria-pressed={selected}
                 className={cn(
                   'flex w-full items-center gap-3 px-4 sm:px-5 min-h-[56px] py-2 text-left hover:bg-gray-50 focus:outline-none focus-visible:bg-[var(--color-accent-muted)]',
                   selected && 'bg-[var(--color-accent-muted)]',
+                  current === index && 'ring-2 ring-inset ring-[var(--color-accent)]',
                 )}
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
@@ -181,6 +223,7 @@ export const DoctorSheet: React.FC<{
 /* -------------------------------- The step -------------------------------- */
 
 export const SurgeryStep: React.FC<SurgeryStepProps> = ({
+  part,
   form,
   patch,
   hospital,
@@ -214,88 +257,118 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
 
   return (
     <div className="space-y-7">
-      {/* WHO */}
-      <section aria-labelledby="cc-who">
-        <span id="cc-who" className={fieldLabel}>
-          Which doctor?
-        </span>
-        <button
-          type="button"
-          onClick={() => setDoctorOpen(true)}
-          aria-haspopup="dialog"
-          aria-invalid={errFor('doctor') ? true : undefined}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-2xl border bg-white px-4 min-h-[60px] py-2 text-left transition-colors',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
-            errFor('doctor') ? 'border-red-300' : hasDoctor ? 'border-[var(--color-accent)]' : 'border-gray-200 hover:border-gray-300',
-          )}
-        >
-          <span
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-              hasDoctor ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-500',
-            )}
-          >
-            <Stethoscope className="h-5 w-5" />
+      {part === 'when' && (
+        <section aria-labelledby="cc-when">
+          <span id="cc-when" className={fieldLabel}>
+            When is the surgery?
           </span>
-          <span className="min-w-0 flex-1">
-            {hasDoctor ? (
-              <>
-                <span className="block truncate text-[15px] font-semibold text-gray-900">{form.doctorName}</span>
-                <span className="block truncate text-xs text-gray-500">
-                  {[selectedCode, hospital ? formatHospitalLabel(hospital) : 'Tap to change']
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </>
-            ) : (
-              <span className="block text-[15px] font-medium text-gray-500">Select or add doctor</span>
-            )}
-          </span>
-          {hasDoctor ? (
-            <Check className="h-5 w-5 shrink-0 text-[var(--color-accent)]" aria-label="Doctor selected" />
-          ) : (
-            <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
-          )}
-        </button>
-        {errFor('doctor') ? (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-600">
-            {errFor('doctor')}
-          </p>
-        ) : null}
+          <SurgeryDateQuickPick
+            size="lg"
+            customLabel="Choose date"
+            value={form.surgeryDate}
+            mode={form.surgeryDateMode}
+            onChange={(surgeryDate, surgeryDateMode) => patch({ surgeryDate, surgeryDateMode })}
+          />
+          {errFor('date') ? (
+            <p role="alert" className="mt-2 text-sm font-medium text-red-600">
+              {errFor('date')}
+            </p>
+          ) : null}
+        </section>
+      )}
 
-        {quickDoctors.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Recent doctors">
-            {quickDoctors.map((d) => (
-              <button
-                key={d.name}
-                type="button"
-                onClick={() => patch({ doctorName: d.name })}
-                className="min-h-[44px] rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-800 hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-              >
-                {d.name}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => setDoctorOpen(true)}
-              className="inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-            >
-              <Plus className="h-4 w-4" aria-hidden /> Add doctor
-            </button>
-          </div>
-        ) : !hasDoctor ? (
+      {part === 'doctor' && (
+        <section aria-labelledby="cc-who">
+          <span id="cc-who" className={fieldLabel}>
+            Which doctor?
+          </span>
           <button
             type="button"
             onClick={() => setDoctorOpen(true)}
-            className="mt-3 inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            aria-haspopup="dialog"
+            aria-invalid={errFor('doctor') ? true : undefined}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-2xl border bg-white px-4 min-h-[60px] py-2 text-left transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
+              errFor('doctor') ? 'border-red-300' : hasDoctor ? 'border-[var(--color-accent)]' : 'border-gray-200 hover:border-gray-300',
+            )}
           >
-            <Plus className="h-4 w-4" aria-hidden /> Add doctor
+            <span
+              className={cn(
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                hasDoctor ? 'bg-[var(--color-accent)] text-white' : 'bg-gray-100 text-gray-500',
+              )}
+            >
+              <Stethoscope className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              {hasDoctor ? (
+                <>
+                  <span className="block truncate text-[15px] font-semibold text-gray-900">{form.doctorName}</span>
+                  <span className="block truncate text-xs text-gray-500">
+                    {[selectedCode, hospital ? formatHospitalLabel(hospital) : 'Tap to change']
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </>
+              ) : (
+                <span className="block text-[15px] font-medium text-gray-500">Select or add doctor</span>
+              )}
+            </span>
+            {hasDoctor ? (
+              <Check className="h-5 w-5 shrink-0 text-[var(--color-accent)]" aria-label="Doctor selected" />
+            ) : (
+              <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" aria-hidden />
+            )}
           </button>
-        ) : null}
-      </section>
+          {errFor('doctor') ? (
+            <p role="alert" className="mt-2 text-sm font-medium text-red-600">
+              {errFor('doctor')}
+            </p>
+          ) : null}
 
-      {showImplantDetails ? (
+          {quickDoctors.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Recent doctors">
+              {quickDoctors.map((d) => (
+                <button
+                  key={d.name}
+                  type="button"
+                  onClick={() => patch({ doctorName: d.name })}
+                  className="min-h-[44px] rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-800 hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+                >
+                  {d.name}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setDoctorOpen(true)}
+                className="inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+              >
+                <Plus className="h-4 w-4" aria-hidden /> Add doctor
+              </button>
+            </div>
+          ) : !hasDoctor ? (
+            <button
+              type="button"
+              onClick={() => setDoctorOpen(true)}
+              className="mt-3 inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 text-sm font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            >
+              <Plus className="h-4 w-4" aria-hidden /> Add doctor
+            </button>
+          ) : null}
+
+          <DoctorSheet
+            isOpen={doctorOpen}
+            onClose={() => setDoctorOpen(false)}
+            options={doctorOptions}
+            value={form.doctorName}
+            onSelect={(doctorName) => patch({ doctorName })}
+            onAddDoctor={onAddDoctor}
+          />
+        </section>
+      )}
+
+      {part === 'details' && showImplantDetails && (
         <section className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="cc-implant-company" className={fieldLabel}>
@@ -326,65 +399,38 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
             />
           </div>
         </section>
-      ) : null}
+      )}
 
-      {/* WHEN */}
-      <section aria-labelledby="cc-when">
-        <span id="cc-when" className={fieldLabel}>
-          When is the surgery?
-        </span>
-        <SurgeryDateQuickPick
-          size="lg"
-          customLabel="Choose date"
-          value={form.surgeryDate}
-          mode={form.surgeryDateMode}
-          onChange={(surgeryDate, surgeryDateMode) => patch({ surgeryDate, surgeryDateMode })}
-        />
-        {errFor('date') ? (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-600">
-            {errFor('date')}
-          </p>
-        ) : null}
-      </section>
-
-      {/* Priority */}
-      <section aria-labelledby="cc-priority">
-        <span id="cc-priority" className={fieldLabel}>
-          Priority
-        </span>
-        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Priority">
-          {PRIORITIES.map((priority) => {
-            const active = form.priority === priority;
-            return (
-              <button
-                key={priority}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => patch({ priority })}
-                className={cn(
-                  'min-h-[48px] rounded-xl border px-1 text-sm font-semibold transition-colors',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
-                  active
-                    ? cn(priorityColors[priority], 'ring-2 ring-offset-1')
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
-                )}
-              >
-                {priority}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <DoctorSheet
-        isOpen={doctorOpen}
-        onClose={() => setDoctorOpen(false)}
-        options={doctorOptions}
-        value={form.doctorName}
-        onSelect={(doctorName) => patch({ doctorName })}
-        onAddDoctor={onAddDoctor}
-      />
+      {part === 'details' && (
+        <section aria-labelledby="cc-priority">
+          <span id="cc-priority" className={fieldLabel}>
+            Priority
+          </span>
+          <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Priority">
+            {PRIORITIES.map((priority) => {
+              const active = form.priority === priority;
+              return (
+                <button
+                  key={priority}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => patch({ priority })}
+                  className={cn(
+                    'min-h-[48px] rounded-xl border px-1 text-sm font-semibold transition-colors',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1',
+                    active
+                      ? cn(priorityColors[priority], 'ring-2 ring-offset-1')
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50',
+                  )}
+                >
+                  {priority}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

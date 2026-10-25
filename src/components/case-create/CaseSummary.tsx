@@ -109,17 +109,17 @@ export const CaseSummary: React.FC<CaseSummaryProps> = ({
   return (
     <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
       <Block title="Case" step={0} onEdit={onEdit}>
+        <Row label="Date" value={formatSurgeryDateLabel(form)} />
         <Row label="Case name" value={form.implantRequired.trim() || '—'} muted={!form.implantRequired.trim()} />
       </Block>
       <Block title="Hospital" step={1} onEdit={onEdit}>
         <Row label="Hospital" value={hospital ? formatHospitalLabel(hospital) : '—'} muted={!hospital} />
-      </Block>
-      <Block title="Surgery" step={2} onEdit={onEdit}>
-        <Row label="Date" value={formatSurgeryDateLabel(form)} />
         <Row label="Doctor" value={form.doctorName.trim() || '—'} muted={!form.doctorName.trim()} />
-        {form.priority !== 'Medium' ? <Row label="Priority" value={form.priority} /> : null}
-        {showImplantDetails && form.implantType.trim() ? <Row label="Implant type" value={form.implantType.trim()} /> : null}
+      </Block>
+      <Block title="Details" step={2} onEdit={onEdit}>
         {showImplantDetails && form.implantCompany.trim() ? <Row label="Company" value={form.implantCompany.trim()} /> : null}
+        {showImplantDetails && form.implantType.trim() ? <Row label="Implant type" value={form.implantType.trim()} /> : null}
+        <Row label="Priority" value={form.priority} />
       </Block>
       <Block title="Team" step={3} onEdit={onEdit}>
         {teamRows.map((r) => (

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, Check, Search } from 'lucide-react';
 import type { Hospital, ImplantCase } from '../../types';
 import { cn } from '../../utils/cn';
@@ -19,8 +19,11 @@ const MAX_RESULTS = 40;
 export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, value, onSelect, error }) => {
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const isTouchPhone =
+    typeof window !== 'undefined' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
-  const active = useMemo(
+  const activeHospitals = useMemo(
     () => hospitals.filter((h) => h.status === 'Active').sort((a, b) => a.name.localeCompare(b.name)),
     [hospitals],
   );
@@ -29,7 +32,7 @@ export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, va
   const q = query.trim().toLowerCase();
   const results = useMemo(() => {
     if (!q) return [];
-    return active
+    return activeHospitals
       .filter(
         (h) =>
           h.name.toLowerCase().includes(q) ||
@@ -38,19 +41,49 @@ export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, va
           (h.address ?? '').toLowerCase().includes(q),
       )
       .slice(0, MAX_RESULTS);
-  }, [active, q]);
+  }, [activeHospitals, q]);
 
   const shownIds = new Set([...recent, ...frequent].map((h) => h.id));
-  const rest = active.filter((h) => !shownIds.has(h.id));
+  const rest = activeHospitals.filter((h) => !shownIds.has(h.id));
   const restVisible = showAll || shownIds.size === 0 ? rest : rest.slice(0, INITIAL_ALL_LIMIT);
+
+  // Keyboard order matches the order the cards are shown in.
+  const flat = q ? results : [...recent, ...frequent, ...restVisible];
+  const rowIndex = new Map(flat.map((h, i) => [h.id, i]));
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [query]);
+
+  useEffect(() => {
+    const h = flat[highlight];
+    if (h) document.getElementById(`hospital-option-${h.id}`)?.scrollIntoView({ block: 'nearest' });
+  }, [highlight, flat]);
+
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (flat.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlight((i) => Math.min(i + 1, flat.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlight((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      onSelect(flat[Math.min(highlight, flat.length - 1)].id);
+    }
+  };
 
   const card = (h: Hospital) => {
     const selected = h.id === value;
+    const highlighted = rowIndex.get(h.id) === highlight;
     const sub = hospitalSubtitle(h);
     return (
       <li key={h.id}>
         <button
           type="button"
+          id={`hospital-option-${h.id}`}
+          tabIndex={-1}
           onClick={() => onSelect(h.id)}
           aria-pressed={selected}
           className={cn(
@@ -59,6 +92,7 @@ export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, va
             selected
               ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
               : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50',
+            highlighted && 'ring-2 ring-[var(--color-accent)] ring-offset-1',
           )}
         >
           <span
@@ -96,12 +130,19 @@ export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, va
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onSearchKeyDown}
+            autoFocus={!isTouchPhone}
+            enterKeyHint="search"
+            autoComplete="off"
             placeholder="Search hospital, branch or city"
             aria-label="Search hospitals"
             aria-invalid={error ? true : undefined}
             className="nexus-field-input !min-h-[52px] !text-base !rounded-2xl"
           />
         </div>
+        {q ? (
+          <p className="mt-1.5 px-1 text-xs text-gray-500">Use ↑ ↓ to choose, Enter to select.</p>
+        ) : null}
         {error ? (
           <p role="alert" className="mt-2 px-1 text-sm font-medium text-red-600">
             {error}
@@ -109,7 +150,7 @@ export const HospitalStep: React.FC<HospitalStepProps> = ({ hospitals, cases, va
         ) : null}
       </div>
 
-      {active.length === 0 ? (
+      {activeHospitals.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
           No active hospitals yet. Add hospitals in Settings, then come back.
         </p>
