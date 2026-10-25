@@ -11,7 +11,7 @@ import { priorityColors } from '../../utils/helpers';
 import { formatHospitalLabel } from '../HospitalSearchSelect';
 import { PickerSheet } from './PickerSheet';
 import type { DoctorOption } from './caseCreateHelpers';
-import { commonProcedures, masterDoctorPickerOptions, recentDoctorNames } from './caseCreateHelpers';
+import { masterDoctorPickerOptions, recentDoctorNames } from './caseCreateHelpers';
 
 export type SurgeryField = 'doctor' | 'procedure' | 'date';
 
@@ -32,8 +32,6 @@ interface SurgeryStepProps {
   error: { field: SurgeryField; message: string } | null;
   /** Increment to open the doctor sheet (used by validation). */
   openDoctorSignal: number;
-  procedureRef: React.RefObject<HTMLInputElement | null>;
-  onSubmitFromKeyboard: () => void;
   /** Register a new master-list doctor (auto MLS-DOC code). */
   onAddDoctor?: (name: string) => Promise<void>;
 }
@@ -191,8 +189,6 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
   showImplantDetails = false,
   error,
   openDoctorSignal,
-  procedureRef,
-  onSubmitFromKeyboard,
   onAddDoctor,
 }) => {
   const [doctorOpen, setDoctorOpen] = useState(false);
@@ -211,7 +207,6 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
     .filter((n) => n.toLowerCase() !== form.doctorName.trim().toLowerCase())
     .slice(0, 3)
     .map((name) => ({ name }));
-  const procedures = useMemo(() => commonProcedures(cases), [cases]);
   const errFor = (f: SurgeryField) => (error?.field === f ? error.message : null);
 
   const inputClass = `${NEXUS_FORM_CONTROL} !text-base !min-h-[52px]`;
@@ -219,25 +214,6 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
 
   return (
     <div className="space-y-7">
-      {/* WHEN */}
-      <section aria-labelledby="cc-when">
-        <span id="cc-when" className={fieldLabel}>
-          When is the surgery?
-        </span>
-        <SurgeryDateQuickPick
-          size="lg"
-          customLabel="Choose date"
-          value={form.surgeryDate}
-          mode={form.surgeryDateMode}
-          onChange={(surgeryDate, surgeryDateMode) => patch({ surgeryDate, surgeryDateMode })}
-        />
-        {errFor('date') ? (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-600">
-            {errFor('date')}
-          </p>
-        ) : null}
-      </section>
-
       {/* WHO */}
       <section aria-labelledby="cc-who">
         <span id="cc-who" className={fieldLabel}>
@@ -319,66 +295,8 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
         ) : null}
       </section>
 
-      {/* WHAT */}
-      <section>
-        <label htmlFor="cc-procedure" className={fieldLabel}>
-          What is the procedure?
-        </label>
-        <input
-          id="cc-procedure"
-          ref={procedureRef}
-          className={cn(inputClass, errFor('procedure') && '!border-red-300')}
-          value={form.implantRequired}
-          onChange={(e) => patch({ implantRequired: e.target.value })}
-          onBlur={(e) => patch({ implantRequired: normalizeTitleCaseWords(e.target.value) })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              onSubmitFromKeyboard();
-            }
-          }}
-          placeholder="e.g. Total knee replacement"
-          enterKeyHint="next"
-          autoComplete="off"
-          aria-invalid={errFor('procedure') ? true : undefined}
-        />
-        {errFor('procedure') ? (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-600">
-            {errFor('procedure')}
-          </p>
-        ) : null}
-        {!form.implantRequired.trim() && procedures.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Common procedures">
-            {procedures.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => patch({ implantRequired: p })}
-                className="min-h-[44px] rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-800 hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </section>
-
       {showImplantDetails ? (
         <section className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="cc-implant-type" className={fieldLabel}>
-              Implant type
-            </label>
-            <input
-              id="cc-implant-type"
-              className={inputClass}
-              value={form.implantType}
-              onChange={(e) => patch({ implantType: e.target.value })}
-              onBlur={(e) => patch({ implantType: normalizeTitleCaseWords(e.target.value) })}
-              placeholder="Optional"
-              autoComplete="off"
-            />
-          </div>
           <div>
             <label htmlFor="cc-implant-company" className={fieldLabel}>
               Company
@@ -393,8 +311,41 @@ export const SurgeryStep: React.FC<SurgeryStepProps> = ({
               autoComplete="off"
             />
           </div>
+          <div>
+            <label htmlFor="cc-implant-type" className={fieldLabel}>
+              Implant type
+            </label>
+            <input
+              id="cc-implant-type"
+              className={inputClass}
+              value={form.implantType}
+              onChange={(e) => patch({ implantType: e.target.value })}
+              onBlur={(e) => patch({ implantType: normalizeTitleCaseWords(e.target.value) })}
+              placeholder="Optional"
+              autoComplete="off"
+            />
+          </div>
         </section>
       ) : null}
+
+      {/* WHEN */}
+      <section aria-labelledby="cc-when">
+        <span id="cc-when" className={fieldLabel}>
+          When is the surgery?
+        </span>
+        <SurgeryDateQuickPick
+          size="lg"
+          customLabel="Choose date"
+          value={form.surgeryDate}
+          mode={form.surgeryDateMode}
+          onChange={(surgeryDate, surgeryDateMode) => patch({ surgeryDate, surgeryDateMode })}
+        />
+        {errFor('date') ? (
+          <p role="alert" className="mt-2 text-sm font-medium text-red-600">
+            {errFor('date')}
+          </p>
+        ) : null}
+      </section>
 
       {/* Priority */}
       <section aria-labelledby="cc-priority">

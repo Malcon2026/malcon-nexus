@@ -1,8 +1,9 @@
 import React from 'react';
-import { Building2, Check, CheckCircle2, Stethoscope, Users } from 'lucide-react';
+import { Building2, Check, CheckCircle2, FileText, Stethoscope, Users } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 export const CASE_CREATE_STEPS = [
+  { key: 'case', label: 'Case', title: 'What is the case name?', icon: FileText },
   { key: 'hospital', label: 'Hospital', title: 'Where is the surgery?', icon: Building2 },
   { key: 'surgery', label: 'Surgery', title: 'When and who?', icon: Stethoscope },
   { key: 'team', label: 'Team', title: 'Who is on the team?', icon: Users },

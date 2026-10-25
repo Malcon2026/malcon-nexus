@@ -15,6 +15,7 @@ import { findChandraGajelli } from '../lib/checkingPool';
 import { isCaseOpsView, isStoreManager, SET_PREPARATION_STAGE } from '../lib/roles';
 import type { CaseDutyKind } from '../lib/caseDuties';
 import { HospitalStep } from './case-create/HospitalStep';
+import { CaseNameStep } from './case-create/CaseNameStep';
 import { SurgeryStep, type SurgeryField } from './case-create/SurgeryStep';
 import { TeamStep, type TeamActions } from './case-create/TeamStep';
 import { CaseSummary, formatSurgeryDateLabel } from './case-create/CaseSummary';
@@ -202,12 +203,12 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
   /** First thing that's missing in steps 0..upTo — one guiding message at a time. */
   const findProblem = (upTo: number): Problem | null => {
     const checks: Problem[] = [];
-    if (!form.hospitalId) checks.push({ step: 0, field: 'hospital', message: 'Select a hospital to continue.' });
-    if (!form.surgeryDate) checks.push({ step: 1, field: 'date', message: 'Choose the surgery date to continue.' });
-    if (!form.doctorName.trim()) checks.push({ step: 1, field: 'doctor', message: 'Select or add the doctor to continue.' });
-    if (!form.implantRequired.trim()) checks.push({ step: 1, field: 'procedure', message: 'Enter the procedure to continue.' });
+    if (!form.implantRequired.trim()) checks.push({ step: 0, field: 'procedure', message: 'Enter the case name to continue.' });
+    if (!form.hospitalId) checks.push({ step: 1, field: 'hospital', message: 'Select a hospital to continue.' });
+    if (!form.doctorName.trim()) checks.push({ step: 2, field: 'doctor', message: 'Select or add the doctor to continue.' });
+    if (!form.surgeryDate) checks.push({ step: 2, field: 'date', message: 'Choose the surgery date to continue.' });
     if (isFullAdmin && !form.punchedInByEmployeeId.trim()) {
-      checks.push({ step: 2, field: 'punch', message: 'Choose who punched in this case.' });
+      checks.push({ step: 3, field: 'punch', message: 'Choose who punched in this case.' });
     }
     return checks.find((c) => c.step <= upTo) ?? null;
   };
@@ -442,6 +443,16 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                 <div className="animate-in fade-in duration-200" key={step}>
                   {step === 0 && (
+                    <CaseNameStep
+                      form={form}
+                      patch={patch}
+                      cases={cases}
+                      error={errorFor('procedure')}
+                      procedureRef={procedureRef}
+                      onSubmitFromKeyboard={goNext}
+                    />
+                  )}
+                  {step === 1 && (
                     <HospitalStep
                       hospitals={hospitals}
                       cases={cases}
@@ -450,7 +461,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       error={errorFor('hospital')}
                     />
                   )}
-                  {step === 1 && (
+                  {step === 2 && (
                     <SurgeryStep
                       form={form}
                       patch={patch}
@@ -460,12 +471,10 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       showImplantDetails={isCaseOps}
                       error={surgeryError}
                       openDoctorSignal={doctorSignal}
-                      procedureRef={procedureRef}
-                      onSubmitFromKeyboard={goNext}
                       onAddDoctor={(name) => createDoctor({ name })}
                     />
                   )}
-                  {step === 2 && (
+                  {step === 3 && (
                     <TeamStep
                       form={form}
                       actions={teamActions}
@@ -478,7 +487,7 @@ export const QuickCreateCaseModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       punchError={errorFor('punch')}
                     />
                   )}
-                  {step === 3 && (
+                  {step === 4 && (
                     <div className="space-y-4">
                       <CaseSummary {...summaryProps} onEdit={goTo} />
                       <p className="px-1 text-sm text-gray-500">
