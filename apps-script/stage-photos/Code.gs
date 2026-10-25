@@ -1,12 +1,14 @@
 /**
- * Stage photo uploader for Malcon Nexus. Runs under the Google account that owns the Drive storage.
+ * Stage photo uploader and daily report for Malcon Nexus. Runs under the Google account that owns the Drive storage.
  *
  * Folder layout (created automatically):
- *   Malcon Nexus Photos / 2026 / 01-January ... 12-December / 12-March-2026 / photo files
+ *   Malcon Nexus Photos / 2026 / 10-October / 26-October-2026 /
+ *     MLS-10-26-004 Total knee replacement / Set Preparation / photo files
+ *     Daily report 2026-10-26.csv           (private, not shared)
  *
  * Setup (once, in script.google.com):
  *   1. Project Settings → Script Properties:
- *        UPLOADER_TOKEN = a long random string (the Edge Function sends it)
+ *        UPLOADER_TOKEN = a long random string (the Edge Functions send it)
  *      Leave FOLDER_ID out: the script creates its own "Malcon Nexus Photos" folder on first upload.
  *   2. Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone.
  *   3. Copy the Web app URL into the Supabase secret APPS_SCRIPT_URL.
@@ -30,9 +32,13 @@ function doPost(e) {
     }
 
     const rootId = rootFolderId(props);
-    const folderId = dateFolderId(rootId, todayParts());
-    const fileId = saveFile(folderId, body.name, body.mimeType, body.base64);
+    if (body.action === 'report') {
+      return json({ fileId: saveReport(rootId, body.date, body.csv) });
+    }
 
+    const dayId = dateFolderId(rootId, todayParts());
+    const folderId = getOrCreateFolder(dayId, [body.caseFolder, body.stageFolder]);
+    const fileId = saveFile(folderId, body.name, body.mimeType, body.base64);
     return json({ fileId: fileId });
   } catch (err) {
     return json({ error: String(err) });
@@ -47,10 +53,16 @@ function rootFolderId(props) {
   return folderId;
 }
 
-/** Today in India time, e.g. { year: '2026', month: 2, day: '12' } for 12 March 2026. */
+/** Today in India time, e.g. { year: '2026', month: 9, day: '26' } for 26 October 2026. */
 function todayParts() {
   const parts = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy|M|d').split('|');
   return { year: parts[0], month: Number(parts[1]) - 1, day: parts[2] };
+}
+
+/** 'YYYY-MM-DD' → the same parts todayParts() returns. */
+function partsFromDateKey(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return { year: String(year), month: month - 1, day: String(day) };
 }
 
 function dateFolderId(rootId, today) {
@@ -81,10 +93,20 @@ function getOrCreateFolder(parentId, names) {
 
 function findFolder(parentId, name) {
   const q =
-    "name = '" + name.replace(/'/g, "\\'") + "' and '" + parentId + "' in parents" +
+    "name = '" + escapeQuery(name) + "' and '" + parentId + "' in parents" +
     " and mimeType = '" + FOLDER_MIME + "' and trashed = false";
   const res = Drive.Files.list({ q: q, fields: 'files(id)' });
   return res.files && res.files.length ? res.files[0].id : null;
+}
+
+function findFile(parentId, name) {
+  const q = "name = '" + escapeQuery(name) + "' and '" + parentId + "' in parents and trashed = false";
+  const res = Drive.Files.list({ q: q, fields: 'files(id)' });
+  return res.files && res.files.length ? res.files[0].id : null;
+}
+
+function escapeQuery(text) {
+  return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 function createFolder(parentId, name) {
@@ -101,6 +123,19 @@ function saveFile(folderId, name, mimeType, base64) {
   const res = Drive.Files.create({ name: name, parents: [folderId] }, blob, { fields: 'id' });
   Drive.Permissions.create({ type: 'anyone', role: 'reader' }, res.id);
   return res.id;
+}
+
+/** Writes the day's CSV into that day's folder, replacing an earlier run. Stays private. */
+function saveReport(rootId, dateKey, csv) {
+  const dayId = dateFolderId(rootId, partsFromDateKey(dateKey));
+  const name = 'Daily report ' + dateKey + '.csv';
+  const blob = Utilities.newBlob(csv, 'text/csv', name);
+  const existing = findFile(dayId, name);
+  if (existing) {
+    Drive.Files.update({}, existing, blob);
+    return existing;
+  }
+  return Drive.Files.create({ name: name, parents: [dayId] }, blob, { fields: 'id' }).id;
 }
 
 function json(obj) {

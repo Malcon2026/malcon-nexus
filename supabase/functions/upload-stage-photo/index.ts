@@ -21,6 +21,11 @@ function folderName(stage: string): string {
   return stage.replace(/[/\\]/g, '-').trim();
 }
 
+/** "MLS-10-26-004 Total knee replacement" — the number keeps names unique. */
+function caseFolderName(caseNumber: string, caseName: string | null): string {
+  return folderName(`${caseNumber} ${caseName ?? ''}`.trim());
+}
+
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -88,7 +93,7 @@ Deno.serve(async (req) => {
 
     const { data: caseRow } = await admin
       .from('cases')
-      .select('assigned_employee_id')
+      .select('assigned_employee_id, case_number, implant_required')
       .eq('id', caseId)
       .single();
 
@@ -118,8 +123,8 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         token: appsScriptToken,
-        caseId,
-        stage: folderName(stage),
+        caseFolder: caseFolderName(caseRow.case_number, caseRow.implant_required),
+        stageFolder: folderName(stage),
         name,
         mimeType: photo.type || 'image/jpeg',
         base64: toBase64(await photo.arrayBuffer()),
