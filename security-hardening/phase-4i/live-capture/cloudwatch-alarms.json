@@ -1,0 +1,253 @@
+{
+    "MetricAlarms": [
+        {
+            "AlarmName": "malcon-nexus-alb-target-5xx",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-alb-target-5xx",
+            "AlarmDescription": "ALB target 5xx responses",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:00.197000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:42:21.777+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":5.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:35:00.000+0000\"}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:12:21.779000+05:30",
+            "MetricName": "HTTPCode_Target_5XX_Count",
+            "Namespace": "AWS/ApplicationELB",
+            "Statistic": "Sum",
+            "Dimensions": [
+                {
+                    "Name": "LoadBalancer",
+                    "Value": "app/malcon-nexus-api/aa086b60f889cef0"
+                },
+                {
+                    "Name": "TargetGroup",
+                    "Value": "targetgroup/malcon-nexus-api/1d373a0e313a3b53"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 5.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:12:21.779000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-alb-unhealthy-hosts",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-alb-unhealthy-hosts",
+            "AlarmDescription": "ALB unhealthy target count",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:00.557000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: 2 datapoints [0.0 (18/10/26 06:38:00), 0.0 (18/10/26 06:37:00)] were not greater than or equal to the threshold (1.0).",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:41:31.748+0000\",\"startDate\":\"2026-10-18T06:37:00.000+0000\",\"statistic\":\"Maximum\",\"period\":60,\"recentDatapoints\":[0.0,0.0],\"threshold\":1.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:38:00.000+0000\",\"sampleCount\":2.0,\"value\":0.0}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:11:31.749000+05:30",
+            "MetricName": "UnHealthyHostCount",
+            "Namespace": "AWS/ApplicationELB",
+            "Statistic": "Maximum",
+            "Dimensions": [
+                {
+                    "Name": "LoadBalancer",
+                    "Value": "app/malcon-nexus-api/aa086b60f889cef0"
+                },
+                {
+                    "Name": "TargetGroup",
+                    "Value": "targetgroup/malcon-nexus-api/1d373a0e313a3b53"
+                }
+            ],
+            "Period": 60,
+            "EvaluationPeriods": 2,
+            "Threshold": 1.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:11:31.749000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-apigw-5xx",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-apigw-5xx",
+            "AlarmDescription": "API Gateway HTTP API 5xx",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:01.287000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: no datapoints were received for 1 period and 1 missing datapoint was treated as [NonBreaching].",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:42:04.654+0000\",\"statistic\":\"Sum\",\"period\":300,\"recentDatapoints\":[],\"threshold\":10.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:37:00.000+0000\"}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:12:04.656000+05:30",
+            "MetricName": "5XXError",
+            "Namespace": "AWS/ApiGateway",
+            "Statistic": "Sum",
+            "Dimensions": [
+                {
+                    "Name": "ApiId",
+                    "Value": "njbtfquxeh"
+                },
+                {
+                    "Name": "Stage",
+                    "Value": "$default"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 10.0,
+            "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:12:04.656000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-ecs-cpu-high",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-ecs-cpu-high",
+            "AlarmDescription": "ECS service CPU high",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:00.950000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: 2 datapoints [1.2174069429545298 (18/10/26 06:25:00), 0.26855357835690175 (18/10/26 06:10:00)] were not greater than the threshold (85.0).",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:42:00.012+0000\",\"startDate\":\"2026-10-18T06:10:00.000+0000\",\"statistic\":\"Average\",\"period\":900,\"recentDatapoints\":[0.26855357835690175,1.2174069429545298],\"threshold\":85.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:25:00.000+0000\",\"sampleCount\":23.0,\"value\":1.2174069429545298}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:12:00.015000+05:30",
+            "MetricName": "CPUUtilization",
+            "Namespace": "AWS/ECS",
+            "Statistic": "Average",
+            "Dimensions": [
+                {
+                    "Name": "ClusterName",
+                    "Value": "malcon-nexus"
+                },
+                {
+                    "Name": "ServiceName",
+                    "Value": "malcon-nexus-api"
+                }
+            ],
+            "Period": 900,
+            "EvaluationPeriods": 2,
+            "Threshold": 85.0,
+            "ComparisonOperator": "GreaterThanThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:12:00.015000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-rds-connections-high",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-rds-connections-high",
+            "AlarmDescription": "Production RDS connection count high",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:02.034000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: 2 datapoints [0.0 (18/10/26 06:36:00), 0.0 (18/10/26 06:31:00)] were not greater than the threshold (80.0).",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:41:32.353+0000\",\"startDate\":\"2026-10-18T06:31:00.000+0000\",\"statistic\":\"Average\",\"period\":300,\"recentDatapoints\":[0.0,0.0],\"threshold\":80.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:36:00.000+0000\",\"sampleCount\":5.0,\"value\":0.0}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:11:32.355000+05:30",
+            "MetricName": "DatabaseConnections",
+            "Namespace": "AWS/RDS",
+            "Statistic": "Average",
+            "Dimensions": [
+                {
+                    "Name": "DBInstanceIdentifier",
+                    "Value": "malcon-nexus-db-encrypted"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 2,
+            "Threshold": 80.0,
+            "ComparisonOperator": "GreaterThanThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:11:32.355000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-rds-cpu-high",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-rds-cpu-high",
+            "AlarmDescription": "Production RDS CPU high",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:01.681000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: 2 datapoints [5.049326134577126 (18/10/26 06:25:00), 11.697758222198058 (18/10/26 06:10:00)] were not greater than the threshold (80.0).",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:41:28.486+0000\",\"startDate\":\"2026-10-18T06:10:00.000+0000\",\"statistic\":\"Average\",\"period\":900,\"recentDatapoints\":[11.697758222198058,5.049326134577126],\"threshold\":80.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:25:00.000+0000\",\"sampleCount\":15.0,\"value\":5.049326134577126}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:11:28.489000+05:30",
+            "MetricName": "CPUUtilization",
+            "Namespace": "AWS/RDS",
+            "Statistic": "Average",
+            "Dimensions": [
+                {
+                    "Name": "DBInstanceIdentifier",
+                    "Value": "malcon-nexus-db-encrypted"
+                }
+            ],
+            "Period": 900,
+            "EvaluationPeriods": 2,
+            "Threshold": 80.0,
+            "ComparisonOperator": "GreaterThanThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:11:28.489000+05:30"
+        },
+        {
+            "AlarmName": "malcon-nexus-rds-free-storage-low",
+            "AlarmArn": "arn:aws:cloudwatch:ap-south-1:353728888679:alarm:malcon-nexus-rds-free-storage-low",
+            "AlarmDescription": "Production RDS free storage low (bytes)",
+            "AlarmConfigurationUpdatedTimestamp": "2026-10-18T12:11:02.366000+05:30",
+            "ActionsEnabled": true,
+            "OKActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:353728888679:malcon-nexus-ops-alerts"
+            ],
+            "InsufficientDataActions": [],
+            "StateValue": "OK",
+            "StateReason": "Threshold Crossed: 1 datapoint [1.82518685696E10 (18/10/26 06:37:00)] was not less than the threshold (2.147483648E9).",
+            "StateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2026-10-18T06:42:09.708+0000\",\"startDate\":\"2026-10-18T06:37:00.000+0000\",\"statistic\":\"Average\",\"period\":300,\"recentDatapoints\":[1.82518685696E10],\"threshold\":2.147483648E9,\"evaluatedDatapoints\":[{\"timestamp\":\"2026-10-18T06:37:00.000+0000\",\"sampleCount\":5.0,\"value\":1.82518685696E10}]}",
+            "StateUpdatedTimestamp": "2026-10-18T12:12:09.711000+05:30",
+            "MetricName": "FreeStorageSpace",
+            "Namespace": "AWS/RDS",
+            "Statistic": "Average",
+            "Dimensions": [
+                {
+                    "Name": "DBInstanceIdentifier",
+                    "Value": "malcon-nexus-db-encrypted"
+                }
+            ],
+            "Period": 300,
+            "EvaluationPeriods": 1,
+            "Threshold": 2147483648.0,
+            "ComparisonOperator": "LessThanThreshold",
+            "TreatMissingData": "notBreaching",
+            "StateTransitionedTimestamp": "2026-10-18T12:12:09.711000+05:30"
+        }
+    ],
+    "CompositeAlarms": [],
+    "LogAlarms": []
+}

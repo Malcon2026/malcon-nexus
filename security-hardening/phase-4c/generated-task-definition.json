@@ -1,0 +1,94 @@
+{
+  "family": "malcon-nexus-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::353728888679:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::353728888679:role/malconEcsTaskRole",
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "353728888679.dkr.ecr.ap-south-1.amazonaws.com/malcon-nexus-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-1"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        },
+        {
+          "name": "API_CORS_ORIGIN",
+          "value": "https://app.malconnexus.com"
+        },
+        {
+          "name": "S3_BUCKET_STAGE_PHOTOS",
+          "value": "malcon-nexus-stage-photos-353728888679"
+        },
+        {
+          "name": "S3_BUCKET_ATTENDANCE_SELFIES",
+          "value": "malcon-nexus-attendance-selfies-353728888679"
+        },
+        {
+          "name": "S3_BUCKET_HR_KYC_UPLOADS",
+          "value": "malcon-nexus-hr-kyc-353728888679"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:DATABASE_URL::"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:JWT_SECRET::"
+        },
+        {
+          "name": "SUPABASE_JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:SUPABASE_JWT_SECRET::"
+        },
+        {
+          "name": "TELEGRAM_BOT_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:TELEGRAM_BOT_TOKEN::"
+        },
+        {
+          "name": "TELEGRAM_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:TELEGRAM_WEBHOOK_SECRET::"
+        },
+        {
+          "name": "ALERT_CRON_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl:ALERT_CRON_SECRET::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/malcon-nexus-api",
+          "awslogs-create-group": "true",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    }
+  ]
+}

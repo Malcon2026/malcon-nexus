@@ -1,0 +1,13 @@
+{
+    "Items": [
+        {
+            "ConnectionType": "INTERNET",
+            "IntegrationId": "47yq3mq",
+            "IntegrationMethod": "ANY",
+            "IntegrationType": "HTTP_PROXY",
+            "IntegrationUri": "http://malcon-nexus-api-52587427.ap-south-1.elb.amazonaws.com/{proxy}",
+            "PayloadFormatVersion": "1.0",
+            "TimeoutInMillis": 30000
+        }
+    ]
+}

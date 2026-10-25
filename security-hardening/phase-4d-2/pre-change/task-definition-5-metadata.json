@@ -1,0 +1,8 @@
+{
+    "family": "malcon-nexus-api",
+    "revision": 5,
+    "cpu": "512",
+    "memory": "1024",
+    "secrets": null,
+    "environment": null
+}

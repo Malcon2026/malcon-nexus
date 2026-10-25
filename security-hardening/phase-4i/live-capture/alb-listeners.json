@@ -1,0 +1,27 @@
+{
+    "Listeners": [
+        {
+            "ListenerArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:listener/app/malcon-nexus-api/aa086b60f889cef0/fc511ac1f298b7cf",
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:loadbalancer/app/malcon-nexus-api/aa086b60f889cef0",
+            "Port": 80,
+            "Protocol": "HTTP",
+            "DefaultActions": [
+                {
+                    "Type": "forward",
+                    "TargetGroupArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53",
+                    "ForwardConfig": {
+                        "TargetGroups": [
+                            {
+                                "TargetGroupArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53",
+                                "Weight": 1
+                            }
+                        ],
+                        "TargetGroupStickinessConfig": {
+                            "Enabled": false
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

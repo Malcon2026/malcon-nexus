@@ -1,0 +1,28 @@
+{
+    "revision": 5,
+    "executionRoleArn": "arn:aws:iam::353728888679:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::353728888679:role/malconEcsTaskRole",
+    "cpu": "512",
+    "memory": "1024",
+    "networkMode": "awsvpc",
+    "container": {
+        "image": "353728888679.dkr.ecr.ap-south-1.amazonaws.com/malcon-nexus-api:latest",
+        "environment": [
+            "AWS_REGION",
+            "PORT",
+            "S3_BUCKET_STAGE_PHOTOS",
+            "ENVIRONMENT",
+            "API_CORS_ORIGIN",
+            "S3_BUCKET_ATTENDANCE_SELFIES",
+            "S3_BUCKET_HR_KYC_UPLOADS"
+        ],
+        "secrets": [
+            "DATABASE_URL",
+            "JWT_SECRET",
+            "SUPABASE_JWT_SECRET",
+            "TELEGRAM_BOT_TOKEN",
+            "TELEGRAM_WEBHOOK_SECRET",
+            "ALERT_CRON_SECRET"
+        ]
+    }
+}

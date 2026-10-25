@@ -1,57 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Lock } from 'lucide-react';
 import type { Document, Employee, StageRecord } from '../../types';
-import { isImageDocument, openStagePhotoForViewer, stagePhotoViewUrlForViewer } from '../../lib/stagePhotos';
+import { isImageDocument, stagePhotoThumbUrlForViewer } from '../../lib/stagePhotos';
 import { canViewCaseStagePhotos } from '../../lib/superAdmin';
+import { LazyPhotoViewer, type LazyPhotoItem } from '../LazyPhotoViewer';
 
 function imageDocs(stage: StageRecord): Document[] {
   return (stage.documents ?? []).filter(isImageDocument);
 }
 
-function galleryMeta(docs: Document[]): string | null {
-  if (docs.length === 0) return null;
-  const d = docs[0];
-  return `${d.uploadedBy} • ${new Date(d.uploadedAt).toLocaleString('en-IN')}`;
-}
-
-/** Load signed/view URLs for every image on the case (shared across timeline strips). */
-export function useStagePhotoViewUrls(stages: StageRecord[], viewer: Employee) {
-  const photos = useMemo(
-    () => stages.flatMap((s) => imageDocs(s).map((doc) => ({ stage: s.stage, doc }))),
-    [stages],
-  );
-  const photoKey = useMemo(() => photos.map((p) => p.doc.id).join(','), [photos]);
-  const canView = canViewCaseStagePhotos(viewer);
-  const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!canView || photos.length === 0) {
-      setViewUrls({});
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    void (async () => {
-      const next: Record<string, string> = {};
-      for (const { doc } of photos) {
-        const url = await stagePhotoViewUrlForViewer(doc, viewer);
-        if (url) next[doc.id] = url;
-      }
-      if (!cancelled) {
-        setViewUrls(next);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canView, photoKey, viewer?.email, photos]);
-
-  return { canView, viewUrls, loading };
-}
-
-/** In-timeline photo grid (3-up, iPhone-style squares). Meta line once; no per-photo labels. */
 function stagePhotoAltText(
   stageName: string,
   index: number,
@@ -62,18 +19,22 @@ function stagePhotoAltText(
   return `${prefix}${stageName} stage photo ${index + 1} of ${total}`;
 }
 
+/**
+ * In-timeline stage photo button.
+ *
+ * Deliberately renders no images: the user must press "View photos" and then only
+ * thumbnails are fetched (signed for the private stage-photos bucket).
+ */
 export const CaseStageMiniGallery: React.FC<{
   stage: StageRecord;
-  viewUrls: Record<string, string>;
-  loading: boolean;
-  canView: boolean;
   viewer: Employee;
   caseNumber?: string;
-}> = ({ stage, viewUrls, loading, canView, viewer, caseNumber }) => {
-  const docs = imageDocs(stage);
+}> = ({ stage, viewer, caseNumber }) => {
+  const docs = useMemo(() => imageDocs(stage), [stage]);
+
   if (docs.length === 0) return null;
 
-  if (!canView) {
+  if (!canViewCaseStagePhotos(viewer)) {
     return (
       <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
         <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -82,37 +43,25 @@ export const CaseStageMiniGallery: React.FC<{
     );
   }
 
-  const meta = galleryMeta(docs);
+  const photos: LazyPhotoItem[] = docs.map((doc, index) => ({
+    id: doc.id,
+    alt: stagePhotoAltText(stage.stage, index, docs.length, caseNumber),
+    url: doc.url,
+    title: doc.name,
+    caption: `${doc.uploadedBy} • ${new Date(doc.uploadedAt).toLocaleString('en-IN')}`,
+  }));
 
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-gray-200/80 bg-gray-200/40">
-      {meta ? <p className="bg-white/90 px-3 py-2 text-xs text-gray-500">{meta}</p> : null}
-      <ul
-        className="grid w-3/4 max-w-full grid-cols-3 gap-[2px] sm:gap-[3px]"
-        aria-label={`${stage.stage} photos`}
-      >
-        {docs.map((doc, index) => {
-          const src = viewUrls[doc.id];
-          const alt = stagePhotoAltText(stage.stage, index, docs.length, caseNumber);
-          return (
-            <li key={doc.id} className="aspect-square min-h-0 bg-gray-100">
-              <button
-                type="button"
-                onClick={() => void openStagePhotoForViewer(doc, viewer)}
-                className="block h-full w-full cursor-pointer border-0 bg-transparent p-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-accent)]"
-              >
-                {src ? (
-                  <img src={src} alt={alt} loading="lazy" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="flex h-full min-h-[21vw] items-center justify-center text-sm text-gray-400 sm:min-h-[90px]">
-                    {loading ? '…' : '—'}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="mt-3">
+      <LazyPhotoViewer
+        photos={photos}
+        title={`${stage.stage} photos`}
+        note="Thumbnails only — full-resolution photos are archived separately."
+        resolveUrl={(photo) => {
+          const doc = docs.find((d) => d.id === photo.id);
+          return doc ? stagePhotoThumbUrlForViewer(doc, viewer) : Promise.resolve(null);
+        }}
+      />
     </div>
   );
 };

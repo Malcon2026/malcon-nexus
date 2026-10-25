@@ -25,8 +25,12 @@
     "gallery:setup": "node scripts/setup-gallery.mjs",
     "tv:setup": "node scripts/setup-tv.mjs",
     "gallery:publish": "node scripts/publish-gallery-site.mjs",
-    "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs --convex",
+    "deploy:hostinger": "node scripts/deploy-hostinger-app.mjs --supabase",
+    "deploy:hostinger:supabase": "node scripts/deploy-hostinger-app.mjs --supabase",
     "deploy:hostinger:convex": "node scripts/deploy-hostinger-app.mjs --convex",
+    "db:import-master": "node scripts/import-convex-master-data.mjs",
+    "db:import-master:apply": "node scripts/import-convex-master-data.mjs --apply",
+    "db:verify-migration": "node scripts/verify-supabase-migration.mjs",
     "convex:dev": "npx convex dev",
     "convex:deploy": "npx convex deploy",
     "migrate:convex": "node scripts/migrate-to-convex.mjs --apply",
@@ -51,7 +55,10 @@
     "build:vercel-legacy": "node scripts/build-vercel-legacy.mjs",
     "icons:generate": "node scripts/generate-pwa-icons.mjs",
     "test:security": "node scripts/test-security-authz.mjs",
-    "test:ecs-task-def": "node scripts/aws/ecs-task-definition.test.mjs"
+    "test:ecs-task-def": "node scripts/aws/ecs-task-definition.test.mjs",
+    "db:apply-schema": "node scripts/apply-schema-api.mjs",
+    "db:verify-full": "node scripts/verify-full-migration.mjs",
+    "auth:set-admin-password": "node scripts/set-admin-password.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

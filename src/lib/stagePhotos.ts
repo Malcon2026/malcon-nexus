@@ -1,15 +1,6 @@
 import { supabase } from './supabase';
 import { USE_SUPABASE } from './database/config';
-import { USE_CLOUDFLARE_BACKEND, USE_CONVEX_BACKEND } from './cloudflareConfig';
-import {
-  fetchStagePhotoThumbnailUrl,
-  fetchStagePhotoViewUrl,
-  uploadStagePhotoViaConvex,
-} from './convexStagePhotosClient';
-import { USE_WORKER_STORAGE } from './workerStorageConfig';
-import { uploadViaWorkerStorage } from './workerStorageClient';
 import { formatUnknownError } from '../utils/errors';
-import { WorkerApiError } from './workerApi';
 import type { Document, Employee, WorkflowStage } from '../types';
 import { canViewCaseStagePhotos } from './superAdmin';
 
@@ -296,124 +287,6 @@ function mapStorageUploadError(message: string): string {
   return message || 'Photo upload failed';
 }
 
-function mapConvexStagePhotoUploadError(err: unknown): Error {
-  const msg = formatUnknownError(err);
-  const code = err instanceof WorkerApiError ? err.code : undefined;
-
-  if (code === 'UPLOAD_TIMEOUT' || /UPLOAD_TIMEOUT|timed out/i.test(msg)) {
-    return new Error(
-      'Photo upload timed out. Check your connection and try again — first upload for a case can take longer while folders are created in Google Drive.',
-    );
-  }
-  if (
-    code === 'DRIVE_STORAGE_POLICY' ||
-    /DRIVE_STORAGE_POLICY|storage quota|Service Accounts do not have storage/i.test(msg)
-  ) {
-    return new Error(
-      'Google Drive blocked this upload. Ask admin to use a Workspace Shared drive (not personal My Drive), add the Convex service account as Content manager, and set GOOGLE_DRIVE_FOLDER_ID to that shared folder.',
-    );
-  }
-  if (code === 'DRIVE_FORBIDDEN') {
-    return new Error(
-      'Google Drive denied this upload. Ask admin to share the Shared drive folder with the upload service account (Content manager) and set GOOGLE_DRIVE_FOLDER_ID to that folder.',
-    );
-  }
-  if (
-    code === 'NOT_CONFIGURED' ||
-    (/not configured|NOT_CONFIGURED|\b501\b/i.test(msg) &&
-      /GOOGLE_(DRIVE_FOLDER_ID|SERVICE_ACCOUNT_JSON)|not set on the Convex/i.test(msg))
-  ) {
-    return new Error(
-      'Stage photo storage is not configured yet. Ask admin to set GOOGLE_DRIVE_FOLDER_ID on Convex and share the Drive folder with the uploader service account.',
-    );
-  }
-  return err instanceof Error ? err : new Error(msg);
-}
-
-/** Convex HTTP → Google Drive (single full JPEG; lazy thumbnail in gallery). */
-async function uploadStagePhotoToConvexDrive(
-  caseId: string,
-  stage: WorkflowStage,
-  file: File,
-  uploadedBy: string,
-): Promise<Document> {
-  if (file.size === 0) {
-    throw new Error('Photo file is empty. Please retake the photo and try again.');
-  }
-  if (file.size > MAX_UPLOAD_PHOTO_BYTES) {
-    throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
-  }
-
-  try {
-    const uploaded = await uploadStagePhotoViaConvex(caseId, stage, file);
-    return {
-      id: uploaded.id,
-      name: `${stage} photo`,
-      type: uploaded.type,
-      size: formatFileSize(uploaded.sizeBytes),
-      uploadedBy,
-      uploadedAt: new Date().toISOString(),
-      url: '',
-      driveFileId: uploaded.driveFileId,
-    };
-  } catch (err) {
-    throw mapConvexStagePhotoUploadError(err);
-  }
-}
-
-/** Malcon API → S3 (AWS) or R2 (Cloudflare). Metadata URL is saved on the case in PostgreSQL/D1. */
-async function uploadStagePhotoToRemoteStorage(
-  caseId: string,
-  stage: WorkflowStage,
-  file: File,
-  uploadedBy: string,
-): Promise<Document> {
-  if (file.size === 0) {
-    throw new Error('Photo file is empty. Please retake the photo and try again.');
-  }
-  if (file.size > MAX_UPLOAD_PHOTO_BYTES) {
-    throw new Error('Photo is too large (max 5 MB). Retake or use a simpler photo.');
-  }
-
-  const thumbFile = await compressImageForUpload(file, {
-    maxEdge: CLOUD_PHOTO_MAX_EDGE,
-    targetBytes: CLOUD_PHOTO_TARGET_BYTES,
-  });
-
-  const photoId = crypto.randomUUID();
-  const basePath = `${caseId}/${sanitizeStage(stage)}/${Date.now()}-${photoId.slice(0, 8)}`;
-  const fullPath = `${basePath}-full.jpg`;
-  const thumbPath = `${basePath}-thumb.jpg`;
-  const contentType = 'image/jpeg';
-
-  try {
-    await uploadViaWorkerStorage('stage-photos', fullPath, file, { caseId });
-    const thumbUp = await uploadViaWorkerStorage('stage-photos', thumbPath, thumbFile, { caseId });
-    const url = thumbUp.publicUrl;
-    if (!url) {
-      throw new Error(
-        'Photo uploaded but view URL is not configured. Ask admin to set S3_PUBLIC_BASE_URL (or R2_PUBLIC_BASE_URL) on the API.',
-      );
-    }
-    return {
-      id: photoId,
-      name: `${stage} photo`,
-      type: contentType,
-      size: formatFileSize(thumbFile.size),
-      uploadedBy,
-      uploadedAt: new Date().toISOString(),
-      url,
-    };
-  } catch (err) {
-    const msg = formatUnknownError(err);
-    if (/not configured|501|NOT_CONFIGURED/i.test(msg)) {
-      throw new Error(
-        'Stage photo storage is not configured on the server. Ask admin to configure the stage-photos S3 bucket on the API.',
-      );
-    }
-    throw err instanceof Error ? err : new Error(msg);
-  }
-}
 
 /** Upload directly to Supabase Storage (same pattern as petrol receipts — reliable on mobile). */
 async function uploadStagePhotoToStorage(
@@ -422,10 +295,6 @@ async function uploadStagePhotoToStorage(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
-  if (USE_CLOUDFLARE_BACKEND || USE_WORKER_STORAGE) {
-    return uploadStagePhotoToRemoteStorage(caseId, stage, file, uploadedBy);
-  }
-
   if (file.size === 0) {
     throw new Error('Photo file is empty. Please retake the photo and try again.');
   }
@@ -490,22 +359,6 @@ export async function uploadStagePhoto(
   file: File,
   uploadedBy: string,
 ): Promise<Document> {
-  if (USE_CONVEX_BACKEND) {
-    try {
-      return await uploadStagePhotoToConvexDrive(caseId, stage, file, uploadedBy);
-    } catch (err) {
-      throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
-    }
-  }
-
-  if (USE_CLOUDFLARE_BACKEND) {
-    try {
-      return await uploadStagePhotoToRemoteStorage(caseId, stage, file, uploadedBy);
-    } catch (err) {
-      throw new Error(formatUnknownError(err, 'Photo upload failed. Check your connection and try again.'));
-    }
-  }
-
   if (!USE_SUPABASE) {
     const dataUrl = await fileToDataUrl(file);
     return {
@@ -572,11 +425,32 @@ export async function stagePhotoViewUrlForViewer(
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
-  if (doc.driveFileId && USE_CONVEX_BACKEND) {
-    return fetchStagePhotoThumbnailUrl(doc.driveFileId);
-  }
   if (!doc.url) return null;
-  if (USE_CLOUDFLARE_BACKEND || doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
+  if (doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
+  if (!USE_SUPABASE) return doc.url;
+
+  const path = stagePhotoObjectPath(doc.url);
+  if (!path) return doc.url;
+
+  const { data, error } = await supabase.storage.from('stage-photos').createSignedUrl(path, 60 * 60);
+  if (!error && data?.signedUrl) return data.signedUrl;
+  return doc.url;
+}
+
+/**
+ * Thumbnail URL for click-to-view galleries.
+ *
+ * Only called when the user opens a photo viewer — never during page render — so
+ * no image bytes move until someone asks for them. When the bucket is private
+ * (stage-photos is), returns a short-lived signed URL for the thumbnail.
+ */
+export async function stagePhotoThumbUrlForViewer(
+  doc: Document,
+  viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
+): Promise<string | null> {
+  if (!canViewCaseStagePhotos(viewer)) return null;
+  if (!doc.url) return null;
+  if (doc.url.startsWith('data:')) return doc.url;
   if (!USE_SUPABASE) return doc.url;
 
   const path = stagePhotoObjectPath(doc.url);
@@ -591,15 +465,12 @@ export function stagePhotoDisplayUrl(doc: Document): string {
   return doc.url;
 }
 
-/** Open full image in Google Drive (super-admin, Convex + driveFileId). */
+/** Open full image in a new tab (super-admin). */
 export async function stagePhotoOpenUrlForViewer(
   doc: Document,
   viewer: Pick<Employee, 'email' | 'role'> | null | undefined,
 ): Promise<string | null> {
   if (!canViewCaseStagePhotos(viewer)) return null;
-  if (doc.driveFileId && USE_CONVEX_BACKEND) {
-    return fetchStagePhotoViewUrl(doc.driveFileId);
-  }
   if (doc.url.startsWith('data:') || doc.url.startsWith('http')) return doc.url;
   const signed = await stagePhotoViewUrlForViewer(doc, viewer);
   return signed;

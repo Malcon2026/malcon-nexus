@@ -1,0 +1,9 @@
+[
+    "malcon-nexus-alb-target-5xx",
+    "malcon-nexus-alb-unhealthy-hosts",
+    "malcon-nexus-apigw-5xx",
+    "malcon-nexus-ecs-cpu-high",
+    "malcon-nexus-rds-connections-high",
+    "malcon-nexus-rds-cpu-high",
+    "malcon-nexus-rds-free-storage-low"
+]

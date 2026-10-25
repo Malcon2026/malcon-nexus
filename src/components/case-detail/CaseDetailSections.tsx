@@ -3,7 +3,7 @@ import { Building2, HandMetal, Mail, Phone, User } from 'lucide-react';
 import type { Employee, ImplantCase, StageRecord } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { Badge } from '../ui/Badge';
-import { CaseStageMiniGallery, useStagePhotoViewUrls } from './CaseStagePhotoAlbum';
+import { CaseStageMiniGallery } from './CaseStagePhotoAlbum';
 import { RestockOutcomeBadge } from '../RestockOutcomeBadge';
 import { ReturnOutcomeBadge } from '../ReturnOutcomeBadge';
 import { AfterSurgeryTeam } from '../AfterSurgeryTeam';
@@ -152,8 +152,6 @@ export const CaseProgressTimeline: React.FC<{
   viewer: Employee;
   caseNumber?: string;
 }> = ({ stages, currentIndex, viewer, caseNumber }) => {
-  const photoUrls = useStagePhotoViewUrls(stages, viewer);
-
   return (
   <div className={cn(surface, 'px-4 py-2 sm:px-6')}>
     <ol>
@@ -237,9 +235,6 @@ export const CaseProgressTimeline: React.FC<{
 
               <CaseStageMiniGallery
                 stage={stage}
-                canView={photoUrls.canView}
-                viewUrls={photoUrls.viewUrls}
-                loading={photoUrls.loading}
                 viewer={viewer}
                 caseNumber={caseNumber}
               />

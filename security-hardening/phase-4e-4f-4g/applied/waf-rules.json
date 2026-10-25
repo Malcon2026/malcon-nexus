@@ -1,0 +1,50 @@
+[
+  {
+    "Name": "AWS-AWSManagedRulesCommonRuleSet",
+    "Priority": 1,
+    "Statement": {
+      "ManagedRuleGroupStatement": {
+        "VendorName": "AWS",
+        "Name": "AWSManagedRulesCommonRuleSet"
+      }
+    },
+    "OverrideAction": { "None": {} },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "CommonRuleSet"
+    }
+  },
+  {
+    "Name": "AWS-AWSManagedRulesKnownBadInputsRuleSet",
+    "Priority": 2,
+    "Statement": {
+      "ManagedRuleGroupStatement": {
+        "VendorName": "AWS",
+        "Name": "AWSManagedRulesKnownBadInputsRuleSet"
+      }
+    },
+    "OverrideAction": { "None": {} },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "KnownBadInputs"
+    }
+  },
+  {
+    "Name": "RateLimitPerIp",
+    "Priority": 3,
+    "Statement": {
+      "RateBasedStatement": {
+        "Limit": 2000,
+        "AggregateKeyType": "IP"
+      }
+    },
+    "Action": { "Block": {} },
+    "VisibilityConfig": {
+      "SampledRequestsEnabled": true,
+      "CloudWatchMetricsEnabled": true,
+      "MetricName": "RateLimitPerIp"
+    }
+  }
+]

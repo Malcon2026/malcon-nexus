@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "MalconNexusApiLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": [
+        "arn:aws:logs:ap-south-1:353728888679:log-group:/ecs/malcon-nexus-api",
+        "arn:aws:logs:ap-south-1:353728888679:log-group:/ecs/malcon-nexus-api:*"
+      ]
+    },
+    {
+      "Sid": "ReadApiEnvSecretForEcsInjection",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env*"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "webAclArn": "arn:aws:wafv2:ap-south-1:353728888679:regional/webacl/malcon-nexus-api-edge/fc646a66-baf2-460e-a150-d4a52705dd77",
+  "associatedResourceArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:loadbalancer/app/malcon-nexus-api/aa086b60f889cef0",
+  "note": "HTTP API v2 stages cannot use AssociateWebACL (REST-only ARN format). WAF on ALB protects API Gateway HTTP_PROXY traffic and direct ALB access."
+}

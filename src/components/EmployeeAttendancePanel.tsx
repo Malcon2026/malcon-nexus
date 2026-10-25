@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search, Calendar, RefreshCw, LogIn, LogOut, UserX, Users, AlertTriangle, Download, Loader2,
-  Camera, ChevronLeft, ChevronRight, X,
+  Camera,
 } from 'lucide-react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
+import { LazyPhotoViewer } from './LazyPhotoViewer';
 import { useStore } from '../store/useStore';
 import type { Department } from '../types';
 import {
@@ -94,12 +95,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
   const [dateKey, setDateKey] = useState(getISTDateKey());
   const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [selfieIndex, setSelfieIndex] = useState<number | null>(null);
   const shareListRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSelfieIndex(null);
-  }, [filterStatus, dateKey]);
 
   // Past days are closed: people who came are "out", not still "in".
   useEffect(() => {
@@ -178,23 +174,6 @@ export const EmployeeAttendancePanel: React.FC = () => {
         punchedAt: row.punchIn!.punchedAt,
       }));
   }, [sortedForShare, filterStatus]);
-
-  const viewingSelfie = selfieIndex !== null ? selfieItems[selfieIndex] ?? null : null;
-
-  useEffect(() => {
-    if (selfieIndex === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelfieIndex(null);
-      if (e.key === 'ArrowLeft' && selfieItems.length > 1) {
-        setSelfieIndex((i) => (i === null ? null : (i - 1 + selfieItems.length) % selfieItems.length));
-      }
-      if (e.key === 'ArrowRight' && selfieItems.length > 1) {
-        setSelfieIndex((i) => (i === null ? null : (i + 1) % selfieItems.length));
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selfieIndex, selfieItems.length]);
 
   const handleDownloadImage = async () => {
     const node = shareListRef.current;
@@ -383,34 +362,23 @@ export const EmployeeAttendancePanel: React.FC = () => {
             </h3>
           </div>
           <p className="text-xs text-gray-500 mb-3">
-            Tap a photo to enlarge. Cloud keeps these ~24 hours; older copies stay on the office PC
+            Photos are not downloaded until you open them. Cloud keeps these ~24 hours; older copies
+            stay on the office PC
             {' '}
             <span className="font-mono text-[11px]">D:\MalconNexus\PunchInSelfies</span>
             .
           </p>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
-            {selfieItems.map((item, index) => (
-              <button
-                key={item.employeeId}
-                type="button"
-                onClick={() => setSelfieIndex(index)}
-                className="group text-left rounded-xl border border-gray-200 overflow-hidden bg-gray-50 hover:border-[var(--color-accent)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] transition-all"
-              >
-                <div className="aspect-square bg-gray-100 overflow-hidden">
-                  <img
-                    src={item.selfieUrl}
-                    alt={`Selfie — ${item.employeeName}`}
-                    className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="px-1.5 py-1.5">
-                  <p className="text-[11px] font-semibold text-gray-900 truncate">{item.employeeName}</p>
-                  <p className="text-[10px] text-gray-500 tabular-nums">{formatTimeIST(item.punchedAt)}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+          <LazyPhotoViewer
+            photos={selfieItems.map((item) => ({
+              id: item.employeeId,
+              alt: `Selfie — ${item.employeeName}`,
+              url: item.selfieUrl,
+              title: item.employeeName,
+              caption: formatTimeIST(item.punchedAt),
+            }))}
+            title="Punch-in selfies"
+            note="Loads on demand — thumbnails only."
+          />
         </div>
       )}
 
@@ -422,73 +390,7 @@ export const EmployeeAttendancePanel: React.FC = () => {
           .
         </p>
       )}
-
-      {viewingSelfie && selfieIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Selfie — ${viewingSelfie.employeeName}`}
-          onClick={() => setSelfieIndex(null)}
-        >
-          <div
-            className="relative w-full max-w-lg sm:max-w-xl bg-white rounded-2xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-gray-100">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{viewingSelfie.employeeName}</p>
-                <p className="text-xs text-gray-500 tabular-nums">
-                  Punch in {formatTimeIST(viewingSelfie.punchedAt)}
-                  {selfieItems.length > 1 ? ` · ${selfieIndex + 1} of ${selfieItems.length}` : ''}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelfieIndex(null)}
-                className="shrink-0 h-8 w-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="relative bg-black">
-              <img
-                src={viewingSelfie.selfieUrl}
-                alt={`Selfie — ${viewingSelfie.employeeName}`}
-                className="w-full max-h-[70vh] object-contain"
-              />
-              {selfieItems.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelfieIndex((i) =>
-                        i === null ? null : (i - 1 + selfieItems.length) % selfieItems.length,
-                      )
-                    }
-                    className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 border border-gray-200 flex items-center justify-center text-gray-800 shadow"
-                    aria-label="Previous selfie"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelfieIndex((i) => (i === null ? null : (i + 1) % selfieItems.length))
-                    }
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 border border-gray-200 flex items-center justify-center text-gray-800 shadow"
-                    aria-label="Next selfie"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+

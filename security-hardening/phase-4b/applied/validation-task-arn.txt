@@ -1,0 +1,1 @@
+arn:aws:ecs:ap-south-1:353728888679:task/malcon-nexus/33fbfccbce3045eaab884295f1c3221f

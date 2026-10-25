@@ -1,0 +1,20 @@
+{
+  "liveTaskDefinition": "malcon-nexus-api:5",
+  "environmentNames": [
+    "PORT",
+    "AWS_REGION",
+    "ENVIRONMENT",
+    "API_CORS_ORIGIN",
+    "S3_BUCKET_STAGE_PHOTOS",
+    "S3_BUCKET_ATTENDANCE_SELFIES",
+    "S3_BUCKET_HR_KYC_UPLOADS"
+  ],
+  "secretsNames": [
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "SUPABASE_JWT_SECRET",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_WEBHOOK_SECRET",
+    "ALERT_CRON_SECRET"
+  ]
+}

@@ -1,0 +1,99 @@
+{
+    "tasks": [
+        {
+            "attachments": [
+                {
+                    "id": "17d92653-2778-4019-bc0d-2b73b4687032",
+                    "type": "ElasticNetworkInterface",
+                    "status": "ATTACHED",
+                    "details": [
+                        {
+                            "name": "subnetId",
+                            "value": "subnet-095102aeeb5e5d228"
+                        },
+                        {
+                            "name": "networkInterfaceId",
+                            "value": "eni-0207cda3236c14ef2"
+                        },
+                        {
+                            "name": "macAddress",
+                            "value": "06:ff:db:0a:79:c5"
+                        },
+                        {
+                            "name": "privateDnsName",
+                            "value": "ip-172-31-22-89.ap-south-1.compute.internal"
+                        },
+                        {
+                            "name": "privateIPv4Address",
+                            "value": "172.31.22.89"
+                        }
+                    ]
+                }
+            ],
+            "attributes": [
+                {
+                    "name": "ecs.cpu-architecture",
+                    "value": "arm64"
+                }
+            ],
+            "availabilityZone": "ap-south-1c",
+            "clusterArn": "arn:aws:ecs:ap-south-1:353728888679:cluster/malcon-nexus",
+            "connectivity": "CONNECTED",
+            "connectivityAt": "2026-10-17T22:52:01.648000+05:30",
+            "containers": [
+                {
+                    "containerArn": "arn:aws:ecs:ap-south-1:353728888679:container/malcon-nexus/ea046eb6f524445c8c34981d9b5c755c/d8c9b2f0-4cbb-4e3f-99e6-4172e10aea57",
+                    "taskArn": "arn:aws:ecs:ap-south-1:353728888679:task/malcon-nexus/ea046eb6f524445c8c34981d9b5c755c",
+                    "name": "api",
+                    "image": "353728888679.dkr.ecr.ap-south-1.amazonaws.com/malcon-nexus-api:latest",
+                    "imageDigest": "sha256:c4f17151ae6fa70811434a7fdf1bbf946cf9b87ab42e419201413137aed7beb7",
+                    "runtimeId": "ea046eb6f524445c8c34981d9b5c755c-0946514567",
+                    "lastStatus": "RUNNING",
+                    "networkBindings": [],
+                    "networkInterfaces": [
+                        {
+                            "attachmentId": "17d92653-2778-4019-bc0d-2b73b4687032",
+                            "privateIpv4Address": "172.31.22.89"
+                        }
+                    ],
+                    "healthStatus": "UNKNOWN",
+                    "cpu": "0"
+                }
+            ],
+            "cpu": "512",
+            "createdAt": "2026-10-17T22:51:58.086000+05:30",
+            "desiredStatus": "RUNNING",
+            "enableExecuteCommand": false,
+            "group": "service:malcon-nexus-api",
+            "healthStatus": "UNKNOWN",
+            "lastStatus": "RUNNING",
+            "launchType": "FARGATE",
+            "memory": "1024",
+            "overrides": {
+                "containerOverrides": [
+                    {
+                        "name": "api"
+                    }
+                ],
+                "inferenceAcceleratorOverrides": []
+            },
+            "platformVersion": "1.4.0",
+            "platformFamily": "Linux",
+            "pullStartedAt": "2026-10-17T22:52:08.821000+05:30",
+            "pullStoppedAt": "2026-10-17T22:52:17.315000+05:30",
+            "startedAt": "2026-10-17T22:52:36.284000+05:30",
+            "startedBy": "ecs-svc/5913551692684182504",
+            "tags": [],
+            "taskArn": "arn:aws:ecs:ap-south-1:353728888679:task/malcon-nexus/ea046eb6f524445c8c34981d9b5c755c",
+            "taskDefinitionArn": "arn:aws:ecs:ap-south-1:353728888679:task-definition/malcon-nexus-api:4",
+            "version": 5,
+            "ephemeralStorage": {
+                "sizeInGiB": 20
+            },
+            "fargateEphemeralStorage": {
+                "sizeInGiB": 20
+            }
+        }
+    ],
+    "failures": []
+}

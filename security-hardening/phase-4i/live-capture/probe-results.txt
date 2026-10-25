@@ -1,0 +1,7 @@
+/health 200
+/health/db 200
+/api/employees 401
+/api/employees bad-jwt 401
+POST /api/telegram/webhook 401
+/api/employees dev-header 401
+alb-direct /health 200

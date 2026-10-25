@@ -1,0 +1,5 @@
+{
+    "ResourceArns": [
+        "arn:aws:elasticloadbalancing:ap-south-1:353728888679:loadbalancer/app/malcon-nexus-api/aa086b60f889cef0"
+    ]
+}

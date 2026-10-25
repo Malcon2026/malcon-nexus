@@ -1,0 +1,109 @@
+{
+    "DBInstances": [
+        {
+            "DBInstanceIdentifier": "malcon-nexus-pg",
+            "DBInstanceClass": "db.t4g.micro",
+            "Engine": "postgres",
+            "DBInstanceStatus": "available",
+            "MasterUsername": "malcon_admin",
+            "Endpoint": {
+                "Address": "malcon-nexus-pg.cpumo6uq2a4o.ap-south-1.rds.amazonaws.com",
+                "Port": 5432,
+                "HostedZoneId": "Z2VFMSZA74J7XZ"
+            },
+            "AllocatedStorage": 20,
+            "InstanceCreateTime": "2026-10-15T02:42:22.548000+00:00",
+            "PreferredBackupWindow": "23:46-00:16",
+            "BackupRetentionPeriod": 0,
+            "DBSecurityGroups": [],
+            "VpcSecurityGroups": [
+                {
+                    "VpcSecurityGroupId": "sg-078ca764ce05bc9c5",
+                    "Status": "active"
+                }
+            ],
+            "DBParameterGroups": [
+                {
+                    "DBParameterGroupName": "default.postgres16",
+                    "ParameterApplyStatus": "in-sync"
+                }
+            ],
+            "AvailabilityZone": "ap-south-1c",
+            "DBSubnetGroup": {
+                "DBSubnetGroupName": "default",
+                "DBSubnetGroupDescription": "default",
+                "VpcId": "vpc-009ee853ac9c17d92",
+                "SubnetGroupStatus": "Complete",
+                "Subnets": [
+                    {
+                        "SubnetIdentifier": "subnet-04fde982ac66c2c9f",
+                        "SubnetAvailabilityZone": {
+                            "Name": "ap-south-1b"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-0959bc37b0db389c6",
+                        "SubnetAvailabilityZone": {
+                            "Name": "ap-south-1a"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-095102aeeb5e5d228",
+                        "SubnetAvailabilityZone": {
+                            "Name": "ap-south-1c"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    }
+                ]
+            },
+            "PreferredMaintenanceWindow": "mon:08:31-mon:09:01",
+            "UpgradeRolloutOrder": "second",
+            "PendingModifiedValues": {},
+            "MultiAZ": false,
+            "EngineVersion": "16.15",
+            "AutoMinorVersionUpgrade": true,
+            "ReadReplicaDBInstanceIdentifiers": [],
+            "LicenseModel": "postgresql-license",
+            "Iops": 3000,
+            "StorageThroughput": 125,
+            "OptionGroupMemberships": [
+                {
+                    "OptionGroupName": "default:postgres-16",
+                    "Status": "in-sync"
+                }
+            ],
+            "PubliclyAccessible": false,
+            "StorageType": "gp3",
+            "DbInstancePort": 0,
+            "StorageEncrypted": false,
+            "DbiResourceId": "db-2NSBRVDTB255JZRIYL2OM6TA44",
+            "CACertificateIdentifier": "rds-ca-rsa2048-g1",
+            "DomainMemberships": [],
+            "CopyTagsToSnapshot": false,
+            "MonitoringInterval": 0,
+            "DBInstanceArn": "arn:aws:rds:ap-south-1:353728888679:db:malcon-nexus-pg",
+            "IAMDatabaseAuthenticationEnabled": false,
+            "DatabaseInsightsMode": "standard",
+            "PerformanceInsightsEnabled": false,
+            "DeletionProtection": false,
+            "AssociatedRoles": [],
+            "TagList": [],
+            "CustomerOwnedIpEnabled": false,
+            "NetworkType": "IPV4",
+            "ActivityStreamStatus": "stopped",
+            "BackupTarget": "region",
+            "CertificateDetails": {
+                "CAIdentifier": "rds-ca-rsa2048-g1",
+                "ValidTill": "2027-10-15T02:41:07+00:00"
+            },
+            "DedicatedLogVolume": false,
+            "IsStorageConfigUpgradeAvailable": false,
+            "EngineLifecycleSupport": "open-source-rds-extended-support"
+        }
+    ]
+}

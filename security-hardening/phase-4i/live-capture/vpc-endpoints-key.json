@@ -1,0 +1,27 @@
+[
+    {
+        "Id": "vpce-0c56860fa72902566",
+        "Service": "com.amazonaws.ap-south-1.s3",
+        "State": "available"
+    },
+    {
+        "Id": "vpce-0e12997e23712e07e",
+        "Service": "com.amazonaws.ap-south-1.ecr.api",
+        "State": "available"
+    },
+    {
+        "Id": "vpce-0dab935000321a47b",
+        "Service": "com.amazonaws.ap-south-1.ecr.dkr",
+        "State": "available"
+    },
+    {
+        "Id": "vpce-037893c8e722f1a02",
+        "Service": "com.amazonaws.ap-south-1.secretsmanager",
+        "State": "available"
+    },
+    {
+        "Id": "vpce-02984f0de1a66efe4",
+        "Service": "com.amazonaws.ap-south-1.logs",
+        "State": "available"
+    }
+]

@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "method": "One-off Fargate task (malcon-nexus-api:5) in private subnets; host override via VALIDATE_RDS_HOST only",
+  "taskArn": "arn:aws:ecs:ap-south-1:353728888679:task/malcon-nexus/eee82f9a9a52443c88840b31dd019b44",
+  "source": {
+    "label": "source",
+    "database": "malconnexus",
+    "tables": {
+      "employees": 46,
+      "cases": 582,
+      "hospitals": 95,
+      "attendance_records": 5642
+    }
+  },
+  "clone": {
+    "label": "clone",
+    "database": "malconnexus",
+    "tables": {
+      "employees": 46,
+      "cases": 582,
+      "hospitals": 95,
+      "attendance_records": 5642
+    }
+  }
+}

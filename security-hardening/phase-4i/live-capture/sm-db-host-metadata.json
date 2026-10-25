@@ -1,0 +1,5 @@
+{
+  "versionId": "b9e73e2a-d21d-4b0c-9b19-ae475eb35513",
+  "dbHost": "malcon-nexus-db-encrypted.cpumo6uq2a4o.ap-south-1.rds.amazonaws.com",
+  "pointsToEncrypted": true
+}

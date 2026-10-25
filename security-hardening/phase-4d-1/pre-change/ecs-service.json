@@ -1,0 +1,608 @@
+{
+    "services": [
+        {
+            "serviceArn": "arn:aws:ecs:ap-south-1:353728888679:service/malcon-nexus/malcon-nexus-api",
+            "serviceName": "malcon-nexus-api",
+            "clusterArn": "arn:aws:ecs:ap-south-1:353728888679:cluster/malcon-nexus",
+            "loadBalancers": [
+                {
+                    "targetGroupArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53",
+                    "containerName": "api",
+                    "containerPort": 8080
+                }
+            ],
+            "serviceRegistries": [],
+            "status": "ACTIVE",
+            "desiredCount": 1,
+            "runningCount": 1,
+            "pendingCount": 0,
+            "launchType": "FARGATE",
+            "platformVersion": "LATEST",
+            "platformFamily": "Linux",
+            "taskDefinition": "arn:aws:ecs:ap-south-1:353728888679:task-definition/malcon-nexus-api:5",
+            "deploymentConfiguration": {
+                "deploymentCircuitBreaker": {
+                    "enable": false,
+                    "rollback": false,
+                    "resetOnHealthyTask": true,
+                    "thresholdConfiguration": {
+                        "type": "BOUNDED_PERCENT",
+                        "value": 50
+                    }
+                },
+                "maximumPercent": 200,
+                "minimumHealthyPercent": 100,
+                "strategy": "ROLLING",
+                "bakeTimeInMinutes": 0
+            },
+            "deployments": [
+                {
+                    "id": "ecs-svc/7000224435466841008",
+                    "status": "PRIMARY",
+                    "taskDefinition": "arn:aws:ecs:ap-south-1:353728888679:task-definition/malcon-nexus-api:5",
+                    "desiredCount": 1,
+                    "pendingCount": 0,
+                    "runningCount": 1,
+                    "failedTasks": 0,
+                    "createdAt": "2026-10-18T11:19:06.231000+05:30",
+                    "updatedAt": "2026-10-18T11:27:06.622000+05:30",
+                    "launchType": "FARGATE",
+                    "platformVersion": "1.4.0",
+                    "platformFamily": "Linux",
+                    "networkConfiguration": {
+                        "awsvpcConfiguration": {
+                            "subnets": [
+                                "subnet-0b85d704dd4411184",
+                                "subnet-07ad0e3edcf0a9067"
+                            ],
+                            "securityGroups": [
+                                "sg-0baa11bbe7369985a"
+                            ],
+                            "assignPublicIp": "DISABLED"
+                        }
+                    },
+                    "rolloutState": "COMPLETED",
+                    "rolloutStateReason": "ECS deployment ecs-svc/7000224435466841008 completed."
+                }
+            ],
+            "roleArn": "arn:aws:iam::353728888679:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+            "events": [
+                {
+                    "id": "eaf379f4-54cf-4156-b3cb-3e8f32313fe3",
+                    "createdAt": "2026-10-18T11:27:06.630000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "599649be-c2dd-4a8b-8d27-b1f809eb224c",
+                    "createdAt": "2026-10-18T11:27:06.629000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/7000224435466841008) deployment completed."
+                },
+                {
+                    "id": "35673e7c-3ea7-42e6-a360-ad3a5c814c7a",
+                    "createdAt": "2026-10-18T11:26:04.204000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/0592657723948541574) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "b944210b-7fbf-45aa-a854-23da6b6636d3",
+                    "createdAt": "2026-10-18T11:26:04.200000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "da2d1baa-0b8b-457c-85d7-ac0a3fab66dd",
+                    "createdAt": "2026-10-18T11:25:54.398000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 62df2810d9e54ba7b34cc09fd68c5577)."
+                },
+                {
+                    "id": "36171628-9e07-4408-bade-cece91131d25",
+                    "createdAt": "2026-10-18T11:24:50.971000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "3365d6f8-8311-412f-a631-123e7fec6185",
+                    "createdAt": "2026-10-18T11:24:20.233000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 04bfceab36ab4f6bbdcb988abd761229)."
+                },
+                {
+                    "id": "97e7083e-4c44-4539-ae8a-cff99910ff3e",
+                    "createdAt": "2026-10-18T11:19:06.540000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "37002ba1-4a60-4e36-918a-9d30f7d904e8",
+                    "createdAt": "2026-10-18T11:19:06.480000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/2044221791801694039) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "abc38999-4725-4075-aa98-1b37a4a9aa63",
+                    "createdAt": "2026-10-18T11:19:06.476000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "85bd0d55-4d4f-4dc2-81d0-41da325953cf",
+                    "createdAt": "2026-10-18T11:18:27.813000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "d21ba123-666e-4886-b3da-079930355b34",
+                    "createdAt": "2026-10-18T11:17:59.672000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 729857417f0b4645af5d2a21c8f92b20)."
+                },
+                {
+                    "id": "f50fc42c-2670-4e8a-b74b-96f613487aec",
+                    "createdAt": "2026-10-18T11:12:47.486000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "ca6a54cf-fee8-4d1c-89df-a35919a28e50",
+                    "createdAt": "2026-10-18T11:12:47.444000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/2044221791801694039) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "984f31fd-a540-48fc-b740-9dd343aeb7a6",
+                    "createdAt": "2026-10-18T11:12:47.440000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "d8db7a4f-01a3-4f91-a4e3-4e494b911fe8",
+                    "createdAt": "2026-10-18T11:12:07.834000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "61b71051-44ea-4601-a125-7f06670a250d",
+                    "createdAt": "2026-10-18T11:11:36.543000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 984b7fad04b74f5b88e375694f2f007a)."
+                },
+                {
+                    "id": "cacee18a-101f-47c9-8244-7477a181de25",
+                    "createdAt": "2026-10-18T11:00:29.200000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "1b0fed25-b129-4078-b422-3d72ce8b58ac",
+                    "createdAt": "2026-10-18T11:00:29.199000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/0592657723948541574) deployment completed."
+                },
+                {
+                    "id": "3caaa415-5346-40e7-aea5-6fafba235fb6",
+                    "createdAt": "2026-10-18T10:59:34.881000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/2029484353030213485) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "d3a2e0c6-5b85-4dbc-8743-f1bdbd35c37f",
+                    "createdAt": "2026-10-18T10:59:34.875000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "86c6222a-01f9-44bc-a2af-7a93c2928024",
+                    "createdAt": "2026-10-18T10:59:23.328000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 3c35f9937683407d8e0b4fb80aa748f4)."
+                },
+                {
+                    "id": "21c00a5a-38cf-4242-96d4-842c0e9eb2ab",
+                    "createdAt": "2026-10-18T10:58:30.037000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "48ee7a13-7e5d-4665-b8b3-666f4cb56f2c",
+                    "createdAt": "2026-10-18T10:57:59.332000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 62df2810d9e54ba7b34cc09fd68c5577)."
+                },
+                {
+                    "id": "d5a3e075-f85a-460e-a4a4-e0551865ee67",
+                    "createdAt": "2026-10-18T10:56:44.279000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "66df4b86-4111-48b4-8dae-0e3c53c1e037",
+                    "createdAt": "2026-10-18T10:56:44.278000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/2029484353030213485) deployment completed."
+                },
+                {
+                    "id": "df886091-749c-47b8-a857-05c11976e773",
+                    "createdAt": "2026-10-18T10:55:48.567000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/8126914552997674920) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "611a0fe8-cd5c-48b9-be17-b9b2c4c60fb8",
+                    "createdAt": "2026-10-18T10:55:48.562000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "cc088581-ce84-4d1d-acf5-4c77ceed0c57",
+                    "createdAt": "2026-10-18T10:55:39.064000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 1319ac7e8368438dad21314c39371f48)."
+                },
+                {
+                    "id": "1b6d3109-8ae0-4487-8e92-ef5d442d9c9a",
+                    "createdAt": "2026-10-18T10:54:57.088000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "218ff00c-bb02-4a76-bfc9-9f74ea21c3f4",
+                    "createdAt": "2026-10-18T10:54:24.517000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 3c35f9937683407d8e0b4fb80aa748f4)."
+                },
+                {
+                    "id": "09ef58bf-e89e-4406-8cf1-5d1f3b9771d4",
+                    "createdAt": "2026-10-18T10:52:16.409000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "125b7cbb-c37c-436f-9798-cb611f505e22",
+                    "createdAt": "2026-10-18T10:52:16.408000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/8126914552997674920) deployment completed."
+                },
+                {
+                    "id": "2dee150e-9e41-4201-90c1-6a79a46f7615",
+                    "createdAt": "2026-10-18T10:51:12.072000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/5913551692684182504) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "8451899a-7be1-4ceb-9a17-7f79209c6f1e",
+                    "createdAt": "2026-10-18T10:51:12.068000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "a5738d33-33cd-4d81-aa36-b5178c6837e2",
+                    "createdAt": "2026-10-18T10:51:10.366000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task ea046eb6f524445c8c34981d9b5c755c)."
+                },
+                {
+                    "id": "3d1c59f0-1b8f-45fd-8fa6-3406a5d01179",
+                    "createdAt": "2026-10-18T10:50:28.349000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "2bb5c3e8-7302-4d02-84d5-7a233c560b5a",
+                    "createdAt": "2026-10-18T10:49:56.476000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 1319ac7e8368438dad21314c39371f48)."
+                },
+                {
+                    "id": "606f9909-6cf5-4a90-8c86-45cec82cd8ac",
+                    "createdAt": "2026-10-18T04:54:55.548000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "c64074c2-e24d-4199-9445-5c077a52bf9d",
+                    "createdAt": "2026-10-17T22:54:25.063000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "0bfb89d6-c4ec-4bbc-8175-623464136ad6",
+                    "createdAt": "2026-10-17T22:54:25.062000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/5913551692684182504) deployment completed."
+                },
+                {
+                    "id": "4d884164-fd0e-47e7-aa77-da3f4b1bba36",
+                    "createdAt": "2026-10-17T22:53:31.984000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/0758530093951791807) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "8200b29c-cf25-4a0a-baa3-dc1fe33a6cea",
+                    "createdAt": "2026-10-17T22:53:31.979000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "76524f2e-4764-4044-8ce0-03f2ffeacfb0",
+                    "createdAt": "2026-10-17T22:53:20.758000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 7b3f44b37e56478a913ef6c425d5fcca)."
+                },
+                {
+                    "id": "d28596ec-568a-4dff-9fa4-b248c83a4833",
+                    "createdAt": "2026-10-17T22:52:28.894000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "1bc52856-411c-4068-9b2f-0aa5655a31df",
+                    "createdAt": "2026-10-17T22:51:58.133000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task ea046eb6f524445c8c34981d9b5c755c)."
+                },
+                {
+                    "id": "a0aa267f-e307-4e81-ba77-75fe46257a44",
+                    "createdAt": "2026-10-17T22:50:55.209000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/1729146987764261376) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "cc3ee0f7-9e10-44bf-8cd7-c86edb1509b0",
+                    "createdAt": "2026-10-17T22:50:55.205000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "bf7939e1-e2c3-4463-a209-e9d6d3f2ba24",
+                    "createdAt": "2026-10-17T22:50:45.249000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 603c56e261d2434b9c884b69fd57ec44)."
+                },
+                {
+                    "id": "f0a5a195-eacc-45cc-86a0-548033a98a6f",
+                    "createdAt": "2026-10-17T22:49:53.167000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "f9132198-2680-4b20-94d6-7fa310bacf2c",
+                    "createdAt": "2026-10-17T22:49:21.688000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 603c56e261d2434b9c884b69fd57ec44)."
+                },
+                {
+                    "id": "97817680-11d3-4ff5-8c0b-3b6a7401386e",
+                    "createdAt": "2026-10-17T22:48:40.367000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "4d61a437-94de-46ee-ad12-4f2a1b18fc00",
+                    "createdAt": "2026-10-17T22:48:40.366000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/0758530093951791807) deployment completed."
+                },
+                {
+                    "id": "7726e90b-d056-4bb2-989e-2217be394ea3",
+                    "createdAt": "2026-10-17T22:47:47.583000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/8157986117074524166) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "c9d992ff-718e-4369-9ffe-40a0393c22ae",
+                    "createdAt": "2026-10-17T22:47:47.578000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "431efd1d-0eb9-4b98-90fb-cc82154c0bbc",
+                    "createdAt": "2026-10-17T22:47:37.695000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 9fb9e956ef534e8f980debefbdf61db2)."
+                },
+                {
+                    "id": "90ff5e0a-52c3-4084-8285-844788786d8f",
+                    "createdAt": "2026-10-17T22:46:55.210000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "62c82b3e-b780-4252-9113-8b540098ad64",
+                    "createdAt": "2026-10-17T22:46:24.453000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 7b3f44b37e56478a913ef6c425d5fcca)."
+                },
+                {
+                    "id": "6bd6010b-3702-4129-aa11-92ba4536a017",
+                    "createdAt": "2026-10-17T21:35:14.033000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "a4980515-124c-4886-a893-de29fef86dbe",
+                    "createdAt": "2026-10-17T15:35:01.216000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "d5ae22a4-9ef3-48a3-8630-2ebd105276fb",
+                    "createdAt": "2026-10-17T09:34:37.060000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "f7c9d6e8-f946-4217-b517-65c369035cab",
+                    "createdAt": "2026-10-17T03:33:58.146000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "b82f6495-0793-421a-98ce-a495b4e0b5e6",
+                    "createdAt": "2026-10-16T21:33:40.244000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "c0b488b4-2e57-4400-ab68-0193658b4ff9",
+                    "createdAt": "2026-10-16T15:33:12.825000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "6449e99d-018f-4abd-9504-542e52fe46c7",
+                    "createdAt": "2026-10-16T09:33:01.709000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "ce068fdf-d56c-4f7a-ab8d-605594551a06",
+                    "createdAt": "2026-10-16T03:32:32.873000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "0f982373-b339-4610-abae-6be9a8348a44",
+                    "createdAt": "2026-10-15T21:32:05.705000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "fcabbea3-00a6-4418-bc58-2de7f72ef703",
+                    "createdAt": "2026-10-15T15:31:29.736000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "4d2b1814-36eb-4c1f-853c-773c067e636f",
+                    "createdAt": "2026-10-15T09:31:03.036000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "2836bb12-cdb6-4d4f-bf6c-0965e8bc3597",
+                    "createdAt": "2026-10-15T09:31:03.035000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/8157986117074524166) deployment completed."
+                },
+                {
+                    "id": "2defa73b-9bf4-41d7-82b9-bdd7eb450635",
+                    "createdAt": "2026-10-15T09:30:00.842000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/7435573263901254053) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "b046001c-c8e9-4fd1-a88e-5adbc9218e35",
+                    "createdAt": "2026-10-15T09:30:00.838000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "bade788c-df8a-4880-817c-16e24c93d866",
+                    "createdAt": "2026-10-15T09:29:51.192000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task fe45db6cd9a44076bf68811b7f2e7e63)."
+                },
+                {
+                    "id": "6d11988b-6af9-40bf-af53-3f9729bb3aff",
+                    "createdAt": "2026-10-15T09:28:59.818000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "acde13f9-8821-48da-ac11-b2e639edf6ef",
+                    "createdAt": "2026-10-15T09:28:28.917000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 9fb9e956ef534e8f980debefbdf61db2)."
+                },
+                {
+                    "id": "9c6acba9-2d84-4b67-b54f-0b6f88229e6a",
+                    "createdAt": "2026-10-15T09:16:57.523000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "734804da-4e78-4867-8c44-2758f5a3d2ea",
+                    "createdAt": "2026-10-15T09:16:57.522000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/7435573263901254053) deployment completed."
+                },
+                {
+                    "id": "da3d8316-daa2-4e62-b059-8abb531c17f7",
+                    "createdAt": "2026-10-15T09:16:05.245000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/5183188341717538072) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "ea4218e6-320a-4d64-bb85-cfd19ef4e10d",
+                    "createdAt": "2026-10-15T09:16:05.240000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "b6b4cefd-34ec-4fbb-b8d6-51904742dc5b",
+                    "createdAt": "2026-10-15T09:15:54.703000+05:30",
+                    "message": "(service malcon-nexus-api) has stopped 1 running tasks: (task 87366dc40b07401da54adcdf3022230d)."
+                },
+                {
+                    "id": "75d5b0f2-5666-4163-b9c0-1c34d8ea27e5",
+                    "createdAt": "2026-10-15T09:15:03.175000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "5f50b8d5-6124-4f6e-9a2e-2940ce68a124",
+                    "createdAt": "2026-10-15T09:14:33.428000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task fe45db6cd9a44076bf68811b7f2e7e63)."
+                },
+                {
+                    "id": "9e8436e4-cb3f-4ed0-9fba-9a545bcdc135",
+                    "createdAt": "2026-10-15T09:02:19.809000+05:30",
+                    "message": "(service malcon-nexus-api) has reached a steady state."
+                },
+                {
+                    "id": "c3ab7a9f-56a8-4a23-ae02-8f11ae21d8ce",
+                    "createdAt": "2026-10-15T09:02:19.808000+05:30",
+                    "message": "(service malcon-nexus-api) (deployment ecs-svc/5183188341717538072) deployment completed."
+                },
+                {
+                    "id": "df5f589b-0e4b-4172-acd1-208fe3e7734d",
+                    "createdAt": "2026-10-15T09:02:08.781000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "7c2ba23d-6dae-4f78-a91a-feff8ac68934",
+                    "createdAt": "2026-10-15T09:01:37.995000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 87366dc40b07401da54adcdf3022230d)."
+                },
+                {
+                    "id": "c548bb33-6341-49ae-8601-11052d71342e",
+                    "createdAt": "2026-10-15T08:58:09.044000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "a6570b8a-e72d-402a-bd36-4f016cdcf57a",
+                    "createdAt": "2026-10-15T08:58:09.006000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/9056964058443625028) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "35704ef3-14d5-452f-bfc3-51d91ed92f78",
+                    "createdAt": "2026-10-15T08:58:09.001000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "00f33e87-4414-4af6-8da5-e9bfee22202d",
+                    "createdAt": "2026-10-15T08:57:29.921000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "2ae7d177-5823-46ae-80cc-bee5dd77f664",
+                    "createdAt": "2026-10-15T08:57:00.378000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 6b0d27fbd4ad44bbb5efdc1b00612d07)."
+                },
+                {
+                    "id": "7a11b36b-2aff-47c1-8e4b-0e98b5f92255",
+                    "createdAt": "2026-10-15T08:56:27.183000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/9056964058443625028) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "ab42cca8-e1ba-4f13-a574-d3589147fede",
+                    "createdAt": "2026-10-15T08:56:27.179000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "b5abbb98-4e41-4fba-9caa-b38e1905714e",
+                    "createdAt": "2026-10-15T08:56:17.878000+05:30",
+                    "message": "(service malcon-nexus-api, taskSet ecs-svc/9418493353469698364) has begun draining connections on 1 tasks."
+                },
+                {
+                    "id": "986289a7-b0f7-4561-bcb5-bf69529ab885",
+                    "createdAt": "2026-10-15T08:56:17.873000+05:30",
+                    "message": "(service malcon-nexus-api) deregistered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "a716230e-bbc6-4dea-b393-8f983866a8b7",
+                    "createdAt": "2026-10-15T08:55:56.969000+05:30",
+                    "message": "(service malcon-nexus-api) registered 1 targets in (target-group arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53)"
+                },
+                {
+                    "id": "8cffd22f-5bb0-4c66-aa26-dfc647427c8d",
+                    "createdAt": "2026-10-15T08:55:47.219000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task 0a733f638b544477807033ff55cbf9a6)."
+                },
+                {
+                    "id": "3e124c2c-b1c3-4417-bbad-e0acad7666ca",
+                    "createdAt": "2026-10-15T08:55:27.644000+05:30",
+                    "message": "(service malcon-nexus-api) has started 1 tasks: (task c39e597dacf84dcf8708189150964826)."
+                },
+                {
+                    "id": "19ca3c37-ad10-4bf9-88e8-1a60e4547255",
+                    "createdAt": "2026-10-15T08:55:15.330000+05:30",
+                    "message": "(service malcon-nexus-api) was unable to place a task. Reason: ResourceInitializationError: failed to validate logger args: create stream has been retried 1 times: failed to create Cloudwatch log group: operation error CloudWatch Logs: CreateLogGroup, https response error StatusCode: 400, RequestID: 9be66457-145a-4f15-a0f1-ee358a18d380, api error AccessDeniedException: User: arn:aws:sts::353728888679:assumed-role/ecsTaskExecutionRole/b41a8f6b50384964ae6433c4a6b5899d is not authorized to perform: logs:CreateLogGroup on resource: arn:aws:logs:ap-south-1:353728888679:log-group:/ecs/malcon-nexus-api because no identity-based policy allows the logs:CreateLogGroup action : exit status 1."
+                },
+                {
+                    "id": "44be544e-88a2-4a2b-9106-c7418495e4b2",
+                    "createdAt": "2026-10-15T08:54:54.468000+05:30",
+                    "message": "(service malcon-nexus-api) was unable to place a task. Reason: ResourceInitializationError: failed to validate logger args: create stream has been retried 1 times: failed to create Cloudwatch log group: operation error CloudWatch Logs: CreateLogGroup, https response error StatusCode: 400, RequestID: 11b3a35f-c124-4d9d-877a-40a36bc35fef, api error AccessDeniedException: User: arn:aws:sts::353728888679:assumed-role/ecsTaskExecutionRole/1658d6ff6aec4b61a7543683f3e9bdbf is not authorized to perform: logs:CreateLogGroup on resource: arn:aws:logs:ap-south-1:353728888679:log-group:/ecs/malcon-nexus-api because no identity-based policy allows the logs:CreateLogGroup action : exit status 1."
+                }
+            ],
+            "createdAt": "2026-10-15T08:54:07.633000+05:30",
+            "currentServiceRevisions": [
+                {
+                    "arn": "arn:aws:ecs:ap-south-1:353728888679:service-revision/malcon-nexus/malcon-nexus-api/7000224435466841008",
+                    "requestedTaskCount": 1,
+                    "runningTaskCount": 1,
+                    "pendingTaskCount": 0
+                }
+            ],
+            "placementConstraints": [],
+            "placementStrategy": [],
+            "networkConfiguration": {
+                "awsvpcConfiguration": {
+                    "subnets": [
+                        "subnet-0b85d704dd4411184",
+                        "subnet-07ad0e3edcf0a9067"
+                    ],
+                    "securityGroups": [
+                        "sg-0baa11bbe7369985a"
+                    ],
+                    "assignPublicIp": "DISABLED"
+                }
+            },
+            "healthCheckGracePeriodSeconds": 0,
+            "schedulingStrategy": "REPLICA",
+            "deploymentController": {
+                "type": "ECS"
+            },
+            "createdBy": "arn:aws:iam::353728888679:user/malcon-nexus-cli",
+            "enableECSManagedTags": false,
+            "propagateTags": "NONE",
+            "enableExecuteCommand": false,
+            "availabilityZoneRebalancing": "ENABLED",
+            "resourceManagementType": "CUSTOMER"
+        }
+    ],
+    "failures": []
+}

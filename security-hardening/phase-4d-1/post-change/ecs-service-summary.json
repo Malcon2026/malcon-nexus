@@ -1,0 +1,9 @@
+{
+  "taskDefinition": "malcon-nexus-api:5",
+  "runningCount": 1,
+  "desiredCount": 1,
+  "subnets": ["subnet-0b85d704dd4411184", "subnet-07ad0e3edcf0a9067"],
+  "securityGroups": ["sg-0baa11bbe7369985a"],
+  "assignPublicIp": "DISABLED",
+  "validatedAt": "2026-10-18T06:05:00+05:30"
+}

@@ -7,6 +7,7 @@ import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { Avatar } from './ui/Avatar';
 import { Modal } from './ui/Modal';
+import { LazyPhotoViewer } from './LazyPhotoViewer';
 import { useStore } from '../store/useStore';
 import { departmentColors } from '../utils/helpers';
 import type { AttendanceApprovalRequest, Department } from '../types';
@@ -193,18 +194,20 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
                               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                                 Selfie
                               </p>
-                              <a
-                                href={request.selfieUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block max-w-[12rem] rounded-lg border border-gray-200 overflow-hidden hover:opacity-90"
-                              >
-                                <img
-                                  src={request.selfieUrl}
-                                  alt={`Selfie — ${request.employeeName}`}
-                                  className="w-full h-32 object-cover bg-gray-100"
-                                />
-                              </a>
+                              <LazyPhotoViewer
+                                photos={[
+                                  {
+                                    id: request.id,
+                                    alt: `Selfie — ${request.employeeName}`,
+                                    url: request.selfieUrl,
+                                    title: request.employeeName,
+                                    caption: formatTimeIST(request.requestedAt),
+                                  },
+                                ]}
+                                label="View selfie"
+                                title={`Selfie — ${request.employeeName}`}
+                                note="Loads on demand — thumbnail only."
+                              />
                             </div>
                           )}
 
@@ -297,18 +300,20 @@ export const EmployeeAttendanceApprovalsPanel: React.FC = () => {
                 <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                   Selfie (stamped)
                 </p>
-                <a
-                  href={reviewing.selfieUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-xl border border-gray-200 overflow-hidden"
-                >
-                  <img
-                    src={reviewing.selfieUrl}
-                    alt={`Selfie — ${reviewing.employeeName}`}
-                    className="w-full max-h-72 object-contain bg-gray-100"
-                  />
-                </a>
+                <LazyPhotoViewer
+                  photos={[
+                    {
+                      id: reviewing.id,
+                      alt: `Selfie — ${reviewing.employeeName}`,
+                      url: reviewing.selfieUrl,
+                      title: reviewing.employeeName,
+                      caption: formatTimeIST(reviewing.requestedAt),
+                    },
+                  ]}
+                  label="View selfie"
+                  title={`Selfie — ${reviewing.employeeName}`}
+                  note="Loads on demand — thumbnail only."
+                />
               </div>
             )}
 

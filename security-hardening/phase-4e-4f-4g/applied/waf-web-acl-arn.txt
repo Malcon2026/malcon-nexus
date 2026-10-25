@@ -1,0 +1,1 @@
+arn:aws:wafv2:ap-south-1:353728888679:regional/webacl/malcon-nexus-api-edge/fc646a66-baf2-460e-a150-d4a52705dd77

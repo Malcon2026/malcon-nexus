@@ -1,0 +1,15 @@
+{
+    "ARN": "arn:aws:secretsmanager:ap-south-1:353728888679:secret:malcon-nexus/api-env-iyxZEl",
+    "Name": "malcon-nexus/api-env",
+    "LastChangedDate": "2026-10-18T12:15:08.145000+05:30",
+    "LastAccessedDate": "2026-10-18T05:30:00+05:30",
+    "VersionIdsToStages": {
+        "6cc4ffda-d773-4db6-9ed5-f4a2f4a453ff": [
+            "AWSPREVIOUS"
+        ],
+        "b9e73e2a-d21d-4b0c-9b19-ae475eb35513": [
+            "AWSCURRENT"
+        ]
+    },
+    "CreatedDate": "2026-10-15T08:07:41.419000+05:30"
+}

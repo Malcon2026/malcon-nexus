@@ -26,6 +26,10 @@ EMP ATTENDANCE*.xlsx
 !.env.production.aws.example
 !.env.production.convex.example
 .env.production.convex
+!.env.production.supabase.example
+.env.production.supabase
+.backups-local/
+.build/
 .ecs-task-def.json
 .ecs-task-def-register.json
 .cloudfront-api.json
@@ -38,6 +42,7 @@ EMP ATTENDANCE*.xlsx
 
 # Local credentials (never commit)
 .secrets/
+backups/auth-temp-passwords.csv
 
 # Emergency DB/storage exports (never commit)
 backups/

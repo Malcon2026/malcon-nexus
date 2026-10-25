@@ -1,0 +1,9 @@
+{
+    "Summary": {
+        "Name": "malcon-nexus-api-edge",
+        "Id": "fc646a66-baf2-460e-a150-d4a52705dd77",
+        "Description": "",
+        "LockToken": "d80c6b6a-c3d0-4495-a0a8-59ff7f0dd5a4",
+        "ARN": "arn:aws:wafv2:ap-south-1:353728888679:regional/webacl/malcon-nexus-api-edge/fc646a66-baf2-460e-a150-d4a52705dd77"
+    }
+}

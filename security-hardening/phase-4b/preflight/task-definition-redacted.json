@@ -1,0 +1,132 @@
+{
+  "taskDefinition": {
+    "taskDefinitionArn": "arn:aws:ecs:ap-south-1:353728888679:task-definition/malcon-nexus-api:4",
+    "containerDefinitions": [
+      {
+        "name": "api",
+        "image": "353728888679.dkr.ecr.ap-south-1.amazonaws.com/malcon-nexus-api:latest",
+        "cpu": 0,
+        "portMappings": [
+          {
+            "containerPort": 8080,
+            "hostPort": 8080,
+            "protocol": "tcp"
+          }
+        ],
+        "essential": true,
+        "environment": [
+          {
+            "name": "MALCON_API_SECRET_ARN",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "AWS_REGION",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "DATABASE_URL",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "PORT",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "TELEGRAM_BOT_TOKEN",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "S3_BUCKET_STAGE_PHOTOS",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "TELEGRAM_WEBHOOK_SECRET",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "ENVIRONMENT",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "API_CORS_ORIGIN",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "S3_BUCKET_ATTENDANCE_SELFIES",
+            "value": "[REDACTED]"
+          },
+          {
+            "name": "S3_BUCKET_HR_KYC_UPLOADS",
+            "value": "[REDACTED]"
+          }
+        ],
+        "mountPoints": [],
+        "volumesFrom": [],
+        "logConfiguration": {
+          "logDriver": "awslogs",
+          "options": {
+            "awslogs-group": "/ecs/malcon-nexus-api",
+            "awslogs-create-group": "true",
+            "awslogs-region": "ap-south-1",
+            "awslogs-stream-prefix": "api"
+          }
+        },
+        "systemControls": []
+      }
+    ],
+    "family": "malcon-nexus-api",
+    "taskRoleArn": "arn:aws:iam::353728888679:role/malconEcsTaskRole",
+    "executionRoleArn": "arn:aws:iam::353728888679:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "revision": 4,
+    "volumes": [],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+      {
+        "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+      },
+      {
+        "name": "ecs.capability.execution-role-awslogs"
+      },
+      {
+        "name": "com.amazonaws.ecs.capability.ecr-auth"
+      },
+      {
+        "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+      },
+      {
+        "name": "com.amazonaws.ecs.capability.task-iam-role"
+      },
+      {
+        "name": "ecs.capability.execution-role-ecr-pull"
+      },
+      {
+        "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+      },
+      {
+        "name": "ecs.capability.task-eni"
+      },
+      {
+        "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+      }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+      "EC2",
+      "FARGATE",
+      "MANAGED_INSTANCES"
+    ],
+    "runtimePlatform": {
+      "cpuArchitecture": "ARM64",
+      "operatingSystemFamily": "LINUX"
+    },
+    "requiresCompatibilities": [
+      "FARGATE"
+    ],
+    "cpu": "512",
+    "memory": "1024",
+    "registeredAt": "2026-10-15T09:01:15.957000+05:30",
+    "registeredBy": "arn:aws:iam::353728888679:user/malcon-nexus-cli"
+  },
+  "tags": []
+}

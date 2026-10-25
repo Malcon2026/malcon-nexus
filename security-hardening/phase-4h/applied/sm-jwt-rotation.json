@@ -1,0 +1,10 @@
+{
+  "secretId": "malcon-nexus/api-env",
+  "preRotationVersionId": "6cc4ffda-d773-4db6-9ed5-f4a2f4a453ff",
+  "postRotationVersionId": "b9e73e2a-d21d-4b0c-9b19-ae475eb35513",
+  "jwtPrimaryLengthAfter": 43,
+  "jwtSegmentsAfter": 2,
+  "keysTouched": ["JWT_SECRET", "SUPABASE_JWT_SECRET"],
+  "dbCutoverVersionDoNotUseForJwt": "172df240-0daa-456f-aa0b-e219618d0186",
+  "ecsTaskDefinitionAfter": "malcon-nexus-api:6"
+}

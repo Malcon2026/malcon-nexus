@@ -1,0 +1,34 @@
+{
+    "LoadBalancers": [
+        {
+            "LoadBalancerArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:loadbalancer/app/malcon-nexus-api/aa086b60f889cef0",
+            "DNSName": "malcon-nexus-api-52587427.ap-south-1.elb.amazonaws.com",
+            "CanonicalHostedZoneId": "ZP97RAFLXTNZK",
+            "CreatedTime": "2026-10-15T03:24:06.151000+00:00",
+            "LoadBalancerName": "malcon-nexus-api",
+            "Scheme": "internet-facing",
+            "VpcId": "vpc-009ee853ac9c17d92",
+            "State": {
+                "Code": "active"
+            },
+            "Type": "application",
+            "AvailabilityZones": [
+                {
+                    "ZoneName": "ap-south-1c",
+                    "SubnetId": "subnet-095102aeeb5e5d228",
+                    "LoadBalancerAddresses": []
+                },
+                {
+                    "ZoneName": "ap-south-1a",
+                    "SubnetId": "subnet-0959bc37b0db389c6",
+                    "LoadBalancerAddresses": []
+                }
+            ],
+            "SecurityGroups": [
+                "sg-068dd8d11ba52fa2a"
+            ],
+            "IpAddressType": "ipv4",
+            "EnablePrefixForIpv6SourceNat": "off"
+        }
+    ]
+}

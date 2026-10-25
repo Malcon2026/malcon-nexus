@@ -1,0 +1,16 @@
+{
+    "AutoDeploy": true,
+    "CreatedDate": "2026-10-15T03:33:18+00:00",
+    "DefaultRouteSettings": {
+        "DetailedMetricsEnabled": true,
+        "ThrottlingBurstLimit": 100,
+        "ThrottlingRateLimit": 50.0
+    },
+    "DeploymentId": "dx5tos",
+    "LastDeploymentStatusMessage": "Successfully deployed stage with deployment ID 'dx5tos'",
+    "LastUpdatedDate": "2026-10-18T06:41:07+00:00",
+    "RouteSettings": {},
+    "StageName": "$default",
+    "StageVariables": {},
+    "Tags": {}
+}

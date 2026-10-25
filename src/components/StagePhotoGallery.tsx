@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Camera, Lock } from 'lucide-react';
-import type { Document } from '../types';
-import { isImageDocument, stagePhotoViewUrlForViewer } from '../lib/stagePhotos';
+import React, { useMemo } from 'react';
+import { Lock } from 'lucide-react';
+import type { Document, Employee } from '../types';
+import { isImageDocument, stagePhotoThumbUrlForViewer } from '../lib/stagePhotos';
 import { canViewCaseStagePhotos } from '../lib/superAdmin';
-import type { Employee } from '../types';
+import { LazyPhotoViewer, type LazyPhotoItem } from './LazyPhotoViewer';
 
 interface StagePhotoGalleryProps {
   documents: Document[];
@@ -12,6 +12,12 @@ interface StagePhotoGalleryProps {
   viewer?: Pick<Employee, 'email' | 'role'> | null;
 }
 
+/**
+ * Approval-queue submission photo button.
+ *
+ * Click-to-load: no thumbnail request happens while the queue renders, and only
+ * the thumbnail is fetched when the reviewer opens the viewer.
+ */
 export const StagePhotoGallery: React.FC<StagePhotoGalleryProps> = ({
   documents,
   title = 'Submission Photos',
@@ -19,38 +25,10 @@ export const StagePhotoGallery: React.FC<StagePhotoGalleryProps> = ({
   viewer = null,
 }) => {
   const photos = useMemo(() => documents.filter(isImageDocument), [documents]);
-  const photoKey = useMemo(() => photos.map((p) => p.id).join(','), [photos]);
-  const canView = canViewCaseStagePhotos(viewer);
-
-  const [viewUrls, setViewUrls] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!canView || photos.length === 0) {
-      setViewUrls({});
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    void (async () => {
-      const next: Record<string, string> = {};
-      for (const doc of photos) {
-        const url = await stagePhotoViewUrlForViewer(doc, viewer);
-        if (url) next[doc.id] = url;
-      }
-      if (!cancelled) {
-        setViewUrls(next);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canView, photoKey, viewer?.email, photos]);
 
   if (photos.length === 0) return null;
 
-  if (!canView) {
+  if (!canViewCaseStagePhotos(viewer)) {
     return (
       <div
         className={`rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 ${compact ? 'mt-3' : 'mt-4'}`}
@@ -67,46 +45,26 @@ export const StagePhotoGallery: React.FC<StagePhotoGalleryProps> = ({
     );
   }
 
+  const items: LazyPhotoItem[] = photos.map((doc) => ({
+    id: doc.id,
+    alt: doc.name,
+    url: doc.url,
+    title: doc.name,
+    caption: `${doc.uploadedBy} • ${new Date(doc.uploadedAt).toLocaleString('en-IN')}`,
+  }));
+
   return (
     <div className={compact ? 'mt-3' : 'mt-4'}>
-      <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
-        <Camera className="h-3.5 w-3.5" />
-        {title}
-      </p>
-      <p className="text-[10px] text-gray-400 mb-2">
-        Super admin view. Full quality also on office PC archive.
-      </p>
-      {loading && photos.length > 0 && (
-        <p className="text-[10px] text-gray-400 mb-2">Loading photos…</p>
-      )}
-      <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-        {photos.map((doc) => {
-          const src = viewUrls[doc.id];
-          return (
-            <div key={doc.id} className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-              {src ? (
-                <img
-                  src={src}
-                  alt={doc.name}
-                  className={`w-full object-contain bg-black/5 ${compact ? 'max-h-48' : 'max-h-64'}`}
-                />
-              ) : (
-                <div
-                  className={`grid place-items-center text-xs text-gray-400 ${compact ? 'h-32' : 'h-40'}`}
-                >
-                  {loading ? 'Loading…' : 'Preview unavailable'}
-                </div>
-              )}
-              <div className="px-3 py-2 bg-white border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-800 truncate">{doc.name}</p>
-                <p className="text-[10px] text-gray-400">
-                  {doc.uploadedBy} • {new Date(doc.uploadedAt).toLocaleString('en-IN')}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <LazyPhotoViewer
+        photos={items}
+        label={`View ${title} (${photos.length})`}
+        title={title}
+        note="Thumbnails only — full-resolution photos are archived separately."
+        resolveUrl={(photo) => {
+          const doc = photos.find((d) => d.id === photo.id);
+          return doc ? stagePhotoThumbUrlForViewer(doc, viewer) : Promise.resolve(null);
+        }}
+      />
     </div>
   );
 };

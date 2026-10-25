@@ -1,0 +1,5 @@
+S3 endpoint vpce-0c56860fa72902566
+ecr.api endpoint vpce-0e12997e23712e07e
+ecr.dkr endpoint vpce-0dab935000321a47b
+secretsmanager endpoint vpce-037893c8e722f1a02
+logs endpoint vpce-02984f0de1a66efe4

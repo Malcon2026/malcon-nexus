@@ -1,0 +1,15 @@
+[
+  {
+    "DBSnapshotIdentifier": "malcon-nexus-pre-encryption-20261018-1139",
+    "Status": "available",
+    "Encrypted": false,
+    "SourceDB": "malcon-nexus-pg"
+  },
+  {
+    "DBSnapshotIdentifier": "malcon-nexus-pre-encryption-20261018-1139-enc",
+    "Status": "available",
+    "Encrypted": true,
+    "KmsKeyId": "arn:aws:kms:ap-south-1:353728888679:key/09c0c587-6af6-47c2-a271-21b2d1d03bcb",
+    "SourceSnapshot": "malcon-nexus-pre-encryption-20261018-1139"
+  }
+]

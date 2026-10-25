@@ -1,0 +1,28 @@
+{
+  "versionId": "b9e73e2a-d21d-4b0c-9b19-ae475eb35513",
+  "analyzedAtUtc": "2026-10-18T06:51:54.188Z",
+  "fields": [
+    {
+      "key": "JWT_SECRET",
+      "present": true,
+      "segmentCount": 2,
+      "segmentLengths": [
+        43,
+        27
+      ],
+      "hasLegacy27CharSegment": true,
+      "primaryLength": 43
+    },
+    {
+      "key": "SUPABASE_JWT_SECRET",
+      "present": true,
+      "segmentCount": 2,
+      "segmentLengths": [
+        43,
+        27
+      ],
+      "hasLegacy27CharSegment": true,
+      "primaryLength": 43
+    }
+  ]
+}

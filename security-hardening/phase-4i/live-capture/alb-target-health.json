@@ -1,0 +1,38 @@
+{
+    "TargetHealthDescriptions": [
+        {
+            "Target": {
+                "Id": "172.31.72.65",
+                "Port": 8080,
+                "AvailabilityZone": "ap-south-1c"
+            },
+            "HealthCheckPort": "8080",
+            "TargetHealth": {
+                "State": "healthy"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        },
+        {
+            "Target": {
+                "Id": "172.31.52.187",
+                "Port": 8080,
+                "AvailabilityZone": "ap-south-1a"
+            },
+            "HealthCheckPort": "8080",
+            "TargetHealth": {
+                "State": "draining",
+                "Reason": "Target.DeregistrationInProgress",
+                "Description": "Target deregistration is in progress"
+            },
+            "AdministrativeOverride": {
+                "State": "no_override",
+                "Reason": "AdministrativeOverride.NoOverride",
+                "Description": "No override is currently active on target"
+            }
+        }
+    ]
+}

@@ -1,0 +1,81 @@
+{
+    "WebACL": {
+        "Name": "malcon-nexus-api-edge",
+        "Id": "fc646a66-baf2-460e-a150-d4a52705dd77",
+        "ARN": "arn:aws:wafv2:ap-south-1:353728888679:regional/webacl/malcon-nexus-api-edge/fc646a66-baf2-460e-a150-d4a52705dd77",
+        "DefaultAction": {
+            "Allow": {}
+        },
+        "Description": "",
+        "Rules": [
+            {
+                "Name": "AWS-AWSManagedRulesCommonRuleSet",
+                "Priority": 1,
+                "Statement": {
+                    "ManagedRuleGroupStatement": {
+                        "VendorName": "AWS",
+                        "Name": "AWSManagedRulesCommonRuleSet"
+                    }
+                },
+                "OverrideAction": {
+                    "None": {}
+                },
+                "VisibilityConfig": {
+                    "SampledRequestsEnabled": true,
+                    "CloudWatchMetricsEnabled": true,
+                    "MetricName": "CommonRuleSet"
+                }
+            },
+            {
+                "Name": "AWS-AWSManagedRulesKnownBadInputsRuleSet",
+                "Priority": 2,
+                "Statement": {
+                    "ManagedRuleGroupStatement": {
+                        "VendorName": "AWS",
+                        "Name": "AWSManagedRulesKnownBadInputsRuleSet"
+                    }
+                },
+                "OverrideAction": {
+                    "None": {}
+                },
+                "VisibilityConfig": {
+                    "SampledRequestsEnabled": true,
+                    "CloudWatchMetricsEnabled": true,
+                    "MetricName": "KnownBadInputs"
+                }
+            },
+            {
+                "Name": "RateLimitPerIp",
+                "Priority": 3,
+                "Statement": {
+                    "RateBasedStatement": {
+                        "Limit": 2000,
+                        "EvaluationWindowSec": 300,
+                        "AggregateKeyType": "IP"
+                    }
+                },
+                "Action": {
+                    "Block": {}
+                },
+                "VisibilityConfig": {
+                    "SampledRequestsEnabled": true,
+                    "CloudWatchMetricsEnabled": true,
+                    "MetricName": "RateLimitPerIp"
+                }
+            }
+        ],
+        "VisibilityConfig": {
+            "SampledRequestsEnabled": true,
+            "CloudWatchMetricsEnabled": true,
+            "MetricName": "malcon-nexus-api-edge"
+        },
+        "Capacity": 902,
+        "ManagedByFirewallManager": false,
+        "LabelNamespace": "awswaf:353728888679:webacl:malcon-nexus-api-edge:",
+        "RetrofittedByFirewallManager": false,
+        "OnSourceDDoSProtectionConfig": {
+            "ALBLowReputationMode": "ACTIVE_UNDER_DDOS"
+        }
+    },
+    "LockToken": "d80c6b6a-c3d0-4495-a0a8-59ff7f0dd5a4"
+}

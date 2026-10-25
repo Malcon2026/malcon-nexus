@@ -1,0 +1,28 @@
+{
+    "TargetGroups": [
+        {
+            "TargetGroupArn": "arn:aws:elasticloadbalancing:ap-south-1:353728888679:targetgroup/malcon-nexus-api/1d373a0e313a3b53",
+            "TargetGroupName": "malcon-nexus-api",
+            "Protocol": "HTTP",
+            "Port": 8080,
+            "VpcId": "vpc-009ee853ac9c17d92",
+            "HealthCheckProtocol": "HTTP",
+            "HealthCheckPort": "traffic-port",
+            "HealthCheckEnabled": true,
+            "HealthCheckIntervalSeconds": 30,
+            "HealthCheckTimeoutSeconds": 5,
+            "HealthyThresholdCount": 5,
+            "UnhealthyThresholdCount": 2,
+            "HealthCheckPath": "/health",
+            "Matcher": {
+                "HttpCode": "200"
+            },
+            "LoadBalancerArns": [
+                "arn:aws:elasticloadbalancing:ap-south-1:353728888679:loadbalancer/app/malcon-nexus-api/aa086b60f889cef0"
+            ],
+            "TargetType": "ip",
+            "ProtocolVersion": "HTTP1",
+            "IpAddressType": "ipv4"
+        }
+    ]
+}

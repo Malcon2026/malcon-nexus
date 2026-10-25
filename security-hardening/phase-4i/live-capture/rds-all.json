@@ -1,0 +1,24 @@
+[
+    {
+        "Id": "malcon-nexus-db-encrypted",
+        "Encrypted": true,
+        "Public": false,
+        "MultiAZ": false,
+        "BackupRetention": 1,
+        "Status": "available",
+        "Engine": "postgres",
+        "EngineVersion": "16.15",
+        "Endpoint": "malcon-nexus-db-encrypted.cpumo6uq2a4o.ap-south-1.rds.amazonaws.com"
+    },
+    {
+        "Id": "malcon-nexus-pg",
+        "Encrypted": false,
+        "Public": false,
+        "MultiAZ": false,
+        "BackupRetention": 1,
+        "Status": "available",
+        "Engine": "postgres",
+        "EngineVersion": "16.15",
+        "Endpoint": "malcon-nexus-pg.cpumo6uq2a4o.ap-south-1.rds.amazonaws.com"
+    }
+]

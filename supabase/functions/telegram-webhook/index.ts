@@ -81,11 +81,16 @@ Deno.serve(async (req) => {
   const chatIdStr = String(chatId);
 
   if (text === '/status') {
-    const { data: linked } = await admin
+    // A chat id can legitimately map to more than one employee row (e.g. a shared
+    // demo account), so take the first match instead of maybeSingle() — which
+    // errors on 2+ rows and would wrongly report "not connected".
+    const { data: linkedRows } = await admin
       .from('employees')
       .select('name, employee_code, department')
       .eq('telegram_chat_id', chatIdStr)
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1);
+    const linked = linkedRows?.[0] ?? null;
 
     if (linked) {
       await telegramSendMessage(

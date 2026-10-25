@@ -1,0 +1,12 @@
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "AmazonECSTaskExecutionRolePolicy",
+            "PolicyArn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        },
+        {
+            "PolicyName": "CloudWatchLogsFullAccess",
+            "PolicyArn": "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+        }
+    ]
+}

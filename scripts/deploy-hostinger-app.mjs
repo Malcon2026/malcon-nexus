@@ -23,6 +23,8 @@ const cutover = process.argv.includes('--cutover');
 const cloudflare = process.argv.includes('--cloudflare');
 const aws = process.argv.includes('--aws');
 const convex = process.argv.includes('--convex');
+/** Supabase-only: Postgres data plane + Supabase Auth (no Convex/Worker/AWS). */
+const supabaseMode = process.argv.includes('--supabase');
 
 const HOSTINGER_USER = process.env.HOSTINGER_USERNAME ?? 'u308766170';
 const HOSTINGER_DOMAIN = process.env.HOSTINGER_APP_DOMAIN ?? 'app.malconnexus.com';
@@ -60,6 +62,13 @@ function loadEnv() {
       process.exit(1);
     }
     console.info('[deploy] Convex data plane + Supabase Auth (no AWS/Worker required)');
+  } else if (supabaseMode) {
+    const path = '.env.production.supabase';
+    if (!loadEnvFile(path, { override: true })) {
+      console.error(`Missing ${path}. Copy .env.production.supabase.example → ${path}.`);
+      process.exit(1);
+    }
+    console.info('[deploy] Supabase Postgres + Supabase Auth (no Convex/Worker/AWS)');
   } else if (aws) {
     const path = '.env.production.aws';
     if (!loadEnvFile(path, { override: true })) {
@@ -131,6 +140,18 @@ if (!convex && !cloudflare && !aws && (!process.env.VITE_SUPABASE_URL || !proces
   process.exit(1);
 }
 
+if (supabaseMode) {
+  const remoteFlags = [
+    'VITE_USE_CONVEX_BACKEND',
+    'VITE_USE_CLOUDFLARE_BACKEND',
+    'VITE_USE_AWS_BACKEND',
+  ].filter((flag) => process.env[flag] === 'true');
+  if (remoteFlags.length) {
+    console.error(`Supabase-only deploy, but these are still "true": ${remoteFlags.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 if (convex) {
   if (process.env.VITE_USE_CONVEX_BACKEND !== 'true') {
     console.error('Convex deploy requires VITE_USE_CONVEX_BACKEND=true');
@@ -171,8 +192,12 @@ if (!existsSync(resolve(dist, 'index.html'))) {
 }
 
 const galleryApiBase =
-  convex ? process.env.VITE_CONVEX_SITE_URL : process.env.VITE_WORKER_API_URL;
-if (aws || cloudflare || convex) {
+  convex
+    ? process.env.VITE_CONVEX_SITE_URL
+    : supabaseMode
+      ? `${String(process.env.VITE_SUPABASE_URL).replace(/\/+$/, '')}/functions/v1`
+      : process.env.VITE_WORKER_API_URL;
+if (aws || cloudflare || convex || supabaseMode) {
   patchGalleryStaticApiBase(dist, galleryApiBase);
 }
 if (aws || cloudflare) {
@@ -236,6 +261,8 @@ execSync(
 console.info('\nLive at https://app.malconnexus.com/');
 if (convex) {
   console.info('Convex — set SUPABASE_JWT_SECRET on Convex deployment; see .env.production.convex.example');
+} else if (supabaseMode) {
+  console.info('Supabase — data + auth only. Verify RLS and Edge Functions in the Supabase dashboard.');
 } else if (aws) {
   console.info('AWS backend is deprecated — migrate to --convex');
 } else if (cloudflare) {

@@ -1,0 +1,14 @@
+[
+    {
+        "ApiEndpoint": "https://njbtfquxeh.execute-api.ap-south-1.amazonaws.com",
+        "ApiId": "njbtfquxeh",
+        "ApiKeySelectionExpression": "$request.header.x-api-key",
+        "CreatedDate": "2026-10-15T03:33:16+00:00",
+        "DisableExecuteApiEndpoint": false,
+        "IpAddressType": "ipv4",
+        "Name": "malcon-nexus-api",
+        "ProtocolType": "HTTP",
+        "RouteSelectionExpression": "$request.method $request.path",
+        "Tags": {}
+    }
+]

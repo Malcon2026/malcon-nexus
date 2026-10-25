@@ -1,0 +1,6 @@
+{
+    "taskDef": "arn:aws:ecs:ap-south-1:353728888679:task-definition/malcon-nexus-api:5",
+    "running": 1,
+    "desired": 1,
+    "rollout": "COMPLETED"
+}
