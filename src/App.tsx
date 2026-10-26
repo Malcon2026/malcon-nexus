@@ -5,6 +5,7 @@ import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Cases } from './pages/Cases';
 import { LiveCases } from './pages/LiveCases';
+import { AssignTeamPage } from './pages/AssignTeamPage';
 const TvBoard = React.lazy(() => import('./pages/TvBoard').then((m) => ({ default: m.TvBoard })));
 import { WorkflowBoard } from './pages/WorkflowBoard';
 import { ApprovalQueue } from './pages/ApprovalQueue';
@@ -326,6 +327,7 @@ function MainApp() {
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
         case 'cases':       return <Cases />;
+        case 'assign-team': return <AssignTeamPage />;
         case 'live-cases':  return <LiveCases />;
         case 'workflow':    return <WorkflowBoard />;
         case 'settings':    return <Settings />;
@@ -336,6 +338,7 @@ function MainApp() {
     switch (activeTab) {
       case 'dashboard':  return <Dashboard />;
       case 'cases':      return <Cases />;
+      case 'assign-team': return <AssignTeamPage />;
       case 'live-cases': return <LiveCases />;
       case 'notes':      return <Notes />;
       case 'workflow':   return <WorkflowBoard />;

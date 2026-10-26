@@ -27,6 +27,7 @@ import {
   MessageCircle,
   UtensilsCrossed,
   CalendarClock,
+  UserPlus,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -43,13 +44,16 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  /** Admin and store manager only. */
+  managerOnly?: boolean;
 }
 
-const CASES_TAB_IDS = ['cases', 'live-cases', 'case-history', 'postponed-cases'] as const;
+const CASES_TAB_IDS = ['cases', 'live-cases', 'assign-team', 'case-history', 'postponed-cases'] as const;
 
 const casesGroupChildren: NavItem[] = [
   { id: 'cases', label: 'All Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
+  { id: 'assign-team', label: 'Assign team', icon: <UserPlus className="h-4 w-4" />, managerOnly: true },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
 ];
@@ -166,6 +170,7 @@ export const Sidebar: React.FC = () => {
     () =>
       casesGroupChildren.filter((item) => {
         if (item.adminOnly && !isAdmin) return false;
+        if (item.managerOnly && !isAdmin && !isStoreManager) return false;
         return true;
       }),
     [isAdmin, isStoreManager],
