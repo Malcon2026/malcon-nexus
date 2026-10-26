@@ -27,7 +27,6 @@ import {
   MessageCircle,
   UtensilsCrossed,
   CalendarClock,
-  RotateCcw,
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useStore } from '../../store/useStore';
@@ -35,7 +34,6 @@ import { countPendingLeaveSubmissions } from '../../lib/leave';
 import { getISTDateKey } from '../../lib/attendance';
 import { countPendingTaskRequests } from '../../lib/caseTaskRequests';
 import { AUTO_APPROVE_STAGE_SUBMISSIONS, FCFS_POOL_ENABLED, isPostponedCase } from '../../lib/caseWorkflow';
-import { CASE_DUTIES_NAV_LABEL, CASE_DUTY_TAB_IDS, isCaseDutyTab } from '../../lib/caseDuties';
 import { isFullAdmin } from '../../lib/roles';
 import loginLogo from '../../assets/login-logo.png';
 import { PoweredByAiBadge } from '../PoweredByAiBadge';
@@ -45,16 +43,13 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
-  /** Return / cleaning / restock duty boards ? admin + store manager only */
-  dutyBoardOnly?: boolean;
 }
 
-const CASES_TAB_IDS = ['cases', 'live-cases', 'case-history', 'postponed-cases', ...CASE_DUTY_TAB_IDS] as const;
+const CASES_TAB_IDS = ['cases', 'live-cases', 'case-history', 'postponed-cases'] as const;
 
 const casesGroupChildren: NavItem[] = [
   { id: 'cases', label: 'All Cases', icon: <FolderOpen className="h-4 w-4" /> },
   { id: 'live-cases', label: 'Live Cases', icon: <LayoutGrid className="h-4 w-4" /> },
-  { id: 'case-duties-combined', label: CASE_DUTIES_NAV_LABEL, icon: <RotateCcw className="h-4 w-4" />, dutyBoardOnly: true },
   { id: 'case-history', label: 'Case History', icon: <Archive className="h-4 w-4" />, adminOnly: true },
   { id: 'postponed-cases', label: 'Postponed', icon: <CalendarClock className="h-4 w-4" />, adminOnly: true },
 ];
@@ -82,7 +77,7 @@ const topNavItems: NavItem[] = [
 ];
 
 function isCasesTab(tab: string): boolean {
-  return (CASES_TAB_IDS as readonly string[]).includes(tab) || isCaseDutyTab(tab);
+  return (CASES_TAB_IDS as readonly string[]).includes(tab);
 }
 
 export const Sidebar: React.FC = () => {
@@ -171,7 +166,6 @@ export const Sidebar: React.FC = () => {
     () =>
       casesGroupChildren.filter((item) => {
         if (item.adminOnly && !isAdmin) return false;
-        if (item.dutyBoardOnly && !isAdmin && !isStoreManager) return false;
         return true;
       }),
     [isAdmin, isStoreManager],

@@ -1291,7 +1291,6 @@ const STORE_MANAGER_TABS = [
   'dashboard',
   'cases',
   'live-cases',
-  'case-duties-combined',
   'workflow',
   'settings',
 ];

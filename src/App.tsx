@@ -4,8 +4,6 @@ import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
 import { Dashboard } from './pages/Dashboard';
 import { Cases } from './pages/Cases';
-import { CaseDutiesPage } from './pages/CaseDutiesPage';
-import { isCaseDutyTab } from './lib/caseDuties';
 import { LiveCases } from './pages/LiveCases';
 const TvBoard = React.lazy(() => import('./pages/TvBoard').then((m) => ({ default: m.TvBoard })));
 import { WorkflowBoard } from './pages/WorkflowBoard';
@@ -325,9 +323,6 @@ function MainApp() {
     }
 
     if (viewMode === 'store_manager') {
-      if (isCaseDutyTab(activeTab)) {
-        return <CaseDutiesPage />;
-      }
       switch (activeTab) {
         case 'dashboard':   return <EmployeeDashboard />;
         case 'cases':       return <Cases />;
@@ -336,10 +331,6 @@ function MainApp() {
         case 'settings':    return <Settings />;
         default:            return <EmployeeDashboard />;
       }
-    }
-
-    if (isCaseDutyTab(activeTab)) {
-      return <CaseDutiesPage />;
     }
 
     switch (activeTab) {

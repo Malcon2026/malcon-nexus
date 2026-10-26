@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, User,
   CheckCircle, XCircle, Clock,
-  AlertTriangle, Send, Edit3, FastForward, Trash2, Ban, CalendarClock, HandMetal, MoreHorizontal, ParkingCircle,
+  AlertTriangle, Send, Edit3, UserPlus, FastForward, Trash2, Ban, CalendarClock, HandMetal, MoreHorizontal, ParkingCircle,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -12,6 +12,7 @@ import { Modal } from '../components/ui/Modal';
 import { SubmitStageModal } from '../components/SubmitStageModal';
 import { EmployeeAssignPicker } from '../components/EmployeeAssignPicker';
 import { EditCaseModal } from '../components/EditCaseModal';
+import { AssignTeamModal } from '../components/AssignTeamModal';
 import { useStore } from '../store/useStore';
 import type { ImplantCase, Employee, ReturnOutcome, WorkflowStage } from '../types';
 import { RETURN_OUTCOMES, returnOutcomeToDutyId } from '../lib/returnPickup';
@@ -779,6 +780,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   const [assignStage, setAssignStage] = useState<WorkflowStage | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showPostpone, setShowPostpone] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -871,6 +873,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
   ];
 
   const canEditCase = isFullAdminUser || isStoreManagerUser || canEmployeeEdit;
+  const canAssignTeam = viewMode === 'admin' || viewMode === 'store_manager';
   const moreItems: MoreMenuItem[] = [
     ...(isFullAdminUser && canForceAdvance
       ? [{
@@ -1031,6 +1034,10 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
       {showSubmit && (
         <SubmitModal isOpen={showSubmit} onClose={() => setShowSubmit(false)} implantCase={c} />
       )}
+      {showAssign && (
+        <AssignTeamModal isOpen={showAssign} onClose={() => setShowAssign(false)} case={c} />
+      )}
+
       {showEdit && (
         <EditCaseModal isOpen={showEdit} onClose={() => setShowEdit(false)} case={c} />
       )}
@@ -1178,6 +1185,15 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ case: initialCase, onBac
         {activeTabLocal === 'activity' && <CaseActivity logs={c.activityLogs} />}
         {activeTabLocal === 'comments' && <CaseComments comments={c.comments} />}
       </motion.div>
+
+      {canAssignTeam ? (
+        <FloatingCornerButton
+          label="Assign team"
+          icon={<UserPlus className="h-5 w-5" />}
+          onClick={() => setShowAssign(true)}
+          variant="primary"
+        />
+      ) : null}
 
       {canEditCase ? (
         <FloatingCornerButton
